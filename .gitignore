@@ -1,0 +1,46 @@
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+MemoryCaptures/
+Recordings/
+
+.vs/
+.idea/
+
+# Visual Studio
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Unity generated
+sysinfo.txt
+*.pidb.meta
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Crash reports
+sysinfo.txt
+
+# Build outputs
+*.apk
+*.aab
+*.unitypackage
+
+# Rider
+.idea/
