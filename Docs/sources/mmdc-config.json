@@ -1,0 +1,53 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "background": "#ffffff",
+    "primaryColor": "#e0f2fe",
+    "primaryBorderColor": "#0369a1",
+    "primaryTextColor": "#082f49",
+    "secondaryColor": "#dcfce7",
+    "secondaryBorderColor": "#16a34a",
+    "tertiaryColor": "#ede9fe",
+    "tertiaryBorderColor": "#7c3aed",
+    "lineColor": "#475569",
+    "textColor": "#0f172a",
+    "fontFamily": "Microsoft YaHei, PingFang SC, Noto Sans SC, sans-serif",
+    "fontSize": "14px",
+    "clusterBkg": "#f8fafc",
+    "clusterBorder": "#94a3b8",
+    "edgeLabelBackground": "#ffffff",
+    "noteBkgColor": "#fef9c3",
+    "noteBorderColor": "#ca8a04",
+    "noteTextColor": "#422006",
+    "actorBkg": "#e0f2fe",
+    "actorBorder": "#0369a1",
+    "actorTextColor": "#082f49",
+    "signalColor": "#475569",
+    "signalTextColor": "#0f172a",
+    "sectionBkgColor": "#f1f5f9",
+    "altSectionBkgColor": "#ffffff",
+    "taskBkgColor": "#e0f2fe",
+    "taskBorderColor": "#0369a1",
+    "taskTextColor": "#082f49",
+    "activeTaskBkgColor": "#dcfce7",
+    "activeTaskBorderColor": "#16a34a",
+    "gridColor": "#cbd5e1",
+    "doneTaskBkgColor": "#f1f5f9",
+    "doneTaskBorderColor": "#94a3b8"
+  },
+  "flowchart": {
+    "curve": "basis",
+    "nodeSpacing": 35,
+    "rankSpacing": 45,
+    "wrappingWidth": 300,
+    "htmlLabels": true,
+    "useMaxWidth": true
+  },
+  "sequence": {
+    "useMaxWidth": true,
+    "wrap": false,
+    "wrapPadding": 30,
+    "diagramMarginX": 30,
+    "diagramMarginY": 20
+  }
+}
