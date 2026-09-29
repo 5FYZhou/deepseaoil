@@ -1,0 +1,41 @@
+%% 图2｜单帧执行｜回答：我这个 Update 该不该写？每帧谁先跑？
+%% 读法：主链自上而下 = GameRoot 顺序表里的固定次序；FixedUpdate 是另一条独立通道，不是从①分支出来的。
+%% 维护：条目顺序必须与 GameRoot 的 tickables[] 拖入顺序一致。
+flowchart TD
+  Root["GameRoot.Update()<br/>唯一入口"]
+  S1["① InputProvider 采样<br/>InputBuffer.Push()"]
+  S2["② Services.Tick()<br/>Pause / Save / Rng / Scene"]
+  S3["③ Actors.Tick()<br/>CheckGlobalTransitions → OnUpdate"]
+  S4["④ Views.Tick()<br/>动画参数 / UI / VFX"]
+  S5["⑤ DebugOverlay.Tick()<br/>只读，绝不改游戏状态"]
+  End["EventBus&lt;FrameEnded&gt;.Publish"]
+
+  subgraph Fixed["FixedUpdate 通道　物理帧"]
+    direction TB
+    FX["Actors.FixedTick()"]
+    FXA["InputBuffer 取用并消费"]
+    FXB["ActorPhysics 提交力 / 速度"]
+    FXC["ForceReceiverResolver2D<br/>去重后 ApplyForce"]
+    FX --> FXA
+    FXA --> FXB
+    FXB --> FXC
+  end
+
+  Bad["违规：自写 MonoBehaviour.Update()<br/>顺序不可推理"]
+
+  Root --> S1
+  S1 -->|"必须先于 ③"| S2
+  S2 --> S3
+  S3 --> S4
+  S4 --> S5
+  S5 --> End
+
+  classDef runtime fill:#e0f2fe,stroke:#0369a1,color:#082f49
+  classDef noop fill:#f1f5f9,stroke:#64748b,color:#334155
+  classDef fixed fill:#ffedd5,stroke:#ea580c,color:#431407
+  classDef warn fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+
+  class Root,S1,S2,S3,S4,End runtime
+  class S5 noop
+  class FX,FXA,FXB,FXC fixed
+  class Bad warn
