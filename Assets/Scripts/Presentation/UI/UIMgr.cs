@@ -137,7 +137,8 @@ namespace DeepseaOil.Presentation.UI
         /// <typeparam name="T">面板的类型</typeparam>
         /// <param name="layer">面板显示的层级</param>
         /// <param name="callBack">由于可能是异步加载 因此通过委托回调的形式 将加载完成的面板传递出去进行使用</param>
-        /// <param name="isSync">是否采用同步加载 默认为false</param>
+        /// <param name="isSync">是否采用同步加载。⚠️ 默认值为 true，但方法体**从不读它**——见蓝图 D7：
+        /// 照它做会让唯一的调用方（GameRoot）走同步路径，异步链路永远跑不到。</param>
         public void ShowPanel<T>(E_UILayer layer = E_UILayer.Middle, UnityAction<T> callBack = null, bool isSync = true) where T : BasePanel
         {
             //获取面板名 预设体名必须和面板类名一致 
