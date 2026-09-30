@@ -1,13 +1,8 @@
 namespace DeepseaOil.Data
 {
     /// <summary>
-    /// 手写的表元信息清单。**非生成物**，物理位置在 Assets/Scripts/Game/ 下
-    /// （Assets/Scripts/Config/ 是生成物专用目录，导表时整目录镜像覆盖）。
-    ///
-    /// 命名空间是 <c>DeepseaOil.Data</c> 而非 <c>DeepseaOil.Config</c>：层的归属**按命名空间判定**
-    /// （蓝图 §1），而本类是纯 Data 层概念（只被 StartupValidator 与 DataMetrics 使用）。
-    /// 早先放在 <c>DeepseaOil.Config</c> 会让 Data 层多出一条指向该命名空间的依赖边，
-    /// 而那条边在蓝图 §1.1 的依赖表里并不存在。目录与命名空间不一一对应是允许的。
+    /// 手写的表元信息清单。**非生成物**，物理位置在 <c>Assets/Scripts/Data/Config/</c> 下
+    /// （<c>Assets/Scripts/Generated/Config/</c> 是生成物专用目录，导表时整目录镜像覆盖）。
     ///
     /// 为什么需要它：cfg.Tables 没有「表数量」之类的属性，生成物又不允许手改。
     /// 用它换来两件事：

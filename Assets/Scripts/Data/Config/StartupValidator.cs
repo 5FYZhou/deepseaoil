@@ -24,7 +24,7 @@ namespace DeepseaOil.Data
             var tables = holder.Tables;
 
             // 抽样访问每张已登记的表：触发其构造与索引建立
-            // 关键表清单来自手写 TablesMeta（加表时同步维护，见 Data 层设计.md §3.6）
+            // 关键表清单来自手写 TablesMeta（加表时同步维护，见 Docs/分层设计/数据层.md §1）
             if (TablesMeta.Names.Length == 0)
             {
                 Debug.LogWarning("[Config] TablesMeta.Names is empty: 跳过抽样校验");

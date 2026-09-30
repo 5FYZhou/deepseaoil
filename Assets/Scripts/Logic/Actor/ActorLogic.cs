@@ -11,8 +11,8 @@ namespace DeepseaOil.Logic
     /// </summary>
     /// <remarks>
     /// 不读 Unity Time、不继承 MonoBehaviour：时间与环境由 <see cref="LogicContext"/> 逐帧喂入。
-    /// 本类<b>不保存任何"上一帧输入"状态</b>：输入边沿统一由 <c>InputBuffer</c> 提供（见 <c>Docs/M1微规划.md</c> §三 D14）。
-    /// <b>速度真值只有引擎一份</b>：帧首读真值、帧内只累加本帧的提交、帧末一次写出；速度类变量一律不跨帧（见 <c>Docs/速度设计.md</c>）。
+    /// 本类<b>不保存任何"上一帧输入"状态</b>：输入边沿统一由 <c>InputBuffer</c> 提供（见 <c>Docs/分层设计/逻辑层.md</c> §5）。
+    /// <b>速度真值只有引擎一份</b>：帧首读真值、帧内只累加本帧的提交、帧末一次写出；速度类变量一律不跨帧（见 <c>Docs/分层设计/逻辑层.md</c>）。
     /// 提交分两类：瞬变累进 <c>_delta</c>（格/秒），加速度累进 <c>_accel</c>（格/秒²），帧末统一乘一次 Δt。
     /// </remarks>
     public abstract class ActorLogic : IFixedTickable
@@ -128,7 +128,7 @@ namespace DeepseaOil.Logic
             if (Velocity.y < -maxFall) SetVelocityY(-maxFall);
         }
 
-        /// <summary>渐进逼近目标速度；控制律的唯一实现点（见 <c>Docs/速度设计.md</c> §五）。</summary>
+        /// <summary>渐进逼近目标速度；控制律的唯一实现点（见 <c>Docs/分层设计/逻辑层.md</c> §3）。</summary>
         /// <remarks>反向输入时改走衰减率，两支取较快者——纯指数衰减永不反向，直接用它会把角色停在原地。</remarks>
         public void ApproachX(float target, float accel)
         {

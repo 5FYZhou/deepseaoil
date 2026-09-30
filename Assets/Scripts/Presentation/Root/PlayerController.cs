@@ -12,7 +12,7 @@ namespace DeepseaOil.Presentation
     /// </summary>
     /// <remarks>
     /// 全部环境事实只在本类组装一次。同一个 <c>FixedUpdate</c> 内 <c>InputBuffer.Push</c> 必须先于 <c>Tick</c>，
-    /// 否则松键沿会滞后一帧、可变跳高失效（<c>Docs/M1微规划.md</c> §三 D14）。
+    /// 否则松键沿会滞后一帧、可变跳高失效（<c>Docs/分层设计/逻辑层.md</c> §5）。
     /// </remarks>
     public sealed class PlayerController : MonoBehaviour, IFixedTickable
     {
