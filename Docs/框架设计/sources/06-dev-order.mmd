@@ -4,17 +4,21 @@
 flowchart TD
   Bus(["EventBus&lt;T&gt; + Singleton<br/>零依赖　S1 之前"])
 
-  subgraph S1["S1 通用件　5~7h"]
+  subgraph S1["S1 通用件　6~8h"]
     direction TB
     S1In["GameRoot + FrameDriver<br/>唯一 Update 入口"]
     S1a["PoolManager"]
     S1b["InputProvider + InputBuffer<br/>唯一采样点"]
     S1c["BasePanel + UIManager"]
     S1d["DebugOverlay + SceneService 骨架"]
+    S1e["ConfigModule 骨架<br/>Luban 接入"]
+    S1f["AssetModule 骨架<br/>LoadAsync + 缓存表"]
     S1In --> S1a
     S1In --> S1b
     S1In --> S1c
     S1In --> S1d
+    S1In --> S1e
+    S1In --> S1f
   end
 
   subgraph S2["S2 服务件　4~5h"]
@@ -22,7 +26,7 @@ flowchart TD
     S2In["PauseService　unscaled 时钟"]
     S2a["Rng　确定性随机　可砍"]
     S2b["AudioManager　去重修正"]
-    S2c["SceneService<br/>切场景三项复位"]
+    S2c["SceneService<br/>切场景四项复位"]
     S2In --> S2a
     S2In --> S2b
     S2In --> S2c
@@ -46,6 +50,8 @@ flowchart TD
   Gate["验收门：占位方块跑通<br/>待机 → 移动 → 跳跃 → 受击打断"]
 
   Bus --> S1In
+  S1e -->|"Key 提供"| S1f
+  S1f -->|"句柄 / 缓存"| S3b
   S1d -->|"切场景契约"| S2c
   S1c -->|"面板基类"| S3In
   S3a -->|"动画帧驱动"| S3b
@@ -61,7 +67,7 @@ flowchart TD
   classDef gate fill:#ede9fe,stroke:#7c3aed,color:#3b0764
 
   class Bus base
-  class S1In,S1a,S1b,S1c,S1d s1
+  class S1In,S1a,S1b,S1c,S1d,S1e,S1f s1
   class S2In,S2a,S2b,S2c s2
   class S3In,S3a,S3b,S3c,S3x,S3y,S3z s3
   class Gate gate

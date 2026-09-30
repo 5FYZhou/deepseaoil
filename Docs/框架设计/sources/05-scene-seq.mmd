@@ -1,20 +1,21 @@
 %% 图5｜切换场景｜回答：切场景前我漏了哪几项复位？
 %% 读法：时间轴自上而下；activate 区间 = 本次调用真正执行的代码范围；alt = 同步实现 / 异步实现两种形状。
-%% 维护：三项复位的顺序与内容改动时，同步改主文档「重要契约」的切场景一行。
+%% 维护：四项复位的顺序与内容改动时，同步改主文档「重要契约」的切场景一行。
 sequenceDiagram
   autonumber
   participant Caller as 调用方
   participant Scene as SceneService
   participant Pause as PauseService
   participant Bus as EventBus<T>
+  participant Asset as AssetModule
   participant SM as Unity SceneManager
   participant Root as BootstrapRoot
 
-  Note over Caller,Root: 复位三项必须在 LoadScene 之前完成，否则新场景仍带着旧状态
+  Note over Caller,Root: 复位四项必须在 LoadScene 之前完成，否则新场景仍带着旧状态
 
   Caller->>Scene: Load 场景名 → SceneLoadHandle
   activate Scene
-  Note over Scene: PrepareForSceneSwitch：① Time.timeScale = 1f<br/>② PauseService 复位　③ EventBus.ClearAll()
+  Note over Scene: PrepareForSceneSwitch：① Time.timeScale = 1f　② PauseService 复位<br/>③ EventBus.ClearAll()　④ AssetModule.OnSceneSwitch()
   Scene->>Pause: SetPaused false
   activate Pause
   Note over Pause: 暂停中切场景 = 新开局卡死
@@ -23,6 +24,10 @@ sequenceDiagram
   activate Bus
   Note over Bus: 清静态订阅，避免跨场景残留
   deactivate Bus
+  Scene->>Asset: OnSceneSwitch()
+  activate Asset
+  Note over Asset: 清冷却期（防上一场景缓存误命中）<br/>保留 isPreloaded，不强制释放 refCount > 0
+  deactivate Asset
   Scene->>SM: LoadScene 场景名
   activate SM
   Note over SM: 默认同步：函数返回时场景已经换完
