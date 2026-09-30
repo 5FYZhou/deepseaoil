@@ -11,4 +11,4 @@ ScriptedImporter:
   generateWrapperCode: 1
   wrapperCodePath: Assets/Scripts/Framework/Input/InputSys.cs
   wrapperClassName: 
-  wrapperCodeNamespace: DeepSeaOil.Logic.Input
+  wrapperCodeNamespace: DeepseaOil.Logic.Input
