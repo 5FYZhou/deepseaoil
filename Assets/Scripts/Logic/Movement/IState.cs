@@ -1,6 +1,6 @@
-﻿using DeepseaOil.Config;
+﻿using DeepseaOil.Data;
 
-namespace DeepseaOil.Logic.State
+namespace DeepseaOil.Logic.Movement
 {
     /// <summary>
     /// 状态接口

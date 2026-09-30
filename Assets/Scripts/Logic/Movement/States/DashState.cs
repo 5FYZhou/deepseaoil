@@ -1,5 +1,5 @@
-﻿using DeepseaOil.Config;
-using DeepseaOil.Logic.State;
+﻿using DeepseaOil.Data;
+using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
 namespace DeepseaOil.Logic.Movement.States

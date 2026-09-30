@@ -6,7 +6,6 @@ using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Service;
 using DeepseaOil.Presentation.UI;
-using DeepseaOil.Config;
 using DeepseaOil.Data;
 
 namespace DeepseaOil.Presentation

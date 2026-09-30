@@ -1,4 +1,5 @@
-﻿using DeepseaOil.Logic.Input;
+﻿using DeepseaOil.Generated;
+using DeepseaOil.Logic.Input;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation

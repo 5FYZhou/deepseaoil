@@ -2,48 +2,51 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic.Service;
 using DeepseaOil.Logic.Events;
 
-public sealed class SceneService : IService
+namespace DeepseaOil.Logic.Service
 {
-    private readonly IGameTime gameTime;
-    private readonly PauseService pauseService;
-
-    public SceneService(
-        IGameTime gameTime,
-        PauseService pauseService)
+    public sealed class SceneService : IService
     {
-        this.gameTime = gameTime;
-        this.pauseService = pauseService;
-    }
+        private readonly IGameTime gameTime;
+        private readonly PauseService pauseService;
 
-    public void Init()
-    {
-    }
+        public SceneService(
+            IGameTime gameTime,
+            PauseService pauseService)
+        {
+            this.gameTime = gameTime;
+            this.pauseService = pauseService;
+        }
 
-    public void Tick(float unscaledDeltaTime)
-    {
-    }
+        public void Init()
+        {
+        }
 
-    public void Load(string sceneName)
-    {
-        // ① 恢复时间
-        gameTime.SetTimeScale(1f);
+        public void Tick(float unscaledDeltaTime)
+        {
+        }
 
-        // ② 恢复 PauseService
-        pauseService.SetPaused(false);
+        public void Load(string sceneName)
+        {
+            // ① 恢复时间
+            gameTime.SetTimeScale(1f);
 
-        // ③ 清理事件
-        EventBus.ClearAll();
+            // ② 恢复 PauseService
+            pauseService.SetPaused(false);
 
-        // ④ 清资源侧冷却期（保留预加载条目，不动 refCount > 0 的）
-        //    必须在 LoadScene 之前：否则新场景会命中上一场景的高频缓存
-        AssetModule.OnSceneSwitch();
+            // ③ 清理事件
+            EventBus.ClearAll();
 
-        // ⑤ 换场景
-        UnityEngine.SceneManagement.SceneManager
-            .LoadScene(sceneName);
-    }
+            // ④ 清资源侧冷却期（保留预加载条目，不动 refCount > 0 的）
+            //    必须在 LoadScene 之前：否则新场景会命中上一场景的高频缓存
+            AssetModule.OnSceneSwitch();
 
-    public void Dispose()
-    {
+            // ⑤ 换场景
+            UnityEngine.SceneManagement.SceneManager
+                .LoadScene(sceneName);
+        }
+
+        public void Dispose()
+        {
+        }
     }
 }

@@ -21,7 +21,7 @@
 using DeepseaOil.Data;
 using UnityEngine;
 
-namespace DeepseaOil.Config
+namespace DeepseaOil.Presentation
 {
     public class ConfigLoader : MonoBehaviour
     {

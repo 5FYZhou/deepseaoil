@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepseaOil.Config
+namespace DeepseaOil.Data
 {
     [CreateAssetMenu(fileName = "玩家配置", menuName = "角色/玩家")]
     public class PlayerConfig : CharacterConfig

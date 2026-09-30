@@ -1,7 +1,6 @@
 ﻿using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Movement.States;
-using DeepseaOil.Logic.State;
 
 namespace DeepseaOil.Logic.Player
 {
