@@ -3,7 +3,12 @@
 //
 // 用法：在 SampleScene 里建个空物体挂上本脚本，进 Play 看 Console。
 // 目的只有一个：证明「表 → 生成代码 → StreamingAssets JSON → 运行期对象」这条链路通。
-// 真实游戏逻辑请按 Docs/框架草图.md 把配置读取收进 ① Config 配置层。
+// 真实游戏逻辑请按 Docs/框架设计/框架蓝图.md 把配置读取收进 Data 层的 ConfigModule：
+// 见 Docs/框架设计/Data 层设计.md（为什么）与 Docs/框架设计/Data 层实现.md（怎么写）。
+//
+// 已被 ConfigModule 取代：本脚本自己 new 了一份 cfg.Tables。ConfigModule 落地后，
+// 同一进程里会有两个 Tables 实例（各读一遍 JSON）。届时删掉本脚本，或把它的
+// Start() 换成读 ConfigModule.GetWeapon(...) —— 那才是框架里的唯一入口。
 //
 // 注意：本文件落默认程序集 Assembly-CSharp，而生成的配置类（命名空间 cfg）也在
 // Assembly-CSharp —— 所以能直接引用，不需要额外 asmdef。
