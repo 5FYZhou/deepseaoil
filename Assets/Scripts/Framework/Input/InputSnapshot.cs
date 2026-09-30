@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace DeepSeaOil.Logic.Input
+namespace DeepseaOil.Logic.Input
 {
     /// <summary>
     /// 单个采样帧的输入快照（不可变）。

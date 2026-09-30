@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepSeaOil.Logic.Events
+namespace DeepseaOil.Logic.Events
 {
     // Intent
     public readonly struct RequestPause { }

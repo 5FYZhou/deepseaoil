@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace DeepSeaOil.Logic.Movement
+namespace DeepseaOil.Logic.Movement
 {
     /// <summary>
     /// 移动执行器：把逻辑算出的速度落到实际物理上，并提供环境检测。

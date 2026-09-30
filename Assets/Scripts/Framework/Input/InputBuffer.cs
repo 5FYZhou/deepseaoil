@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepSeaOil.Logic.Input
+namespace DeepseaOil.Logic.Input
 {
     public enum InputType
     {

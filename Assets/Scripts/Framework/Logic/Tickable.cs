@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepSeaOil.Logic
+namespace DeepseaOil.Logic
 {
     public interface IFixedTickable
     {

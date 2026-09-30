@@ -1,10 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using DeepSeaOil.Logic.Input;
+using DeepseaOil.Logic.Input;
 
 
-namespace DeepSeaOil.Logic
+namespace DeepseaOil.Logic
 {
     public readonly struct LogicContext
     {
