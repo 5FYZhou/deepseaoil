@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Name: 
   moveSpeed: 10
-  moveAcceleration: 1
+  moveAcceleration: 5
   turnDecayRate: 20
   maxFallSpeed: 20
   maxRiseSpeed: 20
-  jumpSpeed: 5
-  doubleJumpSpeed: 12
+  jumpSpeed: 12
+  doubleJumpSpeed: 9
   riseGravity: 40
   fallGravity: 70
   jumpCutMultiplier: 0.5

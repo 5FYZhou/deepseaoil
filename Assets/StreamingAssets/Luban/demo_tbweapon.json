@@ -7,7 +7,7 @@
     "durability": 1,
     "icon_item": 1,
     "rarity": "普通",
-    "icon": "Settings/Renderer2D.asset",
+    "icon": "Resources\\Icons\\sardline.png",
     "atk_speed": 0.8
   },
   {
@@ -18,7 +18,7 @@
     "durability": 50,
     "icon_item": 2,
     "rarity": "精良",
-    "icon": "Settings/Renderer2D.asset",
+    "icon": "Resources\\Icons\\sardline.png",
     "atk_speed": 1.2
   },
   {
@@ -29,7 +29,7 @@
     "durability": 100,
     "icon_item": 3,
     "rarity": "史诗",
-    "icon": "Settings/Renderer2D.asset",
+    "icon": "Resources\\Icons\\sardline.png",
     "atk_speed": 2
   }
 ]
