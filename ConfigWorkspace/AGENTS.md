@@ -42,11 +42,12 @@ dotnet Tools/Luban/Luban.dll --conf luban.conf -t client --strict \
 
 ## 生成物去向（🔴 手写文件不得放入）
 
-- `Assets/Scripts/Config/` ← 生成的 C#（进 git）
+- `Assets/Scripts/Generated/Config/` ← 生成的 C#（进 git）
 - `Assets/StreamingAssets/Luban/` ← 生成的 JSON（进 git）
 
-两个目录导入时会被镜像覆盖（多余文件删除）。需要手写扩展时改为输出 `Assets/Scripts/Config/Gen/`，
-手写物放上一层。
+两个目录导入时会被镜像覆盖（多余文件删除）。
+（第三处生成物是 `Assets/Scripts/Generated/Input/InputSys.cs`，由 `.inputactions` 生成，
+不在导表链路里，但同样手改必丢。）
 
 ## 相关文档
 
@@ -55,7 +56,7 @@ dotnet Tools/Luban/Luban.dll --conf luban.conf -t client --strict \
 
 ## 🔴 不要去装 Luban 的 UPM 包
 
-Luban 运行库已有一份**进 git 的本地拷贝** `Assets/Luban.Runtime/`（8 个文件）。
+Luban 运行库已有一份**进 git 的本地拷贝** `Assets/Luban.Runtime/`（7 个 `.cs`）。
 **不要**往 `Packages/manifest.json` 里加
 `"com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git"`：
 两个来源的 asmdef 都叫 `Luban.Runtime`，撞名后报
