@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections;
+using System.Text.RegularExpressions;
 using DeepseaOil.Config;
 using DeepseaOil.Data;
 using NUnit.Framework;
@@ -150,6 +151,17 @@ namespace DeepseaOil.Tests
         {
             int failedBefore = DataMetrics.GetSnapshot().FailedCount;
 
+            // Unity Test Framework 默认把测试期间出现的 LogType.Error 判为
+            // 「Unhandled log message」并使**测试**失败（Warning 不会）。
+            // 而本测试要断言的恰恰是「失败被**记录**下来、而不是抛异常」——
+            // 所以必须先声明我们期待这条错误日志。
+            // 附带好处：若 Data 层将来不再记这条错误，本测试会因「期待的日志未出现」而失败。
+            //
+            // 只声明一条：重试的前两次 HandleFailure 只重新入队、不打日志，
+            // 只有重试耗尽后才走 RecordFailure 打一次 LogError。
+            LogAssert.Expect(LogType.Error,
+                new Regex(Regex.Escape("[Asset] load failed: " + MissingKey)));
+
             var handle = AssetModule.LoadAsync<GameObject>(MissingKey);
             Assert.IsNotNull(handle, "LoadAsync 返回了 null 句柄");
 
@@ -170,9 +182,17 @@ namespace DeepseaOil.Tests
         public void A6_生命周期烟测()
         {
             Assert.DoesNotThrow(() => AssetModule.OnSceneSwitch(), "OnSceneSwitch 抛异常");
+
+            // 未知 Key 的 Release 只记 Warning（不抛）。Warning 不会让 UTF 判测试失败，
+            // 所以这里不需要 LogAssert.Expect。
             Assert.DoesNotThrow(() => AssetModule.Release("__never_loaded__"), "Release 未知 Key 抛异常");
-            Assert.DoesNotThrow(() => AssetModule.Preload("Assets/Resources/ui/__preload_probe__.prefab"),
-                "Preload 抛异常");
+
+            // 用**真实存在**的路径做预加载探针。
+            // 早先这里用的是不存在的路径，而 Preload 只是入队、要等 Tick 才真正发起加载 ——
+            // 那个注定失败的加载会在后面的某一帧回调里打一条 Error，
+            // 落进「另一个测试」或「任何测试之外」的作用域，造成偶发失败。
+            Assert.DoesNotThrow(() => AssetModule.Preload(PanelKey), "Preload 抛异常");
+
             Assert.DoesNotThrow(() => AssetModule.Tick(0.016f), "Tick 抛异常");
             Assert.DoesNotThrow(() => DataMetrics.GetSnapshot(), "GetSnapshot 抛异常");
         }
