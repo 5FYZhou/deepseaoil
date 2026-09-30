@@ -1,45 +1,52 @@
 %% 图2｜单帧执行｜回答：我这个 Update 该不该写？每帧谁先跑？
-%% 读法：主链自上而下 = GameRoot 顺序表里的固定次序；FixedUpdate 是另一条独立通道，不是从①分支出来的。
-%% 维护：条目顺序必须与 GameRoot 的 tickables[] 拖入顺序一致；③ AssetModule.Tick 是 Data 层唯一主动行为。
+%% 读法：两条**独立**通道 —— Update（渲染帧，GameRoot 顺序表）与 FixedUpdate（物理帧，PlayerController 驱动）。
+%%       二者之间没有先后关系：一个渲染帧可能对应 0 或 2 个物理帧。
+%% 维护：① / ② 的顺序必须与 GameRoot.Update 里的实际调用顺序一致；
+%%       FixedUpdate 侧的 ①~⑥ 顺序必须与 PlayerController.FixedUpdate 一致。
 flowchart TD
-  Root["GameRoot.Update()<br/>唯一入口"]
-  S1["① InputProvider.Update()<br/>InputBuffer.Push()"]
-  S2["② Services.Tick()<br/>Pause / Save / Rng / Scene"]
-  S3["③ AssetModule.Tick()<br/>异步队列 / 冷却期 / LRU 淘汰"]
-  S4["④ Actors.Tick()<br/>CheckGlobalTransitions → OnUpdate"]
-  S5["⑤ Views.Tick()<br/>动画参数 / UI / VFX"]
-  S6["⑥ DebugOverlay.Tick()<br/>只读，绝不改游戏状态"]
-  End["EventBus&lt;FrameEnded&gt;.Publish"]
-
-  subgraph Fixed["FixedUpdate 通道　物理帧"]
+  subgraph Upd["Update 通道　渲染帧　GameRoot 顺序表"]
     direction TB
-    FX["Actors.FixedTick()"]
-    FXA["InputBuffer 取用并消费"]
-    FXB["ActorPhysics 提交力 / 速度"]
-    FXC["ForceReceiverResolver2D<br/>去重后 ApplyForce"]
-    FX --> FXA
-    FXA --> FXB
-    FXB --> FXC
+    Root["GameRoot.Update()"]
+    U1["① Services.Tick(unscaledDt)<br/>Pause / Scene / Save"]
+    U2["② AssetModule.Tick(dt)<br/>异步队列 / 冷却期 / LRU 淘汰"]
+    Root --> U1
+    U1 --> U2
   end
 
-  Bad["违规：自写 MonoBehaviour.Update()<br/>顺序不可推理"]
+  subgraph Fixed["FixedUpdate 通道　物理帧（默认 50Hz）"]
+    direction TB
+    PC["PlayerController.FixedUpdate()"]
+    F1["① InputProvider.ConsumeSnapshot()<br/>取快照并清按下沿"]
+    F2["② InputBuffer.Push(in snap, Time.fixedTime)<br/>记按下时间 + 算松键沿"]
+    F3["③ new WorldInfo(...) → new LogicContext(...)"]
+    F4["④ PlayerLogic.FixedTick(ctx)"]
+    F5["⑤ MoveGroup.Tick(ctx)<br/>仲裁 → ChangeState → State.Tick"]
+    F6["⑥ 帧末一次提交<br/>Motor.Move(frameStart + delta + accel*dt)"]
+    PC --> F1
+    F1 --> F2
+    F2 -->|"唯一硬序"| F3
+    F3 --> F4
+    F4 --> F5
+    F5 --> F6
+  end
 
-  Root --> S1
-  S1 -->|"必须先于 ④"| S2
-  S2 --> S3
-  S3 --> S4
-  S4 --> S5
-  S5 --> S6
-  S6 --> End
+  Sampler["InputProvider.Update()<br/>MonoBehaviour 自身驱动，不在 GameRoot 表内<br/>WasPressedThisFrame 用 |= 累积"]
+  Cap["InputBuffer 容量 = max(jumpBufferTime, dashBufferTime) × (1/fixedDeltaTime)<br/>默认 0.12s × 50 = 6 帧窗口"]
+  Bad["违规：在非组合根自写 MonoBehaviour.Update() / FixedUpdate()<br/>顺序不可推理"]
+  Gravity["⚠ 引擎侧仍在施加重力<br/>Physics2D gravity = (0,-9.81) 且 Player 的 gravityScale = 1<br/>逻辑层又施加一次（见蓝图 §16）"]
+
+  Sampler -.->|"必须先于 ①"| F1
+  Cap -.->|"窗口"| F2
+  Gravity -.->|"未消除"| F6
 
   classDef runtime fill:#e0f2fe,stroke:#0369a1,color:#082f49
   classDef data fill:#ede9fe,stroke:#7c3aed,color:#3b0764
-  classDef noop fill:#f1f5f9,stroke:#64748b,color:#334155
   classDef fixed fill:#ffedd5,stroke:#ea580c,color:#431407
   classDef warn fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef note fill:#f8fafc,stroke:#94a3b8,color:#334155,stroke-dasharray:4 3
 
-  class Root,S1,S2,S4,S5,End runtime
-  class S3 data
-  class S6 noop
-  class FX,FXA,FXB,FXC fixed
-  class Bad warn
+  class Root,U1 runtime
+  class U2 data
+  class PC,F1,F2,F3,F4,F5,F6 fixed
+  class Bad,Gravity warn
+  class Sampler,Cap note

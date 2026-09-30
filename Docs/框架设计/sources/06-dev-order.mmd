@@ -1,18 +1,19 @@
-%% 图6｜开发流程建议｜回答：先做哪件、哪件卡住会拖累谁？
-%% 读法：箭头 = 硬依赖（前置不做完就做不下去）；节点里的「可砍」= 时间不足时按序砍。
-%% 维护：分组与工时改动时，同步改本图与主文档「图 6」代码块。
+%% 图6｜开发流程与现状对照｜回答：先做哪件、哪件卡住会拖累谁、现在到哪一步了？
+%% 读法：箭头 = 硬依赖（前置不做完就做不下去）；✓ = 工程里已有，✗ = 待建；「可砍」= 时间不足时按序砍。
+%% 维护：节点里的 ✓/✗ 必须与仓库实际文件一致；分组与工时改动时同步改蓝图「图 6」代码块。
 flowchart TD
-  Bus(["EventBus&lt;T&gt; + Singleton<br/>零依赖　S1 之前"])
+  Bus(["EventBus&lt;T&gt;　✓ 已有<br/>DeepseaOil.Logic.Events<br/>含非泛型 EventBus.ClearAll()"])
+  Sing(["Singleton&lt;T&gt; / BaseManager&lt;T&gt;<br/>✓ 已有（两条基类并存）<br/>⚠ BaseManager 只认非公开无参构造"])
 
-  subgraph S1["S1 通用件　6~8h"]
+  subgraph S1["S1 通用件　✓ 骨架基本齐了"]
     direction TB
-    S1In["GameRoot + FrameDriver<br/>唯一 Update 入口"]
-    S1a["PoolManager"]
-    S1b["InputProvider + InputBuffer<br/>唯一采样点"]
-    S1c["BasePanel + UIManager"]
-    S1d["DebugOverlay + SceneService 骨架"]
-    S1e["ConfigModule 骨架<br/>Luban 接入"]
-    S1f["AssetModule 骨架<br/>LoadAsync + 缓存表"]
+    S1In["GameRoot　✓ 已有<br/>无 FrameDriver；驱动 List&lt;IService&gt;"]
+    S1a["Pool&lt;T&gt;　✓ 已有但 0 调用点<br/>实例级，没有 PoolManager"]
+    S1b["InputProvider + InputBuffer　✓ 已有<br/>新输入系统 + InputSys 生成物"]
+    S1c["UIMgr + BasePanel　✓ 已有<br/>E_UILayer 四层"]
+    S1d["SceneService 骨架　✓ 已有<br/>⚠ Load() 无调用点"]
+    S1e["ConfigModule　✓ 本次落地<br/>Luban 接入 + 启动校验"]
+    S1f["AssetModule　✓ 本次落地<br/>LoadAsync + 缓存表 + 冷却期 + LRU"]
     S1In --> S1a
     S1In --> S1b
     S1In --> S1c
@@ -21,35 +22,37 @@ flowchart TD
     S1In --> S1f
   end
 
-  subgraph S2["S2 服务件　4~5h"]
+  subgraph S2["S2 服务件　部分已有"]
     direction TB
-    S2In["PauseService　unscaled 时钟"]
-    S2a["Rng　确定性随机　可砍"]
-    S2b["AudioManager　去重修正"]
-    S2c["SceneService<br/>切场景四项复位"]
+    S2In["PauseService　✓ 已有<br/>unscaled 时钟 + RequestPause 订阅"]
+    S2a["Rng　✗ 待建　可砍"]
+    S2b["AudioManager　✗ 待建<br/>只有 IAudioService 接口：无实现、无调用点"]
+    S2c["SceneService 四项复位　✓ 本次接上第 ④ 项<br/>⚠ 整条链仍无调用点"]
     S2In --> S2a
     S2In --> S2b
     S2In --> S2c
   end
 
-  subgraph S3["S3 高频件　7~9h"]
+  subgraph S3["S3 高频件　✗ 大部分待建"]
     direction TB
-    S3In["StateMachine + BaseState"]
-    S3a["AnimationEvent 链　可砍"]
-    S3b["Actor 三层 + ActorPhysics"]
-    S3c["IForceReceiver + Resolver"]
+    S3In["StateMachine + StateBase　✓ 已有<br/>ChangeState 立即切换（同帧生效）"]
+    S3a["AnimationEvent 链　✗ 待建　可砍"]
+    S3b["ActorLogic / PlayerLogic　✓ 已有<br/>ActorPhysics 独立成件 ✗ 待建"]
+    S3c["IForceReceiver + Resolver　✗ 待建"]
     S3In --> S3a
     S3In --> S3b
     S3In --> S3c
 
-    S3x["RayChecker + CircleChecker"]
-    S3y["Cinemachine + CameraShake"]
-    S3z["物理校验三件　可砍"]
+    S3x["RayChecker + CircleChecker　✗ 待建"]
+    S3y["Cinemachine + CameraShake　✗ 待建"]
+    S3z["物理校验三件　✗ 待建　可砍"]
   end
 
   Gate["验收门：占位方块跑通<br/>待机 → 移动 → 跳跃 → 受击打断"]
+  Now["现状（并轨 FY 之后）：<br/>S1 / S2 骨架已存在且 Data 层已落地；<br/>缺的是 S3 高频件，以及 DebugOverlay / Rng / AudioManager"]
 
   Bus --> S1In
+  Sing --> S1In
   S1e -->|"Key 提供"| S1f
   S1f -->|"句柄 / 缓存"| S3b
   S1d -->|"切场景契约"| S2c
@@ -59,15 +62,18 @@ flowchart TD
   S3b --> Gate
   S3c --> Gate
   S3z --> Gate
+  Now -.->|"定位"| S1In
 
   classDef base fill:#fef9c3,stroke:#ca8a04,color:#422006
   classDef s1 fill:#e0f2fe,stroke:#0369a1,color:#082f49
   classDef s2 fill:#ffedd5,stroke:#ea580c,color:#431407
   classDef s3 fill:#dcfce7,stroke:#16a34a,color:#052e16
   classDef gate fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+  classDef note fill:#f8fafc,stroke:#94a3b8,color:#334155,stroke-dasharray:4 3
 
-  class Bus base
+  class Bus,Sing base
   class S1In,S1a,S1b,S1c,S1d,S1e,S1f s1
   class S2In,S2a,S2b,S2c s2
   class S3In,S3a,S3b,S3c,S3x,S3y,S3z s3
   class Gate gate
+  class Now note

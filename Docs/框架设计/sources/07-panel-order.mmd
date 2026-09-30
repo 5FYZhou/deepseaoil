@@ -1,24 +1,23 @@
-%% 图9｜面板层级与顺序｜回答：弹出面板该压谁、常驻层怎么排？
-%% 读法：自下而上 = Canvas 的 sortingOrder 从小到大；「常驻」= 不进栈、不随面板开关重建。
-%% 维护：层级与 sortingOrder 是 const 常量，改动时同步改 UIManager 常量与主文档「图 9」代码块。
+%% 图9｜面板层级与顺序｜回答：这个面板该放哪一层？
+%% 读法：层级 = ui/Canvas.prefab 下四个子节点的**兄弟顺序**（Bottom 最下、System 最上）。
+%%       不是 sortingOrder —— UIMgr 全类没有 sortingOrder 常量。
+%% 维护：E_UILayer 的枚举值与 Canvas.prefab 的子节点名必须成对；
+%%       面板预设体名必须等于面板类名（路径写死在 ui/Panel/<类名>）。
 flowchart BT
-  HUD["HUD　常驻<br/>sortingOrder 100"]
-  Panel["BasePanel 主面板栈<br/>sortingOrder 200 起，每层 +10"]
-  Popup["弹窗 / 确认框<br/>sortingOrder 300 起"]
-  Toast["Toast / 飘字<br/>sortingOrder 400"]
-  Overlay["DebugOverlay　常驻<br/>sortingOrder 500"]
+  Bottom["Bottom　最底层<br/>E_UILayer.Bottom"]
+  Middle["Middle　中层<br/>E_UILayer.Middle　ShowPanel 的默认值"]
+  Top["Top　高层<br/>E_UILayer.Top"]
+  System["System　系统层，最高<br/>E_UILayer.System"]
 
-  HUD --> Panel
-  Panel --> Popup
-  Popup --> Toast
-  Toast --> Overlay
+  Note["常驻件不在这四层里：<br/>UICamera / Canvas / EventSystem<br/>由 UIMgr 构造并 DontDestroyOnLoad"]
+  Note -.-> Bottom
 
-  classDef resident fill:#f1f5f9,stroke:#64748b,color:#334155
-  classDef stack fill:#e0f2fe,stroke:#0369a1,color:#082f49
-  classDef top fill:#dcfce7,stroke:#16a34a,color:#052e16
-  classDef debug fill:#fef9c3,stroke:#ca8a04,color:#422006
+  Bottom --> Middle
+  Middle --> Top
+  Top --> System
 
-  class HUD resident
-  class Panel,Popup stack
-  class Toast top
-  class Overlay debug
+  classDef layer fill:#e0f2fe,stroke:#0369a1,color:#082f49
+  classDef note fill:#f8fafc,stroke:#94a3b8,color:#334155,stroke-dasharray:4 3
+
+  class Bottom,Middle,Top,System layer
+  class Note note

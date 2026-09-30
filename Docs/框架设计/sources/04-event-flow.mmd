@@ -1,39 +1,47 @@
-%% 图4｜意图事件流程｜回答：UI 想改游戏状态怎么改？一条意图事件走完是哪几步？
-%% 读法：时间轴自上而下；activate 区间 = 本次事件真正执行到的代码范围；发布实线、返回虚线。
-%% 维护：事件名必须与 Events/GameEvents.cs 的登记名一致；意图祈使式、事实过去式。
-%%       Data 层只出现在"直连查询"段，永远不出现在 EventBus 的发布/订阅两端。
+%% 图4｜事件流程｜回答：UI 想改游戏状态怎么改？一条意图事件走完是哪几步？
+%% 读法：时间轴自上而下；activate 区间 = 本次事件真正执行到的代码范围。
+%% 维护：事件名必须与 Framework/Event/Events.cs 等处的登记名一致；意图祈使式、事实过去式。
+%%       Data 层只出现在「直连查询」段，永远不出现在 EventBus 的发布/订阅两端。
+%%       订阅时机不是统一的：PauseService 在 Init/Dispose，PlayerController 在 OnEnable/OnDisable，
+%%       MovementDebugPanel 在 Start/OnDestroy。
 sequenceDiagram
   autonumber
-  participant UI as UI
+  participant UI as BeginPanel（UI）
   participant Bus as EventBus<T>
-  participant Logic as Logic
+  participant Pause as PauseService（Logic）
+  participant PC as PlayerController（Presentation）
+  participant Move as MoveGroup（Logic）
+  participant Dbg as MovementDebugPanel
   participant Data as Data 层
 
-  Note over UI,Logic: 订阅只在 OnEnable 建立、OnDisable 全部退订<br/>EventBus 零依赖、不持有业务引用
+  Note over UI,Pause: 订阅时机三种写法并存：<br/>PauseService Init/Dispose　PlayerController OnEnable/OnDisable　DebugPanel Start/OnDestroy
 
-  UI->>Bus: Publish RequestPause
+  UI->>Bus: Publish RequestPause　（意图，祈使式）
   activate Bus
-  Bus->>Logic: 分发所有订阅者（快照遍历，异常隔离）
+  Bus->>Pause: 分发全部订阅者（快照遍历 + 异常隔离）
   deactivate Bus
-  activate Logic
-  Note over Logic: 订阅者内只改状态，不写存档 / 不结算
-  Logic->>Bus: Publish GamePaused
-  deactivate Logic
+  activate Pause
+  Note over Pause: 订阅者内只改状态：SetPaused(true) → Time.timeScale = 0
+  Pause->>Bus: Publish GamePaused　（事实，过去式）
+  deactivate Pause
   activate Bus
-  Bus->>UI: 分发所有订阅者
+  Bus->>PC: 分发全部订阅者
   deactivate Bus
-  Note over UI: OnEnable 自查当前状态，刷新界面
+  activate PC
+  Note over PC: Clear() + SetInputEnabled(false) + InputBuffer.Clear()
+  deactivate PC
+
+  Note over Move,Dbg: 每物理帧由 MoveGroup 自己仲裁，不经过 UI
+  Move->>Bus: Publish MovementStateChanged(current, previous)
+  activate Bus
+  Bus->>Dbg: 分发（只刷新历史显示，不改游戏状态）
+  deactivate Bus
 
   Note over UI,Data: Data 层不走 EventBus：直连查询，不是跨层通信
-  UI->>Data: ConfigModule.GetWeapon(id)
-  Data-->>UI: WeaponData（同步）
+  UI->>Data: ConfigModule.GetWeapon(id)　同步
+  Data-->>UI: cfg.demo.Weapon
   UI->>Data: AssetModule.LoadAsync＜Sprite＞(key)
-  Data-->>UI: AsyncHandle（await 拿本体）
+  Data-->>UI: AsyncHandle＜Sprite＞　（await 拿本体）
 
-  Note over UI,Logic: 后续帧：动作照常推进
-  Logic->>Bus: Publish PlayerDied
-  activate Bus
-  Bus->>UI: 分发所有订阅者
-  deactivate Bus
-
-  Note over UI,Logic: 反例：UI 直调 Logic 方法即越界<br/>反例：命令型逻辑写进订阅者，发布中退订会漏调
+  Note over UI,Pause: 反例：非组合根的表层直调逻辑层即越界<br/>反例：命令型逻辑（写存档 / 结算 / 掉落）不进订阅者
+  Note over Bus: 已声明但无人发布：EventBusDebugPanel.DebugEvent<br/>→ 该面板接不到任何事件（且不在任何场景里）
