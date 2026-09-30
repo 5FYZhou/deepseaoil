@@ -42,11 +42,12 @@ dotnet Tools/Luban/Luban.dll --conf luban.conf -t client --strict \
 
 ## 生成物去向（🔴 手写文件不得放入）
 
-- `Assets/Scripts/Config/` ← 生成的 C#（进 git）
+- `Assets/Scripts/Generated/Config/` ← 生成的 C#（进 git）
 - `Assets/StreamingAssets/Luban/` ← 生成的 JSON（进 git）
 
-两个目录导入时会被镜像覆盖（多余文件删除）。需要手写扩展时改为输出 `Assets/Scripts/Config/Gen/`，
-手写物放上一层。
+两个目录导入时会被镜像覆盖（多余文件删除）。
+（第三处生成物是 `Assets/Scripts/Generated/Input/InputSys.cs`，由 `.inputactions` 生成，
+不在导表链路里，但同样手改必丢。）
 
 ## 相关文档
 
