@@ -35,6 +35,19 @@ namespace DeepseaOil.EditorTools.Tests
         /// <summary>考古/对照性质的行内标记：这些行不是"旧命名残留"，是刻意做的变更记录。</summary>
         static readonly string[] 对照行标记 = { "草案", "→", "被否决" };
 
+        /// <summary>个别例外：技术注释里点名旧实现的名字，属于必要说明而非残留。</summary>
+        static readonly string[] 对照行例外 = { "不是 Newtonsoft 的" };
+
+        /// <summary>该行是否落在「考古章节」内：H2 标题含「草案」或「相对旧版」的整节。</summary>
+        static bool 在考古章节内(string[] lines, int index)
+        {
+            for (int i = index; i >= 0; i--)
+                if (lines[i].StartsWith("##"))
+                    return lines[i].Contains("草案") || lines[i].Contains("相对旧版");
+
+            return false;
+        }
+
         static string ReadAll(string path)
         {
             // 统一成 LF，避免 CRLF/LF 混用造成的假失败
@@ -173,20 +186,16 @@ namespace DeepseaOil.EditorTools.Tests
                 var path = Path.Combine(DesignDir, f);
                 var lines = Lines(ReadAll(path));
 
-                // 白名单只放"考古/对照"性质的整节：H2 标题里带「草案」或「相对旧版」的章节，
-                // 以及行内含「草案」「→」「被否决」的对照行（写法均为「旧 → 新」）。
+                // 白名单只放"考古/对照"性质的内容：H2 标题带「草案」「相对旧版」的整节，
+                // 行内含「草案」「→」「被否决」的对照行，以及点名旧实现名字的技术注释。
                 // 除此之外的正文一律扫描——那才是会误导实现者的地方。
-                var 考古章节 = lines.Where(l => l.StartsWith("##"))
-                                    .Select(l => l.TrimStart('#', ' ').Trim())
-                                    .Where(t => t.Contains("草案") || t.Contains("相对旧版"))
-                                    .ToArray();
-
                 for (int i = 0; i < lines.Length; i++)
                 {
                     var line = lines[i];
 
                     if (对照行标记.Any(w => line.Contains(w))) continue;
-                    if (考古章节.Any(t => t.Length > 0 && line.Contains(t))) continue;
+                    if (对照行例外.Any(w => line.Contains(w))) continue;
+                    if (在考古章节内(lines, i)) continue;
 
                     foreach (var b in banned)
                         if (line.Contains(b.Text))
