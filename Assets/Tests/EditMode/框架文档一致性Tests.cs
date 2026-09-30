@@ -262,7 +262,7 @@ namespace DeepseaOil.EditorTools.Tests
         [Test]
         public void T6_生成物目录无手写文件()
         {
-            // 基线：Luban 实际生成的 9 个 .cs（加表时同步这份清单）
+            // 基线：Luban 实际生成的 11 个 .cs（加表时同步这份清单）
             var generated = new HashSet<string>(StringComparer.Ordinal)
             {
                 "Tables.cs",
@@ -291,6 +291,97 @@ namespace DeepseaOil.EditorTools.Tests
             Assert.IsEmpty(unknown,
                 "Assets/Scripts/Config/ 是生成物专用目录，导表时整目录镜像覆盖。发现非生成物文件（手写物请放 Scripts/Framework/ 或 Scripts/Game/）：\n  "
                 + string.Join("\n  ", unknown));
+        }
+
+        // ================================================================
+        // T7 · Data 层文件清单与文档同源
+        // ================================================================
+        //
+        // 「文档即规格」的机械守卫：Data 层实现文档 §1 的文件树是清单，
+        // 这里把它解析出来逐个断言磁盘上真有这个文件。
+        // 树格式变了会解析出 0 条 → 断言失败并提示格式，而不是静默通过。
+
+        [Test]
+        public void T7_Data层文件清单与文档同源()
+        {
+            var md = ReadAll(Path.Combine(DesignDir, 实现文档));
+
+            var section = Regex.Match(md,
+                "##\\s*1\\.\\s*文件清单与依赖顺序(?<body>[\\s\\S]*?)(\\n##\\s|$)");
+            Assert.IsTrue(section.Success, "实现文档里找不到「## 1. 文件清单与依赖顺序」一节");
+
+            var block = Regex.Match(section.Groups["body"].Value, "```[a-zA-Z]*\\n(?<tree>[\\s\\S]*?)```");
+            Assert.IsTrue(block.Success, "§1 里找不到文件树的代码块");
+
+            // 树的缩进单位是 4 字符（"├── " / "│   "），nameStart / 4 = 深度
+            var TreeChars = new[] { ' ', '│', '├', '└', '─' };
+            var stack = new List<KeyValuePair<int, string>>();   // depth → 累积路径（目录带尾斜杠）
+            var files = new List<string>();
+
+            foreach (var raw in Lines(block.Groups["tree"].Value))
+            {
+                if (raw.Trim().Length == 0) continue;
+
+                int nameStart = 0;
+                while (nameStart < raw.Length && Array.IndexOf(TreeChars, raw[nameStart]) >= 0) nameStart++;
+                if (nameStart >= raw.Length) continue;
+
+                int depth = nameStart / 4;
+                var rest = raw.Substring(nameStart);
+                var name = rest.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)[0];
+
+                if (depth > stack.Count)
+                {
+                    Assert.Fail(string.Format("§1 文件树缩进跳级（depth {0} > 已累积 {1}）：{2}", depth, stack.Count, raw));
+                }
+
+                while (stack.Count > depth) stack.RemoveAt(stack.Count - 1);
+
+                var parent = depth == 0 ? string.Empty : stack[depth - 1].Value;
+
+                if (name.EndsWith("/"))
+                {
+                    stack.Add(new KeyValuePair<int, string>(depth, parent + name));
+                }
+                else if (name.EndsWith(".cs"))
+                {
+                    files.Add(parent + name);
+                }
+            }
+
+            Assert.GreaterOrEqual(files.Count, 15,
+                "§1 文件树只解析出 " + files.Count + " 个 .cs，少于预期的 15 个：检查文件树格式是否变了");
+
+            var missing = files.Where(f => !File.Exists(Path.Combine(ProjectRoot, f.Replace('/', Path.DirectorySeparatorChar)))).ToArray();
+
+            Assert.IsEmpty(missing,
+                "Data 层实现文档 §1 声明了这些文件，但磁盘上没有（文档与代码脱钩）：\n  " + string.Join("\n  ", missing));
+        }
+
+        // ================================================================
+        // T8 · 切场景第 ④ 项复位已接线
+        // ================================================================
+        //
+        // T5 只断言契约表**写着**「复位四项」；这条断言代码里真的调了第 ④ 项，
+        // 否则「四项」就只是一句话。
+
+        [Test]
+        public void T8_切场景第四项复位已接线()
+        {
+            var path = Path.Combine(ProjectRoot, "Assets", "Scripts", "Framework", "Logic", "Services", "SceneService.cs");
+            Assert.IsTrue(File.Exists(path), "找不到 SceneService.cs：" + path);
+
+            var src = ReadAll(path);
+
+            Assert.IsTrue(src.Contains("AssetModule.OnSceneSwitch"),
+                "SceneService.Load 里没有调用 AssetModule.OnSceneSwitch —— 契约表说的「复位四项」只有三项落地");
+
+            int iSwitch = src.IndexOf("AssetModule.OnSceneSwitch", StringComparison.Ordinal);
+            int iLoad = src.IndexOf("LoadScene(", StringComparison.Ordinal);
+
+            Assert.GreaterOrEqual(iLoad, 0, "SceneService 里找不到 LoadScene 调用");
+            Assert.Less(iSwitch, iLoad,
+                "AssetModule.OnSceneSwitch 出现在 LoadScene 之后 —— 顺序反了，复位必须在换场景之前");
         }
     }
 }
