@@ -71,7 +71,7 @@ namespace DeepseaOil.Presentation
                 service.Tick(Time.unscaledDeltaTime);
             }
 
-            // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §3 图 2 step ③）
+            // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §2 图 2 step ②）
             AssetModule.Tick(Time.deltaTime);
 
             //actors.Tick(Time.deltaTime);
