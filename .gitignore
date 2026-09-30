@@ -63,6 +63,10 @@ ExportedObj/
 # Unity3D generated file on crash reports
 sysinfo.txt
 
+# ---- Luban 配表工作流：中间产物（生成物本身进 git，见 Docs/表格数据配置/技术文档_配表管线.md）----
+/ConfigWorkspace/output/
+/ConfigWorkspace/logs/
+
 # Mono auto generated files
 mono_crash.*
 
