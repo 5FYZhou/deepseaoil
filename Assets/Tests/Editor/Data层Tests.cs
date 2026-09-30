@@ -74,8 +74,12 @@ namespace DeepseaOil.Tests
             // 用 ToString 比较，避免依赖生成字段的具体数值类型
             Assert.AreEqual("10", weapon.Pow.ToString(), "GetWeapon(1).Pow");
 
-            // 这条是 Key 契约的上游形态：表里存「相对 Assets/ 带扩展名」
-            Assert.AreEqual("Settings/Renderer2D.asset", weapon.Icon, "GetWeapon(1).Icon 不是 Assets 相对路径");
+            // Key 契约（蓝图 §11）：表里存的是**资源路径字符串**。
+            // ⚠️ 这里**不能断言具体字面量**——那是策划填的数据，会随填表变化。
+            //    本用例只校验"形态像资源路径"；"能不能真的加载出来"由 A4 用真实加载验收。
+            Assert.IsFalse(string.IsNullOrEmpty(weapon.Icon), "GetWeapon(1).Icon 为空");
+            Assert.IsTrue(Regex.IsMatch(weapon.Icon, @"\.(png|jpg|jpeg|tga|psd|asset|prefab|mat)$"),
+                "GetWeapon(1).Icon 不像资源路径（缺可识别扩展名）：" + weapon.Icon);
 
             Assert.IsNotNull(weapon.IconItem_Ref, "外键 Weapon.icon_item → Item 未解析");
             Assert.IsNotNull(ConfigModule.GetFish(1002), "GetFish(1002) 为 null");
@@ -139,6 +143,22 @@ namespace DeepseaOil.Tests
             Assert.AreSame(handle.Asset, cached, "TryGet 拿到的不是句柄里的那个资源");
 
             AssetModule.Release(PanelKey);
+
+            // ── 第二段：表里真实的 icon 能不能**真的**加载出来 ──
+            // 这是 A1 不敢断言字面量的那一项的**真实验收**：走完整链路
+            // 表值 → AssetRegistry.ResolvePath → Resources.LoadAsync<Sprite>。
+            // 注意 icon 必须同时满足「存在」与「在 Assets/Resources/ 下」两个条件；
+            // 只满足前者（例如 "Settings/Renderer2D.asset"）会在运行时才暴露，就是这条要防的。
+            // 若加载失败，Data 层会打一条 Error → 本用例失败，这是预期行为。
+            string icon = ConfigModule.GetWeapon(1).Icon;
+            var iconHandle = AssetModule.LoadAsync<Sprite>(icon);
+
+            yield return WaitDone(iconHandle, "A4_表内 icon 加载");
+
+            Assert.IsNotNull(iconHandle.Asset,
+                "表里的 icon 加载失败：应为 Sprite 且位于 Assets/Resources/ 下。Key = " + icon);
+
+            AssetModule.Release(icon);
         }
 
         // ================================================================
