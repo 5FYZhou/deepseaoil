@@ -1444,6 +1444,8 @@ namespace DeepseaOil.Data
 | `[Asset] Release unknown or over-released key: __never_loaded__`，栈回溯指向 `A6_生命周期烟测` | A6 执行到结尾 |
 | 全日志**没有任何** `AssertionException` / 自定义失败文案 | 强烈提示全绿；但 Test Runner 窗口的 passed/failed 计数不在日志里，仍需人工确认一次 |
 | `Data层Tests` 出现在 `Assembly-CSharp-Editor.dll` 中 | 「无 asmdef 的 `Assets/Tests/Editor/` → `Assembly-CSharp-Editor` → 能引用 `Assembly-CSharp` → 被 Test Framework 发现」这条链成立 |
+| Test Runner 结果：**39 项，1 项错误** | 唯一的错误是 `A5_失败路径不抛异常`：UTF 把测试期间出现的 `LogType.Error` 判为「Unhandled log message」。这**不是产品缺陷**——Data 层按设计记录了失败日志，是**测试**漏了 `LogAssert.Expect`。已修（见 §5.4） |
+| Play 模式跑 `SampleScene`：Console 首行 `[Config] initialized, tables loaded from: …/StreamingAssets\Luban`，**0 error** | `GameRoot.Awake → ConfigModule.InitFromStreamingAssets()` 在 Play 下也成立。同时暴露了 D26（`BasePanel` 警告刷屏），属上游既有问题 |
 
 > ⚠️ **诚实标注**：第 6 步（外部 harness）证明的是**编译与 Data 层逻辑**；
 > 上面这批证据证明的是**它在 Unity 里也能编译、能跑、关键路径（Config 装载 / Key 转换 / 失败降级）通了**。
@@ -1529,3 +1531,14 @@ GUID 生成后与全仓库既有 168 个比对过唯一性。
 
 **未改动**：`ResMgr` / `MonoMgr` / `UIMgr` / `BasePanel` / `SaveService` / `BeginPanel` / `PauseService` /
 `Singleton.cs` / `BaseManager.cs` / `ConfigController.cs` / 任何场景与预设体。上游现存缺陷只登记不修，清单见蓝图 §16。
+
+### 5.4 测试侧的两次修补（都是**测试**的问题，不是产品的）
+
+| # | 现象 | 根因 | 修法 |
+| :-- | :-- | :-- | :-- |
+| 1 | Unity Test Runner 报 `A5_失败路径不抛异常` 失败：`Unhandled log message: '[Error] [Asset] load failed: …'` | Unit Test Framework 默认把测试期间出现的 `LogType.Error` 判为「未处理的日志」并让**测试**失败（`Warning` 不会）。而 A5 要断言的恰恰是"失败被**记录**下来而不是抛异常"——Data 层按设计在重试耗尽后打了一条 `Debug.LogError`（`FailureHandler.cs:68`） | 在 `LoadAsync` 之前加 `LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Asset] load failed: " + MissingKey)))`。只声明一条：重试的前两次 `HandleFailure` 只重新入队、不打日志。**附带收益**：若 Data 层将来不再记这条错误，测试会因"期待的日志未出现"而失败 |
+| 2 | 潜在偶发：A6 的 `Preload` 用了一个不存在的路径 | `Preload` 只入队，要等 `Tick` 才真正发起加载；那个注定失败的加载会在**后面的某一帧**回调里打 `LogError`，落进另一个测试（或任何测试之外）的作用域 | A6 的预加载探针改用**真实存在**的 `PanelKey`。加载会成功、无日志；且条目变成 `isPreloaded`，永不被淘汰 |
+| 3 | 潜在偶发：同一测试域里连按两次 Run All | `[OneTimeSetUp]` 直接调两个 `Init`，而它们是「重复调用即抛异常」→ 第二次整个 fixture 失败 | `AssetModule.Dispose()`（幂等）→ `if (!ConfigModule.IsReady)` 守卫 → `AssetModule.Init()`。全程 public API，不动 Data 层可见性 |
+
+> 这三条都记在蓝图 §16（D27 是第 1 条）。写在这里是因为它们体现同一件事：
+> **测试失败先分清是"产品错了"还是"测试写错了"**——第 1 条很容易被误读成"Data 层不该打 Error 日志"。
