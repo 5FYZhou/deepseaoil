@@ -1,0 +1,62 @@
+%% 图1｜分层与通道｜回答：谁能引谁？跨层唯一通道是什么？
+%% 读法：箭头 = 依赖方向（不是调用方向）；表现层与逻辑层之间没有直连边 = 约束，不是省略。
+%% 维护：节点名必须与代码标识符一致；本条与主文档「图 1」代码块保持逐字符一致。
+flowchart LR
+  subgraph L1["① Config 配置层"]
+    direction LR
+    ActorData["ActorData　SO"]
+    GameConfig["GameConfig　SO"]
+    Snap["只读快照"]
+  end
+
+  subgraph L2["② Logic 逻辑层"]
+    direction LR
+    GameRoot["GameRoot<br/>FrameDriver"]
+    Services["Services<br/>Pause/Save/Rng"]
+    Actors["Actors<br/>ActorPhysics"]
+    States["States<br/>StateMachine"]
+  end
+
+  subgraph L3["③ Presentation 表现层"]
+    direction LR
+    Input["InputProvider<br/>InputBuffer"]
+    UI["BasePanel<br/>UIManager"]
+    Camera["CameraRig<br/>CameraShake"]
+  end
+
+  Bus(["EventBus&lt;T&gt;　T : struct<br/>唯一跨层通道"])
+  Violate["越界<br/>表现层直接调逻辑层"]
+  Note1["两级程序集<br/>Jam.Config 独立，白名单只写 CoreModule<br/>其余全落默认程序集 Assembly-CSharp<br/>代价：默认程序集只能引 Jam.Config 这一个 asmdef"]
+
+  ActorData --> GameRoot
+  GameConfig --> Services
+  Snap --> Actors
+
+  Input -->|"意图 RequestXxx"| Bus
+  Bus -->|"意图"| GameRoot
+  UI -->|"意图"| Bus
+  Bus -->|"意图"| States
+  States -->|"事实 XxxChanged"| Bus
+  Bus -->|"事实"| UI
+  Actors -->|"事实"| Bus
+  Bus -->|"事实"| Camera
+
+  Camera -.->|"违规"| Violate
+  Note1 -.->|"说明"| Bus
+
+  classDef data fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+  classDef logic fill:#e0f2fe,stroke:#0369a1,color:#082f49
+  classDef pres fill:#dcfce7,stroke:#16a34a,color:#052e16
+  classDef core fill:#fef9c3,stroke:#ca8a04,color:#422006
+  classDef warn fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef note fill:#f8fafc,stroke:#94a3b8,color:#334155,stroke-dasharray:4 3
+
+  class ActorData,GameConfig,Snap data
+  class GameRoot,Services,Actors,States logic
+  class Input,UI,Camera pres
+  class Bus core
+  class Violate warn
+  class Note1 note
+
+  %% 越界边是第 12 条（含说明边），单独标红；改动连线顺序时必须同步这个下标
+  linkStyle 11 stroke:#dc2626,stroke-width:2px

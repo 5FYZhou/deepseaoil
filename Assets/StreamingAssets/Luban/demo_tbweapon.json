@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "name": "木剑",
+    "pow": 10,
+    "quality": 0,
+    "durability": 1,
+    "icon_item": 1,
+    "rarity": "普通",
+    "icon": "Settings/Renderer2D.asset",
+    "atk_speed": 0.8
+  },
+  {
+    "id": 2,
+    "name": "铁剑",
+    "pow": 25,
+    "quality": 1,
+    "durability": 50,
+    "icon_item": 2,
+    "rarity": "精良",
+    "icon": "Settings/Renderer2D.asset",
+    "atk_speed": 1.2
+  },
+  {
+    "id": 3,
+    "name": "钻石剑",
+    "pow": 45,
+    "quality": 2,
+    "durability": 100,
+    "icon_item": 3,
+    "rarity": "史诗",
+    "icon": "Settings/Renderer2D.asset",
+    "atk_speed": 2
+  }
+]

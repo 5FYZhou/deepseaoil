@@ -1,0 +1,67 @@
+%% 图6｜开发流程建议｜回答：先做哪件、哪件卡住会拖累谁？
+%% 读法：箭头 = 硬依赖（前置不做完就做不下去）；节点里的「可砍」= 时间不足时按序砍。
+%% 维护：分组与工时改动时，同步改本图与主文档「图 6」代码块。
+flowchart TD
+  Bus(["EventBus&lt;T&gt; + Singleton<br/>零依赖　S1 之前"])
+
+  subgraph S1["S1 通用件　5~7h"]
+    direction TB
+    S1In["GameRoot + FrameDriver<br/>唯一 Update 入口"]
+    S1a["PoolManager"]
+    S1b["InputProvider + InputBuffer<br/>唯一采样点"]
+    S1c["BasePanel + UIManager"]
+    S1d["DebugOverlay + SceneService 骨架"]
+    S1In --> S1a
+    S1In --> S1b
+    S1In --> S1c
+    S1In --> S1d
+  end
+
+  subgraph S2["S2 服务件　4~5h"]
+    direction TB
+    S2In["PauseService　unscaled 时钟"]
+    S2a["Rng　确定性随机　可砍"]
+    S2b["AudioManager　去重修正"]
+    S2c["SceneService<br/>切场景三项复位"]
+    S2In --> S2a
+    S2In --> S2b
+    S2In --> S2c
+  end
+
+  subgraph S3["S3 高频件　7~9h"]
+    direction TB
+    S3In["StateMachine + BaseState"]
+    S3a["AnimationEvent 链　可砍"]
+    S3b["Actor 三层 + ActorPhysics"]
+    S3c["IForceReceiver + Resolver"]
+    S3In --> S3a
+    S3In --> S3b
+    S3In --> S3c
+
+    S3x["RayChecker + CircleChecker"]
+    S3y["Cinemachine + CameraShake"]
+    S3z["物理校验三件　可砍"]
+  end
+
+  Gate["验收门：占位方块跑通<br/>待机 → 移动 → 跳跃 → 受击打断"]
+
+  Bus --> S1In
+  S1d -->|"切场景契约"| S2c
+  S1c -->|"面板基类"| S3In
+  S3a -->|"动画帧驱动"| S3b
+  S3b --> S3z
+  S3b --> Gate
+  S3c --> Gate
+  S3z --> Gate
+
+  classDef base fill:#fef9c3,stroke:#ca8a04,color:#422006
+  classDef s1 fill:#e0f2fe,stroke:#0369a1,color:#082f49
+  classDef s2 fill:#ffedd5,stroke:#ea580c,color:#431407
+  classDef s3 fill:#dcfce7,stroke:#16a34a,color:#052e16
+  classDef gate fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+
+  class Bus base
+  class S1In,S1a,S1b,S1c,S1d s1
+  class S2In,S2a,S2b,S2c s2
+  class S3In,S3a,S3b,S3c,S3x,S3y,S3z s3
+  class Gate gate
