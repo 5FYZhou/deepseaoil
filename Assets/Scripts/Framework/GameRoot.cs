@@ -1,14 +1,14 @@
-﻿using DeepSeaOil.Logic;
+﻿using DeepseaOil.Logic;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using DeepSeaOil.Logic.Player;
-using DeepSeaOil.Logic.Events;
-using DeepSeaOil.Logic.Service;
-using DeepSeaOil.Presentation.UI;
+using DeepseaOil.Logic.Player;
+using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Service;
+using DeepseaOil.Presentation.UI;
+using DeepseaOil.Config;
 
-
-namespace DeepSeaOil.Presentation
+namespace DeepseaOil.Presentation
 {
     public class GameRoot : MonoBehaviour
     {
@@ -32,6 +32,7 @@ namespace DeepSeaOil.Presentation
             services.Add(pauseService);
             services.Add(sceneService);
             services.Add(saveService);
+
         }
 
         private void Update()

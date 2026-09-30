@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace DeepSeaOil.Presentation
+namespace DeepseaOil.Presentation
 {
     /// <summary>
     /// EventBus 可视调试面板：在屏幕上显示最近收到的调试事件。
@@ -42,13 +42,13 @@ namespace DeepSeaOil.Presentation
         private void Start()
         {
             // 订阅演示事件：仅证明"表现层可订阅逻辑层事件"这一条单向依赖成立。
-            DeepSeaOil.Logic.Events.EventBus<DebugEvent>.Subscribe(OnDebugEvent);
+            DeepseaOil.Logic.Events.EventBus<DebugEvent>.Subscribe(OnDebugEvent);
         }
 
         private void OnDestroy()
         {
             // 必须退订：静态事件总线不会因物体销毁而自动解除引用。
-            DeepSeaOil.Logic.Events.EventBus<DebugEvent>.Unsubscribe(OnDebugEvent);
+            DeepseaOil.Logic.Events.EventBus<DebugEvent>.Unsubscribe(OnDebugEvent);
         }
 
         private void OnDebugEvent(DebugEvent evt)

@@ -1,5 +1,5 @@
 ﻿
-namespace DeepSeaOil.Logic.Service
+namespace DeepseaOil.Logic.Service
 {
     public interface IGameTime
     {

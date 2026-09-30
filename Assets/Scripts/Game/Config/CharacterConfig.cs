@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
-namespace DeepSeaOil.Config
+namespace DeepseaOil.Config
 {
     public class CharacterConfig : BaseConfig
     {

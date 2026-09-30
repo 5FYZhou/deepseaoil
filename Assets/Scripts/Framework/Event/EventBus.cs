@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepSeaOil.Logic.Events
+namespace DeepseaOil.Logic.Events
 {
     /// <summary>
     /// 单个事件类型 <typeparamref name="T"/> 的订阅通道。

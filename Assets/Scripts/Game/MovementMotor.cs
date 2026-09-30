@@ -1,7 +1,7 @@
-﻿using DeepSeaOil.Logic.Movement;
+﻿using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
-namespace DeepSeaOil.Presentation
+namespace DeepseaOil.Presentation
 {
     /// <summary>
     /// 移动执行器：把逻辑层算出的速度写进物理体，并用射线提供地面与贴墙检测。

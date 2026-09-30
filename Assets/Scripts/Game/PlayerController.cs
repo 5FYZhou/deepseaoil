@@ -1,10 +1,11 @@
-﻿using DeepSeaOil.Config;
-using DeepSeaOil.Logic;
-using DeepSeaOil.Logic.Input;
-using DeepSeaOil.Logic.Player;
+﻿using DeepseaOil.Config;
+using DeepseaOil.Logic;
+using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Input;
+using DeepseaOil.Logic.Player;
 using UnityEngine;
 
-namespace DeepSeaOil.Presentation
+namespace DeepseaOil.Presentation
 {
     /// <summary>
     /// 玩家组合根：组装执行器、配置与输入缓冲，并每个物理帧驱动一次 <see cref="PlayerLogic"/>。
@@ -30,6 +31,30 @@ namespace DeepSeaOil.Presentation
 
         /// <summary>引擎回读速度，与逻辑层的"提交后预期"对照；它滞后一个物理步。</summary>
         public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.Velocity;
+
+        private void OnEnable()
+        {
+            EventBus<GamePaused>.Subscribe(OnGamePaused);
+            EventBus<GameResumed>.Subscribe(OnGameResumed);
+        }
+
+        private void OnDisable()
+        {
+            EventBus<GamePaused>.Unsubscribe(OnGamePaused);
+            EventBus<GameResumed>.Unsubscribe(OnGameResumed);
+        }
+
+        private void OnGamePaused(GamePaused evt)
+        {
+            inputProvider.Clear(); 
+            inputProvider.SetInputEnabled(false);
+            _buffer.Clear();
+        }
+
+        private void OnGameResumed(GameResumed evt)
+        {
+            inputProvider.SetInputEnabled(true);
+        }
 
         private void Awake()
         {
