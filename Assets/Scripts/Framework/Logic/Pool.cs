@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Pool
 {
-    public class Pool<T> where T : class
+    public abstract class Pool<T>
     {
         private readonly Stack<T> _pool = new();
 
@@ -62,6 +62,27 @@ namespace DeepseaOil.Logic.Pool
         public void Clear()
         {
             _pool.Clear();
+        }
+
+    }
+
+    public class PoolInClass<T> : Pool<T> where T : class
+    {
+        public PoolInClass(
+            Func<T> factory,
+            Action<T> onGet = null,
+            Action<T> onRelease = null) : base(factory, onGet, onRelease) 
+        {
+        }
+    }
+
+    public class PoolInMono<T> : Pool<T> where T : MonoBehaviour
+    {
+        public PoolInMono(
+            Func<T> factory,
+            Action<T> onGet = null,
+            Action<T> onRelease = null) : base(factory, onGet, onRelease)
+        {
         }
     }
 }
