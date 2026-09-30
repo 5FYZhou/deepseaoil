@@ -33,7 +33,8 @@ Assets/Scripts/Game/
 └── TablesMeta.cs                手写表清单（非生成物，扩展 cfg.Tables 的元信息）
 ```
 
-**共 14 个文件**。依赖顺序（也是建议的录入顺序）：`AsyncHandle` → `CacheEntry` → `CacheStore` → `RefCounter` → `AssetRegistry` → `LoadScheduler` → `LifecycleMgr` → `FailureHandler` → `AssetModule` → `ConfigModule` → `TablesMeta` → `DataSnapshot` → `DataMetrics`。
+**共 14 个文件**（`Data/` 下 14 个）＋ `Assets/Scripts/Game/TablesMeta.cs` 1 个，**合计 15 个 `.cs`**。
+依赖顺序（也是建议的录入顺序）：`AsyncHandle` → `CacheEntry` → `CacheStore` → `RefCounter` → `AssetRegistry` → `LoadScheduler` → `LifecycleMgr` → `FailureHandler` → `AssetModule` → `ConfigModule` → `TablesMeta` → `DataSnapshot` → `DataMetrics`。
 
 **命名空间**：全部 `DeepseaOil.Data`（`TablesMeta` 为 `DeepseaOil.Config`）。
 **程序集**：全部落默认程序集 `Assembly-CSharp`（不需要新 asmdef，理由见蓝图 §8）。
@@ -1416,32 +1417,100 @@ namespace DeepseaOil.Data
 | 17 | `DataMetrics.CountTables` | 占位 `return 0` | `TablesMeta.Count` | F4 |
 | 18 | `DataMetrics` | `GetSnapshot` 先取 Asset 再取 Config | 先 Config（未 Init 也能报），Asset 未 Init 时提前返回 | 与「未 Init 也安全」的声明一致 |
 | 19 | 文件组织 | 按批次 1~6 切分（`核心代码_1~6.md`） | 按文件组织，单份文档 | 批次是交付节奏，不是代码结构 |
-| 20 | 目录 | `Assets/Scripts/Data/` | `Assets/Scripts/Framework/Data/` | `Assets/Scripts/Config/` 是生成物专用目录，且 `Scripts/Framework/` 已存在且为空 |
+| 20 | 目录 | `Assets/Scripts/Data/` | `Assets/Scripts/Framework/Data/` | `Assets/Scripts/Config/` 是生成物专用目录。**校正**：并轨 FY 后 `Scripts/Framework/` 已存在且**不是空目录**（35 个 `.cs`，见蓝图 §15.1），所以这条理由要改读作"不靠近生成物目录"——落在 `Framework/` 下仍然正确，只是当初的旁注过时了 |
 
 ---
 
 ## 4. 落地步骤与验收
 
-### 4.1 落地步骤（不依赖任何其他框架代码）
+### 4.1 落地步骤与实际结果
 
-| # | 步骤 | 验收 |
-| :-- | :-- | :-- |
-| 1 | 建目录 `Assets/Scripts/Framework/Data/{ConfigModule,AssetModule,DataMetrics}/` | Unity 里无编译错误 |
-| 2 | 按 §1 的依赖顺序录入 14 个文件 | `Assembly-CSharp` 编译通过，0 error |
-| 3 | 在 `TestConfig.unity` 里建一个空物体挂测试脚本，`Awake` 调 `ConfigModule.InitFromStreamingAssets()` | Console 打印 `[Config] initialized, tables loaded from: .../StreamingAssets/Luban` |
-| 4 | 测试脚本里打印 `ConfigModule.GetWeapon(1).Name` 与 `DataMetrics.GetSnapshot().TableCount` | 输出 `木剑` 与 `3` |
-| 5 | 造一个 `Assets/Resources/_probe/` 下的 Sprite，调 `AssetModule.LoadAsync<Sprite>` | `await` 拿到非 null；`DataMetrics` 的 `CacheMisses` +1 |
-| 6 | 再调一次同一个 Key | `CacheHits` +1，`QueuedCount` 保持 0 |
+| # | 步骤 | 验收标准 | 实际结果 |
+| :-- | :-- | :-- | :-- |
+| 1 | 建目录 `Assets/Scripts/Framework/Data/{ConfigModule,AssetModule,DataMetrics}/` ＋ 4 个目录 `.meta` | Unity 无编译错误 | ✅ 已建 |
+| 2 | 按 §1 依赖顺序录入 14 个文件，另加 `Assets/Scripts/Game/TablesMeta.cs`，各带 `.meta` | `Assembly-CSharp` 编译通过，0 error | ✅ 15 个 `.cs` ＋ 19 个 `.meta` 已落盘（GUID 全仓库唯一） |
+| 3 | 接进启动链：`GameRoot.Awake` 装 Data 层、`Update` 调 `AssetModule.Tick`、`OnDestroy` 调 `Dispose` | 编译通过 | ✅ 本次新增改动，见 §5.3 |
+| 4 | 接第 ④ 项复位：`SceneService.Load` 在 `LoadScene` 前调 `AssetModule.OnSceneSwitch()` | 编译通过 | ✅ 注意 `SceneService.Load` 目前**没有调用点** |
+| 5 | `ConfigLoader` 改为消费 `ConfigModule`，消除第二个 `cfg.Tables` | Console 打印武器 / 外键 / 表条数 / `DataMetrics` | ✅ 靠 `Awake` 先于 `Start` 保证 `IsReady` |
+| 6 | **外部 dotnet harness**：真实 Luban 运行库 ＋ 真实 `cfg` 生成代码 ＋ 15 个新文件（`UnityEngine` 最小替身，`LangVersion 9.0`） | `dotnet build` 0 error 0 warning；`dotnet run` 全绿 | ✅ **54 项断言全过，0 失败** |
+| 7 | 在 Unity 里跑 `Assets/Tests/Editor/Data层Tests.cs` 与 `Assets/Tests/EditMode/框架文档一致性Tests.cs` | 全绿 | ⏳ **未执行**——本次环境没有 Unity 编辑器。D5（EditMode 下 `Resources.LoadAsync` 回调）是唯一有实质不确定性的一条 |
 
-> 步骤 3~6 是**手工验收**，本文件不提供自动化测试（Data 层是运行期模块，写 PlayMode 测试的收益低于成本）。自动化测试只覆盖"文档一致性"（见蓝图 §12）。
+**第 6 步覆盖到的语义**（都在真实 JSON / 真实生成类上跑）：
+
+- 配置载入：`ConfigModule.IsReady`、`GetWeapon(1).Name == "木剑"`、`Pow == 10`、外键 `icon_item → Item` 已解析、
+  `GetFish(1002)` 非空、`GetAllWeapons().Count == 3`、`TablesMeta.Count == 3`、逃生舱 `Tables` 可访问、重复 `Init` 抛异常。
+- `AssetRegistry.ResolvePath` 七例：带前缀带扩展名 / 只带扩展名 / 无扩展名 / 前缀大小写变体 / 只写 `Resources/` /
+  反斜杠归一化 / 非 Resources 路径（后者的失败链见 §7）。
+- 命中路径：`LoadAsync<GameObject>("Assets/Resources/ui/Panel/BeginPanel.prefab")` → 传给 `Resources.LoadAsync` 的是
+  `ui/Panel/BeginPanel` → 句柄 resolve → `TryGet` 命中。
+- D1 重复入队保护：三次并发请求只产生 **1 次** `Resources.LoadAsync`，三个句柄拿到同一资源。
+- 失败路径：重试共 3 次（首次 + 2 次重试）后句柄以 `null` 完成，不抛异常；注册 fallback 后返回 fallback。
+- `AsyncHandle`：二次 `Complete` 被忽略且不抛；`Completed(null).IsDone == true`。
+- `RefCounter` / `LifecycleMgr`：`Retain`/`Release` 计数、归零设 `now + 60s` 冷却期、重复 `Release` 返回 false、
+  冷却期内不淘汰、到期后淘汰、超阈值淘汰最久未访问（LRU）、`isPreloaded` 永不淘汰。
+- `DataMetrics`：`ConfigReady`/`TableCount == 3`/`CompletedCount == 2`（D 段 3 个句柄因合并只算 1 次完成）/`FailedCount`；
+  `OnSceneSwitch` 不删条目；`Dispose` 后全清且可重复调用；未 Init 时 `Tick` 是 no-op。
+
+> ⚠️ **诚实标注**：第 6 步是"真实 Luban ＋ 真实生成代码 ＋ 最小 `UnityEngine` 替身"在 Unity **之外**编译并运行的。
+> 它证明了**编译**与**Data 层逻辑**；它**没有**证明 Unity 编辑器内的行为——`Resources.LoadAsync` 的真实回调时机、
+> `Time.realtimeSinceStartup` 的真实值、`Task` 续体是否真的回到主线程、`Resources.UnloadUnusedAssets` 的实际开销。
+> 这些必须靠第 7 步在 Unity 里补。
 
 ### 4.2 未完成项（不阻塞落地，已在设计文档登记）
 
 | 项 | 归属 | 状态 |
 | :-- | :-- | :-- |
-| `Resources.LoadAsync` 传 `typeof(UnityEngine.Object)` 的类型过滤 | `Preload` | 待实测（设计文档 §10.1-1） |
+| `Resources.LoadAsync` 传 `typeof(UnityEngine.Object)` 的类型过滤 | `Preload` | 待实测（设计文档 §10.1-1）；harness 只能证明路径转换，证明不了类型过滤 |
+| EditMode 下 `Resources.LoadAsync` 的完成回调是否触发 | `Data层Tests.D5` | 待实测；不触发则降级为 PlayMode 测试 |
 | 占位 Sprite 在 URP 下的构造方式 | 业务侧 `RegisterFallback` | 待实测（§10.1-4） |
 | `UnloadUnusedAssets` 的帧尖峰量级 | `LifecycleMgr` | 待 Profiler（§10.1-5） |
 | Android / WebGL 的 StreamingAssets 异步读取 | `TablesHolder` | 不支持，影响面见 §11 A2 |
 | 延时重试 | `LoadScheduler` | 未采纳（§10.2 O7） |
 | 取消未完成加载 | `LoadScheduler` | 未采纳（§7 D3） |
+| `ConfigModule` 的重置入口 | `ConfigModule` | 缺失（§10.2 O10）——测试只能靠 Domain Reload |
+
+---
+
+## 5. 并轨上游 FY 之后的落地记录
+
+### 5.1 实际写入的文件
+
+**代码（15 个 `.cs`，每个都带同名 `.meta`）**
+
+| 路径 | 说明 |
+| :-- | :-- |
+| `Assets/Scripts/Framework/Data/AssetModule/AsyncHandle.cs` | 句柄（`await` 支持） |
+| `Assets/Scripts/Framework/Data/AssetModule/CacheEntry.cs` | 缓存条目 |
+| `Assets/Scripts/Framework/Data/AssetModule/CacheStore.cs` | 缓存表 |
+| `Assets/Scripts/Framework/Data/AssetModule/RefCounter.cs` | 引用计数 + 冷却期设置 |
+| `Assets/Scripts/Framework/Data/AssetModule/AssetRegistry.cs` | **Key 唯一转换点** + 类型匹配 |
+| `Assets/Scripts/Framework/Data/AssetModule/LoadScheduler.cs` | 并发/队列/重试 |
+| `Assets/Scripts/Framework/Data/AssetModule/LifecycleMgr.cs` | 冷却期标记 + LRU + D2 回收 |
+| `Assets/Scripts/Framework/Data/AssetModule/FailureHandler.cs` | 降级注册 + 失败记录 |
+| `Assets/Scripts/Framework/Data/AssetModule/AssetModule.cs` | 对外入口（含 D1 合并） |
+| `Assets/Scripts/Framework/Data/ConfigModule/ConfigModule.cs` | 数值入口 + `ConfigLoadException` |
+| `Assets/Scripts/Framework/Data/ConfigModule/TablesHolder.cs` | 持有 `cfg.Tables` + JSON Loader |
+| `Assets/Scripts/Framework/Data/ConfigModule/StartupValidator.cs` | 启动抽样校验 |
+| `Assets/Scripts/Framework/Data/DataMetrics/DataSnapshot.cs` | 只读快照（struct） |
+| `Assets/Scripts/Framework/Data/DataMetrics/DataMetrics.cs` | 拉模型入口 |
+| `Assets/Scripts/Game/TablesMeta.cs` | 手写表清单（命名空间 `DeepseaOil.Config`） |
+
+**`.meta`（19 个）**：4 个目录（`Data/` 与其三个子目录）＋ 15 个脚本。全部 LF、无 BOM、`folderAsset`/`MonoImporter` 格式与仓库既有 `.meta` 逐字节同构；
+GUID 生成后与全仓库既有 168 个比对过唯一性。
+
+### 5.2 与本文档 §2 代码的偏差
+
+**零偏差**：§2 的 15 段代码逐字落地，没有任何"编译必须"的修改。
+`dotnet build` 在 `LangVersion 9.0`（与 Unity 的 `Assembly-CSharp.csproj` 一致）下报 **0 error 0 warning**。
+
+### 5.3 对上游逻辑层的最小接入改动（4 处）
+
+| 文件 | 改动 | 理由 |
+| :-- | :-- | :-- |
+| `Assets/Scripts/Framework/GameRoot.cs` | `using DeepseaOil.Data;`；新增 `Awake()` → `ConfigModule.InitFromStreamingAssets(); AssetModule.Init();`；`Update()` 在 services 循环之后加 `AssetModule.Tick(Time.deltaTime)`；新增 `OnDestroy()` → `AssetModule.Dispose()` | 兑现 §3.1「Config 先于 Asset」与契约表的 step ② / 退出清理。**放 `Awake` 不放 `Start`**：Unity 只保证"所有 `Awake` 先于任何 `Start`"，`ConfigLoader.Start()` 才能确定性地拿到已就绪的配置 |
+| `Assets/Scripts/Framework/Logic/Services/SceneService.cs` | 顶部 `using DeepseaOil.Data;`；`LoadScene` 之前插入第 ④ 步 `AssetModule.OnSceneSwitch();`，原"④ 换场景"顺移为 ⑤ | 兑现契约表「复位四项」。⚠️ 该方法目前无调用点 |
+| `Assets/Scripts/Game/ConfigLoader.cs` | `Start()` 改为**消费方**：`if (!ConfigModule.IsReady) ConfigModule.InitFromStreamingAssets();`，再经 `ConfigModule.GetWeapon`/`GetFish`/`Tables` 打印同样的日志，并补一行 `DataMetrics` 输出 | 消除第二个 `cfg.Tables`（原脚本自己 `new` 了一份，与 `ConfigModule` 各读一遍 JSON）；同时让它在 `TestConfig.unity`（没有 `GameRoot`）里也能独立跑通 |
+| `Assets/Scripts/Framework/Logic/IMovementMotor.cs` | 注释里的 `Dasuus.Presentation` → `DeepseaOil.Presentation` | 上游注释写错了命名空间（同问题的 `EventBusDebugPanel.cs:10` 未改，登记在蓝图 §16 D22） |
+
+**未改动**：`ResMgr` / `MonoMgr` / `UIMgr` / `BasePanel` / `SaveService` / `BeginPanel` / `PauseService` /
+`Singleton.cs` / `BaseManager.cs` / `ConfigController.cs` / 任何场景与预设体。上游现存缺陷只登记不修，清单见蓝图 §16。

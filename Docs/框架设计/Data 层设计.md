@@ -169,7 +169,7 @@ namespace DeepseaOil.Config
 | :-- | :-- |
 | 异步加载资源 | 不解析配置（Key 从调用方来） |
 | 引用计数管理 | 不决定"何时该释放"（冷却期 + LRU 自动决定） |
-| 冷却期缓存 | 不管理 GameObject 生命周期（那是 `PoolManager` 的事） |
+| 冷却期缓存 | 不管理 GameObject 生命周期（那是对象池的事；工程里有 `Pool<T>`，但当前零调用点） |
 | 并发控制 | 不做资源分组（Jam 期单资源为原子单位） |
 | LRU 淘汰 | 不感知场景（`SceneService` 通过 `OnSceneSwitch` 通知） |
 | 失败重试与降级 | 不弹窗、不阻塞（失败写日志 + 返回占位资源） |
@@ -295,18 +295,16 @@ public static class AssetModule
 ### 4.4 生命周期
 
 ```
-启动
-  └─ GameRoot.Awake
-       ├─ ConfigModule.InitFromStreamingAssets()   ① 同步，失败抛异常
-       ├─ AssetModule.Init()                        ② 建缓存表 / 调度器 / 生命周期
-       └─ 同序写入 tickables[]
+装配（GameRoot.Awake，阶段 1）
+  ├─ ConfigModule.InitFromStreamingAssets()   ① 同步，失败抛异常
+  └─ AssetModule.Init()                        ② 建缓存表 / 调度器 / 生命周期
 
-每帧（GameRoot.Update 顺序表 step ③）
+每帧（GameRoot.Update 顺序表第 ② 步）
   └─ AssetModule.Tick(dt)
        ├─ LoadScheduler.Tick(dt)   推进队列（受并发上限约束）
        └─ LifecycleMgr.Tick(dt)    冷却期标记 + LRU 淘汰（含 UnloadUnusedAssets）
 
-切场景（SceneService.PrepareForSceneSwitch）
+切场景（SceneService.Load 第 ④ 步）
   └─ AssetModule.OnSceneSwitch()
        ├─ 清空所有非预加载条目的冷却期（canEvict = true）
        ├─ 保留 isPreloaded = true 的条目
@@ -482,26 +480,33 @@ public static class AssetModule
 
 ---
 
-## 8. ADR：不吸收的旧模式
+## 8. ADR：不吸收的旧模式（`ResMgr` / `MonoMgr` / `BaseManager`）
 
-`ResMgr.cs` / `MonoMgr.cs`（来自旧工程，**不进本工程**）经对比后，以下模式明确不吸收：
+**前提修正（并轨 FY 之后）**：`ResMgr.cs` / `MonoMgr.cs` **就在本工程里，而且正在服务 UI 层**——
+`UIMgr` 用 `ResMgr.Instance.Load<GameObject>("ui/UICamera")` 造 UI 三件套（`UIMgr.cs:80/85/98`），
+`ResMgr` 又用 `MonoMgr.Instance.StartCoroutine` 跑协程（`ResMgr.cs:133/150/…`）。
+所以下面这张表不是"要不要从旧工程搬进来"，而是"**Data 层要不要复用它现有的实现**"——答案是不复用。
 
 | 模式 | 不吸收理由 |
 | :-- | :-- |
-| `MonoMgr` 全局 Update 分发 | 与"GameRoot 唯一 Update 入口"根本冲突，诱导绕过时序约束 |
-| `SingletonAutoMono<T>` 继承 | Data 层用 `static class` + 显式 Init |
+| `MonoMgr` 全局 Update 分发 | 与"只有组合根能开每帧入口"冲突，诱导绕过时序约束 |
+| `BaseManager<T>` 继承 | 反射私有构造 + 失败静默（见蓝图 §16 D20）；Data 层用 `static class` + 显式 Init |
 | 协程做异步加载 | 加载状态散在 `IEnumerator` 里不可观测；与 `AsyncHandle` 设计冲突 |
 | `UnityAction` 回调 API | 回调地狱；错误路径不清晰 |
-| `BaseManager<T>` 继承 | Data 层不用继承式单例 |
 | 同步加载 API | 已定只提供异步 |
 | `UnloadAsset` 的 `isSub` / `isDel` 双开关 | 把"何时释放"的决策权交给调用方，违反"Data 层自动管理生命周期"的定位 |
+| Key = `path + "_" + typeof(T).Name` | 把类型编进 Key，同路径不同类型无法共享条目；且 `ResMgr.LoadAsync` 会在末尾**无条件重复启一次协程**（`ResMgr.cs:150`，见蓝图 §16 D5） |
+
+**与 UI 层的边界**：`ResMgr` 继续服务 `UIMgr`，`AssetModule` 不接管它。两者共用 `Assets/Resources/` 这个根，
+但**缓存表与引用计数各自独立**——同一份资源经由两条路径加载会出现两份计数。
+UI 何时切到 `AssetModule` 是独立决策（见蓝图 §15）。
 
 **经对比确认正确的 5 点（记录为设计依据）**：
 
 | # | 设计点 | 旧代码做法 | 当前设计 | 结论 |
 | :-- | :-- | :-- | :-- | :-- |
 | V1 | 引用归零后的卸载时机 | `isDel` 由外部传入 | 冷却期自动管理 | 当前更好——调用方不需要思考"什么时候该删" |
-| V2 | 每帧驱动入口 | `MonoMgr.AddUpdateListener`，任何类都能挂 | GameRoot 顺序表统一驱动 | 当前更好——时序可推理 |
+| V2 | 每帧驱动入口 | `MonoMgr.AddUpdateListener`，任何类都能挂 | 组合根统一驱动（`GameRoot` 的 `List<IService>` ＋ `PlayerController.FixedUpdate`） | 当前更好——时序可推理。但 `MonoMgr` 仍在为 UI 层服务，未删 |
 | V3 | 异步加载返回形态 | `UnityAction<T>` 回调 | `AsyncHandle<T>` + await | 当前更好——无回调地狱，异常路径清晰 |
 | V4 | Key 的构成 | `path + "_" + typeof(T).Name` | 纯字符串 Key，类型由泛型参数指定 | 当前更好——同路径不同 T 可共享条目 |
 | V5 | 同步 / 异步混合 | `ResMgr.Load` 发现加载中则停协程改同步 | 只提供异步 | 当前更好——避免迁就同步 API 的补丁 |
@@ -531,13 +536,34 @@ public static class AssetModule
 
 **为什么保留表里的完整路径而不是直接写 Resources 相对路径**：`#path=unity` 让**导表阶段**就能发现"图标文件不存在"，错误在策划改表时暴露，而不是运行时黑屏。运行时多做一次字符串处理是划算的。
 
+### 9.2.1 本契约的盲区（已实测）
+
+`#path=unity` 只校验「文件在 `Assets/` 下**存在**」，**不校验「在 `Assets/Resources/` 下」**——
+而 `Resources.LoadAsync` 只能加载 `Assets/Resources/` 里的东西。两者不一致时：**导表期通过，运行时失败**。
+
+现状正好就是不一致的：`demo_tbweapon.json` / `demo_tbfish.json` 的 `icon` 全部是 `"Settings/Renderer2D.asset"`，
+文件确实存在（`Assets/Settings/Renderer2D.asset`），但既不在 `Resources/` 下，也不是 Sprite。
+
+外部 harness 实测链：
+
+```
+ResolvePath("Settings/Renderer2D.asset")  →  "Settings/Renderer2D"
+Resources.LoadAsync("Settings/Renderer2D")  →  null（不是 Resources 资源）
+→ 重试 2 次 → 降级为 fallback / null
+```
+
+**结论**：表里的资源路径必须同时满足"存在"与"在 `Assets/Resources/` 下"两个条件，
+第二个条件目前**没有任何自动校验**。补法二选一（都不在本次范围，登记在蓝图 §16 D4）：
+① 导表期加一条 `Assets/Resources/` 前缀校验；② 把表值改成 Resources 形态。
+
 ### 9.3 配套要求
 
 | # | 要求 |
 | :-- | :-- |
-| 1 | 可加载资源放 `Assets/Resources/` 下（**当前仓库还没有这个目录**，本次不预建，等有真实资源时由业务建立） |
+| 1 | 可加载资源放 `Assets/Resources/` 下。**该目录现已存在**（`ui/{Canvas,EventSystem,UICamera}.prefab`、`ui/Panel/BeginPanel.prefab`，由上游 FY 带入）——旧版本这里写的"仓库还没有这个目录"已过时 |
 | 2 | `Assets/Scripts/Config/` 与 `Assets/StreamingAssets/Luban/` 是**生成物专用目录**，禁止放手写文件 |
-| 3 | 切换 Addressables 时只改 `AssetRegistry.ResolvePath` 一个方法 |
+| 3 | `Assets/Scripts/Framework/Input/InputSys.cs` 是**第三处生成物**（由 `.inputactions` 生成），同样禁止手写 |
+| 4 | 切换 Addressables 时只改 `AssetRegistry.ResolvePath` 一个方法 |
 
 ---
 
@@ -566,6 +592,10 @@ public static class AssetModule
 | O7 | 延时重试（0.5s） | **未采纳** | 需要时改 `LoadScheduler.HandleFailure` |
 | O8 | `AssetKey` 强类型 | 未引入 | 当前用 string，未来可评估 |
 | O9 | 平台分支（Android/WebGL 异步启动） | 未支持 | 见 §11 A2 |
+| O10 | `ConfigModule` 的重置入口 | **缺失** | `Init` 重复调用会抛，而它没有 `Shutdown`／`Reset`。测试只能靠 Domain Reload；"回主菜单重开"也需要它 |
+| O11 | `LoadScheduler.Tick(float dt)` 的 `dt` | 未使用 | 将来做超时或延时重试才用得上 |
+| O12 | `LifecycleMgr._cooldownSeconds` | 赋值未读 | 冷却期实际读的是 `CacheEntry.cooldownUntil`；该字段是冗余的 |
+| O13 | `Preload` 的类型过滤语义 | 待澄清 | 用 `typeof(UnityEngine.Object)` 加载，`TryGet<Sprite>` 是否命中取决于条目里的真实类型，不取决于请求类型 |
 
 ---
 
@@ -578,7 +608,33 @@ public static class AssetModule
 | **F3** | `AssetRegistry.ResolvePath(key) => key`，注释写 Key = `Assets/Resources/` 相对路径不带扩展名 | 表里填的是相对 `Assets/` 带扩展名的路径（`Assets/StreamingAssets/Luban/demo_tbweapon.json` 实测 `"Settings/Renderer2D.asset"`） | §9 定义双约定 + 转换规则；`ResolvePath` 成为唯一转换点 |
 | **F4** | `DataMetrics.TableCount = ConfigModule.Tables.TableCount`；占位 `return 0` | `cfg.Tables` 无 `TableCount` 属性，生成物不可手改（`Assets/Scripts/Config/demo/TbWeapon.cs`） | 改用手写 `TablesMeta.Names` 清单（§3.6） |
 | **A1** | 假设命名空间前缀可改为 `DeepseaOil.*` | 工程既有手写代码用 `DeepseaOil.Config` / `DeepseaOil.EditorTools` | 沿用；若团队坚持 `Jam.*`，全局替换即可，结构不变 |
-| **A2** | 假设 Jam 期按桌面端（Windows/Mac）同步启动 | `ConfigModule.Init` 在 `Awake` 同步读 `StreamingAssets`，Android/WebGL 读不到 | 写进蓝图 §8 与 §10.2 O9：移动端要异步化，会牵动整条启动链 |
+| **A2** | 假设 Jam 期按桌面端（Windows/Mac）同步启动 | `ConfigModule.Init` 在 `Awake` 同步读 `StreamingAssets`，Android/WebGL 读不到 | 写进蓝图 §10.3 与契约表「平台」一行：移动端要异步化，会牵动整条启动链 |
 | **A3** | 假设蓝图保持"契约 + 结构"密度，完整代码另存 | — | 见 `Data 层实现.md` |
 
-**冲突裁定记录**：C1 重试机制（立即重试）见 §4.3-2.4；C2 `SemaphoreSlim` → 计数器见 §4.3-2.4；C3 `RunContinuationsAsynchronously` 去掉见 §4.6；C4 `Complete` 改 `TrySetResult` 见 §4.6；C5 pending 列表在切场景时的语义见 §7-D1；C6 复位三项 → 四项见蓝图 §4。
+### 11.1 并轨上游 FY 之后的补充校正
+
+上面 F1~F4 是针对**草案**的校正。并轨 FY（合并后 `932bac5`）之后，三份文档里又有一批"当时写得像事实、其实不是"的表述，
+逐条列在下面。**缺陷级**的登记在蓝图 §16，这里只列**文档表述**层面的校正。
+
+| # | 原表述（位置） | 仓库事实（出处） | 本文件的处理 |
+| :-- | :-- | :-- | :-- |
+| **F5** | 蓝图把 `GameRoot` + `FrameDriver` 画在**逻辑层** | `GameRoot` 的命名空间是 `DeepseaOil.Presentation`（`Framework/GameRoot.cs`）；且没有 `FrameDriver` 这个类型 | 蓝图 §1 改为"按命名空间判层"，`GameRoot` 归 Presentation 并标为组合根 |
+| **F6** | 蓝图 §10.1「`Framework/` …（当前为空）」，实现文档 §3 写「已存在且为空」 | `Assets/Scripts/Framework/` 有 **35 个 `.cs`**（`Event/`、`Logic/`、`Singleton/`、`Context/`、`Input/`、`Character/`…） | 蓝图 §10.1 目录树按事实重写 |
+| **F7** | 本文档 §9.3「当前仓库还没有 `Assets/Resources/` 目录」 | 该目录已存在：`ui/{Canvas,EventSystem,UICamera}.prefab`、`ui/Panel/BeginPanel.prefab` | §9.3 要求 1 改事实措辞 |
+| **F8** | 本文档 §8「`ResMgr.cs` / `MonoMgr.cs` 来自旧工程，**不进本工程**」 | 两个文件在本工程且在服务 UI 层（`UIMgr.cs:80/85/98` → `ResMgr`；`ResMgr.cs:133/150` → `MonoMgr`） | §8 前提改写为"不复用其实现"，并明确与 UI 层的边界 |
+| **F9** | 蓝图 §9 图 9 用 `sortingOrder 100/200/300/400/500`，契约表写"`sortingOrder` 是 `UIManager` 的 const" | 真实层级是 `E_UILayer { Bottom, Middle, Top, System }`（`UIMgr.cs:14-32`），靠 `Canvas.prefab` 四子节点的**兄弟顺序**分层；全类**没有** `sortingOrder`；管理器名是 `UIMgr` | 蓝图 §9 与图源 `07-panel-order.mmd` 整个重画；契约表改口 |
+| **F10** | 蓝图 §3/§3.1 用 `tickables[]` 六步、`PoolManager.Init()`、`UIManager.Init()`、`DebugOverlay.Init()`、`Actors.Tick` | `GameRoot` 实际是 `List<IService>`（`GameRoot.cs:15`），`Start()` 里 `Init` 三个 Service；`Pool<T>` 是**实例级**泛型池、`UIMgr` 无 `Init()`、没有 `DebugOverlay` | 蓝图 §3.1 改为"两阶段装配"，§3.2 调用链按真实代码重写 |
+| **F11** | 蓝图隐含"单一每帧入口 + 单一 Tick 抽象" | 两套并存：`IService.Tick(float)`（真被调用）与 `ITickable`/`IFixedTickable`（带默认空实现；`ITickable` 零调用，`IFixedTickable` 从不经接口分发） | 蓝图 §15.2 单列一节说明 |
+| **F12** | 蓝图 §5 图 3：`SwitchState<T>` 只标记、下帧 `PerformTransition`、同帧上限 3、`CheckGlobalTransitions`、`OnUpdate` | `StateMachine<TStateTag>.ChangeState` **立即** `Exit → Enter` 并返回 `bool`；转移由 `MoveGroup.CheckTransitions` 两段仲裁（纯查询 → 消费余额）；`IState.Tick` 不叫 `OnUpdate`；没有上限 3，也没有全局转移 | 蓝图 §5 与图源 `03-state-machine.mmd` 整个重画 |
+| **F13** | 蓝图 §3 把 `InputProvider.Update` + `InputBuffer.Push` 放进 `GameRoot.Update` 列表，硬序写"必须先于 `Actors.Tick`" | `Push` 发生在 `PlayerController.FixedUpdate` 内（`PlayerController.cs:83`）；真实硬序是**同一物理帧内** `Push` 先于 `PlayerLogic.FixedTick`（`:88`） | 蓝图 §3 图源拆成 Update / FixedUpdate 两条通道 |
+| **F14** | 蓝图按**目录**判层（`Framework/Logic/`＝逻辑层） | 目录与命名空间不是一一对应：`Framework/Character/Player/` 里也有 `MovementDebugPanel`（Presentation）；`SceneService` 在**全局命名空间** | 蓝图 §15.1 给出命名空间归属表，并写明"判层看命名空间" |
+| **F15** | 蓝图 §1.1「Presentation → Logic ❌ 唯一例外：通过 EventBus」 | `PlayerController`（表现层）直连 `PlayerLogic.FixedTick`；`MovementMotor`/`GameTime` 实现逻辑层端口后注入 | §1.1 增加"组合根直连"与"端口反转"两条允许项（ADR 层面见蓝图 §15.5） |
+| **F16** | 蓝图 §1 只提一条 `Singleton<T>`，并称 Services 用它 | 两条基类并存：`Singleton<T> : MonoBehaviour`（`ResMgr`/`MonoMgr`）与 `BaseManager<T>`（反射非公开私有构造，`UIMgr`/`ConfigController`）；三个 Service **不是**单例 | 蓝图 §1 改为两条基类的事实表 |
+| **F17** | 各处引用 `Docs/M1微规划.md`、`Docs/架构约束.md`、`Docs/速度设计.md` | 这三份文件**从未在任何提交里存在过**（`git log --all` 无记录）；逻辑层的几条关键约束只在代码注释里 | 蓝图 §15.7 登记引用清单，约束的事实版本收进 §15.2/§15.4 |
+| **F18** | `IMovementMotor.cs:8` 注释写"实现位于 `Dasuus.Presentation`" | 实际命名空间是 `DeepseaOil.Presentation`（`MovementMotor.cs:4/15`） | 本次直接修了 `IMovementMotor.cs`；`EventBusDebugPanel.cs:10` 同样问题登记在蓝图 §16 D22 |
+| **F19** | 蓝图铁律 3 只列两个生成物目录 | `Assets/Scripts/Framework/Input/InputSys.cs`（1957 行）由 `InputSys.inputactions` 生成，文件头写明手改会被丢弃 | 铁律 3 扩为三处；§9.3 要求 3 同步 |
+| **F20** | 蓝图契约表「配置源」隐含"配置只有 Luban 一条路" | 还有一条遗留 CSV 路径 `ConfigController`/`ConfigData`（`Framework/ConfigController.cs`，全局命名空间 + 反射单例 + `Resources.Load<TextAsset>("config/…")`），**全仓库零调用**，且 `Assets/Resources/config/` 不存在 → 一旦调用必 NRE | 蓝图契约表加注；缺陷登记为 §16 D11 |
+| **F21** | （未写过）测试怎么放 | asmdef 程序集**无法**引用预定义程序集 `Assembly-CSharp`；`DeepseaOil.EditorTools.Tests` 只引 `DeepseaOil.EditorTools`，所以 `Assets/Tests/EditMode/` 下的测试**看不到 `DeepseaOil.Data`** | 蓝图 §10.2 增加"测试可达性"一节；Data 层测试放 `Assets/Tests/Editor/`（落 `Assembly-CSharp-Editor`） |
+
+**冲突裁定记录**：C1 重试机制（立即重试）见 §4.3-2.4；C2 `SemaphoreSlim` → 计数器见 §4.3-2.4；C3 `RunContinuationsAsynchronously` 去掉见 §4.6；C4 `Complete` 改 `TrySetResult` 见 §4.6；C5 pending 列表在切场景时的语义见 §7-D1；C6 复位三项 → 四项见蓝图 §7。
+C7：蓝图"每帧只由 `GameRoot` 统一顺序表驱动"→ 改为"两个组合根入口"（`GameRoot.Update` + `PlayerController.FixedUpdate`），理由见 F11/F13。
