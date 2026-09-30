@@ -1520,7 +1520,7 @@ GUID 生成后与全仓库既有 168 个比对过唯一性。
 **零偏差**：§2 的 15 段代码逐字落地，没有任何"编译必须"的修改。
 `dotnet build` 在 `LangVersion 9.0`（与 Unity 的 `Assembly-CSharp.csproj` 一致）下报 **0 error 0 warning**。
 
-### 5.3 对上游逻辑层的最小接入改动（4 处）
+### 5.3 对上游代码的改动（5 处）
 
 | 文件 | 改动 | 理由 |
 | :-- | :-- | :-- |
@@ -1528,9 +1528,10 @@ GUID 生成后与全仓库既有 168 个比对过唯一性。
 | `Assets/Scripts/Framework/Logic/Services/SceneService.cs` | 顶部 `using DeepseaOil.Data;`；`LoadScene` 之前插入第 ④ 步 `AssetModule.OnSceneSwitch();`，原"④ 换场景"顺移为 ⑤ | 兑现契约表「复位四项」。⚠️ 该方法目前无调用点 |
 | `Assets/Scripts/Game/ConfigLoader.cs` | `Start()` 改为**消费方**：`if (!ConfigModule.IsReady) ConfigModule.InitFromStreamingAssets();`，再经 `ConfigModule.GetWeapon`/`GetFish`/`Tables` 打印同样的日志，并补一行 `DataMetrics` 输出 | 消除第二个 `cfg.Tables`（原脚本自己 `new` 了一份，与 `ConfigModule` 各读一遍 JSON）；同时让它在 `TestConfig.unity`（没有 `GameRoot`）里也能独立跑通 |
 | `Assets/Scripts/Framework/Logic/IMovementMotor.cs` | 注释里的 `Dasuus.Presentation` → `DeepseaOil.Presentation` | 上游注释写错了命名空间（同问题的 `EventBusDebugPanel.cs:10` 未改，登记在蓝图 §16 D22） |
+| `Assets/Scripts/Game/UI/BasePanel.cs` | `FindComponentsOnChildren` 在 `TMP_Text` 之后加一个 `else if (component is Graphic)` **静默分支** | 蓝图 §16 **D26**：面板上每个 `Image` 都会落到 `else` 打警告，一次实例化 `BeginPanel` 刷 11 条。**只改日志、不改 `components` 字典的注册行为**，所以是零语义变更。保留告警的判据：`Toggle`/`Slider`/`Dropdown`/`InputField`/`ScrollRect` 都不是 `Graphic`，仍会告警 |
 
-**未改动**：`ResMgr` / `MonoMgr` / `UIMgr` / `BasePanel` / `SaveService` / `BeginPanel` / `PauseService` /
-`Singleton.cs` / `BaseManager.cs` / `ConfigController.cs` / 任何场景与预设体。上游现存缺陷只登记不修，清单见蓝图 §16。
+**未改动**：`ResMgr` / `MonoMgr` / `UIMgr` / `SaveService` / `BeginPanel` / `PauseService` /
+`Singleton.cs` / `BaseManager.cs` / `ConfigController.cs` / 任何场景与预设体。上游其余现存缺陷只登记不修，清单见蓝图 §16。
 
 ### 5.4 测试侧的两次修补（都是**测试**的问题，不是产品的）
 
@@ -1542,3 +1543,17 @@ GUID 生成后与全仓库既有 168 个比对过唯一性。
 
 > 这三条都记在蓝图 §16（D27 是第 1 条）。写在这里是因为它们体现同一件事：
 > **测试失败先分清是"产品错了"还是"测试写错了"**——第 1 条很容易被误读成"Data 层不该打 Error 日志"。
+
+**⚠️ 跑完 EditMode 测试后 Console 会留下 1 条 Error + 1 条 Warning，这是正常的**：
+
+```
+[Error]   [Asset] load failed: Assets/Resources/ui/__NoSuchAsset__.prefab | asset not found: ui/__NoSuchAsset__
+[Warning] [Asset] Release unknown or over-released key: __never_loaded__
+```
+
+它们是 `A5` / `A6` **故意**走失败路径与重复释放路径的产物，**不是回归**。
+`LogAssert.Expect` 的作用只是让 UTF 不再把这条日志判成"未处理的日志"从而不判测试失败，
+**它不会把日志从 Console 里抹掉**——这是 UTF 的设计，不是配置问题。
+
+**所以判断测试是否通过，看 Test Runner 窗口的结果，不要看 Console 有没有红字。**
+反过来，如果你想让 Console 干净，唯一诚实的办法是砍掉 A5/A6 这两条用例——但那样就没人守着失败路径了，不划算。
