@@ -147,7 +147,7 @@ Luban 的 `ref` / `path` / `range` 校验在**导表阶段**已由 `--strict` �
 
 ```csharp
 // Assets/Scripts/Game/TablesMeta.cs（手写，非生成物）
-namespace DeepseaOil.Config
+namespace DeepseaOil.Data
 {
     public static class TablesMeta
     {
@@ -180,7 +180,7 @@ namespace DeepseaOil.Config
 public static class AssetModule
 {
     public static void Init();                       // GameRoot.Awake
-    public static void Tick(float dt);               // 顺序表 step ③
+    public static void Tick(float dt);               // 顺序表 step ②
     public static void OnSceneSwitch();              // SceneService 切场景前
     public static void Dispose();                    // GameRoot.OnDestroy
 
@@ -482,10 +482,14 @@ public static class AssetModule
 
 ## 8. ADR：不吸收的旧模式（`ResMgr` / `MonoMgr` / `BaseManager`）
 
-**前提修正（并轨 FY 之后）**：`ResMgr.cs` / `MonoMgr.cs` **就在本工程里，而且正在服务 UI 层**——
-`UIMgr` 用 `ResMgr.Instance.Load<GameObject>("ui/UICamera")` 造 UI 三件套（`UIMgr.cs:80/85/98`），
-`ResMgr` 又用 `MonoMgr.Instance.StartCoroutine` 跑协程（`ResMgr.cs:133/150/…`）。
-所以下面这张表不是"要不要从旧工程搬进来"，而是"**Data 层要不要复用它现有的实现**"——答案是不复用。
+**前提修正（并轨 FY 之后）**：`ResMgr.cs` / `MonoMgr.cs` **就在本工程里，而且当时正在服务 UI 层**——
+`UIMgr` 用 `ResMgr.Instance.Load<GameObject>("ui/UICamera")` 造 UI 三件套，`ResMgr` 又用
+`MonoMgr.Instance.StartCoroutine` 跑协程。所以下面这张表不是"要不要从旧工程搬进来"，
+而是"**Data 层要不要复用它现有的实现**"——答案是不复用。
+
+**后续（UI 迁移轮，已落地）**：`ResMgr.cs` 已**整体删除**，`UIMgr` 改吃 `AssetModule`——
+基建 prefab（`UICamera`/`Canvas`/`EventSystem`）走同步 `Load<T>`，面板走 `LoadAsync<T>` ＋ 成对 `Release`。
+下表因此只剩历史对照意义，其中"同步加载 API"一行**已被推翻**（见该行注）。
 
 | 模式 | 不吸收理由 |
 | :-- | :-- |
@@ -493,13 +497,12 @@ public static class AssetModule
 | `BaseManager<T>` 继承 | 反射私有构造 + 失败静默（见蓝图 §16 D20）；Data 层用 `static class` + 显式 Init |
 | 协程做异步加载 | 加载状态散在 `IEnumerator` 里不可观测；与 `AsyncHandle` 设计冲突 |
 | `UnityAction` 回调 API | 回调地狱；错误路径不清晰 |
-| 同步加载 API | 已定只提供异步 |
+| ~~同步加载 API~~ **已推翻（UI 迁移轮）** | 原定只提供异步。但 `UIMgr` 造 UI 三件套必须**当场拿到**（构造函数里立刻 `Instantiate`），所以补了 `AssetModule.Load<T>`。取舍：**同步只为体量确定很小的资源开一条窄路**，面板/场景级资源仍只走异步 |
 | `UnloadAsset` 的 `isSub` / `isDel` 双开关 | 把"何时释放"的决策权交给调用方，违反"Data 层自动管理生命周期"的定位 |
 | Key = `path + "_" + typeof(T).Name` | 把类型编进 Key，同路径不同类型无法共享条目；且 `ResMgr.LoadAsync` 会在末尾**无条件重复启一次协程**（`ResMgr.cs:150`，见蓝图 §16 D5） |
 
-**与 UI 层的边界**：`ResMgr` 继续服务 `UIMgr`，`AssetModule` 不接管它。两者共用 `Assets/Resources/` 这个根，
-但**缓存表与引用计数各自独立**——同一份资源经由两条路径加载会出现两份计数。
-UI 何时切到 `AssetModule` 是独立决策（见蓝图 §15）。
+**与 UI 层的边界（UI 迁移轮之后）**：`ResMgr` 已删除，**同一份资源不再有第二条加载路径**，
+蓝图 §12.2 J5/J6 记的那条隐患（两套缓存各记一份计数）随之消失。
 
 **经对比确认正确的 5 点（记录为设计依据）**：
 

@@ -18,7 +18,6 @@
 using System;
 using System.Collections;
 using System.Text.RegularExpressions;
-using DeepseaOil.Config;
 using DeepseaOil.Data;
 using NUnit.Framework;
 using UnityEngine;

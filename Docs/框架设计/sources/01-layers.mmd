@@ -26,7 +26,7 @@ flowchart LR
     Player["PlayerController + MovementMotor<br/>FixedUpdate 驱动　实现 IMovementMotor"]
     Input["InputProvider + InputSys<br/>唯一采样点（新输入系统）"]
     Buffer["InputBuffer<br/>窗口缓冲 + 按键沿"]
-    UI["UIMgr / BasePanel<br/>ResMgr / MonoMgr　UI 现有加载路径"]
+    UI["UIMgr / BasePanel<br/>MonoMgr　UI 层（资源走 Data 层 AssetModule）"]
     Debug["MovementDebugPanel<br/>EventBusDebugPanel　只读"]
   end
 
