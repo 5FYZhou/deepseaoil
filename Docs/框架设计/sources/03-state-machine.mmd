@@ -1,47 +1,48 @@
-%% 图3｜状态机语义｜回答：SwitchState 之后，同一帧还能读到新状态吗？
-%% 读法：上下两个子图 = 相邻两帧，不是并列分支；灰色注解不是流程节点。
-%% 维护：每帧上限 3 必须与 maxTransitionsPerFrame 的默认值一致。
+%% 图3｜状态机语义｜回答：切换发生在同一帧还是下一帧？谁决定切谁？
+%% 读法：全部在一个物理帧内完成 —— ChangeState 是**立即** Exit→Enter，不存在「下帧才生效」。
+%%       决策权不在状态机：StateMachine 只执行「叫我切谁就切谁」，MoveGroup 负责全部仲裁。
+%% 维护：优先级链必须与 MoveGroup.TryDecidePreempt 一致；状态数量必须与 MovementStateTag 一致。
 flowchart TD
-  subgraph FN["帧 N"]
-    direction TB
-    Old["State.OnUpdate()"]
-    Req["StateMachine.SwitchState&lt;T&gt;()"]
-    Mark["标记 nextState = T"]
-    Run["本帧继续按原状态跑完"]
-    EndN["帧 N 结束"]
-    Old --> Req
-    Req --> Mark
-    Mark --> Run
-    Run --> EndN
-  end
+  T0["MoveGroup.Tick(in ctx)"]
+  D1["TryDecidePreempt：纯查询，不消费<br/>Dash → 地面跳 → 土狼跳 → 双跳<br/>空中贴墙时跳过通用跳"]
+  D2["target 有效且 target != 当前状态 ?"]
+  C1["TryCommitPreempt：消费余额<br/>TryConsumeDash + Dash.Configure<br/>TryConsumeJump(now, airJump)"]
+  D3["当前状态 IsDone(ctx) ?"]
+  FB["GetFallBackState<br/>地面 → Move / Idle<br/>空中 → WallSlide / Fall"]
+  CS["StateMachine.ChangeState(target, in ctx)<br/>立即 CurrentState.Exit() → next.Enter(ctx)"]
+  Tick["CurrentState.Tick(ctx)"]
 
-  subgraph FN1["帧 N+1"]
-    direction TB
-    Trans["PerformTransition()"]
-    Exit["Old.Exit()"]
-    Enter["New.Enter()"]
-    NewUpd["New.OnUpdate()"]
-    Guard["同帧转移计数 +1"]
-    Cap["每帧上限 3"]
-    Warn["LogWarning 一次"]
-    Trans --> Exit
-    Exit --> Enter
-    Enter --> NewUpd
-    NewUpd --> Guard
-    Guard -->|"超限"| Cap
-    Cap -.->|"不静默"| Warn
-  end
+  T0 --> D1
+  D1 --> D2
+  D2 -->|"是，且提交成功"| C1
+  C1 --> CS
+  D2 -->|"否"| D3
+  D3 -->|"是"| FB
+  FB --> CS
+  D3 -->|"否"| Tick
+  CS --> Tick
 
-  Mark -->|"下一帧才生效"| Trans
-  Global["CheckGlobalTransitions()<br/>Actors.Tick 帧首执行"] -.->|"受击 / 死亡抢占"| Trans
-  Same["同一帧内 CurrentState 仍是旧状态"] -.-> Run
-  Miss["转移目标不在状态池<br/>静默忽略"]
-  Warn -.->|"同时忽略本次转移"| Miss
+  NoOp["target == 当前状态 → 不抢占<br/>既不消费余额，也不遮掉 IsDone<br/>（否则定时状态永远退不出去）"]
+  Miss["标签未注册 → ChangeState 返回 false<br/>状态不变，不抛异常"]
+  Ev["OnStateChanged(current, previous)"]
+  Bus(["EventBus&lt;MovementStateChanged&gt;.Publish"])
+  Sub["MovementDebugPanel 订阅（Start / OnDestroy 成对）"]
+
+  D2 -.->|"相等"| NoOp
+  CS -.->|"未注册"| Miss
+  CS --> Ev
+  Ev --> Bus
+  Bus --> Sub
 
   classDef frame fill:#e0f2fe,stroke:#0369a1,color:#082f49
   classDef warn fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
   classDef note fill:#f8fafc,stroke:#94a3b8,color:#334155,stroke-dasharray:4 3
+  classDef core fill:#fce7f3,stroke:#db2777,color:#500724
 
-  class Old,Req,Mark,Run,EndN,Trans,Exit,Enter,NewUpd,Guard,Cap frame
-  class Warn,Miss warn
-  class Same,Global note
+  class T0,D1,D2,C1,D3,FB,CS,Tick frame
+  class Miss warn
+  class NoOp note
+  class Ev,Bus,Sub core
+
+  %% 关键边 CS->Tick 是第 9 条边（下标 8，共 14 条边）：同帧内切换后立刻用新状态跑一次
+  linkStyle 8 stroke:#db2777,stroke-width:2px
