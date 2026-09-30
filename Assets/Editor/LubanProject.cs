@@ -2,12 +2,11 @@
 // 配表工作流 · 布局与命令行（内核，不碰 Unity 编辑器 API 之外的任何东西）
 //
 // 【硬约定】以下两个目录是「生成物专用目录」：
-//     Assets/Scripts/Config/          ← Luban 生成的 C#
-//     Assets/StreamingAssets/Luban/   ← Luban 生成的 JSON
+//     Assets/Scripts/Generated/Config/   ← Luban 生成的 C#
+//     Assets/StreamingAssets/Luban/      ← Luban 生成的 JSON
 //   导表时整个目录会被镜像覆盖（多余文件被删除）。
 //   任何手写文件都不得放入，放了下次导表必丢。
-//   将来若需要手写扩展：改为输出到 Assets/Scripts/Config/Gen/，手写物放上一层
-//   Scripts/Config/。本工程现在不预建 Gen 层（避免无意义多一层）。
+//   （第三处生成物是 Assets/Scripts/Generated/Input/InputSys.cs，由 .inputactions 生成。）
 //
 // 所有路径由 Application.dataPath 推算，无硬编码盘符：挪工程不改配置。
 // ---------------------------------------------------------------------------
@@ -57,7 +56,7 @@ namespace DeepseaOil.EditorTools
         public static string StageDataDir { get { return Path.Combine(Workspace, "output", "data"); } }
 
         /// <summary>生成物专用目录（成功后由暂存区镜像覆盖）。</summary>
-        public static string OutputCodeDir { get { return Path.Combine(DataPath, "Scripts", "Config"); } }
+        public static string OutputCodeDir { get { return Path.Combine(DataPath, "Scripts", "Generated", "Config"); } }
         public static string OutputDataDir { get { return Path.Combine(DataPath, "StreamingAssets", "Luban"); } }
 
         /// <summary>pathValidator.rootDir：表里 #path=unity 的路径基准 = Assets。</summary>
