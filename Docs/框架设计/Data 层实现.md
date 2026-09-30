@@ -1433,7 +1433,22 @@ namespace DeepseaOil.Data
 | 4 | 接第 ④ 项复位：`SceneService.Load` 在 `LoadScene` 前调 `AssetModule.OnSceneSwitch()` | 编译通过 | ✅ 注意 `SceneService.Load` 目前**没有调用点** |
 | 5 | `ConfigLoader` 改为消费 `ConfigModule`，消除第二个 `cfg.Tables` | Console 打印武器 / 外键 / 表条数 / `DataMetrics` | ✅ 靠 `Awake` 先于 `Start` 保证 `IsReady` |
 | 6 | **外部 dotnet harness**：真实 Luban 运行库 ＋ 真实 `cfg` 生成代码 ＋ 15 个新文件（`UnityEngine` 最小替身，`LangVersion 9.0`） | `dotnet build` 0 error 0 warning；`dotnet run` 全绿 | ✅ **54 项断言全过，0 失败** |
-| 7 | 在 Unity 里跑 `Assets/Tests/Editor/Data层Tests.cs` 与 `Assets/Tests/EditMode/框架文档一致性Tests.cs` | 全绿 | ⏳ **未执行**——本次环境没有 Unity 编辑器。D5（EditMode 下 `Resources.LoadAsync` 回调）是唯一有实质不确定性的一条 |
+| 7 | 在 Unity 里跑 `Assets/Tests/Editor/Data层Tests.cs` 与 `Assets/Tests/EditMode/框架文档一致性Tests.cs` | 全绿 | 🟡 **部分验证**：Unity 已编译通过（`Assembly-CSharp.dll` / `Assembly-CSharp-Editor.dll` / `DeepseaOil.EditorTools.Tests.dll` 同时重建，`Editor.log` 里 `error CS` / `warning CS` 均为 0），且 `Data层Tests` 真的执行了 —— 见下方「Unity 侧实测证据」 |
+
+**Unity 侧实测证据**（`%LOCALAPPDATA%\Unity\Editor\Editor.log`）：
+
+| 观察 | 说明 |
+| :-- | :-- |
+| `[Config] initialized, tables loaded from: .../Assets/StreamingAssets\Luban`，栈回溯指向 `Data层Tests:OneTimeSetUp` | `ConfigModule.InitFromStreamingAssets()` 在 Unity 里**真的成功**了，读的是真实 JSON |
+| `[Asset] load failed: Assets/Resources/ui/__NoSuchAsset__.prefab \| asset not found: ui/__NoSuchAsset__` | A5 走到降级。同时证明 `ResolvePath` 在 Unity 里转换正确，且 **`Resources.LoadAsync` 的 `completed` 在 EditMode 下确实触发**（`AsyncOperation:InvokeCompletionEvent` → `LoadScheduler.OnLoadCompleted`）——这条原本是最大的不确定项 |
+| `[Asset] Release unknown or over-released key: __never_loaded__`，栈回溯指向 `A6_生命周期烟测` | A6 执行到结尾 |
+| 全日志**没有任何** `AssertionException` / 自定义失败文案 | 强烈提示全绿；但 Test Runner 窗口的 passed/failed 计数不在日志里，仍需人工确认一次 |
+| `Data层Tests` 出现在 `Assembly-CSharp-Editor.dll` 中 | 「无 asmdef 的 `Assets/Tests/Editor/` → `Assembly-CSharp-Editor` → 能引用 `Assembly-CSharp` → 被 Test Framework 发现」这条链成立 |
+
+> ⚠️ **诚实标注**：第 6 步（外部 harness）证明的是**编译与 Data 层逻辑**；
+> 上面这批证据证明的是**它在 Unity 里也能编译、能跑、关键路径（Config 装载 / Key 转换 / 失败降级）通了**。
+> 仍未证明的是：Test Runner 的最终计数、`Resources.UnloadUnusedAssets` 的真实开销、`Task` 续体在主线程上执行（A4 用的是轮询 `IsDone`，没有 `await` 一个未完成句柄）。
+> 第 7 步的最后一步（看窗口计数）只能人工做。
 
 **第 6 步覆盖到的语义**（都在真实 JSON / 真实生成类上跑）：
 
@@ -1461,7 +1476,7 @@ namespace DeepseaOil.Data
 | 项 | 归属 | 状态 |
 | :-- | :-- | :-- |
 | `Resources.LoadAsync` 传 `typeof(UnityEngine.Object)` 的类型过滤 | `Preload` | 待实测（设计文档 §10.1-1）；harness 只能证明路径转换，证明不了类型过滤 |
-| EditMode 下 `Resources.LoadAsync` 的完成回调是否触发 | `Data层Tests.D5` | 待实测；不触发则降级为 PlayMode 测试 |
+| EditMode 下 `Resources.LoadAsync` 的完成回调是否触发 | `Data层Tests.A5` | ✅ 已验证会触发（Unity `Editor.log`，见 §4.1） |
 | 占位 Sprite 在 URP 下的构造方式 | 业务侧 `RegisterFallback` | 待实测（§10.1-4） |
 | `UnloadUnusedAssets` 的帧尖峰量级 | `LifecycleMgr` | 待 Profiler（§10.1-5） |
 | Android / WebGL 的 StreamingAssets 异步读取 | `TablesHolder` | 不支持，影响面见 §11 A2 |
