@@ -1,11 +1,11 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace DeepseaOil.Logic.Movement
 {
     /// <summary>
     /// 移动执行器：把逻辑算出的速度落到实际物理上，并提供环境检测。
     /// </summary>
-    /// <remarks>实现位于表现层（<c>Dasuus.Presentation</c>）；重力由逻辑层施加，本接口不做重力。</remarks>
+    /// <remarks>实现位于表现层（<c>DeepseaOil.Presentation</c>）；重力由逻辑层施加，本接口不做重力。</remarks>
     public interface IMovementMotor
     {
         /// <summary>当前速度（单位/秒）。</summary>
