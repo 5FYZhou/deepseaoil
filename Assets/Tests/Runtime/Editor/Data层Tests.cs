@@ -1,16 +1,23 @@
 // ---------------------------------------------------------------------------
 // Data 层 · 运行期测试
 //
-// 为什么放在 Assets/Tests/Editor/ 而不是 Assets/Tests/EditMode/：
-//   Assets/Tests/EditMode/ 被 DeepseaOil.EditorTools.Tests.asmdef 覆盖，
+// 【为什么在这里】Assets/Tests/Runtime/Editor/ —— 末级 Editor 是 Unity 的**硬要求**，
+// 不能改名：
+//   Assets/Tests/Tools/ 被 DeepseaOil.EditorTools.Tests.asmdef 覆盖，
 //   而 asmdef 程序集**无法**引用预定义程序集 Assembly-CSharp —— Data 层就在 Assembly-CSharp 里，
 //   所以那个目录下的测试「看不到 DeepseaOil.Data」。
-//   本目录没有 asmdef，落 Assembly-CSharp-Editor：既能引用 Assembly-CSharp，
-//   又由 Test Framework 自动引用 NUnit。详见 框架蓝图 §10.2「测试可达性」。
+//   本目录没有 asmdef，靠「路径里有名为 Editor 的目录」落 Assembly-CSharp-Editor，
+//   它既能引用 Assembly-CSharp，又被 Test Framework 自动引用 NUnit。
+//
+// 【只留 4 项】判据是「错了会静默出事」：
+//   A1 配置链路      —— 整层存在的理由；表没读进来，一切上层查询都是 null
+//   A2 重复 Init 抛   —— 幂等守卫失效会静默产生第二份 cfg.Tables
+//   A3 真实资源端到端 —— Key 契约错 = 图标加载不出，只在运行时暴露（D4 的实际形态）
+//   A4 失败路径不抛   —— 降级链抛异常会断掉整条加载链
+// 删掉的：旧 A2（快照字段形态，并入 A1）、旧 A6（"不抛异常"烟测）。
 //
 // 只用 public API：AssetRegistry / CacheStore / LifecycleMgr / RefCounter 都是 internal，
-// 跨程序集不可见。想直接测它们，要么加 InternalsVisibleTo，要么把它们改成 public ——
-// 两条都要先改设计，本次不做（蓝图 §14）。
+// 跨程序集不可见。
 //
 // 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
@@ -42,7 +49,7 @@ namespace DeepseaOil.Tests
             // 可重复执行（同一个域里连按两次 Run All 也不会炸）：
             //   AssetModule.Dispose() 是幂等的 —— 未初始化时是 no-op，已初始化时清干净并复位标记，
             //   所以紧接着的 Init() 一定能成功。
-            //   ConfigModule 没有重置入口（蓝图 §14 开放项 O10），只能靠 IsReady 守卫跳过；
+            //   ConfigModule 没有重置入口（见《数据层》设计文档的开放项），只能靠 IsReady 守卫跳过；
             //   上一个 run 留下的 holder 仍在这个域里有效。
             AssetModule.Dispose();
 
@@ -59,7 +66,7 @@ namespace DeepseaOil.Tests
         }
 
         // ================================================================
-        // A1 · 配置链路：真实 StreamingAssets/Luban JSON → cfg.Tables → ConfigModule
+        // A1 · 配置链路 + 观测面：StreamingAssets/Luban JSON → cfg.Tables → ConfigModule
         // ================================================================
 
         [Test]
@@ -74,46 +81,36 @@ namespace DeepseaOil.Tests
             // 用 ToString 比较，避免依赖生成字段的具体数值类型
             Assert.AreEqual("10", weapon.Pow.ToString(), "GetWeapon(1).Pow");
 
-            // Key 契约（蓝图 §11）：表里存的是**资源路径字符串**。
+            // Key 契约：表里存的是**资源路径字符串**。
             // ⚠️ 这里**不能断言具体字面量**——那是策划填的数据，会随填表变化。
-            //    本用例只校验"形态像资源路径"；"能不能真的加载出来"由 A4 用真实加载验收。
+            //    本用例只校验"形态像资源路径"；"能不能真的加载出来"由 A3 用真实加载验收。
             Assert.IsFalse(string.IsNullOrEmpty(weapon.Icon), "GetWeapon(1).Icon 为空");
             Assert.IsTrue(Regex.IsMatch(weapon.Icon, @"\.(png|jpg|jpeg|tga|psd|asset|prefab|mat)$"),
                 "GetWeapon(1).Icon 不像资源路径（缺可识别扩展名）：" + weapon.Icon);
 
+            // 外键链：Fish.best_weapon → Weapon.icon_item → Item
             Assert.IsNotNull(weapon.IconItem_Ref, "外键 Weapon.icon_item → Item 未解析");
             Assert.IsNotNull(ConfigModule.GetFish(1002), "GetFish(1002) 为 null");
 
             Assert.AreEqual(3, ConfigModule.GetAllWeapons().Count, "GetAllWeapons().Count");
 
+            // 表清单（手写）与逃生舱必须与生成物一致
             Assert.AreEqual(3, TablesMeta.Count, "TablesMeta.Count");
             Assert.AreEqual(3, TablesMeta.Names.Length, "TablesMeta.Names.Length");
-
             Assert.IsNotNull(ConfigModule.Tables, "逃生舱 Tables 为 null");
-        }
 
-        // ================================================================
-        // A2 · DataMetrics 拉模型
-        // ================================================================
-
-        [Test]
-        public void A2_DataMetrics拉模型()
-        {
+            // 观测面：拉模型必须反映上面这些事实
             var snap = DataMetrics.GetSnapshot();
-
-            Assert.IsTrue(snap.ConfigReady, "ConfigReady 应为 true");
-            Assert.AreEqual(3, snap.TableCount, "TableCount 应等于 TablesMeta.Count");
-            Assert.GreaterOrEqual(snap.CachedAssetCount, 0, "CachedAssetCount 不应为负");
-            Assert.GreaterOrEqual(snap.CacheHitRate, 0f, "CacheHitRate 下界");
-            Assert.LessOrEqual(snap.CacheHitRate, 1f, "CacheHitRate 上界");
+            Assert.IsTrue(snap.ConfigReady, "DataMetrics.ConfigReady 应为 true");
+            Assert.AreEqual(TablesMeta.Count, snap.TableCount, "DataMetrics.TableCount 与 TablesMeta 不一致");
         }
 
         // ================================================================
-        // A3 · 装配错误必须暴露：两个 Init 都是「重复调用即抛」
+        // A2 · 装配错误必须暴露：两个 Init 都是「重复调用即抛」
         // ================================================================
 
         [Test]
-        public void A3_重复Init抛异常()
+        public void A2_重复Init抛异常()
         {
             Assert.Throws<InvalidOperationException>(() => ConfigModule.InitFromStreamingAssets(),
                 "ConfigModule.Init 重复调用应抛 InvalidOperationException");
@@ -122,18 +119,18 @@ namespace DeepseaOil.Tests
         }
 
         // ================================================================
-        // A4 · 真实资源端到端：Assets 相对 Key → ResolvePath → Resources.LoadAsync → 缓存
+        // A3 · 真实资源端到端：Assets 相对 Key → ResolvePath → Resources.LoadAsync → 缓存
         // ================================================================
 
         [UnityTest]
-        public IEnumerator A4_真实资源端到端()
+        public IEnumerator A3_真实资源端到端()
         {
             var handle = AssetModule.LoadAsync<GameObject>(PanelKey);
 
             Assert.IsNotNull(handle, "LoadAsync 返回了 null 句柄");
             Assert.IsFalse(handle.IsDone, "第一次加载不应该是「已完成」句柄（说明缓存里已有条目）");
 
-            yield return WaitDone(handle, "A4_真实资源端到端");
+            yield return WaitDone(handle, "A3_真实资源端到端");
 
             Assert.IsNotNull(handle.Asset,
                 "加载完成但资源为 null。可能原因：① 该路径不在 Assets/Resources/ 下；"
@@ -147,13 +144,13 @@ namespace DeepseaOil.Tests
             // ── 第二段：表里真实的 icon 能不能**真的**加载出来 ──
             // 这是 A1 不敢断言字面量的那一项的**真实验收**：走完整链路
             // 表值 → AssetRegistry.ResolvePath → Resources.LoadAsync<Sprite>。
-            // 注意 icon 必须同时满足「存在」与「在 Assets/Resources/ 下」两个条件；
-            // 只满足前者（例如 "Settings/Renderer2D.asset"）会在运行时才暴露，就是这条要防的。
-            // 若加载失败，Data 层会打一条 Error → 本用例失败，这是预期行为。
+            // icon 必须同时满足「存在」与「在 Assets/Resources/ 下」两个条件；
+            // 只满足前者（例如历史上填过的 "Settings/Renderer2D.asset"）要到运行时才暴露，
+            // 就是这条要防的。若加载失败，Data 层会打一条 Error → 本用例失败，这是预期行为。
             string icon = ConfigModule.GetWeapon(1).Icon;
             var iconHandle = AssetModule.LoadAsync<Sprite>(icon);
 
-            yield return WaitDone(iconHandle, "A4_表内 icon 加载");
+            yield return WaitDone(iconHandle, "A3_表内 icon 加载");
 
             Assert.IsNotNull(iconHandle.Asset,
                 "表里的 icon 加载失败：应为 Sprite 且位于 Assets/Resources/ 下。Key = " + icon);
@@ -162,11 +159,11 @@ namespace DeepseaOil.Tests
         }
 
         // ================================================================
-        // A5 · 失败路径：不抛异常，句柄以 null 完成，计数进 FailedCount
+        // A4 · 失败路径：不抛异常，句柄以 null 完成，计数进 FailedCount
         // ================================================================
 
         [UnityTest]
-        public IEnumerator A5_失败路径不抛异常()
+        public IEnumerator A4_失败路径不抛异常()
         {
             int failedBefore = DataMetrics.GetSnapshot().FailedCount;
 
@@ -184,36 +181,13 @@ namespace DeepseaOil.Tests
             var handle = AssetModule.LoadAsync<GameObject>(MissingKey);
             Assert.IsNotNull(handle, "LoadAsync 返回了 null 句柄");
 
-            yield return WaitDone(handle, "A5_失败路径不抛异常");
+            yield return WaitDone(handle, "A4_失败路径不抛异常");
 
             // 未注册 fallback 时应以 null 完成；注册过则拿到 fallback。两者都算「不抛、有结果」。
             Assert.IsTrue(handle.IsDone, "失败后句柄仍未完成");
 
             Assert.GreaterOrEqual(DataMetrics.GetSnapshot().FailedCount, failedBefore + 1,
                 "FailedCount 没有增长：失败没有被记录");
-        }
-
-        // ================================================================
-        // A6 · 生命周期烟测：切场景 / 预加载 / 释放都不抛
-        // ================================================================
-
-        [Test]
-        public void A6_生命周期烟测()
-        {
-            Assert.DoesNotThrow(() => AssetModule.OnSceneSwitch(), "OnSceneSwitch 抛异常");
-
-            // 未知 Key 的 Release 只记 Warning（不抛）。Warning 不会让 UTF 判测试失败，
-            // 所以这里不需要 LogAssert.Expect。
-            Assert.DoesNotThrow(() => AssetModule.Release("__never_loaded__"), "Release 未知 Key 抛异常");
-
-            // 用**真实存在**的路径做预加载探针。
-            // 早先这里用的是不存在的路径，而 Preload 只是入队、要等 Tick 才真正发起加载 ——
-            // 那个注定失败的加载会在后面的某一帧回调里打一条 Error，
-            // 落进「另一个测试」或「任何测试之外」的作用域，造成偶发失败。
-            Assert.DoesNotThrow(() => AssetModule.Preload(PanelKey), "Preload 抛异常");
-
-            Assert.DoesNotThrow(() => AssetModule.Tick(0.016f), "Tick 抛异常");
-            Assert.DoesNotThrow(() => DataMetrics.GetSnapshot(), "GetSnapshot 抛异常");
         }
 
         // ================================================================
@@ -236,7 +210,7 @@ namespace DeepseaOil.Tests
             {
                 Assert.Fail(tag + "：等待 " + WaitFrames + " 帧后句柄仍未完成。"
                     + "最可能的原因：EditMode 测试里 Resources.LoadAsync 的 completed 回调不触发。"
-                    + "处置：把本测试移到 PlayMode（见 框架蓝图 §14 待验证项 6），不要放宽这里的断言。");
+                    + "处置：把本测试移到 PlayMode，不要放宽这里的断言。");
             }
         }
     }
