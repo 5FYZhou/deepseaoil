@@ -7,7 +7,7 @@ namespace DeepseaOil.Presentation
     /// 移动执行器：把逻辑层算出的速度写进物理体，并用射线提供地面与贴墙检测。
     /// </summary>
     /// <remarks>
-    /// 重力由逻辑层施加，本类永不设 <c>gravityScale</c> 与阻尼（见 <c>Docs/架构约束.md</c> §五）。
+    /// 重力由逻辑层施加，本类永不设 <c>gravityScale</c> 与阻尼（见 <c>Docs/分层设计/逻辑层.md</c> §3）。
     /// <see cref="Velocity"/> 是引擎真值回读口：逻辑层帧首读它作本帧基准（读到的是上一物理步结束时的值）。
     /// 检测不做缓存：逻辑层只读喂进去的 <c>WorldInfo</c>，本类的射线每物理帧只被组合根读一次。
     /// </remarks>

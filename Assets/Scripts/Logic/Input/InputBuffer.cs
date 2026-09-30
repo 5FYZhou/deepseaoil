@@ -19,7 +19,7 @@ namespace DeepseaOil.Logic.Input
     /// 同一次按下只能消费一次；按下仅受窗口时长约束，不随样本被挤出历史而作废。
     /// <b>输入边沿一律由本类提供</b>（按下：<see cref="CanConsume"/>；松开：<see cref="IsJumpReleased"/>），
     /// 宿主不得自行保存"上一帧输入"，且 <see cref="Push"/> 必须先于逻辑层的 <c>Tick</c>。
-    /// 契约与设计理由见 <c>Docs/架构约束.md</c> 与 <c>Docs/M1微规划.md</c> §三 D14。
+    /// 契约与设计理由见 <c>Docs/分层设计/逻辑层.md</c> §5。
     /// </remarks>
     public sealed class InputBuffer
     {

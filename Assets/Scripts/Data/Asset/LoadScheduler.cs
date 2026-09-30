@@ -9,7 +9,7 @@ namespace DeepseaOil.Data
     /// 调用时机：Enqueue 由 AssetModule.LoadAsync 未命中时调用；Tick 由 GameRoot 每帧驱动。
     /// 边界：
     ///   - 主线程独占；用普通 int 计数（不用 SemaphoreSlim：Wait() 会阻塞主线程，且主线程独占时信号量多余）
-    ///   - 重试是「立即重新入队」，不延时（详细见 Data 层设计.md §4.3-2.4 的裁定）
+    ///   - 重试是「立即重新入队」，不延时（详细见 Docs/分层设计/数据层.md §2.4）
     ///   - 失败策略不在这里：重试耗尽后交回 AssetModule 决定降级
     /// </summary>
     internal sealed class LoadScheduler

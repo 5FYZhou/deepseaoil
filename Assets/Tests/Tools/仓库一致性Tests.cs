@@ -99,7 +99,9 @@ namespace DeepseaOil.EditorTools.Tests
             var block = Regex.Match(section.Groups["body"].Value, "```[a-zA-Z]*\\n(?<tree>[\\s\\S]*?)```");
             Assert.IsTrue(block.Success, "「## 仓库目录」里找不到目录树的代码块");
 
-            // 树的缩进单位是 4 字符（"├── " / "│   "），nameStart / 4 = 深度
+            // 树的缩进单位是 4 字符（"├── " / "│   "），nameStart / 4 = 深度。
+            // 深度 0 是顶层条目（Assets/ ConfigWorkspace/ Docs/），没有根标签。
+            // 名字取「到第一个连续 2 个以上空格为止」——否则 TextMesh Pro/ 这类含单空格的名字会被截断。
             var TreeChars = new[] { ' ', '│', '├', '└', '─' };
             var stack = new List<KeyValuePair<int, string>>();   // depth → 累积路径（目录带尾斜杠）
             var paths = new List<string>();
@@ -115,10 +117,11 @@ namespace DeepseaOil.EditorTools.Tests
                 if (nameStart >= raw.Length) continue;
 
                 int depth = nameStart / 4;
-                if (depth == 0) continue;   // 根标签，跳过
-
                 var rest = raw.Substring(nameStart);
-                var name = rest.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)[0];
+
+                var gap = Regex.Match(rest, "  +");
+                var name = (gap.Success ? rest.Substring(0, gap.Index) : rest).Trim();
+                if (name.Length == 0) continue;
 
                 Assert.LessOrEqual(depth, stack.Count,
                     "目录树第 " + lineNo + " 行缩进跳级（depth " + depth + " > 已累积 " + stack.Count + "）：" + raw);
@@ -126,22 +129,17 @@ namespace DeepseaOil.EditorTools.Tests
                 while (stack.Count > depth) stack.RemoveAt(stack.Count - 1);
 
                 var parent = depth == 0 ? string.Empty : stack[depth - 1].Value;
+                var here = parent + name;
 
-                if (name.EndsWith("/"))
-                {
-                    var dirPath = parent + name;
-                    stack.Add(new KeyValuePair<int, string>(depth, dirPath));
-                    paths.Add(dirPath);
-                }
-                else
-                {
-                    paths.Add(parent + name);
-                }
+                if (name.EndsWith("/")) stack.Add(new KeyValuePair<int, string>(depth, here));
+
+                paths.Add(here);
             }
 
-            Assert.GreaterOrEqual(paths.Count, 30,
+            Assert.GreaterOrEqual(paths.Count, 40,
                 "《目录说明.md》的目录树只解析出 " + paths.Count + " 条路径，"
-                + "少于预期的 30 条：检查代码块格式是否变了（缩进单位必须是 4 字符，目录名结尾必须带 /）");
+                + "少于预期的 40 条：检查代码块格式是否变了"
+                + "（缩进单位必须是 4 字符，目录名结尾必须带 /，名字与注解之间至少 2 个空格）");
 
             var missing = new List<string>();
             foreach (var p in paths)

@@ -12,7 +12,7 @@ namespace DeepseaOil.Logic.Player
     /// 仲裁分两段：当前状态结束 → 基础态；否则只有更高级别的条件才能抢占。
     /// 抢占**先判后消费**：判定是纯查询，目标等于当前状态时不消费任何缓冲与余额。
     /// 状态类本身是通用件（只依赖 <see cref="ActorLogic"/>），本类因查询玩家资格而属玩家专属。
-    /// 优先级与设计理由见 <c>Docs/M1微规划.md</c>。
+    /// 优先级与设计理由见 <c>Docs/分层设计/逻辑层.md</c>。
     /// </remarks>
     public sealed class MoveGroup
     {

@@ -93,7 +93,7 @@ namespace DeepseaOil.Data
         }
 
         /// <summary>
-        /// 切场景时调用。调用方：SceneService.PrepareForSceneSwitch（必须在 LoadScene 之前）。
+        /// 切场景时调用。调用方：SceneService.Load（必须在 LoadScene 之前）。
         /// 边界：不清挂起请求、不动合并列表（可能是新场景的预加载）；
         ///       不强制释放 refCount &gt; 0 的资源；保留 isPreloaded 条目。
         /// </summary>

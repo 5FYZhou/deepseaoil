@@ -56,7 +56,7 @@ dotnet Tools/Luban/Luban.dll --conf luban.conf -t client --strict \
 
 ## 🔴 不要去装 Luban 的 UPM 包
 
-Luban 运行库已有一份**进 git 的本地拷贝** `Assets/Luban.Runtime/`（8 个文件）。
+Luban 运行库已有一份**进 git 的本地拷贝** `Assets/Luban.Runtime/`（7 个 `.cs`）。
 **不要**往 `Packages/manifest.json` 里加
 `"com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git"`：
 两个来源的 asmdef 都叫 `Luban.Runtime`，撞名后报
