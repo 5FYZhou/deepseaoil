@@ -39,9 +39,16 @@ namespace DeepseaOil.Tests
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
-            // 两个 Init 都是「重复调用即抛异常」，且都没有重置入口（蓝图 §14 开放项 O10）。
-            // 因此本类依赖 Domain Reload：每个测试域只跑一次 OneTimeSetUp。
-            ConfigModule.InitFromStreamingAssets();
+            // 可重复执行（同一个域里连按两次 Run All 也不会炸）：
+            //   AssetModule.Dispose() 是幂等的 —— 未初始化时是 no-op，已初始化时清干净并复位标记，
+            //   所以紧接着的 Init() 一定能成功。
+            //   ConfigModule 没有重置入口（蓝图 §14 开放项 O10），只能靠 IsReady 守卫跳过；
+            //   上一个 run 留下的 holder 仍在这个域里有效。
+            AssetModule.Dispose();
+
+            if (!ConfigModule.IsReady)
+                ConfigModule.InitFromStreamingAssets();
+
             AssetModule.Init();
         }
 
