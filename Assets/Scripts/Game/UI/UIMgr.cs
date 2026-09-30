@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
-using DeepseaOil.Presentation.Res;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -69,6 +69,15 @@ namespace DeepseaOil.Presentation.UI
         private Transform topLayer;
         private Transform systemLayer;
 
+        // ── 资源 Key（交给 Data 层 AssetModule）──
+        // 这里用的是「Resources 相对路径、不带扩展名」写法。蓝图 §11 的 Key 契约
+        //（表里存「相对 Assets/ 带扩展名」）是给**配置表**定的；AssetRegistry.ResolvePath
+        // 对两种形式都容忍，所以沿用旧 ResMgr 的 Key 字面量，不引入无谓改动。
+        private const string UI_CAMERA_KEY    = "ui/UICamera";
+        private const string UI_CANVAS_KEY    = "ui/Canvas";
+        private const string UI_EVENT_SYS_KEY = "ui/EventSystem";
+        private const string UI_PANEL_PREFIX  = "ui/Panel/";
+
         /// <summary>
         /// 用于存储所有的面板对象
         /// </summary>
@@ -77,12 +86,12 @@ namespace DeepseaOil.Presentation.UI
         private UIMgr()
         {
             //动态创建唯一的Canvas和EventSystem（摄像机）
-            uiCamera = GameObject.Instantiate(ResMgr.Instance.Load<GameObject>("ui/UICamera")).GetComponent<Camera>();
+            uiCamera = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_CAMERA_KEY)).GetComponent<Camera>();
             //ui摄像机过场景不移除 专门用来渲染UI面板
             GameObject.DontDestroyOnLoad(uiCamera.gameObject);
 
             //动态创建Canvas
-            uiCanvas = GameObject.Instantiate(ResMgr.Instance.Load<GameObject>("ui/Canvas")).GetComponent<Canvas>();
+            uiCanvas = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_CANVAS_KEY)).GetComponent<Canvas>();
             //设置使用的UI摄像机
             uiCanvas.worldCamera = uiCamera;
             //过场景不移除
@@ -95,7 +104,7 @@ namespace DeepseaOil.Presentation.UI
             systemLayer = uiCanvas.transform.Find("System");
 
             //动态创建EventSystem
-            uiEventSystem = GameObject.Instantiate(ResMgr.Instance.Load<GameObject>("ui/EventSystem")).GetComponent<EventSystem>();
+            uiEventSystem = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_EVENT_SYS_KEY)).GetComponent<EventSystem>();
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
         }
 
@@ -164,38 +173,64 @@ namespace DeepseaOil.Presentation.UI
             //不存在面板 先存入字典当中 占个位置 之后如果又显示 我才能得到字典中的信息进行判断
             panelDic.Add(panelName, new PanelInfo<T>(callBack));
 
-            ResMgr.Instance.LoadAsync<GameObject>("ui/Panel/" + panelName, (res) =>
+            //异步加载面板：用协程轮询 AsyncHandle，不用 await（理由见 CoLoadPanel 注释）
+            MonoMgr.Instance.StartCoroutine(CoLoadPanel<T>(panelName, layer));
+        }
+
+        /// <summary>
+        /// 异步加载面板并挂到指定层。
+        /// 为什么轮询而不是 await：AssetModule 在
+        /// GameRoot.Update → AssetModule.Tick → 调度器分发 内部完成句柄，
+        /// await 的续体会**内联**在那里执行——等于在调度器的分发循环里再进一次 UIMgr。
+        /// 轮询把挂载推迟到下一帧（代价 1 帧），换掉那个重入风险。
+        /// </summary>
+        private IEnumerator CoLoadPanel<T>(string panelName, E_UILayer layer) where T : BasePanel
+        {
+            string key = UI_PANEL_PREFIX + panelName;
+            var handle = AssetModule.LoadAsync<GameObject>(key);
+
+            while (!handle.IsDone)
+                yield return null;
+
+            //期间可能被 HidePanel 摘掉了占位
+            if (!panelDic.TryGetValue(panelName, out var raw) || !(raw is PanelInfo<T> panelInfo))
             {
+                AssetModule.Release(key);
+                yield break;
+            }
 
-                //取出字典中已经占好位置的数据
-                PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
-                //表示异步加载结束前 就想要隐藏该面板了 
-                if (panelInfo.isHide)
-                {
-                    panelDic.Remove(panelName);
-                    return;
-                }
+            //表示异步加载结束前 就想要隐藏该面板了
+            if (panelInfo.isHide)
+            {
+                panelDic.Remove(panelName);
+                AssetModule.Release(key);
+                yield break;
+            }
 
-                //层级的处理
-                Transform father = GetLayerFather(layer);
-                //避免没有按指定规则传递层级参数 避免为空
-                if (father == null)
-                    father = middleLayer;
-                //将面板预设体创建到对应父对象下 并且保持原本的缩放大小
-                GameObject panelObj = GameObject.Instantiate(res, father, false);
+            var prefab = handle.Asset;
+            if (prefab == null)
+            {
+                //降级资源也可能为 null：不实例化，摘掉占位以免永久占坑
+                Debug.LogError($"[UI] 面板加载失败，已放弃显示：{panelName}");
+                panelDic.Remove(panelName);
+                yield break;
+            }
 
-                //获取对应UI组件返回出去
-                T panel = panelObj.GetComponent<T>();
-                //显示面板时执行的默认方法
-                panel.ShowMe();
-                //传出去使用
-                panelInfo.callBack?.Invoke(panel);
-                //回调执行完 将其清空 避免内存泄漏
-                panelInfo.callBack = null;
-                //存储panel
-                panelInfo.panel = panel;
+            //层级的处理；避免没有按指定规则传递层级参数 避免为空
+            Transform father = GetLayerFather(layer) ?? middleLayer;
+            //将面板预设体创建到对应父对象下 并且保持原本的缩放大小
+            GameObject panelObj = GameObject.Instantiate(prefab, father, false);
 
-            });
+            //获取对应UI组件返回出去
+            T panel = panelObj.GetComponent<T>();
+            //显示面板时执行的默认方法
+            panel.ShowMe();
+            //传出去使用
+            panelInfo.callBack?.Invoke(panel);
+            //回调执行完 将其清空 避免内存泄漏
+            panelInfo.callBack = null;
+            //存储panel
+            panelInfo.panel = panel;
         }
 
         /// <summary>
@@ -228,6 +263,8 @@ namespace DeepseaOil.Presentation.UI
                         GameObject.Destroy(panelInfo.panel.gameObject);
                         //从容器中移除
                         panelDic.Remove(panelName);
+                        //与 ShowPanel 的 LoadAsync 成对：引用计数归零 → 进冷却期，不立即卸载
+                        AssetModule.Release(UI_PANEL_PREFIX + panelName);
                     }
                     //如果不销毁 那么就只是失活 下次再显示的时候 直接复用即可
                     else

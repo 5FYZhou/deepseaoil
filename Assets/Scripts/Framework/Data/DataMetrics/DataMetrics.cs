@@ -17,7 +17,7 @@ namespace DeepseaOil.Data
 
             // ── ConfigModule ──
             snap.ConfigReady = ConfigModule.IsReady;
-            snap.TableCount = ConfigModule.IsReady ? DeepseaOil.Config.TablesMeta.Count : 0;
+            snap.TableCount = ConfigModule.IsReady ? TablesMeta.Count : 0;
 
             // ── AssetModule ──
             if (!AssetModule.IsInitialized)

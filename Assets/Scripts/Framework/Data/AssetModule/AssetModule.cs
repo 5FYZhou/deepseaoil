@@ -8,10 +8,10 @@ namespace DeepseaOil.Data
     /// 资源模块。Data 层的资源查询与生命周期管理入口。
     /// 调用时机：
     ///   Init          — GameRoot.Awake，紧随 ConfigModule.Init 之后
-    ///   Tick          — GameRoot 顺序表 step ③，每帧
-    ///   OnSceneSwitch — SceneService.PrepareForSceneSwitch
+    ///   Tick          — GameRoot 顺序表 step ②，每帧
+    ///   OnSceneSwitch — SceneService.Load（必须在 LoadScene 之前）
     ///   Dispose       — GameRoot.OnDestroy
-    ///   LoadAsync / TryGet / Release / Preload / RegisterFallback — 调用方任意时机
+    ///   Load / LoadAsync / TryGet / Release / Preload / RegisterFallback — 调用方任意时机
     /// 边界：
     ///   - 所有方法仅主线程调用（Unity 资源 API 限制）
     ///   - 不发布/不订阅任何事件（观测走 DataMetrics 拉模型）
@@ -80,7 +80,7 @@ namespace DeepseaOil.Data
         }
 
         /// <summary>
-        /// 每帧推进。调用方：GameRoot 顺序表 step ③。
+        /// 每帧推进。调用方：GameRoot 顺序表 step ②。
         /// 边界：未 Init 时 no-op 不抛异常（防装配顺序出错时整帧炸掉）。
         ///       只驱动 Scheduler 与 Lifecycle；FailureHandler 不需要每帧推进（重试在 Scheduler 内）。
         /// </summary>
@@ -186,6 +186,53 @@ namespace DeepseaOil.Data
             });
 
             return handle;
+        }
+
+        // ─────────────────────────────────────────────
+        // 同步加载（ResMgr.Load<T> 的平替路径）
+        // ─────────────────────────────────────────────
+
+        /// <summary>
+        /// 同步加载资源。调用方：需要"当场拿到"且体量确定很小的资源（UI 基建 prefab 等）。
+        /// 边界：
+        ///   - **阻塞主线程**：只用于小资源，不要用于面板/场景级资源
+        ///   - 命中缓存：refCount++，直接返回（与 LoadAsync 命中路径一致）
+        ///   - 未命中：Resources.Load 同步 IO → Put 缓存 → Retain
+        ///   - 失败：记一次失败并返回降级资源（可能为 null）；**不走重试**（重试属于异步路径）
+        ///   - 与 LoadAsync 共用同一份缓存与引用计数，同一 Key 可混用两种方式
+        /// </summary>
+        public static T Load<T>(string key) where T : UnityEngine.Object
+        {
+            if (!_initialized)
+                throw new InvalidOperationException("[Asset] Load before Init");
+
+            if (string.IsNullOrEmpty(key))
+            {
+                Debug.LogError("[Asset] Load with empty key");
+                return null;
+            }
+
+            if (_cache.TryGet<T>(key, out var entry))
+            {
+                _cacheHits++;
+                _cache.Touch(key);
+                _refCounter.Retain(key);
+                return entry.asset as T;
+            }
+
+            _cacheMisses++;
+
+            var asset = Resources.Load<T>(_registry.ResolvePath(key));
+            if (asset == null)
+            {
+                _failure.RecordFailure(key, "sync load returned null");
+                return _failure.GetFallback<T>();
+            }
+
+            // 顺序与异步路径一致：先写缓存 → 再 Retain → 最后交给调用方
+            _cache.Put(key, asset, isPreloaded: false);
+            _refCounter.Retain(key);
+            return asset;
         }
 
         // ─────────────────────────────────────────────

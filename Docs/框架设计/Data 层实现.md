@@ -36,7 +36,7 @@ Assets/Scripts/Game/
 **共 14 个文件**（`Data/` 下 14 个）＋ `Assets/Scripts/Game/TablesMeta.cs` 1 个，**合计 15 个 `.cs`**。
 依赖顺序（也是建议的录入顺序）：`AsyncHandle` → `CacheEntry` → `CacheStore` → `RefCounter` → `AssetRegistry` → `LoadScheduler` → `LifecycleMgr` → `FailureHandler` → `AssetModule` → `ConfigModule` → `TablesMeta` → `DataSnapshot` → `DataMetrics`。
 
-**命名空间**：全部 `DeepseaOil.Data`（`TablesMeta` 为 `DeepseaOil.Config`）。
+**命名空间**：全部 `DeepseaOil.Data`（含 `TablesMeta`；它物理位置仍在 `Assets/Scripts/Game/`，**目录与命名空间不一一对应**）。
 **程序集**：全部落默认程序集 `Assembly-CSharp`（不需要新 asmdef，理由见蓝图 §8）。
 **跨文件可见性**：微块用 `internal`，`DataMetrics` 通过 `AssetModule` 的 `internal` 属性访问——同程序集内可见，无额外机制。
 
@@ -412,7 +412,7 @@ namespace DeepseaOil.Data
         public void Enqueue(LoadRequest req) => _queue.Enqueue(req);
 
         /// <summary>
-        /// 每帧推进。调用方：GameRoot 顺序表 step ③。
+        /// 每帧推进。调用方：GameRoot 顺序表 step ②。
         /// 边界：单帧最多启动到并发上限为止，不在一帧内爆发。
         /// </summary>
         public void Tick(float dt)
@@ -706,7 +706,7 @@ namespace DeepseaOil.Data
     /// 资源模块。Data 层的资源查询与生命周期管理入口。
     /// 调用时机：
     ///   Init          — GameRoot.Awake，紧随 ConfigModule.Init 之后
-    ///   Tick          — GameRoot 顺序表 step ③，每帧
+    ///   Tick          — GameRoot 顺序表 step ②，每帧
     ///   OnSceneSwitch — SceneService.PrepareForSceneSwitch
     ///   Dispose       — GameRoot.OnDestroy
     ///   LoadAsync / TryGet / Release / Preload / RegisterFallback — 调用方任意时机
@@ -778,7 +778,7 @@ namespace DeepseaOil.Data
         }
 
         /// <summary>
-        /// 每帧推进。调用方：GameRoot 顺序表 step ③。
+        /// 每帧推进。调用方：GameRoot 顺序表 step ②。
         /// 边界：未 Init 时 no-op 不抛异常（防装配顺序出错时整帧炸掉）。
         ///       只驱动 Scheduler 与 Lifecycle；FailureHandler 不需要每帧推进（重试在 Scheduler 内）。
         /// </summary>
@@ -1236,13 +1236,13 @@ namespace DeepseaOil.Data
 
             // 抽样访问每张已登记的表：触发其构造与索引建立
             // 关键表清单来自手写 TablesMeta（加表时同步维护，见 Data 层设计.md §3.6）
-            if (DeepseaOil.Config.TablesMeta.Names.Length == 0)
+            if (TablesMeta.Names.Length == 0)
             {
                 Debug.LogWarning("[Config] TablesMeta.Names is empty: 跳过抽样校验");
                 return true;
             }
 
-            foreach (var name in DeepseaOil.Config.TablesMeta.Names)
+            foreach (var name in TablesMeta.Names)
             {
                 var prop = tables.GetType().GetProperty(name);
                 if (prop == null)
@@ -1366,7 +1366,7 @@ namespace DeepseaOil.Data
 
             // ── ConfigModule ──
             snap.ConfigReady = ConfigModule.IsReady;
-            snap.TableCount = ConfigModule.IsReady ? DeepseaOil.Config.TablesMeta.Count : 0;
+            snap.TableCount = ConfigModule.IsReady ? TablesMeta.Count : 0;
 
             // ── AssetModule ──
             if (!AssetModule.IsInitialized)
@@ -1510,7 +1510,7 @@ namespace DeepseaOil.Data
 | `Assets/Scripts/Framework/Data/ConfigModule/StartupValidator.cs` | 启动抽样校验 |
 | `Assets/Scripts/Framework/Data/DataMetrics/DataSnapshot.cs` | 只读快照（struct） |
 | `Assets/Scripts/Framework/Data/DataMetrics/DataMetrics.cs` | 拉模型入口 |
-| `Assets/Scripts/Game/TablesMeta.cs` | 手写表清单（命名空间 `DeepseaOil.Config`） |
+| `Assets/Scripts/Game/TablesMeta.cs` | 手写表清单（命名空间 `DeepseaOil.Data`） |
 
 **`.meta`（19 个）**：4 个目录（`Data/` 与其三个子目录）＋ 15 个脚本。全部 LF、无 BOM、`folderAsset`/`MonoImporter` 格式与仓库既有 `.meta` 逐字节同构；
 GUID 生成后与全仓库既有 168 个比对过唯一性。
@@ -1530,7 +1530,9 @@ GUID 生成后与全仓库既有 168 个比对过唯一性。
 | `Assets/Scripts/Framework/Logic/IMovementMotor.cs` | 注释里的 `Dasuus.Presentation` → `DeepseaOil.Presentation` | 上游注释写错了命名空间（同问题的 `EventBusDebugPanel.cs:10` 未改，登记在蓝图 §16 D22） |
 | `Assets/Scripts/Game/UI/BasePanel.cs` | `FindComponentsOnChildren` 在 `TMP_Text` 之后加一个 `else if (component is Graphic)` **静默分支** | 蓝图 §16 **D26**：面板上每个 `Image` 都会落到 `else` 打警告，一次实例化 `BeginPanel` 刷 11 条。**只改日志、不改 `components` 字典的注册行为**，所以是零语义变更。保留告警的判据：`Toggle`/`Slider`/`Dropdown`/`InputField`/`ScrollRect` 都不是 `Graphic`，仍会告警 |
 
-**未改动**：`ResMgr` / `MonoMgr` / `UIMgr` / `SaveService` / `BeginPanel` / `PauseService` /
+> ⚠️ **本行已被 §5.5 推翻**：`ResMgr` 与 `UIMgr` 在"UI 迁移轮"已改，以下是**当时**的结论。
+>
+> **当时未改动**：`ResMgr` / `MonoMgr` / `UIMgr` / `SaveService` / `BeginPanel` / `PauseService` /
 `Singleton.cs` / `BaseManager.cs` / `ConfigController.cs` / 任何场景与预设体。上游其余现存缺陷只登记不修，清单见蓝图 §16。
 
 ### 5.4 测试侧的两次修补（都是**测试**的问题，不是产品的）
@@ -1557,3 +1559,40 @@ GUID 生成后与全仓库既有 168 个比对过唯一性。
 
 **所以判断测试是否通过，看 Test Runner 窗口的结果，不要看 Console 有没有红字。**
 反过来，如果你想让 Console 干净，唯一诚实的办法是砍掉 A5/A6 这两条用例——但那样就没人守着失败路径了，不划算。
+
+### 5.5 UI 迁移轮：让 `AssetModule` 真正通电
+
+§5.3 的结论里写着"未改动 `ResMgr` / `UIMgr`"。**本轮推翻了它**——审计发现 `AssetModule` 虽有完整实现，
+却**一个生产调用方都没有**（只有 `GameRoot` 的生命周期三件套），而真正在跑的资源加载是表现层的 `ResMgr`。
+既然 `AssetModule` 本就是 `ResMgr` 的平替，就把迁移做完。
+
+| # | 改动 | 说明 |
+| :-- | :-- | :-- |
+| 1 | `AssetModule` 补 `Load<T>(string key)`（**同步**） | `ResMgr` 有 `Load<T>`，平替必须补齐。命中缓存 → `Retain` 返回；未命中 → `Resources.Load` → `Put` → `Retain`；失败 → 记失败 ＋ 走降级（**不走重试**，重试属于异步路径） |
+| 2 | `UIMgr` 改吃 `AssetModule` | 基建三件套（`UICamera`/`Canvas`/`EventSystem`）走 `Load<GameObject>`；面板走 `LoadAsync<GameObject>` ＋ 协程轮询 `AsyncHandle.IsDone` |
+| 3 | `ResMgr.cs` / `ResMgr.cs.meta` **删除** | 迁移后零引用（已核对无场景/prefab 按 GUID 引用）。蓝图 §16 **D5 / D6 随之消除** |
+| 4 | `TablesMeta` 命名空间 `DeepseaOil.Config` → `DeepseaOil.Data` | 消掉一条**未登记**的依赖边（`DataMetrics` → `DeepseaOil.Config`）。物理位置仍在 `Assets/Scripts/Game/` |
+| 5 | `Data层Tests.cs` 删掉 `using DeepseaOil.Config;` | `TablesMeta` 改由 `DeepseaOil.Data` 解析，该 using 变成多余的 |
+
+**为什么面板加载用协程轮询而不是 `await`**：`AssetModule` 是在
+`GameRoot.Update → AssetModule.Tick → 调度器分发` 内部完成句柄的，`AsyncHandle` 又不传
+`RunContinuationsAsynchronously`——`await` 的续体会**内联**在调度器的分发循环里执行，
+等于在 `_pendingLoads` 迭代途中再进一次 `UIMgr`。轮询把挂载推迟一帧（代价 1 帧），换掉那个重入风险。
+
+**为什么 `isSync` 参数仍然不实现**（蓝图 §16 D7）：它默认 `true`，一旦照做，
+`GameRoot` 那次唯一的 `ShowPanel` 就会走同步路径，异步链路（调度器/并发合并/冷却期）反而永远跑不到。
+
+**引用计数成对**：每次成功加载 `Retain` 一次；`HidePanel(isDestory: true)` 与"加载途中被隐藏"
+两条路径各 `Release` 一次；仅 `SetActive(false)` 的隐藏**不**释放（面板仍在缓存里复用）。
+
+**本轮的验证**：
+
+| 手段 | 结果 |
+| :-- | :-- |
+| 外部 harness（真实 Luban ＋ 真实 `cfg` ＋ 全部 Data 文件） | **64 passed, 0 failed**（原 54；新增 K 段 10 项专测同步 `Load<T>`） |
+| 外部 harness · UIMgr 真实编译（引用 Unity 引擎 ＋ `UnityEngine.UI` ＋ `TextMeshPro` 真实程序集） | **0 error, 0 warning** |
+| 文档一致性 T1–T8 | **8 passed, 0 failed** |
+| Unity 侧 | ⏳ 未复验（本轮改动落在 `Editor.log` 最后一次成功编译之后，需在编辑器里重新编译） |
+
+⚠️ **编译校验救了一次**：`CoLoadPanel` 里三处提前退出最初写成裸 `return;`，
+在迭代器方法里是 **CS1622** 编译错误——外部编译校验抓到了它，否则会直接打断 Unity 的编译。
