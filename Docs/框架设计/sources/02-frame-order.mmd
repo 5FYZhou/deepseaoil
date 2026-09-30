@@ -1,13 +1,14 @@
 %% 图2｜单帧执行｜回答：我这个 Update 该不该写？每帧谁先跑？
 %% 读法：主链自上而下 = GameRoot 顺序表里的固定次序；FixedUpdate 是另一条独立通道，不是从①分支出来的。
-%% 维护：条目顺序必须与 GameRoot 的 tickables[] 拖入顺序一致。
+%% 维护：条目顺序必须与 GameRoot 的 tickables[] 拖入顺序一致；③ AssetModule.Tick 是 Data 层唯一主动行为。
 flowchart TD
   Root["GameRoot.Update()<br/>唯一入口"]
-  S1["① InputProvider 采样<br/>InputBuffer.Push()"]
+  S1["① InputProvider.Update()<br/>InputBuffer.Push()"]
   S2["② Services.Tick()<br/>Pause / Save / Rng / Scene"]
-  S3["③ Actors.Tick()<br/>CheckGlobalTransitions → OnUpdate"]
-  S4["④ Views.Tick()<br/>动画参数 / UI / VFX"]
-  S5["⑤ DebugOverlay.Tick()<br/>只读，绝不改游戏状态"]
+  S3["③ AssetModule.Tick()<br/>异步队列 / 冷却期 / LRU 淘汰"]
+  S4["④ Actors.Tick()<br/>CheckGlobalTransitions → OnUpdate"]
+  S5["⑤ Views.Tick()<br/>动画参数 / UI / VFX"]
+  S6["⑥ DebugOverlay.Tick()<br/>只读，绝不改游戏状态"]
   End["EventBus&lt;FrameEnded&gt;.Publish"]
 
   subgraph Fixed["FixedUpdate 通道　物理帧"]
@@ -24,18 +25,21 @@ flowchart TD
   Bad["违规：自写 MonoBehaviour.Update()<br/>顺序不可推理"]
 
   Root --> S1
-  S1 -->|"必须先于 ③"| S2
+  S1 -->|"必须先于 ④"| S2
   S2 --> S3
   S3 --> S4
   S4 --> S5
-  S5 --> End
+  S5 --> S6
+  S6 --> End
 
   classDef runtime fill:#e0f2fe,stroke:#0369a1,color:#082f49
+  classDef data fill:#ede9fe,stroke:#7c3aed,color:#3b0764
   classDef noop fill:#f1f5f9,stroke:#64748b,color:#334155
   classDef fixed fill:#ffedd5,stroke:#ea580c,color:#431407
   classDef warn fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
 
-  class Root,S1,S2,S3,S4,End runtime
-  class S5 noop
+  class Root,S1,S2,S4,S5,End runtime
+  class S3 data
+  class S6 noop
   class FX,FXA,FXB,FXC fixed
   class Bad warn

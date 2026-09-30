@@ -1,12 +1,13 @@
 %% 图1｜分层与通道｜回答：谁能引谁？跨层唯一通道是什么？
-%% 读法：箭头 = 依赖方向（不是调用方向）；表现层与逻辑层之间没有直连边 = 约束，不是省略。
+%% 读法：箭头 = 依赖方向（不是调用方向）；表现层与逻辑层之间没有直连边 = 约束，不是省略；
+%%       Data 层到 Logic / Presentation 有直连边 = 只读查询允许，不需要走 EventBus。
 %% 维护：节点名必须与代码标识符一致；本条与主文档「图 1」代码块保持逐字符一致。
 flowchart LR
-  subgraph L1["① Config 配置层"]
+  subgraph L1["① Data 数据层"]
     direction LR
-    ActorData["ActorData　SO"]
-    GameConfig["GameConfig　SO"]
-    Snap["只读快照"]
+    ConfigModule["ConfigModule<br/>同步查询　全量常驻"]
+    AssetModule["AssetModule<br/>异步 + 引用计数"]
+    Snap["只读 SO　可选"]
   end
 
   subgraph L2["② Logic 逻辑层"]
@@ -26,11 +27,14 @@ flowchart LR
 
   Bus(["EventBus&lt;T&gt;　T : struct<br/>唯一跨层通道"])
   Violate["越界<br/>表现层直接调逻辑层"]
-  Note1["两级程序集<br/>Jam.Config 独立，白名单只写 CoreModule<br/>其余全落默认程序集 Assembly-CSharp<br/>代价：默认程序集只能引 Jam.Config 这一个 asmdef"]
+  Note1["程序集：全部落默认程序集 Assembly-CSharp<br/>生成物 Assets/Scripts/Config/ 是专用目录，禁放手写<br/>Jam 期不给生成物划 asmdef（热更时再评估）"]
 
-  ActorData --> GameRoot
-  GameConfig --> Services
-  Snap --> Actors
+  ConfigModule -->|"数值"| GameRoot
+  AssetModule -->|"资源句柄"| Actors
+  Snap --> Services
+
+  ConfigModule -->|"直连查询"| UI
+  AssetModule -->|"直连加载 / TryGet"| UI
 
   Input -->|"意图 RequestXxx"| Bus
   Bus -->|"意图"| GameRoot
@@ -51,12 +55,12 @@ flowchart LR
   classDef warn fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
   classDef note fill:#f8fafc,stroke:#94a3b8,color:#334155,stroke-dasharray:4 3
 
-  class ActorData,GameConfig,Snap data
+  class ConfigModule,AssetModule,Snap data
   class GameRoot,Services,Actors,States logic
   class Input,UI,Camera pres
   class Bus core
   class Violate warn
   class Note1 note
 
-  %% 越界边是第 12 条（含说明边），单独标红；改动连线顺序时必须同步这个下标
-  linkStyle 11 stroke:#dc2626,stroke-width:2px
+  %% 越界边 Camera->Violate 是第 14 条边（下标 13，共 15 条边）；改动连线顺序时必须同步这个下标
+  linkStyle 13 stroke:#dc2626,stroke-width:2px

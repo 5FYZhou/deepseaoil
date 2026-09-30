@@ -1,0 +1,24 @@
+%% 图9｜面板层级与顺序｜回答：弹出面板该压谁、常驻层怎么排？
+%% 读法：自下而上 = Canvas 的 sortingOrder 从小到大；「常驻」= 不进栈、不随面板开关重建。
+%% 维护：层级与 sortingOrder 是 const 常量，改动时同步改 UIManager 常量与主文档「图 9」代码块。
+flowchart BT
+  HUD["HUD　常驻<br/>sortingOrder 100"]
+  Panel["BasePanel 主面板栈<br/>sortingOrder 200 起，每层 +10"]
+  Popup["弹窗 / 确认框<br/>sortingOrder 300 起"]
+  Toast["Toast / 飘字<br/>sortingOrder 400"]
+  Overlay["DebugOverlay　常驻<br/>sortingOrder 500"]
+
+  HUD --> Panel
+  Panel --> Popup
+  Popup --> Toast
+  Toast --> Overlay
+
+  classDef resident fill:#f1f5f9,stroke:#64748b,color:#334155
+  classDef stack fill:#e0f2fe,stroke:#0369a1,color:#082f49
+  classDef top fill:#dcfce7,stroke:#16a34a,color:#052e16
+  classDef debug fill:#fef9c3,stroke:#ca8a04,color:#422006
+
+  class HUD resident
+  class Panel,Popup stack
+  class Toast top
+  class Overlay debug
