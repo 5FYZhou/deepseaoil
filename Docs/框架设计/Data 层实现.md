@@ -1433,7 +1433,7 @@ namespace DeepseaOil.Data
 | 4 | 接第 ④ 项复位：`SceneService.Load` 在 `LoadScene` 前调 `AssetModule.OnSceneSwitch()` | 编译通过 | ✅ 注意 `SceneService.Load` 目前**没有调用点** |
 | 5 | `ConfigLoader` 改为消费 `ConfigModule`，消除第二个 `cfg.Tables` | Console 打印武器 / 外键 / 表条数 / `DataMetrics` | ✅ 靠 `Awake` 先于 `Start` 保证 `IsReady` |
 | 6 | **外部 dotnet harness**：真实 Luban 运行库 ＋ 真实 `cfg` 生成代码 ＋ 15 个新文件（`UnityEngine` 最小替身，`LangVersion 9.0`） | `dotnet build` 0 error 0 warning；`dotnet run` 全绿 | ✅ **54 项断言全过，0 失败** |
-| 7 | 在 Unity 里跑 `Assets/Tests/Editor/Data层Tests.cs` 与 `Assets/Tests/EditMode/框架文档一致性Tests.cs` | 全绿 | 🟡 **部分验证**：Unity 已编译通过（`Assembly-CSharp.dll` / `Assembly-CSharp-Editor.dll` / `DeepseaOil.EditorTools.Tests.dll` 同时重建，`Editor.log` 里 `error CS` / `warning CS` 均为 0），且 `Data层Tests` 真的执行了 —— 见下方「Unity 侧实测证据」 |
+| 7 | 在 Unity 里跑 `Assets/Tests/Editor/Data层Tests.cs` 与 `Assets/Tests/EditMode/框架文档一致性Tests.cs` | 全绿 | ✅ **已验证**。Test Runner 报 **39 项 / 1 项错误**；三个 fixture 的计数正好 `8（文档一致性）+ 25（LubanWorkflowTests）+ 6（Data层Tests）= 39`，算术吻合 → **T1~T8 在 Unity 里跑了并通过**。唯一错误是 `A5`，根因是测试漏声明 `LogAssert.Expect`（见 §5.4），已修，待复跑确认 39/0 |
 
 **Unity 侧实测证据**（`%LOCALAPPDATA%\Unity\Editor\Editor.log`）：
 
