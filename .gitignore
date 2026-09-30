@@ -67,6 +67,9 @@ sysinfo.txt
 /ConfigWorkspace/output/
 /ConfigWorkspace/logs/
 
+# ---- Docs 校验脚本（Tools/）的一次性依赖，不进 git ----
+node_modules/
+
 # Mono auto generated files
 mono_crash.*
 
