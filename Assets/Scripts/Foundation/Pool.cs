@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepseaOil.Logic.Pool
+namespace DeepseaOil.Foundation
 {
     public abstract class Pool<T>
     {

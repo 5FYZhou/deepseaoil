@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DeepseaOil.Logic.State
+namespace DeepseaOil.Logic.Movement
 {
     /// <summary>
     /// 泛型状态机：维护状态集、执行 <c>Exit → Enter</c> 切换并广播变化。

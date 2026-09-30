@@ -1,63 +1,66 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
-//´¿Âß¼­ÀàµÄµ¥Àı
-//´úÂëÀ´×Ô×£ÀÏÊ¦¡¶¶ñÁúÓëÂÉÊ¦¡·ÏîÄ¿
-
-/// <summary>
-/// µ¥ÀıÄ£Ê½»ùÀà Ö÷ÒªÄ¿µÄÊÇ±ÜÃâ´úÂëµÄÈßÓà ·½±ãÎÒÃÇÊµÏÖµ¥ÀıÄ£Ê½µÄÀà
-/// </summary>
-/// <typeparam name="T"></typeparam>
-public abstract class BaseManager<T> where T : class//,new()
+namespace DeepseaOil.Foundation
 {
-    private static T instance;
+    //çº¯é€»è¾‘ç±»çš„å•ä¾‹
+    //ä»£ç æ¥è‡ªç¥è€å¸ˆã€Šæ¶é¾™ä¸å¾‹å¸ˆã€‹é¡¹ç›®
 
-    //ÅĞ¶Ïµ¥ÀıÄ£Ê½¶ÔÏó ÊÇ·ñÎªnull
-    protected bool InstanceisNull => instance == null;
-
-    //ÓÃÓÚ¼ÓËøµÄ¶ÔÏó
-    protected static readonly object lockObj = new object();
-
-    //ÊôĞÔµÄ·½Ê½
-    public static T Instance
+    /// <summary>
+    /// å•ä¾‹æ¨¡å¼åŸºç±» ä¸»è¦ç›®çš„æ˜¯é¿å…ä»£ç çš„å†—ä½™ æ–¹ä¾¿æˆ‘ä»¬å®ç°å•ä¾‹æ¨¡å¼çš„ç±»
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public abstract class BaseManager<T> where T : class//,new()
     {
-        get
-        {
-            if (instance == null)
-            {
-                lock (lockObj)
-                {
-                    if (instance == null)
-                    {
-                        //instance = new T();
-                        //ÀûÓÃ·´ÉäµÃµ½ÎŞ²ÎË½ÓĞµÄ¹¹Ôìº¯Êı À´ÓÃÓÚ¶ÔÏóµÄÊµÀı»¯
-                        Type type = typeof(T);
-                        ConstructorInfo info = type.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic,
-                                                                    null,
-                                                                    Type.EmptyTypes,
-                                                                    null);
-                        if (info != null)
-                            instance = info.Invoke(null) as T;
-                        else
-                            Debug.LogError("Ã»ÓĞµÃµ½¶ÔÓ¦µÄÎŞ²Î¹¹Ôìº¯Êı");
+        private static T instance;
 
-                        //instance = Activator.CreateInstance(typeof(T), true) as T;
+        //åˆ¤æ–­å•ä¾‹æ¨¡å¼å¯¹è±¡ æ˜¯å¦ä¸ºnull
+        protected bool InstanceisNull => instance == null;
+
+        //ç”¨äºåŠ é”çš„å¯¹è±¡
+        protected static readonly object lockObj = new object();
+
+        //å±æ€§çš„æ–¹å¼
+        public static T Instance
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    lock (lockObj)
+                    {
+                        if (instance == null)
+                        {
+                            //instance = new T();
+                            //åˆ©ç”¨åå°„å¾—åˆ°æ— å‚ç§æœ‰çš„æ„é€ å‡½æ•° æ¥ç”¨äºå¯¹è±¡çš„å®ä¾‹åŒ–
+                            Type type = typeof(T);
+                            ConstructorInfo info = type.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic,
+                                                                        null,
+                                                                        Type.EmptyTypes,
+                                                                        null);
+                            if (info != null)
+                                instance = info.Invoke(null) as T;
+                            else
+                                Debug.LogError("æ²¡æœ‰å¾—åˆ°å¯¹åº”çš„æ— å‚æ„é€ å‡½æ•°");
+
+                            //instance = Activator.CreateInstance(typeof(T), true) as T;
+                        }
                     }
                 }
+                return instance;
             }
-            return instance;
         }
+
+
+        //æ–¹æ³•çš„æ–¹å¼
+        //public static T GetInstance()
+        //{
+        //    if (instance == null)
+        //        instance = new T();
+        //    return instance;
+        //}
     }
-
-
-    //·½·¨µÄ·½Ê½
-    //public static T GetInstance()
-    //{
-    //    if (instance == null)
-    //        instance = new T();
-    //    return instance;
-    //}
 }

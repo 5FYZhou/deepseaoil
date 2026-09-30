@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Config;
+﻿using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;

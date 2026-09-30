@@ -1,41 +1,44 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 
 /*
- * ���ļ��в��ֲο�ף��ʦ����Ŀ����������ʦ����
- * ��;��������ѧϰ�����ҵGame Jam��Ʒ
+ * 本文件有部分参考祝老师（项目《恶龙与律师》）
+ * 用途：仅用于学习与非商业Game Jam作品
  */
 
 
-public class Singleton<T> : MonoBehaviour where T : MonoBehaviour
+namespace DeepseaOil.Foundation
 {
-    private static T instance;
-    public static T Instance
+    public class Singleton<T> : MonoBehaviour where T : MonoBehaviour
     {
-        get
+        private static T instance;
+        public static T Instance
         {
-            if (instance == null)
+            get
             {
-                instance = FindObjectOfType<T>();
                 if (instance == null)
                 {
-                    GameObject obj = new GameObject(typeof(T).ToString());
-                    instance = obj.AddComponent<T>();
+                    instance = FindObjectOfType<T>();
+                    if (instance == null)
+                    {
+                        GameObject obj = new GameObject(typeof(T).ToString());
+                        instance = obj.AddComponent<T>();
+                    }
+                    DontDestroyOnLoad(instance.gameObject);
                 }
-                DontDestroyOnLoad(instance.gameObject);
+                return instance;
             }
-            return instance;
         }
-    }
 
-    protected virtual void Awake()
-    {
-        if (instance != null && instance != this)
+        protected virtual void Awake()
         {
-            Destroy(gameObject);
-            return;
+            if (instance != null && instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            instance = this as T;
+            DontDestroyOnLoad(gameObject);
         }
-        instance = this as T;
-        DontDestroyOnLoad(gameObject);
     }
 }
