@@ -1,44 +1,44 @@
 ﻿using DeepseaOil.Logic.Service;
 using DeepseaOil.Logic.Events;
 
-public sealed class SceneService : IService
+namespace DeepseaOil.Logic.Service
 {
-    private readonly IGameTime gameTime;
-    private readonly PauseService pauseService;
-
-    public SceneService(
-        IGameTime gameTime,
-        PauseService pauseService)
+    public sealed class SceneService : IService
     {
-        this.gameTime = gameTime;
-        this.pauseService = pauseService;
-    }
+        private readonly PauseService pauseService;
 
-    public void Init()
-    {
-    }
+        public SceneService(PauseService pauseService)
+        {
+            this.pauseService = pauseService;
+        }
 
-    public void Tick(float unscaledDeltaTime)
-    {
-    }
+        public void Init()
+        {
+            EventBus<RequestChangeScene>.Subscribe(Load);
+        }
 
-    public void Load(string sceneName)
-    {
-        // ① 恢复时间
-        gameTime.SetTimeScale(1f);
+        public void Tick(float unscaledDeltaTime)
+        {
+        }
 
-        // ② 恢复 PauseService
-        pauseService.SetPaused(false);
+        public void Load(RequestChangeScene evt)
+        {
+            // ① 恢复时间 pauseService.SetPaused已有
+            //gameTime.SetTimeScale(1f);
 
-        // ③ 清理事件
-        EventBus.ClearAll();
+            // ② 恢复 PauseService
+            pauseService.SetPaused(false);
 
-        // ④ 换场景
-        UnityEngine.SceneManagement.SceneManager
-            .LoadScene(sceneName);
-    }
+            // ③ 清理事件
+            EventBus.ClearAll();
 
-    public void Dispose()
-    {
+            // ④ 换场景
+            UnityEngine.SceneManagement.SceneManager.LoadScene(evt.sceneName);
+        }
+
+        public void Dispose()
+        {
+            EventBus<RequestChangeScene>.Unsubscribe(Load);
+        }
     }
 }

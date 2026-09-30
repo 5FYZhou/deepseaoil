@@ -10,8 +10,10 @@ using DeepseaOil.Config;
 
 namespace DeepseaOil.Presentation
 {
-    public class GameRoot : MonoBehaviour
+    public class GameRoot : Singleton<GameRoot>
     {
+        public Transform audioRoot;
+
         private List<IService> services = new();
 
         private IGameTime gameTime;
@@ -22,16 +24,19 @@ namespace DeepseaOil.Presentation
             gameTime = new GameTime();
 
             var pauseService = new PauseService(gameTime);
-            var sceneService = new SceneService(gameTime, pauseService);
+            var sceneService = new SceneService(pauseService);
             var saveService = new SaveService();
+            var audioService = new AudioManager();
 
             pauseService.Init();
             sceneService.Init();
             saveService.Init();
+            audioService.Init(audioRoot);
 
             services.Add(pauseService);
             services.Add(sceneService);
             services.Add(saveService);
+            services.Add(audioService);
 
         }
 

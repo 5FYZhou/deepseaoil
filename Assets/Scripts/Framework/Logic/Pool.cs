@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Pool
 {
-    public abstract class Pool<T>
+    public class Pool<T>
     {
         private readonly Stack<T> _pool = new();
 
@@ -29,9 +29,19 @@ namespace DeepseaOil.Logic.Pool
 
         public T Get()
         {
-            T obj = _pool.Count > 0
-                ? _pool.Pop()
-                : _factory();
+            T obj;
+
+            if (_pool.Count > 0)
+            {
+                obj = _pool.Pop();
+            }
+            else
+            {
+                // 池空，需要现场创建 —— 说明没有预热
+                Debug.LogWarning($"[Pool<{typeof(T).Name}>] 池为空，正在现场创建对象。" +
+                                 $"如果这是热路径，请考虑调用 Prewarm() 预热。");
+                obj = _factory();
+            }
 
             _onGet?.Invoke(obj);
 

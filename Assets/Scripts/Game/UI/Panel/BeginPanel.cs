@@ -16,7 +16,6 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
-            //MusicMgr.Instance.PlayBKMusic("阅读背景音");
         }
         protected override void OnButtonClicked(string btnName)
         {
@@ -29,16 +28,10 @@ namespace DeepseaOil.Presentation.UI
                     EventBus<RequestResume>.Publish(new RequestResume());
                     break;
                 case "ExitBtn":
+                    EventBus<RequestAudio>.Publish(new RequestAudio(Logic.Service.audioType.None));
                     Application.Quit();
                     break;
             }
-        }
-
-        private IEnumerator ShowTip()
-        {
-            tip.gameObject.SetActive(true);
-            yield return new WaitForSeconds(2);
-            tip.gameObject.SetActive(false);
         }
     }
 }
