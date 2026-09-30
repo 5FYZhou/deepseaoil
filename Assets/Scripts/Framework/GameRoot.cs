@@ -15,6 +15,9 @@ namespace DeepseaOil.Presentation
     {
         private List<IService> services = new();
 
+        /// <summary>真正装配了 Data 层的那个 GameRoot；只有它负责拆（"谁 Init 谁 Dispose"）。</summary>
+        private static GameRoot _dataLayerOwner;
+
         private IGameTime gameTime;
 
         /// <summary>
@@ -22,11 +25,23 @@ namespace DeepseaOil.Presentation
         /// 这样别的脚本（例如 ConfigLoader）在自己的 Start 里就能确定性地拿到已就绪的配置。
         /// 顺序不能反：AssetModule 的 Key 来自 ConfigModule。
         /// 失败即抛（ConfigModule.Init 的契约）：带病数据不进运行时。
+        ///
+        /// 幂等守卫：`GameRoot` 是**场景对象**（没有 `DontDestroyOnLoad`），而 `ConfigModule` 是
+        /// 进程级常驻、`Init` 只许调一次（第二次直接抛）。所以"重开本关""从关卡 A 进关卡 B"这类
+        /// 二次进入场景，会撞上第一次留下的 `_ready`——必须先问再 Init。
+        /// `AssetModule` 侧则相反：它在 `OnDestroy` 里被 `Dispose` 过，`_initialized` 已复位，
+        /// 再 `Init` 是合法的；这里的守卫只为防同一帧里出现第二个 `GameRoot`。
         /// </summary>
         private void Awake()
         {
-            ConfigModule.InitFromStreamingAssets();
-            AssetModule.Init();
+            if (!ConfigModule.IsReady)
+                ConfigModule.InitFromStreamingAssets();
+
+            if (!AssetModule.IsInitialized)
+            {
+                AssetModule.Init();
+                _dataLayerOwner = this;
+            }
         }
 
         private void Start()
@@ -69,10 +84,18 @@ namespace DeepseaOil.Presentation
             //EventBus<FrameEnded>.Publish(new FrameEnded());
         }
 
-        /// <summary>进程退出：清异步队列 / 缓存 / 合并列表（蓝图 §3.2 图 7）。</summary>
+        /// <summary>
+        /// 进程退出：清异步队列 / 缓存 / 合并列表（蓝图 §3.2 图 7）。
+        /// 只由装配过 Data 层的那个实例来拆——否则叠加场景里第二个 `GameRoot` 被销毁时，
+        /// 会把第一个还在用的缓存一起清掉。
+        /// </summary>
         private void OnDestroy()
         {
+            if (_dataLayerOwner != this)
+                return;
+
             AssetModule.Dispose();
+            _dataLayerOwner = null;
         }
     }
 }

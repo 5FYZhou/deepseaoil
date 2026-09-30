@@ -26,7 +26,6 @@ namespace DeepseaOil.EditorTools.Tests
 
         static string ProjectRoot { get { return Path.GetDirectoryName(Application.dataPath); } }
         static string DesignDir { get { return Path.Combine(ProjectRoot, "Docs", "框架设计"); } }
-        static string SourcesDir { get { return Path.Combine(DesignDir, "sources"); } }
 
         const string 蓝图 = "框架蓝图.md";
         const string 设计文档 = "Data 层设计.md";
@@ -56,38 +55,19 @@ namespace DeepseaOil.EditorTools.Tests
 
         static string[] Lines(string text) { return text.Split('\n'); }
 
-        /// <summary>去掉 %% 注释行（源文件专用），保留空行与缩进。</summary>
-        static List<string> StripMmdComments(string mmdText)
-        {
-            return Lines(mmdText).Where(l => !l.StartsWith("%%")).ToList();
-        }
-
-        static string TrimTrailingBlank(List<string> lines)
-        {
-            int end = lines.Count;
-            while (end > 0 && lines[end - 1].Trim().Length == 0) end--;
-            return string.Join("\n", lines.Take(end));
-        }
-
-        /// <summary>取蓝图里「源文件：`sources/xxx.mmd`」+ 紧随其后的 mermaid 代码块。</summary>
-        static Dictionary<string, string> 蓝图图块()
+        /// <summary>
+        /// 取出蓝图里所有 mermaid 代码块（按出现顺序）。
+        /// 图源目录与 mmdc 渲染流程已取消（见 §10.4），**图块本身就是唯一副本**。
+        /// </summary>
+        static List<string> 蓝图图块()
         {
             var md = ReadAll(Path.Combine(DesignDir, 蓝图));
-            var found = new Dictionary<string, string>();
+            var blocks = new List<string>();
 
-            // [\s\S]*? 允许中间夹标题与引用行；```` 用 \n 锚定，避免匹配到正文里的行内提及
-            var matches = Regex.Matches(md,
-                "源文件：`sources/(?<file>[0-9A-Za-z\\-]+\\.mmd)`[\\s\\S]*?\\n```mermaid\\n(?<body>[\\s\\S]*?)```");
+            foreach (Match m in Regex.Matches(md, "```mermaid\\n(?<body>[\\s\\S]*?)```"))
+                blocks.Add(m.Groups["body"].Value.TrimEnd('\n'));
 
-            foreach (Match m in matches)
-            {
-                var file = m.Groups["file"].Value;
-                var body = m.Groups["body"].Value.Replace("\r\n", "\n").TrimEnd('\n');
-                Assert.IsFalse(found.ContainsKey(file), "蓝图里同一个图源出现两次：" + file);
-                found[file] = body;
-            }
-
-            return found;
+            return blocks;
         }
 
         static string 设计文档全文()
@@ -99,64 +79,72 @@ namespace DeepseaOil.EditorTools.Tests
         }
 
         // ================================================================
-        // T1 · 图源与蓝图逐字符一致
+        // T1 · 已删除的图源/渲染产物不再被引用
         // ================================================================
 
         [Test]
-        public void T1_蓝图图块与图源逐字符一致()
+        public void T1_不再引用已删除的图源与图片产物()
         {
-            var blocks = 蓝图图块();
-            Assert.Greater(blocks.Count, 0, "蓝图里一张图都没解析到：检查「源文件：`sources/xx.mmd`」+ 紧随的 mermaid 代码块");
+            // `Docs/框架设计/sources/` 与 mmdc 渲染流程已取消——图块本身就是唯一副本（见蓝图 §10.4）。
+            // 本测试守的是"删干净了"：三份文档里不得再留下指向外部图源或渲染产物的引用。
+            // 注意这里是**正则**：字面量 "sources/" 会命中 "Resources/"（前者是后者的子串），
+            // 必须用前置断言排除掉。这条坑是写完先跑一遍才发现的。
+            var banned = new[] { @"(?<![A-Za-z])sources/", "mmdc", "Docs/images", "Docs/sources" };
 
-            var problems = new List<string>();
+            var hits = new List<string>();
 
-            foreach (var kv in blocks)
+            foreach (var f in new[] { 蓝图, 设计文档, 实现文档 })
             {
-                var srcPath = Path.Combine(SourcesDir, kv.Key);
-                if (!File.Exists(srcPath)) { problems.Add(kv.Key + "：图源文件不存在"); continue; }
+                var lines = Lines(ReadAll(Path.Combine(DesignDir, f)));
 
-                var expected = TrimTrailingBlank(StripMmdComments(ReadAll(srcPath)));
-                var actual = kv.Value;
-
-                if (expected == actual) continue;
-
-                var e = expected.Split('\n');
-                var a = actual.Split('\n');
-                for (int i = 0; i < Math.Max(e.Length, a.Length); i++)
+                for (int i = 0; i < lines.Length; i++)
                 {
-                    var el = i < e.Length ? e[i] : "<缺行>";
-                    var al = i < a.Length ? a[i] : "<缺行>";
-                    if (el != al)
-                    {
-                        problems.Add(string.Format("{0} 第 {1} 行不一致：\n      源文件: {2}\n      蓝图　: {3}",
-                            kv.Key, i + 1, el, al));
-                        break;   // 每张图只报第一处，够定位即可
-                    }
+                    // 考古/对照行放行：那里本来就要提"旧机制叫什么"
+                    if (对照行标记.Any(w => lines[i].Contains(w))) continue;
+                    if (在考古章节内(lines, i)) continue;
+
+                    foreach (var b in banned)
+                        if (Regex.IsMatch(lines[i], b))
+                            hits.Add(string.Format("{0}:{1} 仍匹配「{2}」", f, i + 1, b));
                 }
             }
 
-            Assert.IsEmpty(problems,
-                "图源与蓝图不一致（改图请先改 sources/*.mmd，再同步蓝图）：\n  " + string.Join("\n  ", problems));
+            Assert.IsEmpty(hits, "文档仍在引用已删除的图源 / 图片产物：\n  " + string.Join("\n  ", hits));
         }
 
         // ================================================================
-        // T2 · 图源与蓝图配对齐全
+        // T2 · 每张图都由「图 N｜」标题引导，且块体非空
         // ================================================================
 
         [Test]
-        public void T2_图源与蓝图配对齐全()
+        public void T2_图块由编号标题引导且非空()
         {
+            var md = ReadAll(Path.Combine(DesignDir, 蓝图));
+            var lines = Lines(md);
+
             var blocks = 蓝图图块();
-            var onDisk = Directory.GetFiles(SourcesDir, "*.mmd")
-                                  .Select(Path.GetFileName)
-                                  .OrderBy(x => x, StringComparer.Ordinal)
-                                  .ToArray();
+            Assert.GreaterOrEqual(blocks.Count, 8, "蓝图的 mermaid 块少于 8 个，疑似被误删");
 
-            var orphanSource = onDisk.Where(f => !blocks.ContainsKey(f)).ToArray();
-            var orphanBlock = blocks.Keys.Where(f => !onDisk.Contains(f)).ToArray();
+            foreach (var b in blocks)
+                Assert.IsTrue(b.Trim().Length > 0, "蓝图里存在空的 mermaid 块");
 
-            Assert.IsEmpty(orphanSource, "sources/ 里有图源但蓝图没引用：" + string.Join(", ", orphanSource));
-            Assert.IsEmpty(orphanBlock, "蓝图引用了不存在的图源：" + string.Join(", ", orphanBlock));
+            // 每个 ```mermaid 上方最近的一个标题，必须是「图 N｜…」
+            int seen = 0;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (!lines[i].StartsWith("```mermaid")) continue;
+
+                string heading = null;
+                for (int j = i - 1; j >= 0; j--)
+                    if (lines[j].StartsWith("##")) { heading = lines[j]; break; }
+
+                Assert.IsNotNull(heading, "第 " + (i + 1) + " 行的 mermaid 块上方找不到标题");
+                Assert.IsTrue(Regex.IsMatch(heading, @"图 \d+｜"),
+                    "mermaid 块上方的标题不含「图 N｜」：" + heading);
+                seen++;
+            }
+
+            Assert.AreEqual(blocks.Count, seen, "标题计数与图块计数不一致");
         }
 
         // ================================================================
@@ -215,7 +203,6 @@ namespace DeepseaOil.EditorTools.Tests
         public void T4_交叉引用有效()
         {
             var md = ReadAll(Path.Combine(DesignDir, 蓝图));
-            var missing = new List<string>();
 
             // 文档内引用的两份 Data 层文档（Markdown 链接，路径含空格与百分号编码）
             foreach (var doc in new[] { 设计文档, 实现文档 })
@@ -225,14 +212,6 @@ namespace DeepseaOil.EditorTools.Tests
                 Assert.IsTrue(referenced, "蓝图没有引用 " + doc);
                 Assert.IsTrue(File.Exists(Path.Combine(DesignDir, doc)), "被引用的文档不存在：" + doc);
             }
-
-            // sources/*.mmd 引用
-            foreach (Match m in Regex.Matches(md, "sources/(?<file>[0-9A-Za-z\\-]+\\.mmd)"))
-            {
-                var f = m.Groups["file"].Value;
-                if (!File.Exists(Path.Combine(SourcesDir, f))) missing.Add(f);
-            }
-            Assert.IsEmpty(missing.Distinct(), "蓝图引用了不存在图源：" + string.Join(", ", missing.Distinct()));
         }
 
         // ================================================================
