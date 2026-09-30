@@ -49,7 +49,7 @@ namespace DeepseaOil.Tests
             // 可重复执行（同一个域里连按两次 Run All 也不会炸）：
             //   AssetModule.Dispose() 是幂等的 —— 未初始化时是 no-op，已初始化时清干净并复位标记，
             //   所以紧接着的 Init() 一定能成功。
-            //   ConfigModule 没有重置入口（见《数据层》设计文档的开放项），只能靠 IsReady 守卫跳过；
+            //   ConfigModule 没有重置入口（见 Docs/框架蓝图.md §9.1 开放项 O10），只能靠 IsReady 守卫跳过；
             //   上一个 run 留下的 holder 仍在这个域里有效。
             AssetModule.Dispose();
 

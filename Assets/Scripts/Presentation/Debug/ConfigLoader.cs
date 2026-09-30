@@ -56,7 +56,7 @@ namespace DeepseaOil.Presentation
             Append(sb, tables.TbFish);
             Debug.Log(sb.ToString());
 
-            // 观测面：拉模型，不推送事件（蓝图契约表「观测」行）
+            // 观测面：拉模型，不推送事件（蓝图 §8 契约表「观测」行）
             var snap = DataMetrics.GetSnapshot();
             Debug.Log(string.Format("[Config] DataMetrics：ConfigReady={0}  TableCount={1}  CachedAssetCount={2}",
                 snap.ConfigReady, snap.TableCount, snap.CachedAssetCount));

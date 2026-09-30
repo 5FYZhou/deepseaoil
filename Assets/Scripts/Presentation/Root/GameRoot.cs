@@ -71,7 +71,7 @@ namespace DeepseaOil.Presentation
                 service.Tick(Time.unscaledDeltaTime);
             }
 
-            // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §2 图 2 step ②）
+            // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §4 每帧时序 step ②）
             AssetModule.Tick(Time.deltaTime);
 
             //actors.Tick(Time.deltaTime);
@@ -84,7 +84,7 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>
-        /// 进程退出：清异步队列 / 缓存 / 合并列表（蓝图 §3.2 图 7）。
+        /// 进程退出：清异步队列 / 缓存 / 合并列表（蓝图 §6 启动装配序）。
         /// 只由装配过 Data 层的那个实例来拆——否则叠加场景里第二个 `GameRoot` 被销毁时，
         /// 会把第一个还在用的缓存一起清掉。
         /// </summary>

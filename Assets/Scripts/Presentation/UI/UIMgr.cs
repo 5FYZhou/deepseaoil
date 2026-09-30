@@ -71,9 +71,9 @@ namespace DeepseaOil.Presentation.UI
         private Transform systemLayer;
 
         // ── 资源 Key（交给 Data 层 AssetModule）──
-        // 这里用的是「Resources 相对路径、不带扩展名」写法。蓝图 §11 的 Key 契约
-        //（表里存「相对 Assets/ 带扩展名」）是给**配置表**定的；AssetRegistry.ResolvePath
-        // 对两种形式都容忍，所以沿用旧 ResMgr 的 Key 字面量，不引入无谓改动。
+        // 这里用的是「Resources 相对路径、不带扩展名」写法。表里存「相对 Assets/ 带扩展名」
+        // 是给**配置表**定的，两套语义与转换点见 Docs/分层设计/数据层.md §5；
+        // AssetRegistry.ResolvePath 对两种形式都容忍，所以沿用旧 ResMgr 的 Key 字面量。
         private const string UI_CAMERA_KEY    = "ui/UICamera";
         private const string UI_CANVAS_KEY    = "ui/Canvas";
         private const string UI_EVENT_SYS_KEY = "ui/EventSystem";
