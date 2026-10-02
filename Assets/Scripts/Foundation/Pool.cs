@@ -65,7 +65,11 @@ namespace DeepseaOil.Foundation
 
             for (int i = 0; i < count; i++)
             {
-                _pool.Push(_factory());
+                T obj = _factory();
+
+                _onRelease?.Invoke(obj);
+
+                _pool.Push(obj);
             }
         }
 

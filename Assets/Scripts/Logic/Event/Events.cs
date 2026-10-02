@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Logic.Events
 {
@@ -9,12 +10,6 @@ namespace DeepseaOil.Logic.Events
     public readonly struct RequestPause { }
 
     public readonly struct RequestResume { }
-
-    public readonly struct RequestAudio 
-    {
-        public readonly audioType type;
-        public RequestAudio(audioType t) {  type = t; }
-    }
 
     public readonly struct RequestChangeScene 
     {
