@@ -50,6 +50,49 @@ namespace DeepseaOil.Logic.Player
         /// <summary>最近一次非零输入方向（已归一化）；供冲刺取向与调试面板使用。</summary>
         public Vector2 Direction => _direction;
 
+        /// <summary>
+        /// 满速档位：配置速度与冲刺速度里的较大者。
+        /// </summary>
+        /// <remarks>
+        /// <b>它是"受击速度上限"的基准</b>：外因（击退、水流、吸附）只被允许把速度往"当前档位"里补，
+        /// 补满为止，不允许把角色推到比它自己能力更快。于是"连续挨打会不会越推越快"有了确定答案。
+        /// <para>返回的是只读派生值、不是缓存字段：缓存了就要在每个写入速度的地方同步它，
+        /// 而那正是"两个速度真值"的开端。</para>
+        /// </remarks>
+        public float MaximumSpeed => Mathf.Max(Config.moveSpeed, _player.dashSpeed);
+
+        /// <summary>
+        /// 累加一次冲量（一次性的速度变化，单位/秒）—— <b>本类仍是玩家速度的唯一写者</b>。
+        /// </summary>
+        /// <remarks>
+        /// 基类的方法是 <c>protected</c>，这里用 <c>new</c> 提升成公开访问点（首个消费者是敌人接触击退）。
+        /// 调用方<b>不要</b>因此去写 <c>Rigidbody2D.velocity</c>：速度必须经本类账本，
+        /// 否则帧末写出会覆盖掉外力，表现为"被推了一下又弹回去"。
+        /// <para>冲量本身不乘 Δt（它是速度变化量）；本帧的提交由下一次固定帧一次写出。
+        /// 若同帧还要限制上限，顺序必须是"先累加冲量、后限速"——
+        /// 限速按当帧速度整体覆盖，顺序反了冲量会被整个吃掉且不报错。</para>
+        /// <para><b>用 <c>new</c> 而不是包一层方法：</b>包一层会让两个同签名成员同时存在，
+        /// 编译期报 CS0108（隐藏继承成员），而"隐藏"这件事本身是缺陷的信号 ——
+        /// 将来基类给 <c>AddImpulse</c> 加上参数或改变语义时，这里的覆盖会静默失效。</para>
+        /// </remarks>
+        public new void AddImpulse(Vector2 deltaVelocity)
+        {
+            base.AddImpulse(deltaVelocity);
+        }
+
+        /// <summary>
+        /// 把角色瞬移到给定位置（重生 / 传送用）。
+        /// </summary>
+        /// <remarks>
+        /// 走执行器的物理体位置而不是 <c>transform.position</c>：后者会被刚体的位置积分覆盖掉，
+        /// 表现为"瞬移了一下又弹回去"。它<b>不</b>是"移动"：不经过状态机、不改朝向、不产生提交，
+        /// 所以想真正停住要另调 <see cref="ActorLogic.StopMove"/>。
+        /// </remarks>
+        public void ResetTo(Vector2 position)
+        {
+            Motor.SetPosition(position);
+        }
+
         /// <summary>是否可冲刺：冷却已过，且缓冲里有窗口内的按下。纯查询，不消费。</summary>
         public bool CanDash(float now)
         {
