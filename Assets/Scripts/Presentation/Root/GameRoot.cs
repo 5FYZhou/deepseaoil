@@ -1,4 +1,4 @@
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -41,24 +41,28 @@ namespace DeepseaOil.Presentation
                 AssetModule.Init();
                 _dataLayerOwner = this;
             }
+
+            Init();
         }
 
-        private void Start()
+        private void Init()
         {
-            UIMgr.Instance.ShowPanel<BeginPanel>();
             gameTime = new GameTime();
 
             var pauseService = new PauseService(gameTime);
-            var sceneService = new SceneService(gameTime, pauseService);
+            var sceneService = new SceneService(pauseService);
             var saveService = new SaveService();
+            var audioService = AudioManager.Instance;
 
             pauseService.Init();
             sceneService.Init();
             saveService.Init();
+            audioService.Init();
 
             services.Add(pauseService);
             services.Add(sceneService);
             services.Add(saveService);
+            services.Add(audioService);
 
         }
 
