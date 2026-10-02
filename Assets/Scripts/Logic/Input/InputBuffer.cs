@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -17,8 +17,9 @@ namespace DeepseaOil.Logic.Input
     /// <remarks>
     /// 时间由调用方传入（不读 Unity Time），必须单调不减；窗口为闭区间 <c>now - window &lt;= t &lt;= now</c>。
     /// 同一次按下只能消费一次；按下仅受窗口时长约束，不随样本被挤出历史而作废。
-    /// <b>输入边沿一律由本类提供</b>（按下：<see cref="CanConsume"/>；松开：<see cref="IsJumpReleased"/>），
+    /// <b>输入按下沿一律由本类提供</b>（<see cref="CanConsume"/> / <see cref="TryConsume"/>），
     /// 宿主不得自行保存"上一帧输入"，且 <see cref="Push"/> 必须先于逻辑层的 <c>Tick</c>。
+    /// 当前被消费的只有 <see cref="InputType.Dash"/>；<see cref="InputType.Jump"/> 等按下沿的入账见 <see cref="Push"/>。
     /// 契约与设计理由见 <c>Docs/分层设计/逻辑层.md</c> §5。
     /// </remarks>
     public sealed class InputBuffer
@@ -49,12 +50,6 @@ namespace DeepseaOil.Logic.Input
 
         /// <summary>全部输入类型，构造时缓存：既省一次枚举分配，也避免遍历字典时再写字典。</summary>
         private readonly InputType[] _inputTypes;
-
-        /// <summary>上一物理帧跳跃键是否按住。</summary>
-        private bool _prevJumpHeld;
-
-        /// <summary>本物理帧是否发生"按住 → 松开"。</summary>
-        private bool _jumpReleased;
 
         /// <summary>实际生效的历史窗口时长（秒），调手感时应以本值为准。</summary>
         public float EffectiveSeconds => Capacity / (float)SampleRatePerSecond;
@@ -101,6 +96,11 @@ namespace DeepseaOil.Logic.Input
         /// <summary>
         /// 记录一帧输入快照。缓冲区满时覆盖最旧样本。
         /// </summary>
+        /// <remarks>
+        /// 只把"有消费者或有明确后续设计"的按下沿入账。松开沿（曾供可变跳高使用）已随跳跃曲线一起删除；
+        /// 将来若某个状态需要松开沿，回到这里按 <c>_prevXxx</c> ＋ 相邻两次采样就地求沿即可——
+        /// 不能挪到渲染帧求，一个渲染帧对应 0 或 2 个物理帧时会丢沿。
+        /// </remarks>
         public void Push(in InputSnapshot snapshot, float now)
         {
             _snapshots[_writeIndex++] = snapshot;
@@ -108,18 +108,7 @@ namespace DeepseaOil.Logic.Input
 
             if (snapshot.JumpPressed) _pendingTimes[InputType.Jump] = now;
             if (snapshot.DashPressed) _pendingTimes[InputType.Dash] = now;
-
-            // 松开沿在物理帧内就地由相邻两次采样求出：若挪到渲染帧（InputProvider.Update）
-            // 求，一个渲染帧对应 0 或 2 个物理帧时会丢沿，可变跳高随之失效。
-            _jumpReleased = _prevJumpHeld && !snapshot.JumpHeld;
-            _prevJumpHeld = snapshot.JumpHeld;
         }
-
-        /// <summary>
-        /// 本物理帧是否为跳跃键"按住 → 松开"的边沿。由 <see cref="Push"/> 每帧刷新，纯查询、无副作用。
-        /// </summary>
-        /// <remarks>要求 <see cref="Push"/> 先于逻辑层的 <c>Tick</c> 调用，否则会滞后一帧。</remarks>
-        public bool IsJumpReleased() => _jumpReleased;
 
         /// <summary>
         /// 查询窗口内是否有未消费的按下。<b>不</b>消费，可重复调用。
@@ -147,8 +136,6 @@ namespace DeepseaOil.Logic.Input
         {
             Array.Clear(_snapshots, 0, _snapshots.Length);
             _writeIndex = 0;
-            _prevJumpHeld = false;
-            _jumpReleased = false;
 
             foreach (InputType type in _inputTypes)
             {

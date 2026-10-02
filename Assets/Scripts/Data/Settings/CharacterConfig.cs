@@ -1,45 +1,43 @@
-﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-
 
 namespace DeepseaOil.Data
 {
+    /// <summary>
+    /// 角色共用运动参数：速度、斜向规则、外力强度、冲刺。
+    /// </summary>
+    /// <remarks>
+    /// 字段按"谁在用"分三组：
+    /// ① 正在被消费：<c>moveSpeed</c> / <c>snapToEightDirections</c> / <c>dashSpeed</c> / <c>dashDuration</c>；
+    /// ② 通用控制律：<c>moveAcceleration</c> / <c>turnDecayRate</c> —— 俯视角玩家用不上（零惯性），敌人追击与击退滑行要用，
+    ///    由 <c>ActorLogic.ApproachX</c> 消费；
+    /// ③ 外力强度缩放：<c>extraForceScale</c> —— 由 <c>ActorLogic.ApplyExtraForce</c> 消费，玩家填 0（不施加外力），
+    ///    结冰打滑、水流推挤、被吸附等按需填正数。
+    /// 重力与跳跃曲线（<c>jumpSpeed</c> / <c>riseGravity</c> / <c>fallGravity</c> / <c>jumpCutMultiplier</c> /
+    /// <c>maxFallSpeed</c> / <c>maxRiseSpeed</c>）已随平台跳跃品类一起删除：俯视角没有"上"这个方向，
+    /// 其只属于玩家的那部分字段也没有任何消费者。外力取代了它们原来的位置。
+    /// 删字段前先确认没有敌人侧消费者。
+    /// </remarks>
     public class CharacterConfig : BaseConfig
     {
-        [Header("名称")] public string Name;
+        [Header("名称")]
+        public string Name;
+
         [Header("Move")]
-        [Tooltip("地面最大水平速度")]
+        [Tooltip("移动速度（单位/秒）。俯视角零惯性：这是速度，不是加速度")]
         public float moveSpeed = 8f;
 
-        [Tooltip("水平加速度")]
+        [Tooltip("8 向吸附：把输入方向吸附到 45° 一档并归一化。勾选则斜向与直向同速；摇杆轻推的模拟幅度不受影响")]
+        public bool snapToEightDirections = true;
+
+        [Tooltip("水平加速度：通用控制律，俯视角玩家不用，敌人加速/击退滑行用")]
         public float moveAcceleration = 60f;
 
-        [Tooltip("反向输入的转向衰减率（1/秒），越大转身越快；20 为首个猜测值，待调参")]
+        [Tooltip("反向输入的转向衰减率（1/秒），越大转身越快；供需要惯性的角色使用")]
         public float turnDecayRate = 20f;
 
-        [Tooltip("最大下落速度")]
-        public float maxFallSpeed = 20f;
-
-        [Tooltip("最大上升速度")]
-        public float maxRiseSpeed = 20f;
-
-        [Header("Jump")]
-        [Tooltip("起跳初速度")]
-        public float jumpSpeed = 14f;
-
-        [Tooltip("二段跳初速度")]
-        public float doubleJumpSpeed = 12f;
-
-        [Tooltip("上升期且按住跳跃键时的重力加速度")]
-        public float riseGravity = 40f;
-
-        [Tooltip("其余情况的重力加速度")]
-        public float fallGravity = 70f;
-
-        [Tooltip("上升期松开跳跃键时的垂直速度截断系数")]
-        [Range(0f, 1f)]
-        public float jumpCutMultiplier = 0.5f;
+        [Header("Extra Force")]
+        [Tooltip("外力累加强度缩放。俯视角玩家填 0（不施加外力）；需要被击退/被推/被吸附的角色填 1 或更大")]
+        public float extraForceScale = 0f;
 
         [Header("Dash")]
         [Tooltip("冲刺速度")]
@@ -47,9 +45,5 @@ namespace DeepseaOil.Data
 
         [Tooltip("冲刺持续时长（秒）")]
         public float dashDuration = 0.2f;
-
-        [Header("Wall")]
-        [Tooltip("贴墙下滑速度")]
-        public float wallSlideSpeed = 3f;
     }
 }
