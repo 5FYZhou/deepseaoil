@@ -54,7 +54,6 @@ namespace DeepseaOil.Foundation
             }
         }
 
-
         //方法的方式
         //public static T GetInstance()
         //{

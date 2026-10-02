@@ -297,6 +297,10 @@ namespace DeepseaOil.Presentation.UI
                     callBack?.Invoke(panelInfo.panel);
                 }
             }
+            else
+            {
+                Debug.LogWarning($"面板{typeof(T)}还未被加载");
+            }
         }
 
 
