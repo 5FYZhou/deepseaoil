@@ -25,10 +25,12 @@ namespace DeepseaOil.Presentation.UI
                     EventBus<RequestPause>.Publish(new RequestPause());
                     break;
                 case "ContinueBtn":
+                    EventBus<RequestChangeScene>.Publish(new RequestChangeScene("SampleScene"));
                     EventBus<RequestResume>.Publish(new RequestResume());
+                    AudioManager.Instance.SetSfxVolume(0.5f);
                     break;
                 case "ExitBtn":
-                    EventBus<RequestAudio>.Publish(new RequestAudio(Logic.Service.audioType.None));
+                    AudioManager.Instance.PlaySfx(Data.AudioId.Jump);
                     Application.Quit();
                     break;
             }

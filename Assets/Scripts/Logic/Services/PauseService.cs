@@ -5,13 +5,6 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Service {
 
-    public interface IService
-    {
-        void Init();
-        void Tick(float unscaledDeltaTime);
-        void Dispose();
-    }
-
     public sealed class PauseService : IService
     {
         private readonly IGameTime gameTime;
