@@ -7,7 +7,7 @@
 //
 // 【为什么是这些用例】俯视角移动的风险集中在"手感语义"，错了不报错、只是手感不对：
 //   M1  零输入当帧停        —— 残留速度 = 滑行
-//   M2  斜向不快 √2 倍      —— 俯视角最经典的 bug
+//   M2  斜向不快 √2 倍      —— 俯视角最经典的 bug（喂**未归一化**的 (1,1)，让实现自己去归一化）
 //   M3  反向无过渡          —— 有加速度就是惯性，与"零惯性"直接冲突
 //   M4  零输入保持朝向      —— 站住时精灵自己翻面
 //   M5  朝向只翻水平符号    —— 上下移动不该把精灵颠倒
@@ -21,7 +21,18 @@
 //   M13 抢占失败不改状态    —— Configure 必须跑在消费成功之后
 //   M14 首帧同样参与抢占    —— 首帧曾是"无抢占"特权帧，第一次按冲刺被吞
 //   M15 限速整体钳制        —— ClampSpeed 按当帧速度收敛，未超限不得改动
-//   M16 外力按 Δt 累进      —— ApplyExtraForce 的语义与"先外力后钳制"顺序
+//   M16 外力按 Δt 累进      —— ApplyExtraForce 的语义与强度缩放
+//   M17 8 向吸附是纯函数    —— **唯一**覆盖 PlayerController 那条吸附/归一化通路的用例
+//   M18 外力必须早于钳制    —— 顺序反了本帧外力被整个吃掉，且只看帧末输出验不出来
+//
+// 【覆盖边界，写在明处】除 M12 / M17 外，本文件测的都是 Logic 层：
+//   它直接构造 PlayerLogic ＋ 假执行器，**不经过 PlayerController**。
+//   于是"宿主把输入装配错了"这一类缺陷（未归一化、缓冲推了原始快照、边界没接线）
+//   在 M17 之前是完全无覆盖的 —— 那正是"测试全绿但缺陷仍在"的成因。
+//   **场景搭建与接线检验没有自动化**：按流程由人工完成（建场景、挂组件、连引用、Play 手测）。
+//   本工程曾有一个 `MovementSetupCheck` 菜单做这件事，已删除 —— 它报过 31 项**全部误报**
+//   （把 Unity 内置的 m_Material / m_ProbeAnchor 之类当成"未接线"），而假红会训练人忽略它。
+//   宁可不查，也不要报一堆假红。所以：本文件绿了只代表 Logic 层对，不代表场景接对了。
 //
 // 【与射线检测的关系】MovementMotor 已不含 groundCheck/wallCheck/groundMask：
 //   俯视角的阻挡由刚体碰撞解算，逻辑层不需要"是否站地/是否贴墙"。
@@ -101,7 +112,7 @@ namespace DeepseaOil.Tests
         public void TearDown()
         {
             EventBus<MovementStateChanged>.Unsubscribe(OnStateChanged);
-            Object.DestroyImmediate(_config);
+            UnityEngine.Object.DestroyImmediate(_config);
         }
 
         private void OnStateChanged(MovementStateChanged evt)
@@ -119,7 +130,7 @@ namespace DeepseaOil.Tests
             if (resetVelocity) _motor.Velocity = Vector2.zero;
 
             var snapshot = new InputSnapshot(move, false, dashPressed, false);
-            var world = new WorldInfo(move, new BoundsArea(null));
+            var world = new WorldInfo(move, default(BoundsArea));
 
             _buffer.Push(in snapshot, now);
             _logic.FixedTick(new LogicContext(now, 0.02f, in world, in snapshot));
@@ -141,7 +152,10 @@ namespace DeepseaOil.Tests
         [Test]
         public void M2_斜向速度等于直向速度()
         {
-            Tick(new Vector2(0.7071f, 0.7071f), 0f);
+            // 喂**未归一化**的 (1,1)：键盘同时按右与上就是这个值。
+            // 归一化是实现的义务，不是测试的前提 —— 喂 0.7071 只能证明"已经归一化的输入能过"，
+            // 证明不了"实现会归一化"。曾经这里喂的就是 0.7071，于是斜向快 √2 倍也照样绿。
+            Tick(new Vector2(1f, 1f), 0f);
 
             float expected = _config.moveSpeed * _config.moveSpeed;
             float actual = _motor.Velocity.sqrMagnitude;
@@ -150,6 +164,45 @@ namespace DeepseaOil.Tests
             // 而"未归一化"造成的偏差是 +64（(1,1) 会得到 2×speed²），量级差 4 个数量级，不会误判。
             Assert.AreEqual(expected, actual, 0.01f,
                 $"斜向速度平方应为 {expected}（= moveSpeed²），实测 {actual}；接近 2×{expected} 即未归一化");
+        }
+
+        /// <summary>
+        /// 回归：8 向吸附是<b>静态纯函数</b>，喂未归一化输入也必须吐单位向量。
+        /// </summary>
+        /// <remarks>
+        /// 这是本文件里<b>唯一</b>覆盖 <c>PlayerController</c> 那条通路的用例。
+        /// 之前那条通路零覆盖，于是"吸附函数恒返回单位向量、注释却说摇杆轻推保持模拟量"
+        /// 这种注释与实现相反的问题，测试与校验工具都发现不了。
+        /// </remarks>
+        [Test]
+        public void M17_八向吸附输出单位向量()
+        {
+            // ① 键盘斜向 (1,1) → 45° 档的单位向量
+            Vector2 diagonal = PlayerController.SnapMoveToEightDirections(new Vector2(1f, 1f), true);
+            Assert.AreEqual(1f, diagonal.magnitude, 1e-3f, $"键盘斜向应被归一化，实测模长 {diagonal.magnitude}");
+            Assert.Greater(Vector2.Dot(diagonal, new Vector2(0.7071f, 0.7071f)), 0.999f,
+                $"应吸附到 45°，实测 {diagonal}");
+
+            // ② 直向与摇杆"轻推"都必须得到同一个单位向量：
+            //    吸附的语义是"取方向"，代价是丢掉模拟幅度 —— 这条断言把这笔代价钉在代码上。
+            Vector2 fullPush = PlayerController.SnapMoveToEightDirections(Vector2.right, true);
+            Vector2 lightPush = PlayerController.SnapMoveToEightDirections(new Vector2(0.2f, 0f), true);
+            Assert.AreEqual(fullPush, lightPush,
+                "摇杆轻推与推满必须是同一个速度：8 向吸附会抹掉模拟幅度，这是已知取舍，不是缺陷");
+
+            // ③ 关掉吸附时也不能原样放行：斜向 (1,1) 的模长是 √2，会当帧写出快 41% 的速度
+            Vector2 unsnapped = PlayerController.SnapMoveToEightDirections(new Vector2(1f, 1f), false);
+            Assert.AreEqual(1f, unsnapped.magnitude, 1e-3f,
+                "关掉吸附只应关掉「吸到 45°」，不该顺带关掉归一化");
+
+            // ④ 零输入恒为零向量：不得因归一化而放大成 NaN
+            Assert.AreEqual(Vector2.zero, PlayerController.SnapMoveToEightDirections(Vector2.zero, true));
+            Assert.AreEqual(Vector2.zero, PlayerController.SnapMoveToEightDirections(Vector2.zero, false));
+
+            // ⑤ 吸附后的方向必须是"逐位相同"的常量：同一档位换一次输入，值不该抖。
+            //    抖动会让 MoveDirection 每帧写出不同的速度，表现为角色在直线上"抖"。
+            Assert.AreEqual(fullPush, PlayerController.SnapMoveToEightDirections(new Vector2(5f, 0f), true),
+                "同一档位的不同输入必须得到同一个结果：否则直线行走会逐帧抖动");
         }
 
         [Test]
@@ -181,7 +234,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void M5_朝向只翻水平符号()
         {
-            var go = CreateMotorObject("移动测试_朝向", out MovementMotor motor);
+            var go = CreateMotorObject("移动测试_朝向", out MovementMotor motor, out _);
             try
             {
                 // 「朝左」与「纯竖直」的先后顺序是本用例的重点：先朝左再朝上，
@@ -199,7 +252,7 @@ namespace DeepseaOil.Tests
             }
             finally
             {
-                Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(go);
             }
         }
 
@@ -210,8 +263,8 @@ namespace DeepseaOil.Tests
         [Test]
         public void M6_冲刺沿朝向八向()
         {
-            // 先建立斜向朝向
-            Tick(new Vector2(0.7071f, 0.7071f), 0f);
+            // 先建立斜向朝向：喂未归一化的 (1,1)，由实现自己归一到 45°
+            Tick(new Vector2(1f, 1f), 0f);
             _motor.Velocity = Vector2.zero;
 
             // 再触发冲刺（无输入 → 用最近朝向）
@@ -220,7 +273,9 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(MovementStateTag.Dash, _logic.CurrentState, "有缓冲按下且冷却已过，应抢占到 Dash");
 
             Vector2 v = _motor.Velocity;
-            Assert.AreEqual(_config.dashSpeed, v.magnitude, 1e-3f, $"冲刺速率应为 dashSpeed={_config.dashSpeed}");
+            Assert.AreEqual(_config.dashSpeed, v.magnitude, 1e-3f,
+                $"冲刺速率应为 dashSpeed={_config.dashSpeed}；"
+                + $"若为 {_config.dashSpeed * Mathf.Sqrt(2f):F2} 量级，说明方向没归一化就乘了速度");
 
             Vector2 expected = new Vector2(0.7071f, 0.7071f);
             Assert.Greater(Vector2.Dot(v.normalized, expected), 0.999f,
@@ -346,52 +401,34 @@ namespace DeepseaOil.Tests
         [Test]
         public void M10_边界真的钳住()
         {
-            var boundsGo = new GameObject("移动测试_边界");
-            try
-            {
-                var box = boundsGo.AddComponent<BoxCollider2D>();
-                box.isTrigger = false;
-                box.offset = Vector2.zero;
-                box.size = new Vector2(4f, 4f);   // 世界范围 [-2, 2] × [-2, 2]
-                var bounds = new BoundsArea(box);
+            // 世界范围 [-2, 2] × [-2, 2]：BoundsArea 现在是纯数据，不需要建物体或碰撞体。
+            var bounds = new BoundsArea(new Vector2(-2f, -2f), new Vector2(2f, 2f));
 
-                Assert.IsTrue(bounds.IsValid, "尺寸非零的矩形应判定为有效区域");
-                Assert.IsTrue(bounds.TryClamp(new Vector2(99f, 0f), out Vector2 clamped), "越界位置必须报告已钳位");
-                Assert.AreEqual(2f, clamped.x, 1e-3f, "应被钳到右边界");
-                Assert.AreEqual(0f, clamped.y, 1e-3f, "未越界的分量不得被改动");
-            }
-            finally
-            {
-                Object.DestroyImmediate(boundsGo);
-            }
+            Assert.IsTrue(bounds.IsValid, "尺寸非零的矩形应判定为有效区域");
+            Assert.IsTrue(bounds.TryClamp(new Vector2(99f, 0f), out Vector2 clamped), "越界位置必须报告已钳位");
+            Assert.AreEqual(2f, clamped.x, 1e-3f, "应被钳到右边界");
+            Assert.AreEqual(0f, clamped.y, 1e-3f, "未越界的分量不得被改动");
         }
 
         [Test]
         public void M11_边界未接线不钳位()
         {
-            // ① collider 缺失
-            var empty = new BoundsArea(null);
-            Assert.IsFalse(empty.IsValid, "空引用必须是无效区域");
-            Assert.IsFalse(empty.TryClamp(new Vector2(99f, -99f), out Vector2 kept), "无效区域不得报告钳位");
+            // ① 默认值（min == max == 零）：组合根在 boundsArea 未接线时传的就是它
+            var unset = default(BoundsArea);
+            Assert.IsFalse(unset.IsValid, "默认值必须判为无效区域");
+            Assert.IsFalse(unset.TryClamp(new Vector2(99f, -99f), out Vector2 kept), "无效区域不得报告钳位");
             Assert.AreEqual(new Vector2(99f, -99f), kept, "无效区域必须原样返回位置");
 
-            // ② 形状被停用
-            var go = new GameObject("移动测试_停用边界");
-            try
-            {
-                var box = go.AddComponent<BoxCollider2D>();
-                box.size = new Vector2(4f, 4f);
-                box.enabled = false;
-                var disabled = new BoundsArea(box);
+            // ② 只有一个轴有尺寸（例：BoxCollider2D 的 Size 有一轴是 0）——
+            //    只看"有没有传值"会把它当成有效区域，玩家会被钳到一条线上。
+            var flat = new BoundsArea(new Vector2(-2f, 0f), new Vector2(2f, 0f));
+            Assert.IsFalse(flat.IsValid, "单轴尺寸为 0 必须判无效——否则玩家会被钳到一条线上");
+            Assert.IsFalse(flat.TryClamp(new Vector2(99f, -99f), out Vector2 keptFlat));
+            Assert.AreEqual(new Vector2(99f, -99f), keptFlat, "无效区域必须原样返回位置");
 
-                Assert.IsFalse(disabled.IsValid, "停用的碰撞体必须判无效——否则玩家会被钉死在地图原点");
-                Assert.IsFalse(disabled.TryClamp(new Vector2(99f, -99f), out Vector2 keptDisabled));
-                Assert.AreEqual(new Vector2(99f, -99f), keptDisabled);
-            }
-            finally
-            {
-                Object.DestroyImmediate(go);
-            }
+            // ③ 边界含内、位置恰好在边上：不算钳位（避免每帧写一次位置、打断刚体插值）
+            var bounds = new BoundsArea(new Vector2(-2f, -2f), new Vector2(2f, 2f));
+            Assert.IsFalse(bounds.TryClamp(new Vector2(2f, -2f), out _), "位置已在边界上时不得报告钳位");
         }
 
         // ================================================================
@@ -401,17 +438,19 @@ namespace DeepseaOil.Tests
         [Test]
         public void M12_刚体速度真的被写入()
         {
-            var go = CreateMotorObject("移动测试_速度", out MovementMotor motor);
+            var go = CreateMotorObject("移动测试_速度", out MovementMotor motor, out Rigidbody2D body);
             try
             {
-                var body = go.GetComponent<Rigidbody2D>();
-
                 // 首次访问触发惰性自取与初始化
                 motor.Move(new Vector2(3f, -4f));
 
                 Assert.IsTrue(motor.IsInitialized, "首次使用必须完成自取初始化（不依赖 Awake 时机）");
-                Assert.AreEqual(0f, body.gravityScale, "俯视角：重力缩放应被初始化为 0");
-                Assert.IsTrue(body.freezeRotation, "俯视角：旋转应被冻结");
+                // 这两条断言只有在创建时**故意写成非默认值**时才有意义：
+                // 若创建时就把 gravityScale 设成 0，无论 Initialize 跑没跑断言都成立 —— 那是假绿。
+                Assert.AreEqual(0f, body.gravityScale,
+                    "俯视角：Initialize 必须把重力缩放写成 0（创建时故意留成 1，才能区分初始化跑没跑）");
+                Assert.IsTrue(body.freezeRotation,
+                    "俯视角：Initialize 必须冻结旋转（创建时故意留成不冻结）");
                 Assert.AreEqual(new Vector2(3f, -4f), body.velocity, "MovementMotor.Move 必须写进 Rigidbody2D.velocity");
                 Assert.AreEqual(new Vector2(3f, -4f), motor.Velocity, "Velocity 必须回读同一份真值");
 
@@ -425,7 +464,7 @@ namespace DeepseaOil.Tests
             }
             finally
             {
-                Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(go);
             }
         }
 
@@ -449,6 +488,13 @@ namespace DeepseaOil.Tests
             logic.FixedTick(ProbeContext(0.02f));
             Assert.Less(Vector2.Distance(new Vector2(8f, 0f), motor.Velocity), 1e-3f,
                 "ClampSpeed(0) 应视为不限制：速度原样写出");
+
+            // 负上限同样视为不限制（不许把速度翻成反方向 —— Mathf.ClampMagnitude 的负数入参会）
+            logic.Limit = -5f;
+            logic.Speed = new Vector2(8f, 0f);
+            logic.FixedTick(ProbeContext(0.03f));
+            Assert.Less(Vector2.Distance(new Vector2(8f, 0f), motor.Velocity), 1e-3f,
+                "ClampSpeed(负数) 必须视为不限制，不得把速度反向");
 
             // 超限时按模长整体缩回
             logic.Limit = 3f;
@@ -488,15 +534,15 @@ namespace DeepseaOil.Tests
             logic.FixedTick(ProbeContext(0.04f));
             Assert.AreEqual(Vector2.zero, motor.Velocity, "extraForceScale = 0 时必须整段空转");
 
-            // ④ 顺序约束：先外力、后钳制。上限 3 高于终速 2，故本帧外力应完整留下。
-            //    注意探针的 SetVelocity 写的是 _delta，所以钳制看到的是 (0,-2)+(0,-2) = (0,-4)，
-            //    上限必须高于 4 才谈得上"没被钳"。这里用 4.5 留出余量。
+            // ④ 上限高于终速 2 → 本帧外力应完整留下。
+            //    注意探针的 SetVelocity 走的是 _delta，所以钳制看到的是 (0,-2)+(0,-2) = (0,-4)；
+            //    上限用 4.5 留出余量，本段只为验"未触及时不被动过"。
             motor.Velocity = Vector2.zero;
             logic.Scale = 1f;
             logic.Limit = 4.5f;
             logic.FixedTick(ProbeContext(0.06f));
             Assert.Less(Vector2.Distance(new Vector2(0f, -2f), motor.Velocity), 1e-3f,
-                "先累加外力再钳制：上限未触及时应保持 -2");
+                "未触及上限的速度不得被钳制改动");
 
             // ⑤ 同帧超限时被钳回上限
             motor.Velocity = Vector2.zero;
@@ -504,6 +550,39 @@ namespace DeepseaOil.Tests
             logic.FixedTick(ProbeContext(0.08f));
             Assert.Less(Vector2.Distance(new Vector2(0f, -1f), motor.Velocity), 1e-3f,
                 "超上限的外力结果应收敛到上限");
+        }
+
+        /// <summary>
+        /// 回归：<b>先累加外力、后钳制</b> —— 顺序反了本帧外力会被钳制整个吃掉。
+        /// </summary>
+        /// <remarks>
+        /// 为什么必须单独一条：钳制是"接管"而不是"追加"（<c>ClampSpeed</c> 按当帧
+        /// <c>Velocity</c> 整体覆盖），所以"顺序"这件事不看中间值就验不出来 ——
+        /// 只看帧末输出的话，"先钳后加外力"与"先加外力后钳"在多数参数下给出同一个数。
+        /// <para>断言的判据是<b>钳制那一刻看到的速度</b>（探针在 <c>ClampSpeed</c> 之前记一次快照）：
+        /// 顺序正确时它必须已经含上外力（<c>0 + 50×0.02 = 1</c>）；
+        /// 顺序反了它只会是 <c>0</c>。上限设 1，于是外力被钳掉后帧末只剩 −3，
+        /// 与"顺序正确"的 −1 差得足够远，不会误判。</para>
+        /// </remarks>
+        [Test]
+        public void M18_外力必须早于钳制()
+        {
+            var motor = new RecordingMotor();
+            var logic = new LimitProbe(motor);
+
+            logic.Speed = Vector2.zero;
+            logic.Scale = 1f;
+            logic.Force = new Vector2(0f, -50f);
+            logic.Limit = 1f;
+
+            logic.FixedTick(ProbeContext(0f));
+
+            Assert.Less(Vector2.Distance(new Vector2(0f, -1f), logic.VelocityBeforeClamp), 1e-3f,
+                $"钳制必须看到已累加的外力（期望 50×0.02=1），实测 {logic.VelocityBeforeClamp}；"
+                + "若为 (0,0) 说明钳制跑在 ApplyExtraForce 之前 —— 本帧外力会被整个吃掉且不报错");
+
+            Assert.Less(Vector2.Distance(new Vector2(0f, -1f), motor.Velocity), 1e-3f,
+                "钳制看到含外力的速度后，帧末应收敛到上限 1");
         }
 
         /// <summary>把 <see cref="ActorLogic"/> 的两个新写入口暴露出来的探针。</summary>
@@ -519,6 +598,9 @@ namespace DeepseaOil.Tests
             public float Limit;
             public Vector2 Speed;
 
+            /// <summary>钳制那一刻看到的速度（在 <c>ClampSpeed</c> 之前记一次），用来验调用顺序。</summary>
+            public Vector2 VelocityBeforeClamp { get; private set; }
+
             public LimitProbe(IMovementMotor motor) : base(motor, ScriptableObject.CreateInstance<CharacterConfig>())
             {
             }
@@ -528,6 +610,9 @@ namespace DeepseaOil.Tests
                 SetVelocity(Speed);
                 SetExtraForceScale(Scale);
                 ApplyExtraForce(in ctx, Force);
+
+                VelocityBeforeClamp = Velocity;
+
                 ClampSpeed(Limit);
             }
         }
@@ -535,7 +620,7 @@ namespace DeepseaOil.Tests
         private static LogicContext ProbeContext(float now)
         {
             var snapshot = InputSnapshot.Empty;
-            var world = new WorldInfo(Vector2.zero, new BoundsArea(null));
+            var world = new WorldInfo(Vector2.zero, default(BoundsArea));
 
             return new LogicContext(now, 0.02f, in world, in snapshot);
         }
@@ -549,17 +634,21 @@ namespace DeepseaOil.Tests
         /// </summary>
         /// <remarks>
         /// 顺序不能反：先加 Rigidbody2D 再加 MovementMotor，不依赖 <c>RequireComponent</c> 的自动补加顺序。
-        /// <b>注意 EditMode 下 <c>AddComponent</c> 不会触发 <c>Awake</c></b>，所以本类不能依赖 <c>Awake</c>
-        /// 里的自取与自检——<c>MovementMotor</c> 的物理体引用因此做成惰性兜底（见其 <c>Body</c> 属性）。
-        /// 这也意味着 <c>gravityScale = 0</c> / <c>freezeRotation</c> 那两行在 EditMode 测试里不会执行，
-        /// 它们由场景实际 Play 时生效。
+        /// <para><b>物理参数故意留成非默认值</b>（<c>gravityScale = 1</c> / 不冻旋转）：
+        /// 只有这样才能区分"<c>Initialize()</c> 真的跑了"与"值恰好就是默认的 0/false"。
+        /// 早先这里写的是 <c>body.gravityScale = 0f</c>，于是 M12 的两条断言恒真 —— 假绿。</para>
+        /// <para><b>注意 EditMode 下 <c>AddComponent</c> 不会触发 <c>Awake</c></b>，所以本类不能依赖
+        /// <c>Awake</c> 里的自取与自检——<c>MovementMotor</c> 的物理体引用因此做成惰性兜底（见其 <c>Body</c> 属性）。
+        /// 这也意味着 <c>gravityScale = 0</c> / <c>freezeRotation</c> 那两行在 EditMode 测试里
+        /// 只有通过"首次访问属性"这条惰性路径才会执行 —— M12 走的正是那条路径。</para>
         /// </remarks>
-        private static GameObject CreateMotorObject(string name, out MovementMotor motor)
+        private static GameObject CreateMotorObject(string name, out MovementMotor motor, out Rigidbody2D body)
         {
             var go = new GameObject(name);
 
-            var body = go.AddComponent<Rigidbody2D>();
-            body.gravityScale = 0f;
+            body = go.AddComponent<Rigidbody2D>();
+            body.gravityScale = 1f;          // 非默认：断言"被 Initialize 改成 0"才有意义
+            body.freezeRotation = false;     // 非默认：同上
 
             motor = go.AddComponent<MovementMotor>();
 

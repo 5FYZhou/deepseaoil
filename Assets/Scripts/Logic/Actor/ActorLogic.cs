@@ -85,6 +85,8 @@ namespace DeepseaOil.Logic
         /// 与 <see cref="ApproachX"/> 的分工：那条是"渐进逼近"的控制律，给需要惯性的角色（敌人追击、击退滑行）用；
         /// 本条是"当帧直达"，给俯视角玩家用——松键当帧停，反向当帧换向。
         /// 移动锁定期内不响应，但 <b>朝向照更新</b>：锁定期是"不能位移"，不是"不能转身"。
+        /// <paramref name="direction"/> <b>可以是未归一化向量</b>（本方法内归一化）：
+        /// 契约不靠调用方守，否则键盘斜向的 (1,1) 会让速度凭空快 √2 倍，且不报错、只是手感不对。
         /// </remarks>
         public void MoveDirection(Vector2 direction, float speed)
         {
@@ -92,7 +94,7 @@ namespace DeepseaOil.Logic
 
             if (IsMoveLocked) return;
 
-            SnapVelocity(direction * speed);
+            SnapVelocity(direction.normalized * speed);
         }
 
         /// <summary>急停：速度当帧归零（朝向不变）；移动锁定期内不响应。</summary>
@@ -212,8 +214,13 @@ namespace DeepseaOil.Logic
         /// <remarks>
         /// <b>参数由调用方给出，本类不持有任何具体力的语义</b>——重力、浮力、水流、风、吸附、击退滑行
         /// 都只是 <paramref name="force"/> 的一种取值。因此这里没有开关、没有曲线、没有方向假设。
-        /// 本类<b>不自动调用</b>本方法：施不施加外力是角色自己的决策（见 <c>PlayerLogic.OnTick</c>）。
-        /// 外力与"速度上限"是两件事：要限速请显式调 <see cref="ClampSpeed"/>，顺序由调用方决定。
+        /// <para><b>本类不自动调用它，且当前没有任何角色调用它</b>：施不施加外力是角色自己的决策。
+        /// 俯视角玩家<b>刻意不施外力</b>（零惯性 + 无重力），所以 <c>PlayerLogic.OnTick</c> 里只有一行注释占位、
+        /// 没有真实调用——这是设计意图，不是未完成。首个真实消费者预计是敌人、击退、水流或吸附。
+        /// 目前唯一调用它的是测试探针（<c>移动Tests.LimitProbe</c>，覆盖 M16 与 M18）。</para>
+        /// <para>外力与"速度上限"是两件事：要限速请显式调 <see cref="ClampSpeed"/>。
+        /// <b>同帧两者并用时必须先累加外力、后钳制</b>——钳制按当帧 <see cref="Velocity"/> 整体覆盖，
+        /// 顺序反了本帧外力会被整个吃掉且不报错（<c>移动Tests.M18</c> 专门钉这一条）。</para>
         /// </remarks>
         protected void ApplyExtraForce(in LogicContext ctx, Vector2 force)
         {
