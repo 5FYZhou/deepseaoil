@@ -13,25 +13,13 @@ MonoBehaviour:
   m_Name: "\u73A9\u5BB6\u914D\u7F6E"
   m_EditorClassIdentifier: 
   Name: 
-  moveSpeed: 10
-  moveAcceleration: 5
+  moveSpeed: 8
+  snapToEightDirections: 1
+  moveAcceleration: 60
   turnDecayRate: 20
-  maxFallSpeed: 20
-  maxRiseSpeed: 20
-  jumpSpeed: 12
-  doubleJumpSpeed: 9
-  riseGravity: 40
-  fallGravity: 70
-  jumpCutMultiplier: 0.5
+  extraForceScale: 0
   dashSpeed: 25
   dashDuration: 0.2
-  wallSlideSpeed: 3
-  maxAirJumps: 1
-  coyoteTime: 0.1
-  jumpBufferTime: 0.12
-  maxAirDashes: 1
+  inputBufferTime: 0.12
   dashCooldown: 1.5
   dashBufferTime: 0.12
-  wallJumpSpeedX: 8
-  wallJumpSpeedY: 14
-  wallJumpLockTime: 0.2
