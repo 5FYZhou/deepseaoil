@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: "\u73A9\u5BB6\u914D\u7F6E"
   m_EditorClassIdentifier: 
   Name: 
-  moveSpeed: 8
+  moveSpeed: 10
   snapToEightDirections: 1
   moveAcceleration: 60
   turnDecayRate: 20

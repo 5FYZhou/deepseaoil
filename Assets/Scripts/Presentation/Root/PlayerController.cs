@@ -37,12 +37,45 @@ namespace DeepseaOil.Presentation
         /// <summary>8 向吸附的一档（弧度）。45° 一档共 8 档。</summary>
         private const float OctantRadians = 2f * Mathf.PI / 8f;
 
+        /// <summary>
+        /// 逻辑层与它本帧的速度上限。<b>白模阶段新增</b>的受击推挤口，见
+        /// <see cref="OverrideLogicSpeedTargets"/>。
+        /// </summary>
+        /// <remarks>
+        /// 做成一个具名结构体而不是两个并列参数，是为了让"逻辑层引用 + 上限"这一对永远一起传、
+        /// 一起漏 —— 漏一个的后果是"推挤静默生效在另一个玩家身上"。
+        /// </remarks>
+        internal readonly struct LogicSpeedTargets
+        {
+            /// <summary>玩家的逻辑层入口。</summary>
+            public readonly PlayerLogic Logic;
+
+            /// <summary>本帧的速度上限（单位/秒）。</summary>
+            public readonly float MaxSpeed;
+
+            public LogicSpeedTargets(PlayerLogic logic, float maxSpeed)
+            {
+                Logic = logic;
+                MaxSpeed = maxSpeed;
+            }
+        }
+
         /// <summary>吸附到 8 向时的一族单位方向，键为"档位序号化的弧度"，避免浮点直接比 key。</summary>
         private static readonly Dictionary<int, Vector2> Snapped = BuildSnappedTable();
 
         private InputBuffer _buffer;
         private WorldInfo _world;
         private BoundsArea _bounds;
+
+        /// <summary>
+        /// 本帧被外部要求的速度上限；<c>null</c> 表示不覆盖（逻辑层按自己的满速档位走）。
+        /// </summary>
+        /// <remarks>
+        /// <b>一次性</b>：<c>FixedUpdate</c> 用它算完当帧上限后立刻清空，所以外因必须每帧重新声明。
+        /// 这正是我们要的语义 —— "这一帧被推了一下"与"从此一直被限速"是两件事，
+        /// 后者会永久改掉玩家的移动能力却不报错。
+        /// </remarks>
+        private LogicSpeedTargets? _speedLimit;
 
         /// <summary>逻辑层入口，供调试面板读取。</summary>
         public PlayerLogic Logic { get; private set; }
@@ -117,6 +150,45 @@ namespace DeepseaOil.Presentation
             inputProvider.SetInputEnabled(true);
         }
 
+        /// <summary>
+        /// <b>白模阶段新增</b>：本帧把玩家的速度上限换成给定值，并给出逻辑层入口。
+        /// </summary>
+        /// <remarks>
+        /// 用法是"声明式"的：调用方（首个是白模的 <c>PlayerHealth</c>）每帧调用一次表示
+        /// "这一帧我还想限速"，下一帧不调即自动恢复满速档位。
+        /// <para><b>为什么需要它：</b>玩家被撞开时，本类已经在同一个物理帧里把速度写成
+        /// <c>输入方向 × moveSpeed</c> 了。要让"被撞"表现出来，只能在这之后<b>再写一次</b>速度 ——
+        /// 而本类是玩家速度的唯一写者，所以这个口子必须开在这里，不能开在受害者自己那边
+        /// （那样就成了第二个速度写者，直接违反 <c>PlayerLogic</c> 与 <c>MovementMotor</c> 的核心不变量）。
+        /// 逻辑层本身不被改动语义：它只多知道一个"本帧上限"。</para>
+        /// <para>参数是结构体而不是两个独立方法，理由见 <see cref="LogicSpeedTargets"/>。</para>
+        /// </remarks>
+        internal void OverrideLogicSpeedTargets(PlayerLogic logic, float maxSpeed)
+        {
+            if (logic == null) return;
+
+            // 用结构体把"哪一层"与"上限多少"绑在一起传：两者分开传的时候漏一个，
+            // 后果是限速静默生效在另一个玩家身上（现在只有一个玩家，所以谁也发现不了）。
+            _speedLimit = new LogicSpeedTargets(logic, maxSpeed);
+        }
+
+        /// <summary>
+        /// <b>白模阶段新增</b>：本帧往玩家的速度账本里加一次冲量（击退、水流、吸附等外因用）。
+        /// </summary>
+        /// <param name="deltaVelocity">一次性的速度变化（单位/秒），<b>不</b>乘 Δt。</param>
+        /// <remarks>
+        /// <b>必须先 <see cref="OverrideLogicSpeedTargets"/> 再调用本方法。</b>理由同那条的注释：
+        /// 本方法是"写第二次速度"，而本类在同一个物理帧里已经写过第一次了。
+        /// <para>累加在账本上，所以不是"绕过逻辑层写刚体"：帧末仍由本类的一次写出生效，
+        /// 玩家速度依然只有一个写者。</para>
+        /// </remarks>
+        internal void AddLogicImpulse(PlayerLogic logic, Vector2 deltaVelocity)
+        {
+            if (logic == null) return;
+
+            logic.AddImpulse(deltaVelocity);
+        }
+
         private void Awake()
         {
             if (config == null
@@ -160,6 +232,26 @@ namespace DeepseaOil.Presentation
             _buffer.Push(in snapshot, Time.fixedTime);
 
             _world = new WorldInfo(move, in _bounds);
+
+            // 白模阶段新增：本帧的受击推挤。**必须在 Logic.FixedTick 之前声明**——
+            // FixedTick 帧末按这个上限把速度一次写出，声明晚了这一帧就被浪费掉。
+            // 声明是"一次性"的：用完立刻清空，所以外因要每帧重新声明（见 _speedLimit 的注释）。
+            if (_speedLimit.HasValue)
+            {
+                LogicSpeedTargets targets = _speedLimit.Value;
+
+                // 只对声明的那个逻辑层生效：将来场景里有第二个"逻辑被驱动的角色"时，
+                // 漏判这一条会让限速静默作用在别人身上。
+                if (!ReferenceEquals(targets.Logic, Logic))
+                {
+                    _speedLimit = null;
+                }
+                else
+                {
+                    Logic.SetSpeedLimit(targets.MaxSpeed);
+                    _speedLimit = null;
+                }
+            }
 
             Logic.FixedTick(
                 new LogicContext(

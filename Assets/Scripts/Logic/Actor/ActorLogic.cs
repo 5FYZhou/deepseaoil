@@ -22,6 +22,7 @@ namespace DeepseaOil.Logic
         private Vector2 _delta;
         private Vector2 _accel;
         private float _extraForceScale = 1f;
+        private float _speedLimit = float.PositiveInfinity;
 
         /// <summary>移动执行器。</summary>
         protected IMovementMotor Motor { get; }
@@ -61,12 +62,16 @@ namespace DeepseaOil.Logic
             _delta = Vector2.zero;
             _accel = Vector2.zero;
 
+            // 上限是**一次性**的：上一帧声明的到这一帧开头就失效。不这样做的话"这一帧被推了一下"
+            // 会变成"从此一直被限速"——玩家永久失去一部分速度，而没有任何东西会报错。
+            _speedLimit = float.PositiveInfinity;
+
             OnTick(in ctx);
 
             // 零提交帧不写速度：没有变更就不必覆盖引擎，第二个写者因此不会被清掉。
             if (!HasSubmission) return;
 
-            Motor.Move(_frameStart + _delta + _accel * ctx.deltaTime);
+            Motor.Move(Clamped(_frameStart + _delta + _accel * ctx.deltaTime));
         }
 
         /// <summary>子类的账本维护与状态驱动。</summary>
@@ -148,6 +153,27 @@ namespace DeepseaOil.Logic
             SetVelocity(Vector2.ClampMagnitude(Velocity, maxSpeed));
         }
 
+        /// <summary>
+        /// 只对<b>本帧</b>生效的速度上限：帧末写出时统一钳一次，帧首自动失效。
+        /// </summary>
+        /// <param name="maxSpeed">上限（单位/秒）。非法值（<c>NaN</c> / 无穷 / <c>≤ 0</c>）被忽略，保持不限速。</param>
+        /// <remarks>
+        /// 与 <see cref="ClampSpeed"/> 的分工：那条是"现在就接管速度"，本方法<b>不立刻改速度</b>、
+        /// 只改本帧写出时的那一次钳制 —— 于是移动状态照常按输入写速度，写出时才被压住。
+        /// <para><b>为什么要挡非法值：</b><c>NaN</c> 参与比较恒为 <c>false</c>，
+        /// <c>Vector2.ClampMagnitude</c> 遇到 <c>NaN</c> 上限会把速度变成非数 ——
+        /// 角色随即从屏幕上消失，且不报错（球的那条上限 <c>ClampThrowPoint</c> 栽过同一个跟头）。
+        /// 这里不抛异常：白模不该因为一个数字把 Play 打断。</para>
+        /// <para>首个消费者是白模的受击推挤：玩家的移动状态在同一个物理帧里已经写过速度了，
+        /// 要压住那一次写出只能靠"本帧上限"。</para>
+        /// </remarks>
+        public void SetSpeedLimit(float maxSpeed)
+        {
+            if (float.IsNaN(maxSpeed) || float.IsInfinity(maxSpeed) || maxSpeed <= 0f) return;
+
+            _speedLimit = maxSpeed;
+        }
+
         /// <summary>渐进逼近目标速度；控制律的唯一实现点（见 <c>Docs/分层设计/逻辑层.md</c> §3）。</summary>
         /// <remarks>反向输入时改走衰减率，两支取较快者——纯指数衰减永不反向，直接用它会把角色停在原地。</remarks>
         public void ApproachX(float target, float accel)
@@ -164,6 +190,64 @@ namespace DeepseaOil.Logic
             }
 
             _delta.x += delta;
+        }
+
+        /// <summary>
+        /// 二维渐进逼近目标速度；<see cref="ApproachX"/> 的二维版，控制律相同（加速度受限 ＋ 反向走衰减率）。
+        /// </summary>
+        /// <param name="direction">期望方向。<b>可以是未归一化向量</b>（本方法内归一化），零向量表示"没有期望方向"。</param>
+        /// <param name="targetSpeed">该方向上的目标速度（单位/秒）。</param>
+        /// <param name="acceleration">加速度上限（单位/秒²）。</param>
+        /// <param name="decayPerSecond">反向/归零时的指数衰减率（1/秒）。</param>
+        /// <remarks>
+        /// <b>为什么必须有这一条，而不是复用 <see cref="ApproachX"/>：</b>那条只看 <c>Velocity.x</c>，
+        /// <b>竖直分量永远不衰减</b>。拿它做俯视角的二维击退，朝正上方被推飞的敌人会以恒定速度
+        /// 一路飘到地图外 —— 而且不报错、只是"敌人不见了"。
+        /// <para><b>零方向分支是指数衰减，且只有这一支。</b>方向为零时本方法只做
+        /// <c>_delta -= 当前速度 × (1 − e^(−衰减率·Δt))</c>：符号保持、模长单调收缩，所以不会振荡、
+        /// 不会反向、也不会越过零。曾经想过"先求期望速度、再按加速度逼近"，那条路在目标速度为零时
+        /// 会退化成匀减速，且<span>与反向分支的判据重合</span>，两支会互相打架。</para>
+        /// <para><b>方向变号时取两支中较快的一支</b>（与 <see cref="ApproachX"/> 一致）：纯指数衰减
+        /// 永不反向，只看它会把角色停在原地不动。</para>
+        /// <para><b>目标速度为零且当前速度也为零时不写速度</b>：零提交帧在 <see cref="FixedTick"/> 里
+        /// 会被跳过，"没有变更就不覆盖引擎"这条不变量因此仍然成立。</para>
+        /// <para>首个消费者是白模的敌人：追击（需要加速度）与击退滑行（需要衰减）都是它。
+        /// 玩家的移动状态仍走 <see cref="MoveDirection"/>（零惯性），两条路互不影响。</para>
+        /// </remarks>
+        public void SteerTowards(Vector2 direction, float targetSpeed, float acceleration, float decayPerSecond)
+        {
+            Vector2 current = Velocity;
+            Vector2 desired;
+
+            if (direction.sqrMagnitude <= 0f || targetSpeed <= 0f)
+            {
+                // 没有期望方向：把速度指数收缩到零。dying 时不做这个，角色会永远滑。
+                desired = Vector2.zero;
+            }
+            else
+            {
+                // 归一化在这里做，调用方可以给未归一化的方向（契约不靠调用方守）。
+                desired = direction.normalized * targetSpeed;
+            }
+
+            Vector2 delta = desired - current;
+
+            if (desired.sqrMagnitude > 0f && current.sqrMagnitude > 0f && Vector2.Dot(desired, current) < 0f)
+            {
+                // 反向：改用指数衰减，与线性逼近取较快的一支。
+                Vector2 decay = -current * (1f - Mathf.Exp(-decayPerSecond * Ctx.deltaTime));
+
+                if (decay.sqrMagnitude > delta.sqrMagnitude) delta = decay;
+            }
+            else
+            {
+                // 同向（或已停止）：按加速度限幅地逼近。
+                float maxStep = acceleration * Ctx.deltaTime;
+
+                if (delta.sqrMagnitude > maxStep * maxStep) delta = delta.normalized * maxStep;
+            }
+
+            _delta += delta;
         }
 
         /// <summary>接管两个分量：本帧工作速度即为给定值，覆盖已提交的全部变更；同时按水平分量更新朝向。</summary>
@@ -233,7 +317,13 @@ namespace DeepseaOil.Logic
         private void SetVelocityX(float vx)
         {
             _accel.x = 0f;
-            _delta.x = vx - _frameStart.x;
+            _delta.x = Clamped(new Vector2(vx, 0f)).x - _frameStart.x;
+        }
+
+        /// <summary>本帧上限只在这里被用一次：<see cref="SetSpeedLimit"/> 不动速度，只压写出。</summary>
+        private Vector2 Clamped(Vector2 velocity)
+        {
+            return float.IsInfinity(_speedLimit) ? velocity : Vector2.ClampMagnitude(velocity, _speedLimit);
         }
 
         private bool HasSubmission => _delta.x != 0f || _delta.y != 0f || _accel.x != 0f || _accel.y != 0f;
