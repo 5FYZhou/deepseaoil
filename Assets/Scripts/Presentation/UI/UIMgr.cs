@@ -6,6 +6,9 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
+using DeepseaOil.Logic.Input;
+using static UnityEditor.Experimental.GraphView.GraphView;
+using static UnityEngine.Rendering.DebugUI;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -36,12 +39,19 @@ namespace DeepseaOil.Presentation.UI
     /// 管理所有UI面板的管理器
     /// 注意：面板预设体名要和面板类名一致！！！！！
     /// </summary>
-    public class UIMgr : BaseManager<UIMgr>
+    public class UIMgr : BaseManager<UIMgr>, IUIOperation
     {
         /// <summary>
         /// 主要用于里式替换原则 在字典中 用父类容器装载子类对象
         /// </summary>
-        private abstract class BasePanelInfo { }
+        private abstract class BasePanelInfo
+        {
+            public bool isHide;
+            public abstract BasePanel Panel { get; }
+            public bool CanBeHide => Panel != null && Panel.CanBeHideByKey;
+
+            public abstract void Hide(bool isDestroy);
+        }
 
         /// <summary>
         /// 用于存储面板信息 和加载完成的回调函数的
@@ -51,11 +61,18 @@ namespace DeepseaOil.Presentation.UI
         {
             public T panel;
             public UnityAction<T> callBack;
-            public bool isHide;
+            public E_UILayer Layer => panel.Layer;
 
             public PanelInfo(UnityAction<T> callBack)
             {
                 this.callBack += callBack;
+            }
+
+            public override BasePanel Panel => panel;
+
+            public override void Hide(bool isDestroy)
+            {
+                Instance.HidePanel<T>();
             }
         }
 
@@ -83,6 +100,17 @@ namespace DeepseaOil.Presentation.UI
         /// 用于存储所有的面板对象
         /// </summary>
         private Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
+
+        /// <summary>
+        /// 用于按层存储已打开的面板，懒更新
+        /// </summary>
+        private readonly Dictionary<E_UILayer, Stack<BasePanelInfo>> openPanels = new()
+        {
+            { E_UILayer.Bottom, new Stack<BasePanelInfo>() },
+            { E_UILayer.Middle, new Stack<BasePanelInfo>() },
+            { E_UILayer.Top, new Stack<BasePanelInfo>() },
+            { E_UILayer.System, new Stack<BasePanelInfo>() }
+        };
 
         private UIMgr()
         {
@@ -139,7 +167,7 @@ namespace DeepseaOil.Presentation.UI
         /// <param name="callBack">由于可能是异步加载 因此通过委托回调的形式 将加载完成的面板传递出去进行使用</param>
         /// <param name="isSync">是否采用同步加载。⚠️ 默认值为 true，但方法体**从不读它**——见蓝图 D7：
         /// 照它做会让唯一的调用方（GameRoot）走同步路径，异步链路永远跑不到。</param>
-        public void ShowPanel<T>(E_UILayer layer = E_UILayer.Middle, UnityAction<T> callBack = null, bool isSync = true) where T : BasePanel
+        public void ShowPanel<T>(UnityAction<T> callBack = null, bool isSync = true) where T : BasePanel
         {
             //获取面板名 预设体名必须和面板类名一致 
             string panelName = typeof(T).Name;
@@ -166,8 +194,11 @@ namespace DeepseaOil.Presentation.UI
 
                     //如果要显示面板 会执行一次面板的默认显示逻辑
                     panelInfo.panel.ShowMe();
+                    panelInfo.isHide = false;
                     //如果存在回调 直接返回出去即可
                     callBack?.Invoke(panelInfo.panel);
+                    //添加到已打开面板栈中
+                    openPanels[panelInfo.Layer].Push(panelInfo);
                 }
                 return;
             }
@@ -176,7 +207,7 @@ namespace DeepseaOil.Presentation.UI
             panelDic.Add(panelName, new PanelInfo<T>(callBack));
 
             //异步加载面板：用协程轮询 AsyncHandle，不用 await（理由见 CoLoadPanel 注释）
-            MonoMgr.Instance.StartCoroutine(CoLoadPanel<T>(panelName, layer));
+            MonoMgr.Instance.StartCoroutine(CoLoadPanel<T>(panelName));
         }
 
         /// <summary>
@@ -186,7 +217,7 @@ namespace DeepseaOil.Presentation.UI
         /// await 的续体会**内联**在那里执行——等于在调度器的分发循环里再进一次 UIMgr。
         /// 轮询把挂载推迟到下一帧（代价 1 帧），换掉那个重入风险。
         /// </summary>
-        private IEnumerator CoLoadPanel<T>(string panelName, E_UILayer layer) where T : BasePanel
+        private IEnumerator CoLoadPanel<T>(string panelName) where T : BasePanel
         {
             string key = UI_PANEL_PREFIX + panelName;
             var handle = AssetModule.LoadAsync<GameObject>(key);
@@ -218,13 +249,16 @@ namespace DeepseaOil.Presentation.UI
                 yield break;
             }
 
-            //层级的处理；避免没有按指定规则传递层级参数 避免为空
-            Transform father = GetLayerFather(layer) ?? middleLayer;
             //将面板预设体创建到对应父对象下 并且保持原本的缩放大小
-            GameObject panelObj = GameObject.Instantiate(prefab, father, false);
+            GameObject panelObj = GameObject.Instantiate(prefab, middleLayer, false);
 
             //获取对应UI组件返回出去
             T panel = panelObj.GetComponent<T>();
+            //层级的处理；避免没有按指定规则传递层级参数 避免为空
+            Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
+            if (panel.transform.parent != father) 
+                panel.transform.SetParent(father, false);
+
             //显示面板时执行的默认方法
             panel.ShowMe();
             //传出去使用
@@ -233,6 +267,8 @@ namespace DeepseaOil.Presentation.UI
             panelInfo.callBack = null;
             //存储panel
             panelInfo.panel = panel;
+            //添加到以打开面板栈中
+            openPanels[panelInfo.Layer].Push(panelInfo);
         }
 
         /// <summary>
@@ -256,8 +292,10 @@ namespace DeepseaOil.Presentation.UI
                 }
                 else//已经加载结束
                 {
-                    //执行默认的隐藏面板想要做的事情
-                    panelInfo.panel.HideMe();
+                    if (panelInfo.isHide)
+                        return;                       // 已经在隐藏流程中，重入直接短路
+
+                    panelInfo.isHide = true;
                     //如果要销毁  就直接将面板销毁从字典中移除记录
                     if (isDestory)
                     {
@@ -271,6 +309,8 @@ namespace DeepseaOil.Presentation.UI
                     //如果不销毁 那么就只是失活 下次再显示的时候 直接复用即可
                     else
                         panelInfo.panel.gameObject.SetActive(false);
+                    //执行默认的隐藏面板想要做的事情
+                    panelInfo.panel.HideMe();
                 }
             }
         }
@@ -322,6 +362,62 @@ namespace DeepseaOil.Presentation.UI
             entry.callback.AddListener(callBack);
 
             trigger.triggers.Add(entry);
+        }
+
+
+        /// <summary>
+        /// 尝试关闭可被Esc关闭的、最上层的面板
+        /// 被调用时懒更新openPanels，移除已被Hide的面板
+        /// </summary>
+        /// <returns></returns>
+        public bool TryCloseTopmostPanel()
+        {
+            E_UILayer[] layers = {E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom};
+
+            foreach (var layer in layers)
+            {
+                var stack = openPanels[layer];
+
+                while (stack.Count > 0)
+                {
+                    BasePanelInfo info = stack.Peek();
+
+                    // 栈顶已经失效/隐藏，清掉继续找
+                    if (info.Panel == null || info.isHide)
+                    {
+                        stack.Pop();
+                        continue;
+                    }
+
+                    // 栈顶不能关闭
+                    if (!info.Panel.CanBeHideByKey)
+                    {
+                        return false;
+                    }
+
+                    // 关闭栈顶
+                    stack.Pop();
+                    info.Hide(false);
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        /// <summary>
+        /// 游戏进行时按Ecs调用
+        /// </summary>
+        public void OpenPausePanel()
+        {
+            ShowPanel<PausePanel>();
+        }
+
+        /// <summary>
+        /// 开始菜单界面按Esc调用
+        /// </summary>
+        public void OpenExitConfirmPanel()
+        {
+            ShowPanel<ExitConfirmPanel>();
         }
     }
 }

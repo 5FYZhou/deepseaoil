@@ -1,7 +1,7 @@
 ﻿using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
-using DeepseaOil.Logic.Player;
+using DeepseaOil.Presentation;
 using DeepseaOil.Logic;
 using UnityEngine;
 
@@ -66,6 +66,8 @@ namespace DeepseaOil.Logic.Player
 
             if (airJump) _airJumpsUsed++;
             else _lastGroundedAt = float.NegativeInfinity; // 预扣土狼时间，否则一次按下能连跳两次
+            // 播放跳跃音效
+            AudioManager.Instance.PlaySfx(AudioId.Jump);
             return true;
         }
 
