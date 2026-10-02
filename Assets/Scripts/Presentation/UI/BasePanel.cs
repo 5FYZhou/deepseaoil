@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.UI
 {
     public abstract class BasePanel : MonoBehaviour
     {
@@ -18,6 +18,10 @@ namespace DeepseaOil.Presentation
         "Text (Legacy)","Arrow","Placeholder","Fill","Handle",
         "Viewport","Scrollbar Horizontal","Scrollbar Vertical"
     };
+
+        // 只读，子类必须赋值
+        public abstract E_UILayer Layer { get; }
+        public abstract bool CanBeHideByKey { get; }
 
         protected virtual void Awake()
         {
@@ -48,7 +52,12 @@ namespace DeepseaOil.Presentation
              */
         }
 
-        protected virtual string OnTextChange(string name)
+        protected virtual void OnSliderValueChange(string sliderName, float value) { }
+
+        /// <summary>
+        /// 默认只会在Awake时被调用一次
+        /// </summary>
+        protected virtual string SetInitialTxt(string name)
         {
             return "Empty";
         }
@@ -81,7 +90,7 @@ namespace DeepseaOil.Presentation
                 }
                 else if (component is TMP_Text text)
                 {
-                    text.text = OnTextChange(component.name);
+                    text.text = SetInitialTxt(component.name);
                 }
                 else if (component is Graphic)
                 {
@@ -95,6 +104,13 @@ namespace DeepseaOil.Presentation
                     //
                     // 保留告警的判据：只对**可能需要绑定、而框架没处理**的控件类型告警
                     // （Toggle / Slider / Dropdown / InputField / ScrollRect —— 它们不是 Graphic，仍会落到 else）。
+                }
+                else if (component is Slider slider)
+                {
+                    slider.onValueChanged.AddListener((value) =>
+                    {
+                        OnSliderValueChange(slider.name, value);
+                    });
                 }
                 else
                 {

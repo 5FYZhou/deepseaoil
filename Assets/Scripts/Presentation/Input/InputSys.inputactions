@@ -7,6 +7,15 @@
             "id": "fc46c21d-16b9-4a2c-8297-b128519e471c",
             "actions": [
                 {
+                    "name": "Cancel",
+                    "type": "Button",
+                    "id": "322de0d0-8691-49fc-8883-8f8c7ac4d975",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Submit",
                     "type": "Button",
                     "id": "14ab7904-bc08-4305-8faf-5b1830e5428e",
@@ -65,15 +74,6 @@
                     "type": "Button",
                     "id": "1293863c-058c-4a14-8e22-1d4e209952bb",
                     "expectedControlType": "Button",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
-                    "name": "Cancel",
-                    "type": "Button",
-                    "id": "322de0d0-8691-49fc-8883-8f8c7ac4d975",
-                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false

@@ -11,7 +11,6 @@ public class TestAudio : MonoBehaviour
     void Start()
     {
 
-        UIMgr.Instance.ShowPanel<BeginPanel>();
         AudioManager.Instance.PlayBgm(AudioId.Bgm);
     }
 

@@ -14,7 +14,7 @@ namespace DeepseaOil.Logic
 
     public interface ITickable
     {
-        void Tick(LogicContext ctx)
+        void Tick(UILogicContext ctx)
         {
 
         }
