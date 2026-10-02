@@ -8,6 +8,15 @@ using DeepseaOil.Data;
 using Unity.VisualScripting.FullSerializer;
 using System;
 
+/// <summary>
+/// 全局单例，由GameRoot驱动
+/// PlaySfx(AudioId id)播放音效，对每个播放，从池中取一个AudioSource
+/// PlayBgm(AudioId id)播放音乐，固定一个AudioSource
+/// AudioSource都放在一个跨场景不销毁的AudioRoot下
+/// SetSfxVolume(float value)修改音效音量大小，0-1f
+/// SetBgmVolume(float value)修改音乐音量大小，0-1f
+/// </summary>
+
 namespace DeepseaOil.Presentation {
 
     public sealed class PlayingEntry
@@ -229,7 +238,7 @@ namespace DeepseaOil.Presentation {
             _bgmSource.Play();
         }
 
-        public void SetMusicVolume(float value)
+        public void SetBgmVolume(float value)
         {
             _bgmVolume = Mathf.Clamp01(value);
             _bgmSource.GetComponent<AudioSource>().volume = _bgmVolume;
