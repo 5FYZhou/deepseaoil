@@ -24,6 +24,11 @@ namespace DeepseaOil.Logic.Movement.States
         public override MovementStateTag StateTag => MovementStateTag.Dash;
 
         /// <summary>由状态组在切换前喂入方向（世界方向；给零向量表示保持上次方向）。</summary>
+        /// <remarks>
+        /// <b>归一化在本方法里做</b>：这是入场方向的唯一写入口，把"必须是单位向量"这条约束
+        /// 收在一处，<see cref="Enter"/> 就不必防 √2 倍。宿主传未归一化的斜向 (1,1) 也只会得到
+        /// 正确的 <c>dashSpeed</c>，而不是快 41% 的冲刺。
+        /// </remarks>
         public void Configure(Vector2 direction)
         {
             if (direction.sqrMagnitude <= 0f) return;

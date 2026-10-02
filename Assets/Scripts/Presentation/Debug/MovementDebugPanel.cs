@@ -74,7 +74,7 @@ namespace DeepseaOil.Presentation
 
             BoundsArea bounds = world.Bounds;
             GUILayout.Label(bounds.IsValid
-                ? $"世界边界: 已启用  {bounds.World.min} ~ {bounds.World.max}"
+                ? $"世界边界: 已启用  ({bounds.Min.x:F1}, {bounds.Min.y:F1}) ~ ({bounds.Max.x:F1}, {bounds.Max.y:F1})"
                 : "世界边界: 未接线（不钳位）");
 
             GUILayout.EndArea();

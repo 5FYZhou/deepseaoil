@@ -25,7 +25,13 @@ namespace DeepseaOil.Logic.Player
 
         private float _lastDashAt = float.NegativeInfinity;
 
-        /// <summary>最近一次非零输入方向；零输入时保持不变，供冲刺取向与后续技能使用。</summary>
+        /// <summary>最近一次非零输入方向（<b>已归一化</b>）；零输入时保持不变，供冲刺取向与后续技能使用。</summary>
+        /// <remarks>
+        /// 初始值是 <c>Vector2.right</c>：尚未有任何输入时按"朝右"冲刺，而不是把方向判成零向量
+        /// （零向量会让 <c>DashState.Configure</c> 保持它自己的初值，行为不直观）。
+        /// 存归一化值而不是原始输入：本属性的消费者（冲刺取向、后续技能）要的是"方向"，
+        /// 把"归一化"留给每个消费者各做一次，迟早会漏掉一处。
+        /// </remarks>
         private Vector2 _direction = Vector2.right;
 
         public PlayerLogic(IMovementMotor motor, PlayerConfig config, InputBuffer buffer) : base(motor, config)
@@ -41,7 +47,7 @@ namespace DeepseaOil.Logic.Player
         /// <summary>移动状态组，供调试面板与测试查看状态实例（只读用途）。</summary>
         public MoveGroup MoveGroup => _moveGroup;
 
-        /// <summary>最近一次非零输入方向；供冲刺取向与调试面板使用。</summary>
+        /// <summary>最近一次非零输入方向（已归一化）；供冲刺取向与调试面板使用。</summary>
         public Vector2 Direction => _direction;
 
         /// <summary>是否可冲刺：冷却已过，且缓冲里有窗口内的按下。纯查询，不消费。</summary>
@@ -62,11 +68,13 @@ namespace DeepseaOil.Logic.Player
 
         protected override void OnTick(in LogicContext ctx)
         {
-            // 此处是外力唯一入口：俯视角玩家不施加外力，故没有调用。
-            // 要用时形如 ApplyExtraForce(in ctx, new Vector2(knockbackX, knockbackY)); 再按需 ClampSpeed(...)。
+            // 此处是外力唯一入口，但玩家**刻意不施外力**（零惯性 ＋ 无重力）：
+            // 这不是"还没写"，是设计意图——第一个真实消费者预计是敌人、击退、水流或吸附。
+            // 要用时形如 ApplyExtraForce(in ctx, new Vector2(knockbackX, knockbackY)); 再按需 ClampSpeed(...)，
+            // 注意顺序必须先外力后钳制（钳制会整体覆盖当帧速度）。
 
             Vector2 move = ctx.inputSnapshot.Move;
-            if (move.sqrMagnitude > 0f) _direction = move;
+            if (move.sqrMagnitude > 0f) _direction = move.normalized;
 
             _moveGroup.Tick(in ctx);
         }
