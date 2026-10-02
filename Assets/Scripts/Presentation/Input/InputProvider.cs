@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Generated;
+using DeepseaOil.Generated;
 using DeepseaOil.Logic.Input;
 using UnityEngine;
 
@@ -15,7 +15,6 @@ namespace DeepseaOil.Presentation
 
         private Vector2 _move;
 
-        private bool _jumpHeld;
         private bool _grabHeld;
 
         private bool _jumpPressed;
@@ -48,7 +47,6 @@ namespace DeepseaOil.Presentation
                 1f
             );
 
-            _jumpHeld = _input.Player.Jump.IsPressed();
             _grabHeld = _input.Player.Grab.IsPressed();
 
             // 瞬时输入：累积到被 FixedUpdate 消费
@@ -65,7 +63,6 @@ namespace DeepseaOil.Presentation
             var snapshot = new InputSnapshot(
                 _move,
                 _jumpPressed,
-                _jumpHeld,
                 _dashPressed,
                 _grabHeld
             );
@@ -79,7 +76,6 @@ namespace DeepseaOil.Presentation
         public void Clear()
         {
             _move = Vector2.zero;
-            _jumpHeld = false;
             _grabHeld = false;
             _jumpPressed = false;
             _dashPressed = false;

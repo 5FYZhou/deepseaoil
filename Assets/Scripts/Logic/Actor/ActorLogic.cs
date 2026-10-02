@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Data;
+using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic;
@@ -7,7 +7,7 @@ using UnityEngine;
 namespace DeepseaOil.Logic
 {
     /// <summary>
-    /// 角色逻辑基类：持有执行器与角色配置，提供所有角色共用的速度、重力与朝向操作。
+    /// 角色逻辑基类：持有执行器与角色配置，提供所有角色共用的速度、外力与朝向操作。
     /// </summary>
     /// <remarks>
     /// 不读 Unity Time、不继承 MonoBehaviour：时间与环境由 <see cref="LogicContext"/> 逐帧喂入。
@@ -21,7 +21,7 @@ namespace DeepseaOil.Logic
         private Vector2 _frameStart;
         private Vector2 _delta;
         private Vector2 _accel;
-        private bool _gravity = true;
+        private float _extraForceScale = 1f;
 
         /// <summary>移动执行器。</summary>
         protected IMovementMotor Motor { get; }
@@ -50,11 +50,8 @@ namespace DeepseaOil.Logic
         /// <summary>本帧净提交的速度变化量；与引擎回读值对照即可看出引擎是否否决。</summary>
         public Vector2 SubmittedDelta => _delta + _accel * Ctx.deltaTime;
 
-        /// <summary>当前朝向：-1 左，1 右。</summary>
-        public int Facing => Motor.Facing;
-
-        /// <summary>本帧是否站在地面。</summary>
-        public bool IsGrounded => Ctx.worldInfo.Grounded;
+        /// <summary>当前朝向（世界方向向量）；俯视角为 8 向，平台跳跃时代是 -1/1。</summary>
+        public Vector2 Facing => Motor.Facing;
 
         /// <summary>推进一个物理帧。</summary>
         public void FixedTick(LogicContext ctx)
@@ -75,28 +72,43 @@ namespace DeepseaOil.Logic
         /// <summary>子类的账本维护与状态驱动。</summary>
         protected abstract void OnTick(in LogicContext ctx);
 
-        /// <summary>
-        /// 尝试消费一次跳跃输入，供移动状态使用；<paramref name="airJump"/> 为真时占用一次空中跳跃余额。
-        /// </summary>
-        /// <remarks>缓冲窗口与余额的数值属于具体角色，故由子类实现；状态只表达"我要跳"。</remarks>
-        public abstract bool TryConsumeJump(float now, bool airJump);
-
-        /// <summary>贴墙时走一次蹬墙跳：给一次斜向初速并锁定水平输入。</summary>
-        /// <remarks>初速与锁定时长属于具体角色，故由子类实现。</remarks>
-        public abstract bool TryWallJump(in LogicContext ctx);
-
         /// <summary>累加一次冲量：一次性的速度变化，单位格/秒，<b>不</b>乘 Δt。</summary>
         public void AddImpulse(Vector2 deltaVelocity) => _delta += deltaVelocity;
 
         /// <summary>累加一次持续力：单位格/秒²，每帧提交，本帧贡献 = 该值 × Δt。</summary>
         public void AddForce(Vector2 acceleration) => _accel += acceleration;
 
+        /// <summary>
+        /// 俯视角移动：把速度整体接管为 <paramref name="direction"/> × <paramref name="speed"/>（零惯性，无加减速）。
+        /// </summary>
+        /// <remarks>
+        /// 与 <see cref="ApproachX"/> 的分工：那条是"渐进逼近"的控制律，给需要惯性的角色（敌人追击、击退滑行）用；
+        /// 本条是"当帧直达"，给俯视角玩家用——松键当帧停，反向当帧换向。
+        /// 移动锁定期内不响应，但 <b>朝向照更新</b>：锁定期是"不能位移"，不是"不能转身"。
+        /// </remarks>
+        public void MoveDirection(Vector2 direction, float speed)
+        {
+            FaceTowards(direction);
+
+            if (IsMoveLocked) return;
+
+            SnapVelocity(direction * speed);
+        }
+
+        /// <summary>急停：速度当帧归零（朝向不变）；移动锁定期内不响应。</summary>
+        public void StopMove()
+        {
+            if (IsMoveLocked) return;
+
+            SnapVelocity(Vector2.zero);
+        }
+
         /// <summary>按输入方向加速到目标速度；移动锁定期内不响应，并按输入方向更新朝向。</summary>
         public void MoveHorizontal(float inputX, float targetSpeed, float accel)
         {
             if (IsMoveLocked) return;
 
-            FaceTowards(inputX > 0f ? 1 : inputX < 0f ? -1 : 0);
+            FaceTowards(new Vector2(inputX, 0f));
             ApproachX(inputX * targetSpeed, accel);
         }
 
@@ -108,10 +120,10 @@ namespace DeepseaOil.Logic
             ApproachX(0f, accel);
         }
 
-        /// <summary>空中横向控制。</summary>
-        public void AirMove(in InputSnapshot input)
+        /// <summary>按输入的水平分量横向移动；调用方传水平轴值即可，本类不读输入快照。</summary>
+        public void MoveHorizontal(float inputX)
         {
-            MoveHorizontal(input.Move.x, Config.moveSpeed, Config.moveAcceleration);
+            MoveHorizontal(inputX, Config.moveSpeed, Config.moveAcceleration);
         }
 
         /// <summary>急停：水平速度立刻归零；移动锁定期内不响应。</summary>
@@ -122,10 +134,16 @@ namespace DeepseaOil.Logic
             SetVelocityX(0f);
         }
 
-        /// <summary>把下落速度硬钳到上限（只在下越界时提交）。</summary>
-        public void ClampFallSpeed(float maxFall)
+        /// <summary>把速度硬钳到上限（只在越界时提交）；上限 ≤ 0 表示不限制。</summary>
+        /// <remarks>
+        /// 钳制是"接管"而非"追加"：它按 <see cref="Velocity"/> 结算后整体覆盖，因此会撤掉两个分量上待生效的加速度。
+        /// 同帧还要用 <see cref="ApplyExtraForce"/> 时，<b>先累加外力、后钳制</b>，否则本帧外力被这一覆盖吃掉。
+        /// </remarks>
+        public void ClampSpeed(float maxSpeed)
         {
-            if (Velocity.y < -maxFall) SetVelocityY(-maxFall);
+            if (maxSpeed <= 0f) return;
+
+            SetVelocity(Vector2.ClampMagnitude(Velocity, maxSpeed));
         }
 
         /// <summary>渐进逼近目标速度；控制律的唯一实现点（见 <c>Docs/分层设计/逻辑层.md</c> §3）。</summary>
@@ -146,12 +164,19 @@ namespace DeepseaOil.Logic
             _delta.x += delta;
         }
 
-        /// <summary>接管两个分量：本帧工作速度即为给定值，覆盖已提交的（含重力）。</summary>
+        /// <summary>接管两个分量：本帧工作速度即为给定值，覆盖已提交的全部变更；同时按水平分量更新朝向。</summary>
         public void SnapVelocity(Vector2 velocity)
+        {
+            SetVelocity(velocity);
+            FaceTowards(new Vector2(velocity.x, 0f));
+        }
+
+        /// <summary>接管两个分量但不改朝向：本帧工作速度即为给定值。</summary>
+        /// <remarks>与 <see cref="SnapVelocity"/> 的分工：钳制、外力结算这类"不是角色主动转向"的写法走本条。</remarks>
+        public void SetVelocity(Vector2 velocity)
         {
             SetVelocityX(velocity.x);
             SetVelocityY(velocity.y);
-            FaceTowards(velocity.x > 0f ? 1 : velocity.x < 0f ? -1 : 0);
         }
 
         /// <summary>把垂直分量瞬变到给定值：该分量已被接管，撤掉它上面待生效的加速度。</summary>
@@ -161,14 +186,13 @@ namespace DeepseaOil.Logic
             _delta.y = vy - _frameStart.y;
         }
 
-        /// <summary>面向给定方向。</summary>
-        public void FaceTowards(int direction)
+        /// <summary>面向给定方向；零向量表示"不改朝向"（站住时精灵不会自己翻面）。</summary>
+        public void FaceTowards(Vector2 direction)
         {
-            if (direction != 0) Motor.Facing = direction;
-        }
+            if (direction.sqrMagnitude <= 0f) return;
 
-        /// <summary>开关重力累加。</summary>
-        public void SetGravity(bool enabled) => _gravity = enabled;
+            Motor.Facing = direction;
+        }
 
         /// <summary>在接下来的 <paramref name="duration"/> 秒内不响应水平输入。</summary>
         public void StartMoveLock(float now, float duration)
@@ -177,27 +201,25 @@ namespace DeepseaOil.Logic
         }
 
         /// <summary>
-        /// 提交重力、可变跳高截断与垂直上限钳制。
+        /// 缩放外力累加强度。俯视角角色填 0；需要被击退、被水流推、被吸附的角色按需打开。
         /// </summary>
-        /// <param name="jumpReleased">本帧是否为"按住 → 松开"的边沿，由 <c>InputBuffer.IsJumpReleased()</c> 提供。</param>
-        /// <remarks>钳制与重力同在垂直分量上，必须看到含重力的值，故顺序固定为 截断 → 重力 → 钳制。</remarks>
-        protected void ApplyGravity(in LogicContext ctx, bool jumpReleased)
+        public void SetExtraForceScale(float scale) => _extraForceScale = scale;
+
+        /// <summary>
+        /// 提交一帧外力：把 <paramref name="force"/>（单位/秒²）按 Δt 与强度缩放累进速度账本。
+        /// </summary>
+        /// <param name="force">本帧外力加速度；零向量表示无外力（当帧成立即返回，不产生提交）。</param>
+        /// <remarks>
+        /// <b>参数由调用方给出，本类不持有任何具体力的语义</b>——重力、浮力、水流、风、吸附、击退滑行
+        /// 都只是 <paramref name="force"/> 的一种取值。因此这里没有开关、没有曲线、没有方向假设。
+        /// 本类<b>不自动调用</b>本方法：施不施加外力是角色自己的决策（见 <c>PlayerLogic.OnTick</c>）。
+        /// 外力与"速度上限"是两件事：要限速请显式调 <see cref="ClampSpeed"/>，顺序由调用方决定。
+        /// </remarks>
+        protected void ApplyExtraForce(in LogicContext ctx, Vector2 force)
         {
-            if (!_gravity) return;
+            if (force.sqrMagnitude <= 0f || _extraForceScale == 0f) return;
 
-            bool jumpHeld = ctx.inputSnapshot.JumpHeld;
-
-            // 上升期松开跳跃键：只截断一次（jumpReleased 已含"上一帧按住"）。
-            if (jumpReleased && Velocity.y > 0f)
-            {
-                SetVelocityY(Velocity.y * Config.jumpCutMultiplier);
-            }
-
-            float gravity = jumpHeld && Velocity.y > 0f ? Config.riseGravity : Config.fallGravity;
-            _accel.y -= gravity;
-
-            if (Velocity.y > Config.maxRiseSpeed) SetVelocityY(Config.maxRiseSpeed);
-            else if (Velocity.y < -Config.maxFallSpeed) SetVelocityY(-Config.maxFallSpeed);
+            AddForce(force * _extraForceScale);
         }
 
         /// <summary>把水平分量瞬变到给定值：该分量已被接管，撤掉它上面待生效的加速度。</summary>

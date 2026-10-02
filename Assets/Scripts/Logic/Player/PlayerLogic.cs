@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Data;
+using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
@@ -8,19 +8,25 @@ using UnityEngine;
 namespace DeepseaOil.Logic.Player
 {
     /// <summary>
-    /// 玩家逻辑：持有跳跃/冲刺的余额与计时，回答"有没有资格"，并驱动移动状态组。
+    /// 玩家逻辑：持有冲刺余额与计时，回答"有没有资格"，并驱动移动状态组。
     /// </summary>
-    /// <remarks>不做状态转移决策、不知道任何具体状态类；速度与重力操作见基类 <see cref="ActorLogic"/>。</remarks>
+    /// <remarks>
+    /// 不做状态转移决策、不知道任何具体状态类；速度与外力的写入口见基类 <see cref="ActorLogic"/>。
+    /// 俯视角下跳跃/二段跳/蹬墙跳已移除（相应状态类也不存在），保留的是冲刺——
+    /// 它的"资格"由冷却 ＋ <see cref="InputBuffer"/> 窗口共同决定，是状态组唯一会查询的余额。
+    /// 外力：玩家<b>不主动施加外力</b>（<c>ApplyExtraForce</c> 无调用），击退/水流/吸附等由施加方决定，
+    /// 需要时在 <see cref="OnTick"/> 里加一行即可。
+    /// </remarks>
     public sealed class PlayerLogic : ActorLogic
     {
         private readonly PlayerConfig _player;
         private readonly InputBuffer _buffer;
         private readonly MoveGroup _moveGroup;
 
-        private float _lastGroundedAt = float.NegativeInfinity;
         private float _lastDashAt = float.NegativeInfinity;
-        private int _airJumpsUsed;
-        private int _airDashesUsed;
+
+        /// <summary>最近一次非零输入方向；零输入时保持不变，供冲刺取向与后续技能使用。</summary>
+        private Vector2 _direction = Vector2.right;
 
         public PlayerLogic(IMovementMotor motor, PlayerConfig config, InputBuffer buffer) : base(motor, config)
         {
@@ -32,92 +38,47 @@ namespace DeepseaOil.Logic.Player
         /// <summary>当前移动状态。</summary>
         public MovementStateTag CurrentState => _moveGroup.Current;
 
-        /// <summary>是否可起跳：在地面，或仍在土狼窗口内。</summary>
-        public bool CanGroundJump(float now)
-        {
-            return IsGrounded || now - _lastGroundedAt <= _player.coyoteTime;
-        }
+        /// <summary>移动状态组，供调试面板与测试查看状态实例（只读用途）。</summary>
+        public MoveGroup MoveGroup => _moveGroup;
 
-        /// <summary>是否还有空中跳跃余额。</summary>
-        public bool CanDoubleJump => _airJumpsUsed < _player.maxAirJumps;
+        /// <summary>最近一次非零输入方向；供冲刺取向与调试面板使用。</summary>
+        public Vector2 Direction => _direction;
 
-        /// <summary>缓冲里是否有窗口内的跳跃按下。纯查询，不消费。</summary>
-        public bool HasBufferedJump(float now)
-        {
-            return _buffer.CanConsume(InputType.Jump, now, _player.jumpBufferTime);
-        }
-
-        /// <summary>缓冲里的按下是否会按"地面跳"消费（决定是否要预扣土狼时间）。纯查询，不消费。</summary>
-        public bool WouldJumpFromGround(float now)
-        {
-            return CanGroundJump(now) && HasBufferedJump(now);
-        }
-
-        /// <summary>是否可冲刺：冷却与空中余额都够，且缓冲里有按下。纯查询，不消费。</summary>
+        /// <summary>是否可冲刺：冷却已过，且缓冲里有窗口内的按下。纯查询，不消费。</summary>
         public bool CanDash(float now)
         {
             return CanDashNow(now) && _buffer.CanConsume(InputType.Dash, now, _player.dashBufferTime);
         }
 
-        /// <summary>消费跳跃缓冲；<paramref name="airJump"/> 为真时占用一次空中跳跃余额。</summary>
-        public override bool TryConsumeJump(float now, bool airJump)
-        {
-            if (!_buffer.TryConsume(InputType.Jump, now, _player.jumpBufferTime)) return false;
-
-            if (airJump) _airJumpsUsed++;
-            else _lastGroundedAt = float.NegativeInfinity; // 预扣土狼时间，否则一次按下能连跳两次
-            return true;
-        }
-
-        /// <summary>消费冲刺缓冲；冷却与空中余额不足时拒绝。</summary>
+        /// <summary>消费冲刺缓冲；冷却不足时拒绝。</summary>
         public bool TryConsumeDash(float now)
         {
             if (!CanDashNow(now)) return false;
             if (!_buffer.TryConsume(InputType.Dash, now, _player.dashBufferTime)) return false;
 
             _lastDashAt = now;
-            if (!IsGrounded) _airDashesUsed++;
-            return true;
-        }
-
-        /// <summary>贴墙时走一次蹬墙跳：给一次斜向初速并锁定水平输入。</summary>
-        public override bool TryWallJump(in LogicContext ctx)
-        {
-            if (!TryConsumeJump(ctx.now, airJump: false)) return false;
-
-            DoWallJump(ctx.worldInfo.WallSide);
-            StartMoveLock(ctx.now, _player.wallJumpLockTime);
             return true;
         }
 
         protected override void OnTick(in LogicContext ctx)
         {
-            // 重力与状态各管一个分量，顺序本不敏感；但垂直钳制必须看到含重力的值，故重力仍先提交。
-            ApplyGravity(in ctx, _buffer.IsJumpReleased());
+            // 此处是外力唯一入口：俯视角玩家不施加外力，故没有调用。
+            // 要用时形如 ApplyExtraForce(in ctx, new Vector2(knockbackX, knockbackY)); 再按需 ClampSpeed(...)。
 
-            if (ctx.worldInfo.Grounded)
-            {
-                _airJumpsUsed = 0;
-                _airDashesUsed = 0;
-                _lastGroundedAt = ctx.now;
-            }
+            Vector2 move = ctx.inputSnapshot.Move;
+            if (move.sqrMagnitude > 0f) _direction = move;
 
             _moveGroup.Tick(in ctx);
-
-            //MoveHorizontal(ctx.inputSnapshot.Move.x, Config.moveSpeed, Config.moveAcceleration);
         }
 
-        /// <summary>蹬墙跳：按墙的相反方向给一次斜向速度。</summary>
-        private void DoWallJump(int wallSide)
-        {
-            SnapVelocity(new Vector2(_player.wallJumpSpeedX * -wallSide, _player.wallJumpSpeedY));
-        }
-
+        /// <summary>冲刺冷却是否已过。</summary>
+        /// <remarks>
+        /// 平台跳跃时代的条件还含"在地面 或 空中余额未用完"；俯视角没有明确的空中/地面之分，
+        /// 故只按冷却。若将来要做"空中只能冲一次"，需要先引入 Airborne 语义（见 Docs 待确认项）。
+        /// </remarks>
         private bool CanDashNow(float now)
         {
-            if (now - _lastDashAt < _player.dashCooldown) return false;
-
-            return IsGrounded || _airDashesUsed < _player.maxAirDashes;
+            return now - _lastDashAt >= _player.dashCooldown;
         }
     }
 }
