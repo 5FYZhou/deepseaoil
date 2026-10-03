@@ -1,0 +1,37 @@
+namespace DeepseaOil.Presentation.Effects
+{
+    /// <summary>
+    /// 特效标识。<b>编译期检查</b>是它存在的全部理由——拼错会编译不过。
+    /// </summary>
+    /// <remarks>
+    /// <para><b>None = 0 是哨兵值</b>：<c>Play(EffectId.None, ctx)</c> 静默返回 <c>EffectHandle.None</c>，
+    /// 不报错、不查表。调用方写 <c>EffectId.None</c> 表示「这次不播」。</para>
+    /// <para><b>新增一个特效要动三处</b>（顺序固定）：
+    /// ① 本枚举加一项；② <c>EffectCatalog</c> 加一行（Key / 是否单例 / 池上限 / 预热数）；
+    /// ③ <c>Assets/Resources/effects/&lt;枚举名&gt;.prefab</c>。
+    /// 只做①不做②时 <c>Play</c> 会打一条 LogError 并返回 None（这就是「未注册」的可见形态）。</para>
+    /// <para><b>未实现驱动的项</b>：<see cref="EnemyFlashWhite"/> / <see cref="ObjectShake"/> / <see cref="ScreenShake"/>
+    /// 目前<b>故意不在</b> <c>EffectCatalog</c> 里——它们的驱动（材质闪白 / 位移震动 / 相机震动）由用户按需实现，
+    /// 实现后加一行 Catalog 即可接入，不需要动 <c>EffectModule</c>。</para>
+    /// </remarks>
+    public enum EffectId
+    {
+        /// <summary>空 / 无特效（哨兵值）。</summary>
+        None = 0,
+
+        /// <summary>打击火花。命中敌人时在命中点播。</summary>
+        HitSpark,
+
+        /// <summary>敌人白色闪白（待实现驱动：材质 / 颜色动画）。</summary>
+        EnemyFlashWhite,
+
+        /// <summary>单个物品震动（血条抖动、受击震动等，或以此为基。待实现驱动）。</summary>
+        ObjectShake,
+
+        /// <summary>屏幕震动（待实现驱动：相机震动；合并策略为「取最大强度 + 重置计时」）。</summary>
+        ScreenShake,
+
+        /// <summary>泥浆飞溅。水球落地时在落点播。</summary>
+        MudSplash,
+    }
+}
