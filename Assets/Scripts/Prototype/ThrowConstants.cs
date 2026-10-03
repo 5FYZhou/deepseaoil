@@ -1,4 +1,4 @@
-namespace DeepseaOil.Prototype
+﻿namespace DeepseaOil.Prototype
 {
     /// <summary>
     /// 白模投掷的全部数值。**所有可调参数只能写在这里**，不允许散落在实现里。
