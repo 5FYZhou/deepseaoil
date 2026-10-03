@@ -1,10 +1,11 @@
-﻿using DeepseaOil.Logic;
+using DeepseaOil.Logic;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Service;
+using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.UI;
 using DeepseaOil.Data;
 
@@ -33,6 +34,13 @@ namespace DeepseaOil.Presentation
         /// </summary>
         private void Awake()
         {
+            // 切场景复位的 Presentation 侧那一步，必须在 SceneService.Init（在 Init() 里）**之前**订阅：
+            // EventBus 的发布是"快照 + 按订阅顺序调用"，先订阅者先执行，
+            // 于是 CleanAll 稳定地发生在 SceneService.Load（内部会 LoadScene）之前。
+            // 为什么不写在 SceneService.Load 里：SceneService 属于 Logic 层，
+            // 调 EffectModule（Presentation 层）会造成反向依赖。
+            EventBus<RequestChangeScene>.Subscribe(OnRequestChangeScene);
+
             if (!ConfigModule.IsReady)
                 ConfigModule.InitFromStreamingAssets();
 
@@ -42,7 +50,25 @@ namespace DeepseaOil.Presentation
                 _dataLayerOwner = this;
             }
 
+            // 顺序不能反：EffectModule.Preload 依赖 AssetModule（同步窄路）
+            if (!EffectModule.IsInitialized)
+            {
+                EffectModule.Init();
+                EffectModule.Preload();
+            }
+
             Init();
+        }
+
+        /// <summary>切场景复位清单第 ⑤ 项：在 LoadScene 之前清空所有特效。</summary>
+        /// <remarks>
+        /// 注：<c>SceneService.Load</c> 内部会 <c>EventBus.ClearAll()</c>，所以本订阅只对**第一次**
+        /// 切场景生效；换场景后由新场景的 <c>GameRoot.Awake</c> 重新订阅。
+        /// 真正的兜底是 <c>OnDestroy</c> 里的 <c>EffectModule.Dispose()</c>（内部含 CleanAll）。
+        /// </remarks>
+        private void OnRequestChangeScene(RequestChangeScene evt)
+        {
+            EffectModule.CleanAll();
         }
 
         private void Init()
@@ -78,6 +104,9 @@ namespace DeepseaOil.Presentation
             // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §4 每帧时序 step ②）
             AssetModule.Tick(Time.deltaTime);
 
+            // 特效：顺序表第 ③ 步。用 dt 而不是 unscaledDeltaTime —— 暂停（timeScale = 0）时特效整体冻结
+            EffectModule.Tick(Time.deltaTime);
+
             //actors.Tick(Time.deltaTime);
 
             //views.Tick(Time.unscaledDeltaTime);
@@ -94,9 +123,15 @@ namespace DeepseaOil.Presentation
         /// </summary>
         private void OnDestroy()
         {
+            // 退订放在守卫之前：任何 GameRoot 都要拆掉自己的订阅，
+            // 否则残留委托会指向已销毁的对象（并且持有它的引用）。
+            EventBus<RequestChangeScene>.Unsubscribe(OnRequestChangeScene);
+
             if (_dataLayerOwner != this)
                 return;
 
+            // 顺序不能反：EffectModule 释放资源要经 AssetModule 归还引用计数
+            EffectModule.Dispose();
             AssetModule.Dispose();
             _dataLayerOwner = null;
         }

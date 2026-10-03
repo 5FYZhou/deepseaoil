@@ -1,3 +1,4 @@
+using DeepseaOil.Presentation.Effects;
 using UnityEngine;
 
 namespace DeepseaOil.Prototype
@@ -128,6 +129,10 @@ namespace DeepseaOil.Prototype
             _lastBallId = damage.BallId;
 
             _hp = Mathf.Max(0, _hp - 1);
+
+            // 正式特效系统：命中火花。白模**单向**使用正式系统（正式系统不认识白模），
+            // 位置取命中当刻的敌人位置；删这行不影响 EffectModule。
+            EffectModule.Play(EffectId.HitSpark, EffectContext.At(transform.position));
 
             _slowMultiplier = damage.SlowMultiplier;
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Presentation;
+using DeepseaOil.Presentation.Effects;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -286,6 +287,13 @@ namespace DeepseaOil.Prototype
             PushBodies(point, hits);
 
             SpawnLandingFlash(point, color, type);
+
+            // 正式特效系统：水球落地溅泥。白模**单向**使用正式系统——正式系统不认识白模，
+            // 所以这行删掉不会影响 EffectModule 的任何行为。
+            if (type == BallType.Water)
+            {
+                EffectModule.Play(EffectId.MudSplash, EffectContext.At(point));
+            }
 
             // 只有"没打到任何敌人"时才记这条日志：打到敌人时 EnemyActor 自己会记一条更具体的
             // （剩余耐久），两条都打会让 Console 里一次落地出现两行，反而看不出打了几个。
