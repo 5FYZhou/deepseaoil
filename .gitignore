@@ -67,7 +67,7 @@ sysinfo.txt
 /ConfigWorkspace/output/
 /ConfigWorkspace/logs/
 
-# ---- Docs 校验脚本（Tools/）的一次性依赖，不进 git ----
+# ---- Node 依赖（历史上用于 docs 校验脚本，脚本已移除；保留本行以防将来又出现 node_modules）----
 node_modules/
 
 # Mono auto generated files
