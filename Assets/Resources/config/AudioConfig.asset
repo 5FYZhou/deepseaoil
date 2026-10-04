@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: AudioConfig
   m_EditorClassIdentifier: 
   bgmVolume: 1
-  fxsVolume: 1
+  sfxVolume: 0
   path: audio
   audioMaps:
   - id: 3

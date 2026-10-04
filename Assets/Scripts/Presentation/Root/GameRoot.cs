@@ -8,19 +8,23 @@ using DeepseaOil.Logic.Service;
 using DeepseaOil.Presentation.UI;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
+using DeepseaOil.Logic.Services;
 
 namespace DeepseaOil.Presentation
 {
     public class GameRoot : MonoBehaviour
     {
         private UIInputProvider _uiInputProvider;
-        private ITickable uiInput;
+        private ITickable _uiInput;
+
         private List<IService> services = new();
+
+        private TimerManager _timerService;
 
         /// <summary>真正装配了 Data 层的那个 GameRoot；只有它负责拆（"谁 Init 谁 Dispose"）。</summary>
         private static GameRoot _dataLayerOwner;
 
-        private IGameTime gameTime;
+        private IGameTime _gameTime;
 
         /// <summary>
         /// Data 层装配。放在 Awake 而不是 Start：Unity 保证所有 Awake 都先于任何 Start，
@@ -53,9 +57,9 @@ namespace DeepseaOil.Presentation
             _uiInputProvider = new UIInputProvider();
             _uiInputProvider.Init();
 
-            gameTime = new GameTime();
+            _gameTime = new GameTime();
 
-            var pauseService = new PauseService(gameTime);
+            var pauseService = new PauseService(_gameTime);
             var sceneService = new SceneService(pauseService);
             var saveService = new SaveService();
             var audioService = AudioManager.Instance;
@@ -70,7 +74,10 @@ namespace DeepseaOil.Presentation
             services.Add(saveService);
             services.Add(audioService);
 
-            uiInput = new UIInputLogic(UIMgr.Instance);
+            _timerService = TimerManager.Instance;
+            _timerService.Init();
+
+            _uiInput = new UIInputLogic(UIMgr.Instance);
 
             if (GameManager.Instance.CurState == GameState.None)
             {
@@ -81,14 +88,13 @@ namespace DeepseaOil.Presentation
 
         private void Update()
         {
-            // ① 输入采样
+            // 输入采样
             _uiInputProvider.Sample();
-
-            // ② 获取快照
+            // 获取快照
             var snapshot = _uiInputProvider.ConsumeSnapshot();
-            
-            uiInput.Tick(new UILogicContext(snapshot, GameManager.Instance.CurState));
+            _uiInput.Tick(new UILogicContext(snapshot, GameManager.Instance.CurState));
 
+            // 服务
             foreach (var service in services)
             {
                 service.Tick(Time.unscaledDeltaTime);
@@ -96,6 +102,8 @@ namespace DeepseaOil.Presentation
 
             // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §4 每帧时序 step ②）
             AssetModule.Tick(Time.deltaTime);
+
+            _timerService.Tick(Time.deltaTime, Time.unscaledDeltaTime);
 
             //actors.Tick(Time.deltaTime);
 
