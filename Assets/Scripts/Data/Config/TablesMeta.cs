@@ -18,6 +18,13 @@ namespace DeepseaOil.Data
             "TbWeapon",
             "TbItem",
             "TbFish",
+            // 白模迁移新增（战斗切片）：投掷物 / 敌人 / 格子状态 / 玩家 / 波次 / 关卡初始格子
+            "TbProjectile",
+            "TbEnemy",
+            "TbTileState",
+            "TbPlayer",
+            "TbWave",
+            "TbTileInitial",
         };
 
         public static int Count => Names.Length;
