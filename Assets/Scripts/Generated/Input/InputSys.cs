@@ -95,6 +95,15 @@ namespace DeepseaOil.Generated
             ""id"": ""fc46c21d-16b9-4a2c-8297-b128519e471c"",
             ""actions"": [
                 {
+                    ""name"": ""Cancel"",
+                    ""type"": ""Button"",
+                    ""id"": ""322de0d0-8691-49fc-8883-8f8c7ac4d975"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
                     ""name"": ""Submit"",
                     ""type"": ""Button"",
                     ""id"": ""14ab7904-bc08-4305-8faf-5b1830e5428e"",
@@ -153,15 +162,6 @@ namespace DeepseaOil.Generated
                     ""type"": ""Button"",
                     ""id"": ""1293863c-058c-4a14-8e22-1d4e209952bb"",
                     ""expectedControlType"": ""Button"",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""Cancel"",
-                    ""type"": ""Button"",
-                    ""id"": ""322de0d0-8691-49fc-8883-8f8c7ac4d975"",
-                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
@@ -1327,6 +1327,7 @@ namespace DeepseaOil.Generated
 }");
             // UI
             m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
+            m_UI_Cancel = m_UI.FindAction("Cancel", throwIfNotFound: true);
             m_UI_Submit = m_UI.FindAction("Submit", throwIfNotFound: true);
             m_UI_Click = m_UI.FindAction("Click", throwIfNotFound: true);
             m_UI_RightClick = m_UI.FindAction("RightClick", throwIfNotFound: true);
@@ -1334,7 +1335,6 @@ namespace DeepseaOil.Generated
             m_UI_ScrollWheel = m_UI.FindAction("ScrollWheel", throwIfNotFound: true);
             m_UI_AnyJoy = m_UI.FindAction("AnyJoy", throwIfNotFound: true);
             m_UI_AnyKey = m_UI.FindAction("AnyKey", throwIfNotFound: true);
-            m_UI_Cancel = m_UI.FindAction("Cancel", throwIfNotFound: true);
             m_UI_TrackedDeviceOrientation = m_UI.FindAction("TrackedDeviceOrientation", throwIfNotFound: true);
             m_UI_TrackedDevicePosition = m_UI.FindAction("TrackedDevicePosition", throwIfNotFound: true);
             m_UI_Point = m_UI.FindAction("Point", throwIfNotFound: true);
@@ -1429,6 +1429,7 @@ namespace DeepseaOil.Generated
         // UI
         private readonly InputActionMap m_UI;
         private List<IUIActions> m_UIActionsCallbackInterfaces = new List<IUIActions>();
+        private readonly InputAction m_UI_Cancel;
         private readonly InputAction m_UI_Submit;
         private readonly InputAction m_UI_Click;
         private readonly InputAction m_UI_RightClick;
@@ -1436,7 +1437,6 @@ namespace DeepseaOil.Generated
         private readonly InputAction m_UI_ScrollWheel;
         private readonly InputAction m_UI_AnyJoy;
         private readonly InputAction m_UI_AnyKey;
-        private readonly InputAction m_UI_Cancel;
         private readonly InputAction m_UI_TrackedDeviceOrientation;
         private readonly InputAction m_UI_TrackedDevicePosition;
         private readonly InputAction m_UI_Point;
@@ -1453,6 +1453,10 @@ namespace DeepseaOil.Generated
             /// Construct a new instance of the input action map wrapper class.
             /// </summary>
             public UIActions(@InputSys wrapper) { m_Wrapper = wrapper; }
+            /// <summary>
+            /// Provides access to the underlying input action "UI/Cancel".
+            /// </summary>
+            public InputAction @Cancel => m_Wrapper.m_UI_Cancel;
             /// <summary>
             /// Provides access to the underlying input action "UI/Submit".
             /// </summary>
@@ -1481,10 +1485,6 @@ namespace DeepseaOil.Generated
             /// Provides access to the underlying input action "UI/AnyKey".
             /// </summary>
             public InputAction @AnyKey => m_Wrapper.m_UI_AnyKey;
-            /// <summary>
-            /// Provides access to the underlying input action "UI/Cancel".
-            /// </summary>
-            public InputAction @Cancel => m_Wrapper.m_UI_Cancel;
             /// <summary>
             /// Provides access to the underlying input action "UI/TrackedDeviceOrientation".
             /// </summary>
@@ -1531,6 +1531,9 @@ namespace DeepseaOil.Generated
             {
                 if (instance == null || m_Wrapper.m_UIActionsCallbackInterfaces.Contains(instance)) return;
                 m_Wrapper.m_UIActionsCallbackInterfaces.Add(instance);
+                @Cancel.started += instance.OnCancel;
+                @Cancel.performed += instance.OnCancel;
+                @Cancel.canceled += instance.OnCancel;
                 @Submit.started += instance.OnSubmit;
                 @Submit.performed += instance.OnSubmit;
                 @Submit.canceled += instance.OnSubmit;
@@ -1552,9 +1555,6 @@ namespace DeepseaOil.Generated
                 @AnyKey.started += instance.OnAnyKey;
                 @AnyKey.performed += instance.OnAnyKey;
                 @AnyKey.canceled += instance.OnAnyKey;
-                @Cancel.started += instance.OnCancel;
-                @Cancel.performed += instance.OnCancel;
-                @Cancel.canceled += instance.OnCancel;
                 @TrackedDeviceOrientation.started += instance.OnTrackedDeviceOrientation;
                 @TrackedDeviceOrientation.performed += instance.OnTrackedDeviceOrientation;
                 @TrackedDeviceOrientation.canceled += instance.OnTrackedDeviceOrientation;
@@ -1581,6 +1581,9 @@ namespace DeepseaOil.Generated
             /// <seealso cref="UIActions" />
             private void UnregisterCallbacks(IUIActions instance)
             {
+                @Cancel.started -= instance.OnCancel;
+                @Cancel.performed -= instance.OnCancel;
+                @Cancel.canceled -= instance.OnCancel;
                 @Submit.started -= instance.OnSubmit;
                 @Submit.performed -= instance.OnSubmit;
                 @Submit.canceled -= instance.OnSubmit;
@@ -1602,9 +1605,6 @@ namespace DeepseaOil.Generated
                 @AnyKey.started -= instance.OnAnyKey;
                 @AnyKey.performed -= instance.OnAnyKey;
                 @AnyKey.canceled -= instance.OnAnyKey;
-                @Cancel.started -= instance.OnCancel;
-                @Cancel.performed -= instance.OnCancel;
-                @Cancel.canceled -= instance.OnCancel;
                 @TrackedDeviceOrientation.started -= instance.OnTrackedDeviceOrientation;
                 @TrackedDeviceOrientation.performed -= instance.OnTrackedDeviceOrientation;
                 @TrackedDeviceOrientation.canceled -= instance.OnTrackedDeviceOrientation;
@@ -1812,6 +1812,13 @@ namespace DeepseaOil.Generated
         public interface IUIActions
         {
             /// <summary>
+            /// Method invoked when associated input action "Cancel" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+            /// </summary>
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+            void OnCancel(InputAction.CallbackContext context);
+            /// <summary>
             /// Method invoked when associated input action "Submit" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
             /// </summary>
             /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
@@ -1860,13 +1867,6 @@ namespace DeepseaOil.Generated
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnAnyKey(InputAction.CallbackContext context);
-            /// <summary>
-            /// Method invoked when associated input action "Cancel" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-            /// </summary>
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-            void OnCancel(InputAction.CallbackContext context);
             /// <summary>
             /// Method invoked when associated input action "TrackedDeviceOrientation" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
             /// </summary>

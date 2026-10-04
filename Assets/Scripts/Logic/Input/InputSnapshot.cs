@@ -36,4 +36,13 @@ namespace DeepseaOil.Logic.Input
         /// <summary>全零快照（无输入）。</summary>
         public static InputSnapshot Empty => new InputSnapshot(Vector2.zero, false, false, false);
     }
+
+    public readonly struct UIInputSnapshot
+    {
+        public readonly bool EscPressed;
+        public UIInputSnapshot(bool ep)
+        {
+            EscPressed = ep;
+        }
+    }
 }

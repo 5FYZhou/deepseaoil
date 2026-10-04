@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic;
 
 namespace DeepseaOil.Presentation.UI
 {
     public class BeginPanel : BasePanel
     {
-        public Image tip;
+        public override E_UILayer Layer => E_UILayer.Bottom;
+        public override bool CanBeHideByKey => false;
+
         public override void HideMe()
         {
 
@@ -22,16 +25,15 @@ namespace DeepseaOil.Presentation.UI
             switch (btnName)
             {
                 case "StartBtn":
-                    EventBus<RequestPause>.Publish(new RequestPause());
+                    GameManager.Instance.ChangeState(GameState.Running);
                     break;
                 case "ContinueBtn":
-                    EventBus<RequestChangeScene>.Publish(new RequestChangeScene("SampleScene"));
-                    EventBus<RequestResume>.Publish(new RequestResume());
-                    AudioManager.Instance.SetSfxVolume(0.5f);
+                    break;
+                case "SettingBtn":
+                    UIMgr.Instance.ShowPanel<SettingPanel>();
                     break;
                 case "ExitBtn":
-                    AudioManager.Instance.PlaySfx(Data.AudioId.Jump);
-                    Application.Quit();
+                    GameManager.Instance.ChangeState(GameState.BeforeExit);
                     break;
             }
         }

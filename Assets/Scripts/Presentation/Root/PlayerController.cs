@@ -22,7 +22,7 @@ namespace DeepseaOil.Presentation
     /// 同一物理帧里存在两份方向真值，正是"斜向快 √2 倍"与"冲刺方向不一致"这类
     /// 不报错、只错手感的缺陷的来源。</para>
     /// </remarks>
-    public sealed class PlayerController : MonoBehaviour, IFixedTickable
+    public sealed class PlayerController : MonoBehaviour
     {
         [SerializeField] private PlayerConfig config = default;
         [SerializeField] private MovementMotor motor = default;
