@@ -5,7 +5,7 @@ namespace DeepseaOil.Data
 {
     /// <summary>
     /// 资源 Key 解析与类型匹配。**本类是 Data 层唯一的"路径语义转换点"**。
-    /// Key 契约（详见 Docs/分层设计/数据层.md §5）：
+    /// Key 契约（详见 Docs/框架设计/分层设计/数据层.md §4）：
     ///   配置表里存的是「相对 Assets/、带扩展名」的路径（Luban #path=unity 在导表期校验它真实存在）；
     ///   Resources.LoadAsync 需要「相对 Assets/Resources/、不带扩展名」的路径。
     ///   本类负责这两者之间的转换。

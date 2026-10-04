@@ -123,14 +123,14 @@ namespace DeepseaOil.Presentation
                 service.Tick(Time.unscaledDeltaTime);
             }
 
-            // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §4 每帧时序 step ②）
+            // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §2 每帧时序 step ②）
             AssetModule.Tick(Time.deltaTime);
 
             // 特效：顺序表第 ③ 步。用 dt 而不是 unscaledDeltaTime —— 暂停（timeScale = 0）时特效整体冻结
             EffectModule.Tick(Time.deltaTime);
 
             // 战斗切片：顺序表第 ④ 步。同样用 dt —— 暂停时它拿到的是 0，各子系统自然冻结。
-            // 由本类驱动而不是让 CombatRoot 自驱 Update：蓝图契约 #2 "每帧只有三个驱动入口"。
+            // 由本类驱动而不是让 CombatRoot 自驱 Update：蓝图契约 #2 "每帧只有四个驱动入口"。
             if (combat != null) combat.Tick(Time.deltaTime);
 
             //actors.Tick(Time.deltaTime);
@@ -157,7 +157,7 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>
-        /// 进程退出：清异步队列 / 缓存 / 合并列表（蓝图 §6 启动装配序）。
+        /// 进程退出：清异步队列 / 缓存 / 合并列表（蓝图 §4 启动装配序）。
         /// 只由装配过 Data 层的那个实例来拆——否则叠加场景里第二个 `GameRoot` 被销毁时，
         /// 会把第一个还在用的缓存一起清掉。
         /// </summary>

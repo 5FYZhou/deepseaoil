@@ -18,8 +18,8 @@ namespace DeepseaOil.Presentation
     /// 战斗切片的组合根：<b>装配一次，然后每帧被驱动</b>。
     /// </summary>
     /// <remarks>
-    /// <b>它自己没有 <c>Update</c> / <c>FixedUpdate</c>。</b>框架的硬契约是"每帧只有三个驱动入口"
-    /// （<c>GameRoot.Update</c> / <c>PlayerController.FixedUpdate</c> / <c>InputProvider.Update</c>），
+    /// <b>它自己没有 <c>Update</c> / <c>FixedUpdate</c>。</b>框架的硬契约是"每帧只有四个驱动入口"
+    /// （<c>GameRoot.Update</c> / <c>GameRoot.FixedUpdate</c> / <c>PlayerController.FixedUpdate</c> / <c>InputProvider.Update</c>），
     /// 所以本类只暴露 <see cref="Tick"/> 与 <see cref="FixedTick"/>，由 <c>GameRoot</c> 调。
     /// 这样帧内顺序是可预测的：格子 → 投掷/瞄准 → 敌人 → 落地结算 → 玩家受击。
     /// <para><b>环境事实只在这里组装一次</b>：调参资产、Luban 表值、格子几何、敌人归属表、
