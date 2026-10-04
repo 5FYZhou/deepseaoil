@@ -156,13 +156,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   body: {fileID: 267848516}
-  groundCheck: {fileID: 306733804}
-  wallCheck: {fileID: 1701223728}
-  groundCheckDistance: 0.5
-  wallCheckDistance: 0.4
-  groundMask:
-    serializedVersion: 2
-    m_Bits: 64
 --- !u!114 &267848514
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -178,6 +171,7 @@ MonoBehaviour:
   config: {fileID: 11400000, guid: e905e9bdf190acc46843bfc3d7288e54, type: 2}
   motor: {fileID: 267848513}
   inputProvider: {fileID: 477434251}
+  boundsArea: {fileID: 0}
 --- !u!61 &267848515
 BoxCollider2D:
   m_ObjectHideFlags: 0

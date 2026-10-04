@@ -11,7 +11,7 @@ public class TestAudio : MonoBehaviour
     void Start()
     {
 
-        AudioManager.Instance.PlayBgm(AudioId.Bgm);
+        AudioManager.Instance.EnqueueBgm(AudioId.Bgm);
     }
 
     // Update is called once per frame
