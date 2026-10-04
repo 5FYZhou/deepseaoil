@@ -15,6 +15,9 @@ namespace DeepseaOil.Presentation.Effects
     /// <item><see cref="Scale"/>：<c>&lt;= 0</c> 读取时为 1。</item>
     /// <item><see cref="Intensity"/>：读取时 <c>Clamp01</c>。<b>未显式赋值即为 0</b>（0~1 语义下的最小值）——
     /// 想表达「满强度」请用 <see cref="At(Vector2)"/> 或显式写 <c>Intensity = 1f</c>。</item>
+    /// <item><see cref="Tint"/>：alpha 为 0 读取时为白色。</item>
+    /// <item><see cref="Radius"/>：<c>&lt;= 0</c> 读取时为 1。</item>
+    /// <item><see cref="Duration"/>：<b>不归一化</b>，<c>&lt;= 0</c> 由驱动取自己的默认时长。</item>
     /// </list>
     /// <para><b>Intensity 的语义由 Driver 解释</b>，<c>EffectModule</c> 只传递不解释：
     /// <c>ScreenShake</c> 用它取最大值合并、<c>HitSpark</c> 用它缩放粒子量与大小、<c>MudSplash</c> 用它控制飞溅量。
@@ -50,6 +53,53 @@ namespace DeepseaOil.Presentation.Effects
         {
             get => Mathf.Clamp01(_intensity);
             set => _intensity = value;
+        }
+
+        private Color _tint;
+
+        /// <summary>
+        /// 着色。<b>未设置（alpha 为 0）时读取为白色</b>，与 <see cref="Scale"/> / <see cref="Direction"/>
+        /// 同一条"读取处归一化"的纪律：<c>default(EffectContext)</c> 与只写一部分字段的对象初始化器
+        /// 都不会把颜色留成透明（透明 = 什么也看不见，且不报错）。
+        /// </summary>
+        /// <remarks>
+        /// 只有把它当参数的驱动才读它（<c>LandingRing</c> / <c>EnemyShatter</c>）；
+        /// 粒子驱动刻意忽略它 —— 颜色在预制体里，两处都能定色会让人分不清哪一处生效。
+        /// </remarks>
+        public Color Tint
+        {
+            get => _tint.a > 0f ? _tint : Color.white;
+            set => _tint = value;
+        }
+
+        private float _radius;
+
+        /// <summary>
+        /// 半径（世界单位）。<c>&lt;= 0</c> 读取时为 1。
+        /// </summary>
+        /// <remarks>
+        /// 给"半径即语义"的驱动用：落地环画的圈就是某件事的生效范围，半径必须是参数而不是常量，
+        /// 否则改一次生效半径就得回来改特效。
+        /// </remarks>
+        public float Radius
+        {
+            get => _radius > 0f ? _radius : 1f;
+            set => _radius = value;
+        }
+
+        private float _duration;
+
+        /// <summary>
+        /// 持续时长（秒）。<b>不归一化</b>：<c>&lt;= 0</c> 表示"用驱动自己的默认时长"。
+        /// </summary>
+        /// <remarks>
+        /// 与 <see cref="Radius"/> 的处理不同是刻意的：半径没有"合理默认"，而时长有
+        /// （每种特效都有一个作者写死的时长），把 0 归一成一个通用值会掩盖"调用方没传"这件事。
+        /// </remarks>
+        public float Duration
+        {
+            get => _duration;
+            set => _duration = value;
         }
 
         /// <summary>跟随目标，可空。非空时每帧把特效挪到它身上；目标被销毁则自动停止。</summary>
@@ -96,6 +146,7 @@ namespace DeepseaOil.Presentation.Effects
 
         public override string ToString()
             => $"EffectContext(pos=({Position.x:F2}, {Position.y:F2}) dir=({Direction.x:F2}, {Direction.y:F2}) " +
-               $"scale={Scale:F2} intensity={Intensity:F2} follow={(Follow != null ? Follow.name : "null")})";
+               $"scale={Scale:F2} intensity={Intensity:F2} tint={Tint} radius={Radius:F2} duration={Duration:F2} " +
+               $"follow={(Follow != null ? Follow.name : "null")})";
     }
 }

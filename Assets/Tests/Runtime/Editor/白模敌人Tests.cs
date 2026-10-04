@@ -36,6 +36,12 @@ using DeepseaOil.Prototype;
 using NUnit.Framework;
 using UnityEngine;
 
+// 白模（Prototype）与新逻辑层有三个同名类型：Steering / EnemyLogic / EnemyVisual。
+// 这里显式指向白模那一份 —— 本文件测的就是白模。删除白模时这三行别名一并消失。
+using Steering = DeepseaOil.Prototype.Steering;
+using EnemyLogic = DeepseaOil.Prototype.EnemyLogic;
+using EnemyVisual = DeepseaOil.Prototype.EnemyVisual;
+
 namespace DeepseaOil.Tests
 {
     /// <summary>【临时】白模敌人测试。白模验收后整文件删除。</summary>

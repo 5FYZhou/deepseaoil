@@ -95,8 +95,10 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(3, ConfigModule.GetAllWeapons().Count, "GetAllWeapons().Count");
 
             // 表清单（手写）与逃生舱必须与生成物一致
-            Assert.AreEqual(3, TablesMeta.Count, "TablesMeta.Count");
-            Assert.AreEqual(3, TablesMeta.Names.Length, "TablesMeta.Names.Length");
+            // 9 = 示范三张（Weapon / Item / Fish）＋ 白模迁移新增六张
+            // （Projectile / Enemy / TileState / Player / Wave / TileInitial）
+            Assert.AreEqual(9, TablesMeta.Count, "TablesMeta.Count");
+            Assert.AreEqual(9, TablesMeta.Names.Length, "TablesMeta.Names.Length");
             Assert.IsNotNull(ConfigModule.Tables, "逃生舱 Tables 为 null");
 
             // 观测面：拉模型必须反映上面这些事实
