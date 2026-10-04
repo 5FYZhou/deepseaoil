@@ -14,6 +14,9 @@ namespace DeepseaOil.Presentation
 {
     public class GameRoot : MonoBehaviour
     {
+        [Tooltip("战斗切片组合根（投掷 / 格子 / 敌人 / 血量）。留空则本场景没有战斗内容。")]
+        [SerializeField] private CombatRoot combat = default;
+
         private UIInputProvider _uiInputProvider;
         private ITickable uiInput;
         private List<IService> services = new();
@@ -126,6 +129,10 @@ namespace DeepseaOil.Presentation
             // 特效：顺序表第 ③ 步。用 dt 而不是 unscaledDeltaTime —— 暂停（timeScale = 0）时特效整体冻结
             EffectModule.Tick(Time.deltaTime);
 
+            // 战斗切片：顺序表第 ④ 步。同样用 dt —— 暂停时它拿到的是 0，各子系统自然冻结。
+            // 由本类驱动而不是让 CombatRoot 自驱 Update：蓝图契约 #2 "每帧只有三个驱动入口"。
+            if (combat != null) combat.Tick(Time.deltaTime);
+
             //actors.Tick(Time.deltaTime);
 
             //views.Tick(Time.unscaledDeltaTime);
@@ -133,6 +140,20 @@ namespace DeepseaOil.Presentation
             //debugOverlay.Tick();
 
             //EventBus<FrameEnded>.Publish(new FrameEnded());
+        }
+
+        /// <summary>
+        /// 物理帧通道：战斗切片的结算入口（落地冲量 / 敌人 / 玩家受击）。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么不放进 <c>PlayerController.FixedUpdate</c>：</b>那个入口是"玩家"的组合根，
+        /// 让它去驱动敌人与落地结算会把玩家与战斗内容绑死。
+        /// <c>GameRoot</c> 本来就是驱动点（<c>Update</c> 通道的那个），这里只是补上它的物理帧通道。
+        /// <para>暂停时 Unity 不跑 <c>FixedUpdate</c>（<c>timeScale = 0</c>），所以不需要额外挡一层。</para>
+        /// </remarks>
+        private void FixedUpdate()
+        {
+            if (combat != null) combat.FixedTick(Time.fixedDeltaTime);
         }
 
         /// <summary>

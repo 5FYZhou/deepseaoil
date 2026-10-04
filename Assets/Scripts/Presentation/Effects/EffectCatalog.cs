@@ -3,6 +3,26 @@ using System.Collections.Generic;
 namespace DeepseaOil.Presentation.Effects
 {
     /// <summary>
+    /// 驱动种类：<b>决定 <c>EffectDriverFactory</c> 造哪种驱动</b>。
+    /// </summary>
+    /// <remarks>
+    /// 加第二种驱动时，<c>EffectModule</c> 一行都不用改 —— 它只认识 <see cref="IEffectDriver"/>。
+    /// 这里加一枚枚举、在 <see cref="EffectCatalog"/> 的行里写上它、在工厂里加一个 <c>case</c>，
+    /// 装配链就通了。
+    /// </remarks>
+    internal enum EffectDriverKind
+    {
+        /// <summary>粒子驱动：需要 <c>Assets/Resources/effects/&lt;枚举名&gt;.prefab</c>。</summary>
+        Particle = 0,
+
+        /// <summary>落地环：程序生成贴地圆环，不需要资源。</summary>
+        LandingRing = 1,
+
+        /// <summary>敌人碎裂：程序生成扇形碎片，不需要资源。</summary>
+        EnemyShatter = 2,
+    }
+
+    /// <summary>
     /// 一行特效的装配参数。<b>纯数据</b>，不含任何逻辑。
     /// </summary>
     /// <remarks>
@@ -14,7 +34,14 @@ namespace DeepseaOil.Presentation.Effects
         public readonly EffectId Id;
 
         /// <summary>资源 Key，交给 <c>AssetModule</c>。默认 <c>"effects/" + 枚举名</c>。</summary>
+        /// <remarks>
+        /// <b>程序生成的驱动会忽略它</b>（自己的 <c>AssetKey</c> 返回空串），
+        /// 于是 <c>EffectModule</c> 既不预加载也不懒加载 —— 也就不会因为"没有同名预制体"而报缺失。
+        /// </remarks>
         public readonly string Key;
+
+        /// <summary>驱动种类。</summary>
+        public readonly EffectDriverKind DriverKind;
 
         /// <summary>是否单例型（同时只有一个实例，重复 Play 合并）。</summary>
         public readonly bool IsSingleton;
@@ -26,12 +53,14 @@ namespace DeepseaOil.Presentation.Effects
         public readonly int Prewarm;
 
         /// <param name="id">特效标识。</param>
+        /// <param name="driverKind">驱动种类；默认粒子。</param>
         /// <param name="isSingleton">是否单例型。默认 false（每次都新建）。</param>
         /// <param name="maxSize">池上限。必须 &gt; 0。</param>
         /// <param name="prewarm">预热数。会截断到 maxSize。0 = 不预热，首次 Play 现场实例化。</param>
         /// <param name="key">资源 Key。留空 = 取约定 <c>"effects/" + id</c>。</param>
         public EffectSpec(
             EffectId id,
+            EffectDriverKind driverKind = EffectDriverKind.Particle,
             bool isSingleton = false,
             int maxSize = 16,
             int prewarm = 0,
@@ -39,13 +68,14 @@ namespace DeepseaOil.Presentation.Effects
         {
             Id = id;
             Key = string.IsNullOrEmpty(key) ? EffectCatalog.KeyPrefix + id : key;
+            DriverKind = driverKind;
             IsSingleton = isSingleton;
             MaxSize = maxSize > 0 ? maxSize : 1;
             Prewarm = prewarm < 0 ? 0 : prewarm;
         }
 
         public override string ToString()
-            => $"{Id}(key={Key} singleton={IsSingleton} max={MaxSize} prewarm={Prewarm})";
+            => $"{Id}(kind={DriverKind} key={Key} singleton={IsSingleton} max={MaxSize} prewarm={Prewarm})";
     }
 
     /// <summary>
@@ -70,9 +100,13 @@ namespace DeepseaOil.Presentation.Effects
 
         private static readonly EffectSpec[] Specs =
         {
-            // Id                  单例   池上限  预热
-            new EffectSpec(EffectId.HitSpark,  isSingleton: false, maxSize: 32, prewarm: 8),
-            new EffectSpec(EffectId.MudSplash, isSingleton: false, maxSize: 16, prewarm: 4),
+            // Id                       驱动种类                          单例   池上限  预热
+            new EffectSpec(EffectId.HitSpark,  EffectDriverKind.Particle, isSingleton: false, maxSize: 32, prewarm: 8),
+            new EffectSpec(EffectId.MudSplash, EffectDriverKind.Particle, isSingleton: false, maxSize: 16, prewarm: 4),
+
+            // 程序生成的两个（白模迁移）：不需要预制体，池上限按"同屏可能同时存在几个"给。
+            new EffectSpec(EffectId.LandingRing,   EffectDriverKind.LandingRing,   maxSize: 16, prewarm: 0),
+            new EffectSpec(EffectId.EnemyShatter,  EffectDriverKind.EnemyShatter,  maxSize: 16, prewarm: 0),
 
             // 待实现驱动的三种（加行即接入，EffectModule 不用改）：
             // new EffectSpec(EffectId.EnemyFlashWhite, maxSize: 16, prewarm: 4),

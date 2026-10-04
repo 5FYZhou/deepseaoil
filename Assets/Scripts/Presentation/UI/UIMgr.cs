@@ -81,6 +81,15 @@ namespace DeepseaOil.Presentation.UI
         private Canvas uiCanvas;
         private EventSystem uiEventSystem;
 
+        /// <summary>
+        /// 是不是已经就"场景里多出来一份 EventSystem"报过一次。
+        /// </summary>
+        /// <remarks>
+        /// 这条提示描述的是<b>一次性的接线错误</b>，不是每帧状态，所以只该报一次；
+        /// 少了这个开关，它自己就会变成新的刷屏源——正是这次要修的那个病。
+        /// </remarks>
+        private static bool _warnedDuplicateEventSystem;
+
         //层级父对象
         private Transform bottomLayer;
         private Transform middleLayer;
@@ -132,9 +141,64 @@ namespace DeepseaOil.Presentation.UI
             topLayer = uiCanvas.transform.Find("Top");
             systemLayer = uiCanvas.transform.Find("System");
 
+            //场景里可能已经有一份 EventSystem（Unity 在用户新建 UI 文本时会自动补一个），
+            //先把它停掉，再建自己那份，场上才只有一份。见方法注释。
+            DisableSceneEventSystems();
+
             //动态创建EventSystem
             uiEventSystem = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_EVENT_SYS_KEY)).GetComponent<EventSystem>();
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
+        }
+
+        /// <summary>
+        /// 停用场景里多出来的 EventSystem（UIMgr 自己那份除外），并就"该去清理场景"报一次错。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么要有这一步：</b>Unity 在用户"在场景里新建 UI 文本 / 按钮"时会自动补一个
+        /// EventSystem（以及一个 Canvas）。而本框架的约定是 UI 三件套（Camera / Canvas /
+        /// EventSystem）一律由 <c>UIMgr</c> 从 Resources 统一建、跨场景常驻，场景里不该有第二份。
+        /// 两份同时在场上时，<c>UnityEngine.UI.EventSystem.Update</c> 每帧都会打一条
+        /// 「There are 2 event systems in the scene.」——实测一局刷出 38627 条，真问题全被淹掉。
+        /// 框架不该因为场景里多了一个 Unity 自动生成的物体就每帧刷日志。
+        /// <para><b>为什么停用而不是销毁：</b>场景里那份是<b>用户的资产</b>，改场景是编辑器里的动作，
+        /// 运行时替用户删物体既越权又无法持久化。停用足以让它走 <c>OnDisable</c> 从
+        /// <c>EventSystem.m_EventSystems</c> 里摘掉，计数回到 1、警告随之消失；
+        /// UI 的功能不受影响，因为跨场景的那份由 UIMgr 提供。
+        /// <b>为什么用 includeInactive 的重载：</b>失活的那份同样要处理——它什么时候被谁激活，
+        /// 警告就什么时候回来；这里一次性把场景里所有非 UIMgr 的份都停干净。</para>
+        /// <para><b>为什么它必须只报一次：</b>见 <see cref="_warnedDuplicateEventSystem"/>。</para>
+        /// </remarks>
+        private void DisableSceneEventSystems()
+        {
+            //本方法在实例化 ui/EventSystem **之前**调用，此刻场上查得到的 EventSystem 都不是
+            //UIMgr 自己那份（UIMgr 是惰性单例，该构造函数每个进程只跑一次）。
+            EventSystem[] sceneEventSystems = UnityEngine.Object.FindObjectsOfType<EventSystem>(true);
+
+            foreach (EventSystem sceneEventSystem in sceneEventSystems)
+            {
+                //保留这个判断是为了让"绝不碰自己那份"成为方法自身的不变量，
+                //而不是依赖调用点在构造函数里的位置。
+                if (sceneEventSystem == uiEventSystem)
+                    continue;
+
+                //停用：这一步才是真正止住每帧警告的动作
+                sceneEventSystem.gameObject.SetActive(false);
+
+                if (_warnedDuplicateEventSystem)
+                    continue;
+
+                _warnedDuplicateEventSystem = true;
+                //带上 context，Console 里双击这条日志就能在 Hierarchy 里定位到场景那份
+                Debug.LogError(
+                    "[UI] 场景里已经有一份 EventSystem（以及建 UI 文本时 Unity 自动生成的 Canvas），" +
+                    "UIMgr 已停用场景那份、改用自己从 Resources 创建并跨场景常驻的那一份；" +
+                    "否则 Unity 会每帧刷一条「There are 2 event systems in the scene.」。\n" +
+                    "清理方法：在 Hierarchy 里删掉场景自带的 EventSystem 与那个自动生成的 Canvas —— " +
+                    "UI 的 Camera / Canvas / EventSystem 三件套由 UIMgr 从 Assets/Resources/ui/ 自动创建，" +
+                    "场景里不需要第二份。\n" +
+                    "这条只报一次（本局不会再刷）。",
+                    sceneEventSystem);
+            }
         }
 
         /// <summary>

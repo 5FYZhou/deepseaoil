@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "name": "默认波次",
+    "enemies_per_wave": 4,
+    "spawn_interval": 0.25,
+    "initial_delay": 1.5,
+    "respawn_delay": 2.5,
+    "spawn_radius": 5
+  }
+]
