@@ -8,11 +8,14 @@ using DeepseaOil.Logic.Service;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.UI;
 using DeepseaOil.Data;
+using DeepseaOil.Logic.Input;
 
 namespace DeepseaOil.Presentation
 {
     public class GameRoot : MonoBehaviour
     {
+        private UIInputProvider _uiInputProvider;
+        private ITickable uiInput;
         private List<IService> services = new();
 
         /// <summary>真正装配了 Data 层的那个 GameRoot；只有它负责拆（"谁 Init 谁 Dispose"）。</summary>
@@ -73,6 +76,9 @@ namespace DeepseaOil.Presentation
 
         private void Init()
         {
+            _uiInputProvider = new UIInputProvider();
+            _uiInputProvider.Init();
+
             gameTime = new GameTime();
 
             var pauseService = new PauseService(gameTime);
@@ -90,11 +96,24 @@ namespace DeepseaOil.Presentation
             services.Add(saveService);
             services.Add(audioService);
 
+            uiInput = new UIInputLogic(UIMgr.Instance);
+
+            if (GameManager.Instance.CurState == GameState.None)
+            {
+                GameManager.Instance.ChangeState(GameState.Menu);
+            }
+            else Debug.LogWarning("第一次切换游戏状态的不是GameRoot");
         }
 
         private void Update()
         {
-            //inputProvider.Tick();
+            // ① 输入采样
+            _uiInputProvider.Sample();
+
+            // ② 获取快照
+            var snapshot = _uiInputProvider.ConsumeSnapshot();
+            
+            uiInput.Tick(new UILogicContext(snapshot, GameManager.Instance.CurState));
 
             foreach (var service in services)
             {
@@ -134,6 +153,11 @@ namespace DeepseaOil.Presentation
             EffectModule.Dispose();
             AssetModule.Dispose();
             _dataLayerOwner = null;
+            _uiInputProvider.Dispose(); 
+            foreach (var service in services)
+            {
+                service.Dispose();
+            }
         }
     }
 }

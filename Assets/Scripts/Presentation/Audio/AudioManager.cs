@@ -7,6 +7,7 @@ using UnityEngine;
 using DeepseaOil.Data;
 using Unity.VisualScripting.FullSerializer;
 using System;
+using Unity.VisualScripting;
 
 /// <summary>
 /// 全局单例，由GameRoot驱动
@@ -53,6 +54,9 @@ namespace DeepseaOil.Presentation {
         private float _sfxVolume;
 
         private const string CONFIGKEY = "Config/AudioConfig";
+
+        public float BgmVolume { get => _bgmVolume; }
+        public float SfxVolume { get => _sfxVolume; }
 
         private AudioManager()
         {
@@ -153,7 +157,7 @@ namespace DeepseaOil.Presentation {
 
             _path = config.path;
             _bgmVolume = config.bgmVolume;
-            _sfxVolume = config.fxsVolume;
+            _sfxVolume = config.sfxVolume;
 
             _idToFileName.Clear();
 

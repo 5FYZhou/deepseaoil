@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DeepseaOil.Logic.Input;
+using DeepseaOil.Presentation;
 
 
 namespace DeepseaOil.Logic
@@ -23,15 +24,16 @@ namespace DeepseaOil.Logic
         }
     }
 
-    public readonly struct TimeContext
+    public readonly struct UILogicContext
     {
-        public readonly float scaledDt;
-        public readonly float unscaledDt;
+        public readonly UIInputSnapshot inputSnapshot;
+        // 当前场景
+        public readonly GameState gameState; 
 
-        public TimeContext(float scaledDt, float unscaledDt)
+        public UILogicContext(UIInputSnapshot inputSnapshot, GameState state)
         {
-            this.scaledDt = scaledDt;
-            this.unscaledDt = unscaledDt;
+            this.inputSnapshot = inputSnapshot;
+            this.gameState = state;
         }
     }
 }
