@@ -8,14 +8,5 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
-  - enabled: 0
-    path: Assets/Scenes/TestConfig.unity
-    guid: d033863f28f6a834cabb72770b196751
-  - enabled: 0
-    path: Assets/Scenes/TestThrow.unity
-    guid: c4ef4e94d4458494e938b1785564fe51
-  - enabled: 1
-    path: Assets/Scenes/TextTile.unity
-    guid: c20988cd8821b5144bc9179a3d90b8a6
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 56bc4da93de1edd43a98195a0e7089a7, type: 3}

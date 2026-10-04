@@ -126,7 +126,7 @@ namespace DeepseaOil.Data
         /// 边界：
         ///   - 命中缓存：refCount++，返回**已完成**句柄（await 不挂起）
         ///   - 未命中：入队并返回未完成句柄，由 Tick 推进；同一 Key 的并发请求合并为一个 IO
-        ///   - 加载成功：Put 缓存 → Retain → Complete（顺序严格，见 Docs/分层设计/数据层.md §2「主路径语义」）
+        ///   - 加载成功：Put 缓存 → Retain → Complete（顺序严格，见 Docs/框架设计/分层设计/数据层.md §2「主路径」）
         ///   - 失败：重试 2 次后返回降级资源（可能为 null）
         ///   - 调用方拿到句柄后必须成对调用 Release
         /// </summary>
@@ -288,7 +288,7 @@ namespace DeepseaOil.Data
         ///   - 走独立轻量路径，不创建 AsyncHandle（没有调用方在 await）
         ///   - 完成后 isPreloaded = true，永不淘汰；不计入引用计数
         ///   - 用 typeof(UnityEngine.Object) 做类型，不约束具体类型
-        ///     已知待验证项：Resources.LoadAsync 传基类时类型过滤是否生效（见 Docs/框架蓝图.md §9.1 开放项 O13）
+        ///     已知待验证项：Resources.LoadAsync 传基类时类型过滤是否生效（见 Docs/框架设计/框架蓝图.md §6 缺陷登记 O13）
         /// </summary>
         public static void Preload(string key)
         {

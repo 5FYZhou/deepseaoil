@@ -13,7 +13,7 @@ namespace DeepseaOil.Data
     ///   - Loader 严格校验：文件不存在 / 为空 / 解析失败都抛异常
     ///   - 平台：File.ReadAllText 只对桌面端（Windows / macOS / Linux）有效。
     ///     Android / WebGL 的 StreamingAssets 在 APK 包内，必须改用 UnityWebRequest
-    ///     —— 那会让 Init 变异步，牵动整条启动链。Jam 期不支持，见 Docs/框架蓝图.md §5.2。
+    ///     —— 那会让 Init 变异步，牵动整条启动链。Jam 期不支持（该平台约束未登记在文档里）。
     /// </summary>
     internal sealed class TablesHolder
     {
