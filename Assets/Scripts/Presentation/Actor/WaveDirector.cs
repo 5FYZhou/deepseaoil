@@ -15,7 +15,7 @@ namespace DeepseaOil.Presentation.Actor
     /// <see cref="WaveLogic"/>（纯逻辑、可喂 dt 复现），本类只做三件引擎相关的事：
     /// 建物体、按固定顺序驱动、数存活数。
     /// <para><b>不自己挂 <c>FixedUpdate</c></b>：由组合根（<c>CombatRoot</c>）在每个物理帧调
-    /// <see cref="FixedTick"/>。框架的硬契约是"每帧只有三个驱动入口"，自驱会让帧内顺序不可预测。</para>
+    /// <see cref="FixedTick"/>。框架的硬契约是"每帧只有四个驱动入口"，自驱会让帧内顺序不可预测。</para>
     /// <para><b>它是存活数与波次的唯一权威</b>：HUD 读的 <c>WaveChanged</c> 由这里发布 ——
     /// 只有它同时知道"第几波"（来自 <see cref="WaveLogic"/>）与"还剩几只"（来自敌人列表）。</para>
     /// </remarks>

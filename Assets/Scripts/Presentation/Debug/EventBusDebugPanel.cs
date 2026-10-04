@@ -10,7 +10,7 @@ namespace DeepseaOil.Presentation
     /// <para><b>所属程序集约束</b>：本类位于 <c>DeepseaOil.Presentation</c>，因为 <c>OnGUI</c> 依赖 <c>UnityEngine.IMGUIModule</c>。
     /// Logic 层禁止引用 UI/IMGUI，因此这类可视化代码一律留在表现层。</para>
     /// <para><b>M0 定位</b>：仅用于肉眼确认事件流是否工作，<b>不属于 M0 验收依据</b>
-    /// （验收以 EditMode/PlayMode 测试为准，见 Docs/分层设计/逻辑层.md）。</para>
+    /// （验收以 EditMode/PlayMode 测试为准，见 Docs/框架设计/分层设计/逻辑层.md）。</para>
     /// <para><b>使用方式</b>：把本组件挂到任意场景物体上，进入 Play 后左上角显示面板。</para>
     /// </remarks>
     public sealed class EventBusDebugPanel : MonoBehaviour

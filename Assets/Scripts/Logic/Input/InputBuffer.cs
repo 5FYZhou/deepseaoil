@@ -20,7 +20,7 @@ namespace DeepseaOil.Logic.Input
     /// <b>输入按下沿一律由本类提供</b>（<see cref="CanConsume"/> / <see cref="TryConsume"/>），
     /// 宿主不得自行保存"上一帧输入"，且 <see cref="Push"/> 必须先于逻辑层的 <c>Tick</c>。
     /// 当前被消费的只有 <see cref="InputType.Dash"/>；<see cref="InputType.Jump"/> 等按下沿的入账见 <see cref="Push"/>。
-    /// 契约与设计理由见 <c>Docs/分层设计/逻辑层.md</c> §5。
+    /// 契约与设计理由见 <c>Docs/框架设计/分层设计/逻辑层.md</c> §5。
     /// </remarks>
     public sealed class InputBuffer
     {

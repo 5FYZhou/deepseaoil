@@ -5,7 +5,7 @@
 // 目的只有一个：证明「表 → 生成代码 → StreamingAssets JSON → ConfigModule」这条链路通。
 //
 // 本脚本**不是**配置的唯一入口：真正的入口是 Data 层的 ConfigModule
-// （见 Docs/分层设计/数据层.md）。它只做两件事：
+// （见 Docs/框架设计/分层设计/数据层.md）。它只做两件事：
 //   ① 兜底初始化 —— TestConfig 场景没有 GameRoot，没人 Init
 //   ② 把查询结果打到 Console，作为链路自检
 //
@@ -56,7 +56,7 @@ namespace DeepseaOil.Presentation
             Append(sb, tables.TbFish);
             Debug.Log(sb.ToString());
 
-            // 观测面：拉模型，不推送事件（蓝图 §8 契约表「观测」行）
+            // 观测面：拉模型，不推送事件（见 Docs/框架设计/分层设计/数据层.md §1「DataMetrics 可观测性表面（拉模型）」）
             var snap = DataMetrics.GetSnapshot();
             Debug.Log(string.Format("[Config] DataMetrics：ConfigReady={0}  TableCount={1}  CachedAssetCount={2}",
                 snap.ConfigReady, snap.TableCount, snap.CachedAssetCount));
