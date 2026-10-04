@@ -13,7 +13,7 @@ namespace DeepseaOil.Presentation
     /// </summary>
     /// <remarks>
     /// 全部环境事实只在本类组装一次。同一个 <c>FixedUpdate</c> 内 <c>InputBuffer.Push</c> 必须先于 <c>Tick</c>，
-    /// 否则按下沿会滞后一帧（<c>Docs/分层设计/逻辑层.md</c> §5）。
+    /// 否则按下沿会滞后一帧（<c>Docs/框架设计/分层设计/逻辑层.md</c> §5）。
     /// 顺序固定：消费快照 → 吸附到 8 向并归一化 → 以<b>同一份</b>归一化快照推缓冲 → 组装 <c>WorldInfo</c>
     /// → <c>Logic.FixedTick</c> → 边界钳位。
     /// 边界钳位放最后：它是物理步边界上的"保险丝"，防高速冲出地图；正常阻挡由刚体碰撞解算。

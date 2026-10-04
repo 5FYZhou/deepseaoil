@@ -7,7 +7,7 @@ namespace DeepseaOil.Logic
     /// </summary>
     /// <remarks>
     /// <b>为什么不用 <c>Bounds</c> / <c>BoxCollider2D</c></b>：本类型住在逻辑层，而逻辑层的硬约束是
-    /// 「零引擎类型」（见 <c>Docs/分层设计/逻辑层.md</c> §1.1）。<c>Bounds</c> 是 <c>UnityEngine</c> 类型，
+    /// 「零引擎类型」（见 <c>Docs/框架设计/分层设计/逻辑层.md</c> §1.1）。<c>Bounds</c> 是 <c>UnityEngine</c> 类型，
     /// <c>BoxCollider2D</c> 更带着整个物理模块——一旦出现在这里，逻辑层就从"纯 C#"退化成"必须挂物理组件才能单测"。
     /// 因此本类型只存两个 <see cref="Vector2"/>（<c>Vector2</c> 是纯数学结构，与 <c>Mathf</c> 同属可接受的例外），
     /// <b>由组合根在表现层把 <c>BoxCollider2D</c> 折算成 min/max 后传进来</b>（见 <c>PlayerController</c>）。

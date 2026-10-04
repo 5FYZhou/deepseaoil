@@ -1,0 +1,18 @@
+[
+  {
+    "id": 0,
+    "name": "常规",
+    "slow_factor": 1,
+    "duration": 0,
+    "enter_damage": 0,
+    "enter_knockback": 0
+  },
+  {
+    "id": 1,
+    "name": "泥浆",
+    "slow_factor": 0.45,
+    "duration": 8,
+    "enter_damage": 1,
+    "enter_knockback": 1.83
+  }
+]

@@ -26,12 +26,42 @@ public partial class Tables
     /// 鱼表
     /// </summary>
     public demo.TbFish TbFish {get; }
+    /// <summary>
+    /// 投掷物表
+    /// </summary>
+    public demo.TbProjectile TbProjectile {get; }
+    /// <summary>
+    /// 敌人表
+    /// </summary>
+    public demo.TbEnemy TbEnemy {get; }
+    /// <summary>
+    /// 格子状态表
+    /// </summary>
+    public demo.TbTileState TbTileState {get; }
+    /// <summary>
+    /// 玩家数值表
+    /// </summary>
+    public demo.TbPlayer TbPlayer {get; }
+    /// <summary>
+    /// 波次表
+    /// </summary>
+    public demo.TbWave TbWave {get; }
+    /// <summary>
+    /// 关卡初始格子状态
+    /// </summary>
+    public demo.TbTileInitial TbTileInitial {get; }
 
     public Tables(System.Func<string, JSONNode> loader)
     {
         TbWeapon = new demo.TbWeapon(loader("demo_tbweapon"));
         TbItem = new demo.TbItem(loader("demo_tbitem"));
         TbFish = new demo.TbFish(loader("demo_tbfish"));
+        TbProjectile = new demo.TbProjectile(loader("demo_tbprojectile"));
+        TbEnemy = new demo.TbEnemy(loader("demo_tbenemy"));
+        TbTileState = new demo.TbTileState(loader("demo_tbtilestate"));
+        TbPlayer = new demo.TbPlayer(loader("demo_tbplayer"));
+        TbWave = new demo.TbWave(loader("demo_tbwave"));
+        TbTileInitial = new demo.TbTileInitial(loader("demo_tbtileinitial"));
         ResolveRef();
     }
     
@@ -40,6 +70,12 @@ public partial class Tables
         TbWeapon.ResolveRef(this);
         TbItem.ResolveRef(this);
         TbFish.ResolveRef(this);
+        TbProjectile.ResolveRef(this);
+        TbEnemy.ResolveRef(this);
+        TbTileState.ResolveRef(this);
+        TbPlayer.ResolveRef(this);
+        TbWave.ResolveRef(this);
+        TbTileInitial.ResolveRef(this);
     }
 }
 

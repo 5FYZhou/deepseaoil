@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c812290abd07d4f478df768d76aa5c12, type: 3}
+  m_Name: ThrowTuning
+  m_EditorClassIdentifier: 
+  originHeight: 0.3
+  cameraPlaneDepth: 100
+  ballRadiusMeters: 0.22
+  shadowRadiusMeters: 0.2
+  shadowScaleAtPeak: 0.7
+  groundVisualOffset: -0.01
+  aimRadiusMeters: 0.32
+  aimVerticalSquash: 0.6
+  aimPerspectiveTaper: 0.15
+  aimRingThicknessMeters: 0.07
+  impulseRadius: 1.2
+  impulseStrength: 6
+  impulseMassFloor: 0.2
+  pushQueryMargin: 2
+  landingRingDuration: 0.15
