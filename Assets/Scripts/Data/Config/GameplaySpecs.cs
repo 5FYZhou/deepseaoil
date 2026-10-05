@@ -1,3 +1,4 @@
+﻿using Assets.Scripts.Data;
 using cfg.demo;
 
 namespace DeepseaOil.Data
@@ -236,6 +237,68 @@ namespace DeepseaOil.Data
             CellX = cellX;
             CellY = cellY;
             State = state;
+        }
+    }
+
+
+    /// <summary>
+    /// 一条元素反应规则
+    /// </summary>
+    public readonly struct ElementRuleSpec
+    {
+        public readonly int Priority;
+
+        public readonly ElementTag RequireTags;
+        public readonly ElementTag ExcludeTags;
+
+        public readonly int TemperatureMin;
+        public readonly int TemperatureMax;
+
+        public readonly int WetMin;
+        public readonly int WetMax;
+
+        public readonly int ConductivityMin;
+
+        public readonly TileType ResultTileType;
+
+        public ElementRuleSpec(int p, ElementTag r, ElementTag e, 
+            int tmin, int tmax, int wmin, int wmax, int cmin, TileType tile)
+        {
+            Priority = p;
+            RequireTags = r;
+            ExcludeTags = e; 
+            TemperatureMin = tmin; 
+            TemperatureMax = tmax; 
+            WetMin = wmin; 
+            WetMax = cmin;    
+            ConductivityMin = tmin;
+            ResultTileType = tile;
+        }
+
+        public bool Match(ElementSpec a)
+        {
+            if ((a.Tags & RequireTags) != RequireTags)
+                return false;
+
+            if ((a.Tags & ExcludeTags) != 0)
+                return false;
+
+            if (a.Temperature < TemperatureMin)
+                return false;
+
+            if (a.Temperature > TemperatureMax)
+                return false;
+
+            if (a.Wet < WetMin)
+                return false;
+
+            if (a.Wet > WetMax)
+                return false;
+
+            if (a.Conductivity < ConductivityMin)
+                return false;
+
+            return true;
         }
     }
 }
