@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using cfg.demo;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,17 +8,6 @@ namespace DeepseaOil.Presentation.Element
     public interface IEffect
     {
         void Effect();
-    }
-
-    public enum TileType
-    {
-        None,
-        Water,
-        Soil,
-        Fire,
-        Ice,
-        Elec,
-        Plant
     }
 
     public class EfcTileChange : IEffect

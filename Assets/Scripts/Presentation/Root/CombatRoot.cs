@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
@@ -11,6 +11,7 @@ using DeepseaOil.Presentation.Player;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
 using cfg.demo;
+using DeepseaOil.Presentation.Element;
 
 namespace DeepseaOil.Presentation
 {
@@ -65,6 +66,7 @@ namespace DeepseaOil.Presentation
         private LandingResolver _resolver;
         private WaveDirector _waves;
         private TileAimView _aim;
+        private ReactionResolver _reactionResolver;
 
         /// <summary>装配是否成功（失败时所有 Tick 都是 no-op）。</summary>
         public bool IsReady { get; private set; }
@@ -150,6 +152,9 @@ namespace DeepseaOil.Presentation
             IReadOnlyList<BallSpec> balls = SpecCatalog.AllBalls();
             PlayerSpec playerSpec = SpecCatalog.Player();
 
+            var rules = SpecCatalog.AllElementRules();
+            _reactionResolver = new(rules);
+
             _registry = new EnemyCellRegistry();
 
             GridGeometry geometry = gridView.ReadGeometry();
@@ -193,7 +198,8 @@ namespace DeepseaOil.Presentation
 
             Debug.Log(
                 $"[Combat] 装配完成：格子 {cells} 个（初始状态 {initialStates} 个），" +
-                $"球种 {balls.Count} 个，喷泉 {fountains.Length} 个，敌人 {(enableWaves ? "启用" : "关闭")}");
+                $"球种 {balls.Count} 个，喷泉 {fountains.Length} 个，敌人 {(enableWaves ? "启用" : "关闭")}，" +
+                $"反应规则 {rules.Count}条");
         }
 
         /// <summary>

@@ -1,6 +1,7 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using cfg.demo;
+using Assets.Scripts.Data;
 
 namespace DeepseaOil.Data
 {
@@ -41,6 +42,13 @@ namespace DeepseaOil.Data
                 row.MaxHeight,
                 row.MaxThrowDistance,
                 row.MinThrowDistance);
+
+            var elementSpec = new ElementSpec(
+                row.Type,
+                row.Tags,
+                row.Temp,
+                row.Wet,
+                row.Conductive);
 
             return new BallSpec(row.Id, row.Name, in throwSpec, row.TileState);
         }
@@ -104,6 +112,34 @@ namespace DeepseaOil.Data
 
             return result;
         }
+
+
+        /// <summary>全部元素反应规则（按表顺序）。 </summary>
+        public static IReadOnlyList<ElementRuleSpec> AllElementRules()
+        {
+            IReadOnlyList<cfg.demo.ElementRule> rows = ConfigModule.Tables.TbElementRule.DataList;
+
+            var result = new List<ElementRuleSpec>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                cfg.demo.ElementRule row = rows[i];
+
+                result.Add(new ElementRuleSpec(
+                    row.Priority,
+                    row.RequireTag,
+                    row.ExcludeTag,
+                    row.RequireTempMin,
+                    row.RequireTempMax,
+                    row.RequireWetMin,
+                    row.RequireWetMax,
+                    row.RequireCondMin,
+                    row.ResultId));
+            }
+
+            return result;
+        }
+
 
         /// <summary>读一个敌人种类。</summary>
         public static EnemySpec Enemy(int id = DefaultEnemyId)
