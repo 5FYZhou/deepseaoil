@@ -202,6 +202,7 @@ namespace DeepseaOil.Presentation.Actor
 
             UpdateCell(force: false);
             UpdateBodyColor();
+            UpdateSortingOrder();
         }
 
         /// <summary>选中时把接触判定半径之外的追击参数画出来，便于对照配置。</summary>
@@ -246,7 +247,7 @@ namespace DeepseaOil.Presentation.Actor
                 _body,
                 PrimitiveSprites.Circle,
                 EnemyVisual.BodyColorNormal,
-                RenderOrder.Actor,
+                RenderOrder.ActorOrder(Position.y),
                 _spec.Radius * 2f);
 
             BuildHpText();
@@ -350,6 +351,21 @@ namespace DeepseaOil.Presentation.Actor
             bool flashOn = IsHurt && EnemyVisual.IsFlashOn(Time.time, _spec.FlashHz);
 
             _body.color = EnemyVisual.BodyColor(_slowMultiplier, flashOn);
+        }
+
+        /// <summary>
+        /// 按 y 刷新本体的渲染档位（Y-Sort）。
+        /// </summary>
+        /// <remarks>
+        /// 与颜色一起在物理帧刷：两者都是"这一帧它在场上的哪里 / 什么状态"的读数，
+        /// 分成两个频率就会在某一帧对不上（而那一帧恰好是"刚挪到别人前面"的时候）。
+        /// <para>档位换算在地基（<c>YSort</c>），频带在 <c>RenderOrder</c> —— 本类只说"按我的 y 取档"。</para>
+        /// </remarks>
+        private void UpdateSortingOrder()
+        {
+            if (_body == null) return;
+
+            _body.sortingOrder = RenderOrder.ActorOrder(Position.y);
         }
 
         /// <summary>把脚底中心上报给归属表；格没变时什么都不做。</summary>

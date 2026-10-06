@@ -25,16 +25,21 @@ namespace DeepseaOil.Presentation.Projectile
         public float Height { get; private set; }
 
         /// <summary>
-        /// 建出子物体。参数由组合根给出，所以本类不需要 inspector 接线。
+        /// 建出子物体并配好 sprite。<b>排序档位不在这里定</b>：球每帧按贴地 y 取档（见 <see cref="Apply"/>）。
         /// </summary>
-        /// <param name="sortingOrder">排序层，见 <see cref="RenderOrder"/>。</param>
         /// <param name="diameterMeters">球的视觉直径（米）。</param>
         /// <param name="color">球色，由球种决定。</param>
-        public void Initialize(int sortingOrder, float diameterMeters, Color color)
+        public void Initialize(float diameterMeters, Color color)
         {
             _renderer = CreateSprite();
 
-            PrimitiveSprites.Configure(_renderer, PrimitiveSprites.Circle, color, sortingOrder, diameterMeters);
+            // 初始档位给频带下沿；紧接着的 Apply(0) 会按真实落点算一次（见 BallDriver.Initialize）。
+            PrimitiveSprites.Configure(
+                _renderer,
+                PrimitiveSprites.Circle,
+                color,
+                RenderOrder.YSortBandStart,
+                diameterMeters);
         }
 
         /// <summary>摆位。与 <see cref="BallShadow.Apply"/> 成对调用，两者吃的是<b>同一份</b>贴地位置。</summary>
@@ -44,6 +49,10 @@ namespace DeepseaOil.Presentation.Projectile
         {
             Height = height;
             transform.position = new Vector3(groundPos.x, groundPos.y + height, 0f);
+
+            // 球参与 Y-Sort：档位取**贴地位置**的 y（不是弧线高度）—— 高度是画出来的偏移，
+            // 排序回答的是"它落在场上的哪里"。收口前它是固定的 1000（永远盖住场上一切）。
+            if (_renderer != null) _renderer.sortingOrder = RenderOrder.BallOrder(groundPos.y);
         }
 
         /// <summary>

@@ -78,14 +78,15 @@ namespace DeepseaOil.Presentation.Ball
             _root.transform.position = new Vector3(data.Start.x, data.Start.y + originHeight, 0f);
 
             var view = _root.AddComponent<BallView>();
-            view.Initialize(RenderOrder.Ball, ballRadius * 2f, CombatPalette.BallColor(data.Type));
+            view.Initialize(ballRadius * 2f, CombatPalette.BallColor(data.Type));
 
             // 先 view 再 shadow：AddComponent 会立刻跑子物体的 Awake，顺序写死才不会让两帧的顺序飘。
             var shadowGo = new GameObject("阴影");
             shadowGo.transform.SetParent(_root.transform, false);
 
+            // 阴影贴地、不进 Y-Sort 频带（跟着 y 取档会让它随高度越过自己的主人）。
             var shadow = shadowGo.AddComponent<BallShadow>();
-            shadow.Initialize(tuning, RenderOrder.BallShadow, shadowRadius * 2f, ShadowColor);
+            shadow.Initialize(tuning, RenderOrder.GroundShadow, shadowRadius * 2f, ShadowColor);
 
             _driver = _root.AddComponent<BallDriver>();
             _driver.Initialize(in data, view, shadow, originHeight, OnLandedInternal);

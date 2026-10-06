@@ -8299,7 +8299,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   groundTilemap: {fileID: 184027456}
   effectTilemap: {fileID: 655109573}
-  mudTile: {fileID: 11400000, guid: f6bd7aa43d0b563498d2d1af900d3951, type: 2}
+  stateTiles:
+  - State: 1
+    Tile: {fileID: 11400000, guid: f6bd7aa43d0b563498d2d1af900d3951, type: 2}
 --- !u!4 &478400895
 Transform:
   m_ObjectHideFlags: 0
@@ -9135,7 +9137,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawnInterval: 1
-  waterBallPrefab: {fileID: 0}
   radiusView: {fileID: 0}
   landingRadius: 3
   minLandingDistance: 0.8
