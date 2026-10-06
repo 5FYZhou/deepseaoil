@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using DeepseaOil.Data;
-using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Input;
-//using static UnityEditor.Experimental.GraphView.GraphView;
-//using static UnityEngine.Rendering.DebugUI;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -36,10 +31,24 @@ namespace DeepseaOil.Presentation.UI
     }
 
     /// <summary>
-    /// 管理所有UI面板的管理器
-    /// 注意：面板预设体名要和面板类名一致！！！！！
+    /// 管理所有UI面板的管理器。<b>普通类，由 <c>GameRoot</c> 持有</b>（半收口：构造权收回来了，
+    /// 面板字典 / 栈 / 协程那套内部职责没动）。
     /// </summary>
-    public class UIMgr : BaseManager<UIMgr>, IUIOperation
+    /// <remarks>
+    /// 注意：面板预设体名要和面板类名一致！！！！！
+    /// <para><b>收口前它是 <c>BaseManager&lt;UIMgr&gt;</c></b>（反射取私有构造的伪单例），
+    /// 而且<b>私有构造里直接做 IO</b>（同步加载 + 实例化 UI 三件套）。
+    /// 现在：构造是空的，三件套的创建搬进 <see cref="Init"/>，只有 <c>GameRoot</c> 调它 ——
+    /// 于是"谁造 UI、什么时候造"有唯一答案（<c>GameRoot.Assemble</c>），
+    /// 而不是"第一次有人碰 <c>UIMgr.Instance</c> 的那一刻"。</para>
+    /// <para><b>为什么没有 <c>Reset</c>：</b>三件套与面板字典同生命周期，"复位自身状态"没有独立语义
+    /// （清掉字典而不销毁面板反而会漏引用）；拆除统一由 <see cref="Dispose"/> 负责。
+    /// 不留没有调用者的 API。</para>
+    /// <para><b>唯一残留的取用点是 <c>MonoMgr</c></b>（协程宿主）：本类不是 <c>MonoBehaviour</c>，
+    /// 面板异步加载要靠它 <c>StartCoroutine</c>。这是已知的临时例外，
+    /// 且它的用户确实都在 UI 层内（全工程只有 <see cref="CoLoadPanel{T}"/> 一处）。</para>
+    /// </remarks>
+    public class UIMgr : IUIOperation
     {
         /// <summary>
         /// 主要用于里式替换原则 在字典中 用父类容器装载子类对象
@@ -63,8 +72,12 @@ namespace DeepseaOil.Presentation.UI
             public UnityAction<T> callBack;
             public E_UILayer Layer => panel.Layer;
 
-            public PanelInfo(UnityAction<T> callBack)
+            /// <summary>回指管理器：<see cref="Hide"/> 要调实例方法，不能再走全局单例。</summary>
+            private readonly UIMgr _owner;
+
+            public PanelInfo(UIMgr owner, UnityAction<T> callBack)
             {
+                _owner = owner;
                 this.callBack += callBack;
             }
 
@@ -72,7 +85,7 @@ namespace DeepseaOil.Presentation.UI
 
             public override void Hide(bool isDestroy)
             {
-                Instance.HidePanel<T>();
+                _owner.HidePanel<T>();
             }
         }
 
@@ -81,14 +94,19 @@ namespace DeepseaOil.Presentation.UI
         private Canvas uiCanvas;
         private EventSystem uiEventSystem;
 
+        /// <summary>装配是否完成（未完成时所有面板操作是 no-op）。</summary>
+        public bool IsReady { get; private set; }
+
         /// <summary>
         /// 是不是已经就"场景里多出来一份 EventSystem"报过一次。
         /// </summary>
         /// <remarks>
         /// 这条提示描述的是<b>一次性的接线错误</b>，不是每帧状态，所以只该报一次；
         /// 少了这个开关，它自己就会变成新的刷屏源——正是这次要修的那个病。
+        /// <para>它改成实例字段（收口前是 static）：static 会跨 Play / 跨实例残留，
+        /// 而 Domain Reload 关闭时那种残留最难查。</para>
         /// </remarks>
-        private static bool _warnedDuplicateEventSystem;
+        private bool _warnedDuplicateEventSystem;
 
         //层级父对象
         private Transform bottomLayer;
@@ -108,7 +126,7 @@ namespace DeepseaOil.Presentation.UI
         /// <summary>
         /// 用于存储所有的面板对象
         /// </summary>
-        private Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
+        private readonly Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
 
         /// <summary>
         /// 用于按层存储已打开的面板，懒更新
@@ -121,8 +139,32 @@ namespace DeepseaOil.Presentation.UI
             { E_UILayer.System, new Stack<BasePanelInfo>() }
         };
 
-        private UIMgr()
+        /// <summary>
+        /// 构造<b>不做事</b>：资源 IO 全部在 <see cref="Init"/> 里。
+        /// </summary>
+        /// <remarks>
+        /// 收口前这里直接 <c>AssetModule.Load</c> + <c>Instantiate</c> 三件套 ——
+        /// 那让"<c>new UIMgr()</c>"这个动作本身产生资源 IO，装配顺序就再也说不清了。
+        /// </remarks>
+        public UIMgr()
         {
+        }
+
+        /// <summary>
+        /// 装配 UI 三件套（摄像机 / 画布 / 事件系统）。<b>唯一调用点是 <c>GameRoot.Assemble</c>。</b>
+        /// </summary>
+        /// <remarks>
+        /// 三件套从 <c>Assets/Resources/ui/</c> 取并 <c>DontDestroyOnLoad</c>：
+        /// 它们跨场景常驻，而 <c>GameRoot</c> 本身现在也常驻，所以三者寿命一致。
+        /// </remarks>
+        public void Init()
+        {
+            if (IsReady)
+            {
+                Debug.LogError("[UI] UIMgr.Init 被调用了两次：它只该由 GameRoot 调一次。");
+                return;
+            }
+
             //动态创建唯一的Canvas和EventSystem（摄像机）
             uiCamera = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_CAMERA_KEY)).GetComponent<Camera>();
             //ui摄像机过场景不移除 专门用来渲染UI面板
@@ -148,6 +190,51 @@ namespace DeepseaOil.Presentation.UI
             //动态创建EventSystem
             uiEventSystem = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_EVENT_SYS_KEY)).GetComponent<EventSystem>();
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
+
+            IsReady = true;
+        }
+
+        /// <summary>
+        /// 拆除：销毁三件套（它们带走了全部面板实例）并把资源引用计数还给 <c>AssetModule</c>。
+        /// </summary>
+        /// <remarks>
+        /// <b>必须早于 <c>AssetModule.Dispose</c></b>：<c>Release</c> 要经它。
+        /// 必须幂等：未装配 / 重复调用都是 no-op。
+        /// </remarks>
+        public void Dispose()
+        {
+            if (!IsReady) return;
+
+            IsReady = false;
+
+            // 面板是 Canvas 的子物体：销毁 Canvas 会带走它们。这里只负责把引用计数还掉。
+            foreach (KeyValuePair<string, BasePanelInfo> kv in panelDic)
+            {
+                AssetModule.Release(UI_PANEL_PREFIX + kv.Key);
+            }
+
+            panelDic.Clear();
+
+            foreach (Stack<BasePanelInfo> stack in openPanels.Values)
+            {
+                stack.Clear();
+            }
+
+            if (uiEventSystem != null) GameObject.Destroy(uiEventSystem.gameObject);
+            if (uiCanvas != null) GameObject.Destroy(uiCanvas.gameObject);
+            if (uiCamera != null) GameObject.Destroy(uiCamera.gameObject);
+
+            AssetModule.Release(UI_EVENT_SYS_KEY);
+            AssetModule.Release(UI_CANVAS_KEY);
+            AssetModule.Release(UI_CAMERA_KEY);
+
+            uiEventSystem = null;
+            uiCanvas = null;
+            uiCamera = null;
+            bottomLayer = null;
+            middleLayer = null;
+            topLayer = null;
+            systemLayer = null;
         }
 
         /// <summary>
@@ -171,13 +258,13 @@ namespace DeepseaOil.Presentation.UI
         private void DisableSceneEventSystems()
         {
             //本方法在实例化 ui/EventSystem **之前**调用，此刻场上查得到的 EventSystem 都不是
-            //UIMgr 自己那份（UIMgr 是惰性单例，该构造函数每个进程只跑一次）。
+            //UIMgr 自己那份。
             EventSystem[] sceneEventSystems = UnityEngine.Object.FindObjectsOfType<EventSystem>(true);
 
             foreach (EventSystem sceneEventSystem in sceneEventSystems)
             {
                 //保留这个判断是为了让"绝不碰自己那份"成为方法自身的不变量，
-                //而不是依赖调用点在构造函数里的位置。
+                //而不是依赖调用点在装配序里的位置。
                 if (sceneEventSystem == uiEventSystem)
                     continue;
 
@@ -227,7 +314,6 @@ namespace DeepseaOil.Presentation.UI
         /// 显示面板
         /// </summary>
         /// <typeparam name="T">面板的类型</typeparam>
-        /// <param name="layer">面板显示的层级</param>
         /// <param name="callBack">由于可能是异步加载 因此通过委托回调的形式 将加载完成的面板传递出去进行使用</param>
         /// <param name="isSync">是否采用同步加载。⚠️ 默认值为 true，但方法体**从不读它**——见蓝图 D7：
         /// 照它做会让唯一的调用方（GameRoot）走同步路径，异步链路永远跑不到。</param>
@@ -268,9 +354,10 @@ namespace DeepseaOil.Presentation.UI
             }
 
             //不存在面板 先存入字典当中 占个位置 之后如果又显示 我才能得到字典中的信息进行判断
-            panelDic.Add(panelName, new PanelInfo<T>(callBack));
+            panelDic.Add(panelName, new PanelInfo<T>(this, callBack));
 
             //异步加载面板：用协程轮询 AsyncHandle，不用 await（理由见 CoLoadPanel 注释）
+            //MonoMgr 是全工程唯一的协程宿主（UIMgr 不是 MonoBehaviour）
             MonoMgr.Instance.StartCoroutine(CoLoadPanel<T>(panelName));
         }
 
@@ -281,7 +368,7 @@ namespace DeepseaOil.Presentation.UI
         /// await 的续体会**内联**在那里执行——等于在调度器的分发循环里再进一次 UIMgr。
         /// 轮询把挂载推迟到下一帧（代价 1 帧），换掉那个重入风险。
         /// </summary>
-        private IEnumerator CoLoadPanel<T>(string panelName) where T : BasePanel
+        private System.Collections.IEnumerator CoLoadPanel<T>(string panelName) where T : BasePanel
         {
             string key = UI_PANEL_PREFIX + panelName;
             var handle = AssetModule.LoadAsync<GameObject>(key);

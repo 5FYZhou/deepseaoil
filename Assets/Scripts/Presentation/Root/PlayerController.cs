@@ -9,10 +9,11 @@ using UnityEngine;
 namespace DeepseaOil.Presentation
 {
     /// <summary>
-    /// 玩家组合根：组装执行器、配置、活动区域与输入缓冲，并每个物理帧驱动一次 <see cref="PlayerLogic"/>。
+    /// 玩家组合根：组装执行器、配置、活动区域与输入缓冲，并由 <c>GameRoot</c> 每个物理帧驱动一次
+    /// <see cref="PlayerLogic"/>。
     /// </summary>
     /// <remarks>
-    /// 全部环境事实只在本类组装一次。同一个 <c>FixedUpdate</c> 内 <c>InputBuffer.Push</c> 必须先于 <c>Tick</c>，
+    /// 全部环境事实只在本类组装一次。同一个物理帧内 <c>InputBuffer.Push</c> 必须先于 <c>Tick</c>，
     /// 否则按下沿会滞后一帧（<c>Docs/框架设计/分层设计/逻辑层.md</c> §5）。
     /// 顺序固定：消费快照 → 吸附到 8 向并归一化 → 以<b>同一份</b>归一化快照推缓冲 → 组装 <c>WorldInfo</c>
     /// → <c>Logic.FixedTick</c> → 边界钳位。
@@ -21,9 +22,16 @@ namespace DeepseaOil.Presentation
     /// 必须是同一份已归一化方向。曾出现"一个用处理后的值、一个用原始值"的写法——
     /// 同一物理帧里存在两份方向真值，正是"斜向快 √2 倍"与"冲刺方向不一致"这类
     /// 不报错、只错手感的缺陷的来源。</para>
+    /// <para><b>收口前它是第二个自驱入口</b>（自己的 <c>FixedUpdate</c>）：它和
+    /// <c>GameRoot.FixedUpdate</c>（战斗切片的物理帧通道）谁先跑由 Unity 决定，
+    /// 而战斗切片的接触结算读的是"玩家这一帧提交后的位置"。现在物理帧只有一个发起者
+    /// （<c>GameRoot</c>），顺序由 <see cref="Order"/> 明确写死：玩家侧（<c>-100</c>）先于世界侧（<c>0</c>）。</para>
     /// </remarks>
-    public sealed class PlayerController : MonoBehaviour
+    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked
     {
+        /// <summary>驱动顺序：玩家侧必须早于世界侧（先提交速度、先读输入）。</summary>
+        public int Order => -100;
+
         [SerializeField] private PlayerConfig config = default;
         [SerializeField] private MovementMotor motor = default;
         [SerializeField] private InputProvider inputProvider = default;
@@ -66,6 +74,9 @@ namespace DeepseaOil.Presentation
         private InputBuffer _buffer;
         private WorldInfo _world;
         private BoundsArea _bounds;
+
+        /// <summary>注册时抓住的 GameRoot 引用；销毁期只经它退订（理由见 <see cref="OnDestroy"/>）。</summary>
+        private GameRoot _root;
 
         /// <summary>
         /// 本帧被外部要求的速度上限；<c>null</c> 表示不覆盖（逻辑层按自己的满速档位走）。
@@ -219,7 +230,27 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        private void FixedUpdate()
+        private void Start()
+        {
+            // 场景根自己报到：GameRoot 按 Order 驱动，不再由 Inspector 拖引用
+            _root = GameRoot.Instance;
+            _root.RegisterSceneRoot(this);
+        }
+
+        private void OnDestroy()
+        {
+            // 用 Start 里抓住的引用：销毁期再问 GameRoot.Instance 可能当场造一个新的出来
+            if (_root != null) _root.UnregisterSceneRoot(this);
+        }
+
+        /// <summary>
+        /// 物理帧：由 <c>GameRoot.FixedUpdate</c> 按 <see cref="Order"/> 驱动。
+        /// </summary>
+        /// <remarks>
+        /// 收口前这是本类自己的 <c>FixedUpdate</c>（四个驱动入口之一）。改成被驱动之后，
+        /// "物理帧里玩家先于战斗结算"从"Unity 抽签"变成代码事实。
+        /// </remarks>
+        public void FixedTick(float deltaTime)
         {
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 

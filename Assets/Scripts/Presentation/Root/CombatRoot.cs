@@ -18,10 +18,10 @@ namespace DeepseaOil.Presentation
     /// 战斗切片的组合根：<b>装配一次，然后每帧被驱动</b>。
     /// </summary>
     /// <remarks>
-    /// <b>它自己没有 <c>Update</c> / <c>FixedUpdate</c>。</b>框架的硬契约是"每帧只有四个驱动入口"
-    /// （<c>GameRoot.Update</c> / <c>GameRoot.FixedUpdate</c> / <c>PlayerController.FixedUpdate</c> / <c>InputProvider.Update</c>），
-    /// 所以本类只暴露 <see cref="Tick"/> 与 <see cref="FixedTick"/>，由 <c>GameRoot</c> 调。
-    /// 这样帧内顺序是可预测的：格子 → 投掷/瞄准 → 敌人 → 落地结算 → 玩家受击。
+    /// <b>它自己没有 <c>Update</c> / <c>FixedUpdate</c>。</b>它把自己注册给 <c>GameRoot</c>
+    /// （<see cref="ISceneRoot"/>），由 <c>GameRoot</c> 的两个通道分别调
+    /// <see cref="RenderTick"/> 与 <see cref="FixedTick"/>。
+    /// 帧内顺序因此是可预测的：格子 → 投掷/瞄准 → 喷泉；落地结算 → 敌人 → 玩家受击。
     /// <para><b>环境事实只在这里组装一次</b>：调参资产、Luban 表值、格子几何、敌人归属表、
     /// 各子系统之间的引用。子系统自己不认识彼此 —— 它们只认识被注入的东西。</para>
     /// <para><b>装配放在 <c>Start</c> 而不是 <c>Awake</c>：</b>它要读 <c>ConfigModule</c>（由
@@ -29,8 +29,11 @@ namespace DeepseaOil.Presentation
     /// 的逻辑层）。Unity 保证"所有 Awake 先于任何 Start"。</para>
     /// <para><b>没接线时是显式降级</b>：报一条 Error 并停用，而不是静默留一个"按了没反应"的场景。</para>
     /// </remarks>
-    public sealed class CombatRoot : MonoBehaviour
+    public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked
     {
+        /// <summary>驱动顺序：世界侧排在玩家侧（<c>-100</c>）之后。</summary>
+        public int Order => 0;
+
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
         [SerializeField] private PlayerController player = default;
@@ -57,6 +60,9 @@ namespace DeepseaOil.Presentation
         [Tooltip("是否刷敌人。关掉可以只验投掷链路。")]
         [SerializeField] private bool enableWaves = true;
 
+        /// <summary>注册时抓住的 GameRoot 引用；销毁期只经它退订（理由见 <see cref="OnDestroy"/>）。</summary>
+        private GameRoot _root;
+
         private GridLogic _grid;
         private EnemyCellRegistry _registry;
         private PlayerResources _resources;
@@ -77,7 +83,18 @@ namespace DeepseaOil.Presentation
 
         private void Start()
         {
+            // 先报到再装配：报到这一步会**确保 GameRoot（进而 Data 层）已就绪** ——
+            // 本类的装配要读 ConfigModule，场景里没有 GameRoot 的场合下顺序反了会直接抛。
+            _root = GameRoot.Instance;
+            _root.RegisterSceneRoot(this);
+
             Assemble();
+        }
+
+        private void OnDestroy()
+        {
+            // 用 Start 里抓住的引用：销毁期再问 GameRoot.Instance 可能当场造一个新的出来
+            if (_root != null) _root.UnregisterSceneRoot(this);
         }
 
         private void OnEnable()
@@ -94,7 +111,7 @@ namespace DeepseaOil.Presentation
 
         /// <summary>渲染帧驱动（由 <c>GameRoot.Update</c> 调）。</summary>
         /// <param name="deltaTime"><c>Time.deltaTime</c>；暂停时为 0，各子系统因此自然冻结。</param>
-        public void Tick(float deltaTime)
+        public void RenderTick(float deltaTime)
         {
             if (!IsReady) return;
 
