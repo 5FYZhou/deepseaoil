@@ -1,6 +1,6 @@
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Drop;
-using DeepseaOil.Logic.Random;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.World

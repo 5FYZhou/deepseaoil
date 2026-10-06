@@ -29,7 +29,6 @@ using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Projectile;
-using DeepseaOil.Logic.Random;
 using DeepseaOil.Logic.Wave;
 using NUnit.Framework;
 using UnityEngine;

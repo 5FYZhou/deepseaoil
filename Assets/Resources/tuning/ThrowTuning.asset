@@ -26,4 +26,3 @@ MonoBehaviour:
   impulseStrength: 6
   impulseMassFloor: 0.2
   pushQueryMargin: 2
-  landingRingDuration: 0.15

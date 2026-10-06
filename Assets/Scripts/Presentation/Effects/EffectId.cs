@@ -13,8 +13,8 @@ namespace DeepseaOil.Presentation.Effects
     /// <para><b>程序生成的驱动不需要预制体</b>：它在 <c>EffectCatalog</c> 里声明
     /// <c>EffectDriverKind</c>，由 <c>EffectDriverFactory</c> 造出来，
     /// <c>AssetKey</c> 返回空串 ⇒ <c>EffectModule</c> 完全不碰 <c>AssetModule</c>。
-    /// <see cref="LandingRing"/> 与 <see cref="EnemyShatter"/> 就是这一类：
-    /// 它们的形状（贴地环 / 扇形碎片）是逐像素算出来的，导入美术反而要多一份资产。</para>
+    /// <see cref="EnemyShatter"/> 与 <see cref="TileHighlight"/> 就是这一类：
+    /// 它们的形状（扇形碎片 / 整格色块）是逐像素算出来的，导入美术反而要多一份资产。</para>
     /// <para><b>未实现驱动的项</b>：<see cref="EnemyFlashWhite"/> / <see cref="ObjectShake"/> / <see cref="ScreenShake"/>
     /// 目前<b>故意不在</b> <c>EffectCatalog</c> 里——它们的驱动（材质闪白 / 位移震动 / 相机震动）由用户按需实现，
     /// 实现后加一行 Catalog 即可接入，不需要动 <c>EffectModule</c>。</para>
@@ -38,16 +38,6 @@ namespace DeepseaOil.Presentation.Effects
 
         /// <summary>泥浆飞溅。水球落地时在落点播。</summary>
         MudSplash,
-
-        /// <summary>
-        /// 落地环：在落点画一个从满尺寸缩到消失的贴地圆环，半径与颜色由 <c>EffectContext</c> 给。
-        /// </summary>
-        /// <remarks>
-        /// <b>它不是特效，是仪表。</b>落地的作用范围在屏幕上原本不可见 —— 没有这个圈，
-        /// 试冲量强度就只能靠反复猜。画出来的半径就是那件事的实际生效范围，所以半径是<b>参数</b>
-        /// （<c>ctx.Radius</c>）而不是驱动里的常量。
-        /// </remarks>
-        LandingRing,
 
         /// <summary>敌人碎裂：耐久归零时飞出的几块碎片，沿 <c>ctx.Direction</c> 扇形散开。</summary>
         EnemyShatter,

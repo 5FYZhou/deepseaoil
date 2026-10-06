@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Logic.Random
+namespace DeepseaOil.Foundation
 {
     /// <summary>
     /// 全局随机门面：默认用 <see cref="DefaultRng"/>，测试/回放可整体替换实现。
@@ -9,9 +9,9 @@ namespace DeepseaOil.Logic.Random
     /// <b>为什么是静态门面而不是注入：</b>随机的消费者会越来越多（刷怪、掉落、抖动），
     /// 每个都从组合根注入一遍会把构造签名撑满；而"这一局的随机源"本来就只有一个。
     /// 需要确定性的测试用 <see cref="SetImpl"/> 换掉它，测完 <see cref="Reset"/> 还原。
-    /// <para>命名空间就叫 <c>Random</c>，所以本文件里凡是 <c>System.Random</c> 都必须写全名 ——
-    /// 裸写 <c>Random</c> 会解析成命名空间而不是类型。这是刻意的代价：
-    /// 类型名与目录/命名空间一致比省几个字符重要。</para>
+    /// <para><b>它在地基</b>（收口前在 <c>Logic/Random/</c>）：逻辑层与表现层都要用它，
+    /// 而"确定性"不属于任何一层。搬过来还有一个副作用 —— 命名空间不再叫 <c>Random</c>，
+    /// 于是 <c>System.Random</c> 的重名遮蔽问题自动消失（下面仍然写全名，是为了读的人一眼看清用的是哪一个）。</para>
     /// </remarks>
     public static class Rng
     {

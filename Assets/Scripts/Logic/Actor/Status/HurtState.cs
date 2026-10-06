@@ -1,4 +1,4 @@
-using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
@@ -17,11 +17,9 @@ namespace DeepseaOil.Logic
     /// 用同一份减速度把速度滑到零，两种情况下手感一致。</para>
     /// <para><b>减速度取 <c>hurtDecay</c>，填 0 时落回 <c>moveAcceleration</c></b>：
     /// 于是"被撞出去多远"＝ 冲量² / (2 × 减速度)，不需要为一个新机制再引一套公式。
-    /// 玩家与敌人各填各的数：玩家那份是"零惯性配置下的当帧停顿"，敌人那份来自
-    /// <c>knockback_decay</c>（与它自己的转向衰减同一个量纲）。<b>两者都填 0</b> 时退化为
-    /// "一帧的位移"（速度当帧归零）。</para>
+    /// 玩家与敌人各填各的数；<b>两者都填 0</b> 时退化为"一帧的位移"（速度当帧归零）。</para>
     /// </remarks>
-    public sealed class HurtState : StateBase<StatusStateTag>
+    public sealed class HurtState : StateBase<StatusStateTag, LogicContext>
     {
         private Vector2 _direction = Vector2.up;
         private float _speed;
@@ -29,7 +27,8 @@ namespace DeepseaOil.Logic
         /// <summary>本帧是不是"刚进入"的那一帧（那一帧不衰减）。</summary>
         private bool _justEntered;
 
-        public HurtState(ActorLogic logic, CharacterConfig config) : base(logic, config)
+        /// <param name="host">宿主（角色账本）。</param>
+        public HurtState(IStateHost host) : base(host)
         {
         }
 

@@ -1,6 +1,7 @@
 using UnityEngine;
 using cfg.demo;
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 
 namespace DeepseaOil.Logic.Projectile
 {
@@ -97,13 +98,12 @@ namespace DeepseaOil.Logic.Projectile
 
         /// <summary>归一化弧高：<c>t = 0.5</c> 恰好为 1，两端恰好为 0。</summary>
         /// <remarks>
-        /// 用 <c>4t(1−t)</c> 而不是 <c>sin(πt)</c>：两者都是过两端、顶峰为 1 的对称曲线，
-        /// 但前者是多项式，与 <c>Vector2.Lerp</c> 的线性项同为代数式，测试能做精确断言，
-        /// 不会因浮点三角函数实现差异出现假红。
+        /// 公式在地基（<see cref="Ballistics.ArcHeight01"/>）：掉落物的抛物线用的是同一个式子，
+        /// 两份实现漂了就会出现"球看起来浮在地上"这类只有肉眼能发现的偏差。
         /// </remarks>
         public static float SampleHeight01(float t)
         {
-            return 4f * t * (1f - t);
+            return Ballistics.ArcHeight01(t);
         }
     }
 }

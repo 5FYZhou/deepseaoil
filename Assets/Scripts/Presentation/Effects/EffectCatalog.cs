@@ -15,14 +15,11 @@ namespace DeepseaOil.Presentation.Effects
         /// <summary>粒子驱动：需要 <c>Assets/Resources/effects/&lt;枚举名&gt;.prefab</c>。</summary>
         Particle = 0,
 
-        /// <summary>落地环：程序生成贴地圆环，不需要资源。</summary>
-        LandingRing = 1,
-
         /// <summary>敌人碎裂：程序生成扇形碎片，不需要资源。</summary>
-        EnemyShatter = 2,
+        EnemyShatter = 1,
 
         /// <summary>瞄准格高亮：程序生成整格色块，<b>持续型</b>（创建一次、之后只更新），不需要资源。</summary>
-        TileHighlight = 3,
+        TileHighlight = 2,
     }
 
     /// <summary>
@@ -107,8 +104,7 @@ namespace DeepseaOil.Presentation.Effects
             new EffectSpec(EffectId.HitSpark,  EffectDriverKind.Particle, isSingleton: false, maxSize: 32, prewarm: 8),
             new EffectSpec(EffectId.MudSplash, EffectDriverKind.Particle, isSingleton: false, maxSize: 16, prewarm: 4),
 
-            // 程序生成的两个（白模迁移）：不需要预制体，池上限按"同屏可能同时存在几个"给。
-            new EffectSpec(EffectId.LandingRing,   EffectDriverKind.LandingRing,   maxSize: 16, prewarm: 0),
+            // 程序生成的（不需要预制体）：池上限按"同屏可能同时存在几个"给。
             new EffectSpec(EffectId.EnemyShatter,  EffectDriverKind.EnemyShatter,  maxSize: 16, prewarm: 0),
 
             // 瞄准高亮（持续型）：同时只会有一个实例（创建一次、之后走 Update），

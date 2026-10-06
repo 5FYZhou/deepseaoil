@@ -1,5 +1,4 @@
-using DeepseaOil.Data;
-using DeepseaOil.Logic.Movement;
+using DeepseaOil.Foundation;
 
 namespace DeepseaOil.Logic.Movement.States
 {
@@ -11,9 +10,10 @@ namespace DeepseaOil.Logic.Movement.States
     /// 填正数 ⇒ 按加速度滑停（用时 = 速度 / 加速度）。
     /// 朝向由速度接管的那一套保持不变（零方向不翻面）。
     /// </remarks>
-    public sealed class IdleState : StateBase<MovementStateTag>
+    public sealed class IdleState : StateBase<MovementStateTag, LogicContext>
     {
-        public IdleState(ActorLogic logic, CharacterConfig config) : base(logic, config)
+        /// <param name="host">宿主（移动层账本）。</param>
+        public IdleState(IStateHost host) : base(host)
         {
         }
 
@@ -29,7 +29,7 @@ namespace DeepseaOil.Logic.Movement.States
 
         public override void Tick(LogicContext ctx)
         {
-            Logic.BrakeTowards();
+            Host.BrakeTowards();
         }
 
         public override bool IsDone(LogicContext ctx)

@@ -1,4 +1,5 @@
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Drop
@@ -49,8 +50,9 @@ namespace DeepseaOil.Presentation.Drop
             Vector2 position = Vector2.Lerp(Origin, Landing, t);
 
             // 0 → 1 → 0：两端恰好为 0，所以"落地"那一刻高度精确归零。
-            // （同一个式子也写在 BallData.SampleHeight01 里；"数学果实收进地基"是后面批次的事。）
-            position.y += 4f * Definition.ArcHeight * t * (1f - t);
+            // 式子在地基（Ballistics）：球的飞行用的是同一个 —— 两份实现漂了就会出现
+            // "掉落物陷进地面"这类只有肉眼能发现的偏差。
+            position.y += Definition.ArcHeight * Ballistics.ArcHeight01(t);
 
             transform.position = position;
 

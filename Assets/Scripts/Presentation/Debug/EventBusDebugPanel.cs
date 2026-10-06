@@ -1,17 +1,23 @@
-﻿using System;
+using System;
+using DeepseaOil.Logic.Events;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
     /// <summary>
-    /// EventBus 可视调试面板：在屏幕上显示最近收到的调试事件。
+    /// EventBus 可视调试面板：在屏幕上显示最近收到的<b>格子状态事件</b>。
     /// </summary>
     /// <remarks>
-    /// <para><b>所属程序集约束</b>：本类位于 <c>DeepseaOil.Presentation</c>，因为 <c>OnGUI</c> 依赖 <c>UnityEngine.IMGUIModule</c>。
-    /// Logic 层禁止引用 UI/IMGUI，因此这类可视化代码一律留在表现层。</para>
-    /// <para><b>M0 定位</b>：仅用于肉眼确认事件流是否工作，<b>不属于 M0 验收依据</b>
-    /// （验收以 EditMode/PlayMode 测试为准，见 Docs/框架设计/分层设计/逻辑层.md）。</para>
-    /// <para><b>使用方式</b>：把本组件挂到任意场景物体上，进入 Play 后左上角显示面板。</para>
+    /// <para><b>它订阅的是一条真实事实</b>（<see cref="TileStateChanged"/>：逻辑层发布、表现层消费）。
+    /// 收口前这里订阅的是一个只在本文件里存在的演示事件 <c>DebugEvent</c> ——
+    /// "证明表现层能订阅逻辑层事实"这件事，用真实事件证明比用演示类型更有意义，
+    /// 而演示类型本身是白模残留（它的注释自己写了"后续被真实事件取代后即删除"）。</para>
+    /// <para><b>所属程序集约束</b>：本类位于 <c>DeepseaOil.Presentation</c>，因为 <c>OnGUI</c> 依赖
+    /// <c>UnityEngine.IMGUIModule</c>。Logic 层禁止引用 UI/IMGUI，因此这类可视化代码一律留在表现层。</para>
+    /// <para><b>定位</b>：仅用于肉眼确认事件流是否工作，<b>不属于任何验收依据</b>
+    /// （验收以 EditMode/PlayMode 测试为准）。</para>
+    /// <para><b>使用方式</b>：把本组件挂到任意场景物体上，进入 Play 后左上角显示面板
+    /// （不挂也不影响任何功能：调试件按需挂）。</para>
     /// </remarks>
     public sealed class EventBusDebugPanel : MonoBehaviour
     {
@@ -41,27 +47,26 @@ namespace DeepseaOil.Presentation
 
         private void Start()
         {
-            // 订阅演示事件：仅证明"表现层可订阅逻辑层事件"这一条单向依赖成立。
-            DeepseaOil.Logic.Events.EventBus<DebugEvent>.Subscribe(OnDebugEvent);
+            EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
         }
 
         private void OnDestroy()
         {
             // 必须退订：静态事件总线不会因物体销毁而自动解除引用。
-            DeepseaOil.Logic.Events.EventBus<DebugEvent>.Unsubscribe(OnDebugEvent);
+            EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
         }
 
-        private void OnDebugEvent(DebugEvent evt)
+        private void OnTileStateChanged(TileStateChanged evt)
         {
             _receivedCount++;
-            _lastMessage = evt.Message;
+            _lastMessage = $"格 {evt.Cell} → {evt.State}";
 
             if (_logLines.Length == 0)
             {
                 return;
             }
 
-            _logLines[_logCount % _logLines.Length] = $"[{_receivedCount}] {evt.Message}";
+            _logLines[_logCount % _logLines.Length] = $"[{_receivedCount}] {_lastMessage}";
             _logCount++;
         }
 
@@ -87,20 +92,6 @@ namespace DeepseaOil.Presentation
             }
 
             GUILayout.EndArea();
-        }
-
-        /// <summary>
-        /// 供手工验证使用的演示事件（后续被真实事件取代后即删除）。
-        /// </summary>
-        /// <remarks>按 F-04 约定设计为 readonly struct。</remarks>
-        public readonly struct DebugEvent
-        {
-            public readonly string Message;
-
-            public DebugEvent(string message)
-            {
-                Message = message;
-            }
         }
     }
 }

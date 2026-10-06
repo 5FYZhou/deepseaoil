@@ -1,5 +1,4 @@
-using DeepseaOil.Data;
-using DeepseaOil.Logic.Movement;
+using DeepseaOil.Foundation;
 
 namespace DeepseaOil.Logic
 {
@@ -11,9 +10,10 @@ namespace DeepseaOil.Logic
     /// 是为了让"当前是第几层、正在什么状态"这个问题在任何时刻都有答案 ——
     /// 也让 <c>StatusGroup.Current</c> 不必区分"null 与 Normal"两种空。
     /// </remarks>
-    public sealed class NormalState : StateBase<StatusStateTag>
+    public sealed class NormalState : StateBase<StatusStateTag, LogicContext>
     {
-        public NormalState(ActorLogic logic, CharacterConfig config) : base(logic, config)
+        /// <param name="host">宿主（角色账本）。</param>
+        public NormalState(IStateHost host) : base(host)
         {
         }
 
