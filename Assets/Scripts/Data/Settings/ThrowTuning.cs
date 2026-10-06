@@ -78,23 +78,36 @@ namespace DeepseaOil.Data
         /// 取调参资产；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。
         /// </summary>
         /// <remarks>
-        /// <b>每个进程只该调一次</b>（由组合根在装配时调），兜底分支会创建一个不进资源系统的
-        /// <c>ScriptableObject</c> 实例，反复调会攒垃圾。
+        /// <b>重复调用返回同一份</b>：兜底分支会创建一个不进资源系统的 <c>ScriptableObject</c>，
+        /// 而调用方不止一处（组合根与玩家组合根各要一份）—— 每次新建会攒垃圾，更糟的是
+        /// "某一处改了字段、另一处看不见"。
         /// </remarks>
         public static ThrowTuning LoadOrDefault()
         {
+            if (Cached != null) return Cached;
+
             if (AssetModule.IsInitialized)
             {
                 ThrowTuning loaded = AssetModule.Load<ThrowTuning>(ResourceKey);
 
-                if (loaded != null) return loaded;
+                if (loaded != null)
+                {
+                    Cached = loaded;
+
+                    return loaded;
+                }
             }
 
             Debug.LogWarning(
                 $"[Tuning] 取不到 {ResourceKey}（未接线或资产不存在），改用代码默认值。" +
                 "观感与手感调参将在本局失效。");
 
-            return CreateInstance<ThrowTuning>();
+            Cached = CreateInstance<ThrowTuning>();
+
+            return Cached;
         }
+
+        /// <summary>进程内的那一份（见 <see cref="LoadOrDefault"/>）。</summary>
+        private static ThrowTuning Cached;
     }
 }

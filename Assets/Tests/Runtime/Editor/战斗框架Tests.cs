@@ -52,9 +52,9 @@ namespace DeepseaOil.Tests
         }
 
         /// <summary>一颗"水球"：落地把目标格切成泥浆。射程 5、时长 0.6、弧高 2、最小距离 0.4。</summary>
-        private static BallSpec WaterBall()
+        private static BallDefinition WaterBallDefinition()
         {
-            return new BallSpec(
+            return new BallDefinition(
                 BallType.Water,
                 "水球",
                 new ThrowSpec(0.6f, 2f, 5f, 0.4f),
@@ -62,9 +62,9 @@ namespace DeepseaOil.Tests
         }
 
         /// <summary>一颗"土球"：落地不改格子。</summary>
-        private static BallSpec EarthBall()
+        private static BallDefinition EarthBallDefinition()
         {
-            return new BallSpec(
+            return new BallDefinition(
                 BallType.Earth,
                 "土球",
                 new ThrowSpec(0.6f, 2f, 5f, 0.4f),
@@ -348,9 +348,9 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallSpec ball = WaterBall();
+            BallDefinition ball = WaterBallDefinition();
 
-            Assert.IsTrue(grid.OnBallHit(cell, in ball), "落在合法格上必须生效");
+            Assert.IsTrue(grid.OnBallHit(cell, ball.TileState), "落在合法格上必须生效");
 
             Assert.AreEqual(TileStateType.Mud, grid.StateOf(cell), "状态应当切成泥浆");
             Assert.AreEqual(1, target.HitCount, "状态转换应当结算一次伤害");
@@ -369,9 +369,9 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallSpec ball = WaterBall();
+            BallDefinition ball = WaterBallDefinition();
 
-            Assert.IsFalse(grid.OnBallHit(cell, in ball));
+            Assert.IsFalse(grid.OnBallHit(cell, ball.TileState));
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(cell));
             Assert.AreEqual(0, target.HitCount, "没落到地板上就不该有人受伤");
         }
@@ -388,16 +388,16 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallSpec ball = EarthBall();
+            BallDefinition ball = EarthBallDefinition();
 
-            grid.OnBallHit(cell, in ball);
+            grid.OnBallHit(cell, ball.TileState);
 
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(cell), "土球的 tile_state 是常规 ⇒ 不该改格子");
             Assert.AreEqual(0, target.HitCount, "状态没变就不该结算伤害");
         }
 
         [Test]
-        public void G5_同一格重复落球伤害照给但计时不重置()
+        public void G5_同一格重复落球不重入也不重复结算伤害()
         {
             var registry = new EnemyCellRegistry();
             GridLogic grid = NewGrid(registry);
@@ -408,24 +408,46 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallSpec ball = WaterBall();
+            BallDefinition ball = WaterBallDefinition();
 
-            grid.OnBallHit(cell, in ball);
+            grid.OnBallHit(cell, ball.TileState);
 
             // 泥浆时长 8 秒：先推 4 秒。
             for (int i = 0; i < 4; i++) grid.Tick(i * 1f, 1f);
 
             Assert.AreEqual(TileStateType.Mud, grid.StateOf(cell), "4 秒时泥浆还在");
 
-            // 再砸一颗：伤害照给（白模的节奏），但计时不该被刷新。
-            grid.OnBallHit(cell, in ball);
+            // 再砸一颗：状态没变 ⇒ 不重入、不刷新计时、也不再结算伤害。
+            Assert.IsFalse(grid.OnBallHit(cell, ball.TileState), "已经是泥浆 ⇒ 第二次落地不算一次转换");
 
-            Assert.AreEqual(2, target.HitCount, "重复落球必须再结算一次伤害（白模的伤害节奏）");
+            Assert.AreEqual(1, target.HitCount,
+                "伤害绑定在“状态真的变了”上：同一格连投不再重复结算（审查 §98 的口径）");
 
             for (int i = 0; i < 4; i++) grid.Tick(4f + i * 1f, 1f);
 
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(cell),
                 "总共 8 秒后必须落回常规 —— 若重复落球刷新了计时，这里还会是泥浆");
+        }
+
+        [Test]
+        public void G5_未注册的状态id不算转换()
+        {
+            var registry = new EnemyCellRegistry();
+            GridLogic grid = NewGrid(registry);
+
+            var cell = new Vector3Int(1, 1, 0);
+            grid.RegisterCell(cell);
+
+            var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
+            registry.Register(cell, target);
+
+            var unknown = (TileStateType)99;
+
+            Assert.IsFalse(grid.SwitchState(cell, unknown, applyEnterImpact: true),
+                "配置里没有这一行 ⇒ 不算一次转换（否则会凭空发一条事件 ＋ 一次冲击）");
+            Assert.AreEqual(TileStateType.Normal, grid.StateOf(cell));
+            Assert.AreEqual(0, target.HitCount, "没有转换就没有伤害");
+            Assert.AreEqual(0, grid.ActiveStateCount, "也不该为它留下一个状态机");
         }
 
         [Test]
@@ -437,9 +459,9 @@ namespace DeepseaOil.Tests
             var cell = new Vector3Int(0, 0, 0);
             grid.RegisterCell(cell);
 
-            BallSpec ball = WaterBall();
+            BallDefinition ball = WaterBallDefinition();
 
-            grid.OnBallHit(cell, in ball);
+            grid.OnBallHit(cell, ball.TileState);
 
             Assert.AreEqual(1, grid.ActiveStateCount);
 
@@ -464,8 +486,8 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = center + new Vector2(0.3f, 0f) };
             registry.Register(cell, target);
 
-            BallSpec ball = WaterBall();
-            grid.OnBallHit(cell, in ball);
+            BallDefinition ball = WaterBallDefinition();
+            grid.OnBallHit(cell, ball.TileState);
 
             Assert.AreEqual(1f, target.LastDirection.x, 1e-3f);
             Assert.AreEqual(0f, target.LastDirection.y, 1e-3f);
@@ -484,8 +506,8 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { IsDead = true, Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallSpec ball = WaterBall();
-            grid.OnBallHit(cell, in ball);
+            BallDefinition ball = WaterBallDefinition();
+            grid.OnBallHit(cell, ball.TileState);
 
             Assert.AreEqual(0, target.HitCount, "已死目标不该再吃一次伤害");
         }
@@ -1236,26 +1258,37 @@ namespace DeepseaOil.Tests
         {
             var context = new CountingEffectContext();
 
-            BallSpec water = WaterBall();
-            BallSpec earth = EarthBall();
+            BallDefinition water = WaterBallDefinition();
+            BallDefinition earth = EarthBallDefinition();
 
-            new TileStateBallEffect().Apply(new Vector3Int(1, 1, 0), in water, context);
-            new NullBallEffect().Apply(new Vector3Int(1, 1, 0), in earth, context);
+            new TileStateLogicEffect().Apply(new Vector3Int(1, 1, 0), in water, context);
+            new NullLogicEffect().Apply(new Vector3Int(1, 1, 0), in earth, context);
 
             Assert.AreEqual(1, context.RequestCount, "水球必须请求一次状态转换");
-            Assert.AreEqual(TileStateType.Mud, context.LastBall.TileState);
+            Assert.AreEqual(TileStateType.Mud, context.LastState, "请求的状态必须来自球定义（表里的 tile_state）");
         }
 
-        private sealed class CountingEffectContext : IBallEffectContext
+        [Test]
+        public void G15_球定义暴露落地是否有世界效果()
+        {
+            BallDefinition water = WaterBallDefinition();
+            BallDefinition earth = EarthBallDefinition();
+
+            Assert.IsTrue(water.HasLandingEffect, "水球的 tile_state 是泥浆 ⇒ 有落地效果");
+            Assert.IsFalse(earth.HasLandingEffect,
+                "土球的 tile_state 是常规 ⇒ 没有落地效果（这是配置事实，不是代码里的一个 if）");
+        }
+
+        private sealed class CountingEffectContext : IBallLogicEffectContext
         {
             public int RequestCount;
 
-            public BallSpec LastBall;
+            public TileStateType LastState;
 
-            public void RequestTileState(Vector3Int cell, in BallSpec ball)
+            public void RequestTileState(Vector3Int cell, TileStateType next)
             {
                 RequestCount++;
-                LastBall = ball;
+                LastState = next;
             }
         }
 
