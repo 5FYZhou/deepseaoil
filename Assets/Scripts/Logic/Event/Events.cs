@@ -84,8 +84,28 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    /// <summary>水球飞到玩家身上了。领取方（组合根）据此给资源 +1。</summary>
-    public readonly struct WaterBallCollected { }
+    /// <summary>掉落物被领取了（事实）。载荷是"是什么 ＋ 几个"。</summary>
+    /// <remarks>
+    /// <b>数量在载荷里，不在订阅方：</b>收口前这是一条空 struct，而"＋1"硬编码在 <c>CombatRoot</c> 里 ——
+    /// 于是"换一种掉落物、一次给两个"必须去改组合根。数量现在来自取值定义
+    /// （<c>DropDefinition.Amount</c>）。
+    /// <para>领取给什么由<b>世界侧裁决</b>（订阅方按 <see cref="DropType"/> 决定），掉落物自己只发事实：
+    /// 世界 → 玩家只有"通知"一条路。</para>
+    /// </remarks>
+    public readonly struct DropCollected
+    {
+        /// <summary>掉落物种类。</summary>
+        public readonly DropType Type;
+
+        /// <summary>本次领取的数量。</summary>
+        public readonly int Amount;
+
+        public DropCollected(DropType type, int amount)
+        {
+            Type = type;
+            Amount = amount;
+        }
+    }
 
     /// <summary>水球数量变了。</summary>
     public readonly struct WaterBallCountChanged
