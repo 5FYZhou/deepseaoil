@@ -1330,6 +1330,26 @@ namespace DeepseaOil.Tests
         }
 
         // ================================================================
+        // G19 · 掉落物取值
+        // ================================================================
+
+        [Test]
+        public void G19_掉落定义在取不到调参资产时仍有可用默认值()
+        {
+            // EditMode 里 AssetModule 从未初始化 ⇒ 这条路必然走兜底分支（会留下一条 Warning，属预期）。
+            // 它保证"忘了建 tuning/DropTuning.asset"不会让掉落物的时长/速度/数量全为 0 ——
+            // 那种情况下水球要么原地不动、要么瞬间到玩家身上，而且一路不报错。
+            DropDefinition water = DropCatalog.Water();
+
+            Assert.AreEqual(DropType.Water, water.Type);
+            Assert.Greater(water.FlightDuration, 0f, "抛物线时长必须为正，否则会除出非数坐标");
+            Assert.Greater(water.ArcHeight, 0f, "弧高为 0 就不是抛物线了");
+            Assert.Greater(water.HomingSpeed, 0f, "追踪速度为 0 会让球永远够不到玩家");
+            Assert.GreaterOrEqual(water.ReachDistance, 0f);
+            Assert.Greater(water.Amount, 0, "领取数量必须为正：0 会让「被领取」变成什么都不发生");
+        }
+
+        // ================================================================
         // G16 · 接触判定与玩家受击
         // ================================================================
 

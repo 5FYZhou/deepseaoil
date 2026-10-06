@@ -7,6 +7,7 @@ using DeepseaOil.Logic.Grid.States;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Presentation.Actor;
 using DeepseaOil.Presentation.Ball;
+using DeepseaOil.Presentation.Drop;
 using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
@@ -67,6 +68,9 @@ namespace DeepseaOil.Presentation
         /// <summary>落地冲量的物理帧执行者。</summary>
         private ImpulseExecutor _impulses;
 
+        /// <summary>掉落物链路：造 ＋ 持 ＋ 驱（含回收）。它同时是产出方的生成口。</summary>
+        private DropDirector _drops;
+
         private CombatDirector _combat;
         private TileHighlightView _highlight;
 
@@ -116,13 +120,13 @@ namespace DeepseaOil.Presentation
 
         private void OnEnable()
         {
-            EventBus<WaterBallCollected>.Subscribe(OnWaterBallCollected);
+            EventBus<DropCollected>.Subscribe(OnDropCollected);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
         }
 
         private void OnDisable()
         {
-            EventBus<WaterBallCollected>.Unsubscribe(OnWaterBallCollected);
+            EventBus<DropCollected>.Unsubscribe(OnDropCollected);
             EventBus<RequestHudRefresh>.Unsubscribe(OnRequestHudRefresh);
         }
 
@@ -137,6 +141,8 @@ namespace DeepseaOil.Presentation
             _grid.Tick(Time.time, deltaTime);
 
             _balls.Tick(deltaTime);
+
+            _drops.Tick(deltaTime);
 
             for (int i = 0; i < fountains.Length; i++)
             {
@@ -230,7 +236,6 @@ namespace DeepseaOil.Presentation
         /// </summary>
         /// <remarks>
         /// 层级规范是"各层清自己的、上层负责下发"：本类只把请求转发给各执行器。
-        /// 掉落物在后面的批次里接上（它自己的 Director 会在这里多一行）。
         /// </remarks>
         public void ClearAll()
         {
@@ -239,6 +244,9 @@ namespace DeepseaOil.Presentation
             // 球也要清：不清的话玩家复活后会被自己上一局扔出的球砸出一片泥，
             // 而已经排队的落地冲量会砸到下一局的箱子上。
             _balls?.ClearAll();
+
+            // 掉落物同理：上一局没捡完的水球不该留到下一局（玩家会以为自己捡过了）。
+            _drops?.ClearAll();
         }
 
         /// <summary>
@@ -329,6 +337,16 @@ namespace DeepseaOil.Presentation
             _balls = new BallDirector();
             _balls.Attach(_grid, balls, tuning, _impulses, ballRoot);
 
+            // 掉落物链路：持有者 ＋ 产出方注入。
+            // 产出方（喷泉）拿到的是窄接口 IDropSpawner：它不认识 DropDirector，只认识"产出一颗"。
+            _drops = new DropDirector();
+            _drops.Attach(actorRoot, player.transform);
+
+            for (int i = 0; i < fountains.Length; i++)
+            {
+                if (fountains[i] != null) fountains[i].Attach(_drops);
+            }
+
             // 玩家侧的瞄准需要三样世界信息：格子几何、射程上限、投掷裁决口（本类）
             player.Logic.ConfigureAim(in geometry, MaxThrowDistance(balls), this);
 
@@ -400,12 +418,27 @@ namespace DeepseaOil.Presentation
             return director;
         }
 
-        /// <summary>水球被领取：<b>世界 → 玩家的通知</b>，落到玩家侧账本上。</summary>
-        private void OnWaterBallCollected(WaterBallCollected evt)
+        /// <summary>
+        /// 掉落物被领取：<b>世界 → 玩家的通知</b>，按种类裁决给玩家什么。
+        /// </summary>
+        /// <remarks>
+        /// <b>裁决在这里，不在掉落物里</b>（审查定的边界）：掉落物只发事实
+        /// （"我被领走了，是什么、几个"），给玩家加什么由世界侧决定。
+        /// 加一种掉落物时在这里加一个 <c>case</c> —— 玩家侧一行都不用改。
+        /// </remarks>
+        private void OnDropCollected(DropCollected evt)
         {
-            PlayerLogic logic = player != null ? player.Logic : null;
+            switch (evt.Type)
+            {
+                case DropType.Water:
+                    player?.Logic?.Stats.AddWaterBall(evt.Amount);
+                    return;
 
-            logic?.Stats.AddWaterBall(1);
+                default:
+                    Debug.LogWarning(
+                        $"[Combat] 领取了没有接线效果的掉落物 {evt.Type}（{evt.Amount} 个），本次不产生任何变化。");
+                    return;
+            }
         }
 
         /// <summary>HUD 面板加载完成时的重播：把三块读数各播一次当前值。</summary>
