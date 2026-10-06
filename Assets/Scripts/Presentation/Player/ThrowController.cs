@@ -1,12 +1,8 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
-using DeepseaOil.Foundation;
-using DeepseaOil.Logic.Events;
-using DeepseaOil.Logic.Grid;
-using DeepseaOil.Logic.Player;
+using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Projectile;
 using DeepseaOil.Presentation.Combat;
-using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.Projectile;
 using UnityEngine;
 using cfg.demo;
@@ -14,14 +10,16 @@ using cfg.demo;
 namespace DeepseaOil.Presentation.Player
 {
     /// <summary>
-    /// 投掷：读鼠标 → 吸附到格子 → 建球 → 落地交给结算器。<b>它同时是瞄准环的驱动者</b>。
+    /// 投掷的<b>执行器</b>：按裁决通过的意图生成一颗球，并每渲染帧推进在飞的球。
     /// </summary>
     /// <remarks>
-    /// <b>它算出来的格子必须就是球真正会落的那一格。</b>所以吸附只用 <c>TileAim.TryGetAimCell</c>
-    /// 一次，落点取该格的几何中心 —— 指示器画什么、球就落什么。
+    /// <b>它曾经装了四类职责</b>（读鼠标瞄准、弹药与冷却资格、建球与飞行、落地入队与瞄准件显示）。
+    /// 收口后只剩下"生成并驱动球"这一件：瞄准与资格归玩家逻辑（战斗层），
+    /// 裁决归世界侧组合根（<c>CombatRoot.RequestThrow</c>），落地结算归 <c>LandingResolver</c>。
+    /// <para><b>它算出来的落点必须就是玩家瞄的那一格</b>：意图里的 <c>Cell</c> 与 <c>Target</c>
+    /// 是同一次吸附计算的产物，本类<b>不重新算</b> —— 重算一次就会漂，表现是"看着能扔到、其实扔不到"。</para>
     /// <para><b>不是 <c>MonoBehaviour.Update</c> 自驱</b>：由组合根每渲染帧调 <see cref="Tick"/>，
-    /// 帧内顺序因此可预测，而暂停时组合根不调它即可。</para>
-    /// <para><b>它不写敌人的血</b>：落地只入队到 <see cref="LandingResolver"/>，世界效果由球效果与格子负责。</para>
+    /// 帧内顺序因此可预测（暂停时 <c>dt = 0</c>，在飞的球自然冻住）。</para>
     /// </remarks>
     public sealed class ThrowController : MonoBehaviour
     {
@@ -31,51 +29,30 @@ namespace DeepseaOil.Presentation.Player
         /// <summary>球种 → 配置行。</summary>
         private readonly Dictionary<BallType, BallSpec> _balls = new Dictionary<BallType, BallSpec>();
 
-        private readonly Cooldown _cooldown = new Cooldown();
-
-        private PlayerController _player;
-        private GridView _gridView;
-        private InputProvider _inputProvider;
-        private Camera _camera;
-        private GridLogic _grid;
         private ThrowTuning _tuning;
         private LandingResolver _resolver;
-        private TileAimView _aim;
-        private PlayerSpec _playerSpec;
         private Transform _ballRoot;
 
-        private bool _paused;
-
-        /// <summary>当前瞄准格是否有效（暂停、无鼠标、几何非法时为 false）。</summary>
-        public bool HasAim { get; private set; }
+        /// <summary>在飞的球数（诊断 / 测试读数）。</summary>
+        public int FlyingCount => _flying.Count;
 
         /// <summary>
         /// 装配。依赖全部由参数给出（<b>没有 inspector 字段</b>）：组合根建出本组件，
         /// 于是"忘了接线"这种失败模式在本类不存在。
         /// </summary>
+        /// <param name="tuning">观感调参（球半径 / 出手高度 / 阴影）。</param>
+        /// <param name="resolver">落地结算器（球落地只入队）。</param>
+        /// <param name="balls">全部球种配置。</param>
+        /// <param name="ballRoot">球的父物体；留空则建在场景根下。</param>
         public void Initialize(
-            PlayerController player,
-            GridView gridView,
-            InputProvider inputProvider,
-            GridLogic grid,
             ThrowTuning tuning,
             LandingResolver resolver,
-            TileAimView aim,
-            in PlayerSpec playerSpec,
             IReadOnlyList<BallSpec> balls,
-            Transform ballRoot,
-            Camera camera)
+            Transform ballRoot)
         {
-            _player = player;
-            _gridView = gridView;
-            _inputProvider = inputProvider;
-            _grid = grid;
             _tuning = tuning;
             _resolver = resolver;
-            _aim = aim;
-            _playerSpec = playerSpec;
             _ballRoot = ballRoot;
-            _camera = camera != null ? camera : Camera.main;
 
             _balls.Clear();
 
@@ -88,86 +65,35 @@ namespace DeepseaOil.Presentation.Player
             }
         }
 
-        private void OnEnable()
-        {
-            EventBus<GamePaused>.Subscribe(OnPaused);
-            EventBus<GameResumed>.Subscribe(OnResumed);
-        }
-
-        private void OnDisable()
-        {
-            EventBus<GamePaused>.Unsubscribe(OnPaused);
-            EventBus<GameResumed>.Unsubscribe(OnResumed);
-        }
-
-        private void OnPaused(GamePaused evt)
-        {
-            _paused = true;
-
-            HideAim();
-        }
-
-        private void OnResumed(GameResumed evt)
-        {
-            _paused = false;
-        }
-
-        /// <summary>推进一个渲染帧：先推进在飞的球，再处理瞄准与投掷。</summary>
+        /// <summary>推进一个渲染帧：只推进在飞的球（瞄准与开火都不在这里）。</summary>
         /// <param name="deltaTime">本帧时长（<c>Time.deltaTime</c>）；暂停时为 0。</param>
         public void Tick(float deltaTime)
         {
             TickFlyingBalls(deltaTime);
-
-            if (_paused)
-            {
-                HideAim();
-                return;
-            }
-
-            if (_player == null || _grid == null || !_grid.Geometry.IsValid)
-            {
-                HideAim();
-                return;
-            }
-
-            Vector2 origin = PlayerPosition();
-
-            if (!_gridView.IsWired || _inputProvider == null || _camera == null)
-            {
-                HideAim();
-                return;
-            }
-
-            // 球种取"水球"的行来定射程：射程属于投掷这一组参数，与球种无关（表里两行同值）。
-            if (!_balls.TryGetValue(BallType.Water, out BallSpec water)) return;
-
-            Vector2 mouseWorld = MouseWorldPoint();
-
-            // 几何是属性（每次访问都返回一份值），要按 `in` 传就必须先落到局部变量上。
-            GridGeometry geometry = _grid.Geometry;
-
-            if (!TileAim.TryGetAimCell(
-                    in geometry,
-                    origin,
-                    mouseWorld,
-                    water.Throw.MaxThrowDistance,
-                    out Vector3Int cell))
-            {
-                HasAim = false;
-                HideAim();
-                return;
-            }
-
-            HasAim = true;
-
-            bool hasAmmo = HasAmmo();
-
-            if (_aim != null) _aim.Show(cell, _grid.Geometry.CellCenter(cell), hasAmmo);
-
-            TryThrow(cell, hasAmmo);
         }
 
-        /// <summary>清掉在飞的球（切场景 / 清场）。</summary>
+        /// <summary>
+        /// 按已经裁决通过的意图真的投一颗球。
+        /// </summary>
+        /// <param name="intent">意图（球种 ＋ 目标格 ＋ 出手点与落点）。</param>
+        /// <returns>球种没有配置行（表里少一行）时为 <c>false</c>。</returns>
+        /// <remarks>调用方是 <c>CombatRoot.RequestThrow</c> —— 也就是说走到这里时
+        /// "落点合法 / 玩家有资格"都已经问过了，本类不再重复判断。</remarks>
+        public bool Throw(in ThrowIntent intent)
+        {
+            if (!_balls.TryGetValue(intent.Ball, out BallSpec spec)) return false;
+
+            // 距离与落点取自**同一份**意图：两处各算一次必然会漂移
+            float distance = Vector2.Distance(intent.Origin, intent.Target);
+
+            var data = new BallData(intent.Ball, intent.Origin, intent.Target, distance, in spec.Throw);
+
+            CreateBall(in data, in spec);
+
+            return true;
+        }
+
+        /// <summary>清掉在飞的球（打空重来 / 清场）。</summary>
         public void ClearBalls()
         {
             for (int i = 0; i < _flying.Count; i++)
@@ -176,50 +102,6 @@ namespace DeepseaOil.Presentation.Player
             }
 
             _flying.Clear();
-        }
-
-        private void TryThrow(Vector3Int cell, bool hasAmmo)
-        {
-            if (_cooldown == null || _inputProvider == null) return;
-
-            float now = Time.time;
-
-            if (!_cooldown.CanUse(now)) return;
-
-            if (_inputProvider.AttackPressedThisFrame)
-            {
-                // 没弹药时按左键不消耗冷却：否则"空点一下"会白白吃掉半秒。
-                if (!hasAmmo) return;
-
-                if (!_player.Logic.Stats.TryConsumeWater(1)) return;
-
-                if (Throw(BallType.Water, cell)) _cooldown.MarkUsed(now, _playerSpec.AttackInterval);
-
-                return;
-            }
-
-            if (_inputProvider.AltAttackPressedThisFrame)
-            {
-                if (Throw(BallType.Earth, cell)) _cooldown.MarkUsed(now, _playerSpec.AttackInterval);
-            }
-        }
-
-        private bool Throw(BallType type, Vector3Int cell)
-        {
-            if (!_balls.TryGetValue(type, out BallSpec spec)) return false;
-
-            Vector2 origin = PlayerPosition();
-            Vector2 target = _grid.Geometry.CellCenter(cell);
-
-            // 距离与落点取自**同一次**计算：两处各夹一次必然会漂移，
-            // 表现是"看着能扔到、其实扔不到"。
-            float distance = Vector2.Distance(origin, target);
-
-            var data = new BallData(type, origin, target, distance, in spec.Throw);
-
-            CreateBall(in data, in spec);
-
-            return true;
         }
 
         /// <summary>建球根物体，并按固定顺序建球本体与阴影。</summary>
@@ -287,48 +169,6 @@ namespace DeepseaOil.Presentation.Player
 
                 ball.Tick(deltaTime);
             }
-        }
-
-        /// <summary>
-        /// 本帧有没有水球可投。弹药归<b>玩家侧账本</b>（<c>PlayerLogic.Stats</c>），
-        /// 本类只是读它 —— 收口前它手里还捏着一份 <c>PlayerResources</c> 引用。
-        /// </summary>
-        private bool HasAmmo()
-        {
-            return _player != null && _player.Logic != null && _player.Logic.Stats.WaterBallCount > 0;
-        }
-
-        private void HideAim()
-        {
-            HasAim = false;
-
-            if (_aim != null) _aim.Hide();
-        }
-
-        private Vector2 PlayerPosition()
-        {
-            Vector3 p = _player.transform.position;
-
-            return new Vector2(p.x, p.y);
-        }
-
-        /// <summary>
-        /// 屏幕点 → 世界点。
-        /// </summary>
-        /// <remarks>
-        /// <b>不读相机的 z：</b><c>Camera.main.transform.position.z</c> 被 Cinemachine 每帧驱动，
-        /// 依赖它等于让落点跟着相机插件走。正交相机下给一个足够大的常量深度即可
-        /// （见 <c>ThrowTuning.cameraPlaneDepth</c>）。
-        /// </remarks>
-        private Vector2 MouseWorldPoint()
-        {
-            Vector2 screen = _inputProvider.AimScreen;
-
-            float depth = _tuning != null ? _tuning.cameraPlaneDepth : 100f;
-
-            Vector3 world = _camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, depth));
-
-            return new Vector2(world.x, world.y);
         }
     }
 }

@@ -273,6 +273,30 @@ namespace DeepseaOil.Presentation.Effects
             return driver.Play(id, in ctx);
         }
 
+        /// <summary>
+        /// 更新一次<b>已经在播</b>的实例（持续型特效：位置 / 颜色 / 半径）。
+        /// </summary>
+        /// <param name="handle">该次播放的句柄（<c>Play</c> 的返回值）。</param>
+        /// <param name="ctx">新的上下文。</param>
+        /// <returns>句柄有效且模块已就绪为 <c>true</c>；否则 <c>false</c>（调用方据此决定要不要重新 <c>Play</c>）。</returns>
+        /// <remarks>
+        /// <b>为什么需要它：</b>"每帧跟着某物走"的效果（瞄准高亮、引导线、范围指示）如果只能 <c>Play</c>，
+        /// 就只能每帧新建一个实例 —— 于是要么池被瞬间打满，要么每帧一份垃圾。
+        /// 有了本条，调用方一次 <c>Play</c> ＋ 每帧 <c>Update</c> 即可。
+        /// <para><b>返回值只代表"句柄有效"</b>：不支持的驱动是 no-op（接口的默认实现），
+        /// 不报错也不返回失败 —— 表现层不该因为"这个特效不支持更新"而阻塞游戏。</para>
+        /// <para>与 <c>Play</c>/<c>Stop</c> 同一套纪律：未 Init、句柄为 <c>None</c>、句柄过期都是安全的 no-op。</para>
+        /// </remarks>
+        public static bool Update(EffectHandle handle, in EffectContext ctx)
+        {
+            if (!_initialized) return false;
+            if (!handle.IsValid) return false;
+
+            handle.Driver.UpdateInstance(handle, in ctx);
+
+            return true;
+        }
+
         /// <summary>停止一次播放。句柄无效 / 已过期 / 未 Init 时是 no-op。</summary>
         public static void Stop(EffectHandle handle)
         {

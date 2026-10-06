@@ -22,6 +22,7 @@ using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
+using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
 using DeepseaOil.Logic.Input;
@@ -1373,20 +1374,31 @@ namespace DeepseaOil.Tests
             // 第一次：扣血 ＋ 挂起击退
             Assert.IsTrue(logic.TakeDamage(in damage, 0f));
 
-            // 紧接着一帧：击退在这一帧落地（写进执行器）
+            // 紧接着一帧：击退在这一帧落地（进入受击状态，满冲量、不衰减）
             TickPlayer(logic, motor, Vector2.zero, 0.02f);
+
             Assert.AreEqual(spec.KnockbackImpulse, motor.Velocity.x, 1e-3f, "第一次的击退必须落地");
+            Assert.AreEqual(StatusStateTag.Hurt, logic.Status.Current, "击退由状态效果层的受击状态承载");
 
-            // 再一帧：没有输入 → 站住（同时验证"击退只接管一帧"）
+            // 第二帧：受击期间按 moveAcceleration 衰减（不是"只接管一帧"，也不是当帧归零）
             TickPlayer(logic, motor, Vector2.zero, 0.04f);
-            Assert.AreEqual(0f, motor.Velocity.x, 1e-3f);
 
-            // ① 无敌期内（0.8s）再来一次：不扣血、也不留下击退
-            Assert.IsFalse(logic.TakeDamage(in damage, 0.1f), "无敌期内必须整条挡掉");
+            Assert.AreEqual(spec.KnockbackImpulse - config.moveAcceleration * 0.02f, motor.Velocity.x, 1e-3f,
+                "受击期间速度每帧按 moveAcceleration 衰减（12 − 60×0.02 = 10.8）");
+
+            // 让受击自然滑停（12 / 60 = 0.2s），回到平常
+            for (int i = 0; i < 12; i++) TickPlayer(logic, motor, Vector2.zero, 0.06f + i * 0.02f);
+
+            Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "滑停到零之后必须交还控制权");
+
+            // ① 无敌期内（0.8s 内）再来一次：不扣血、也不留下任何新的击退
+            Assert.IsFalse(logic.TakeDamage(in damage, 0.5f), "无敌期内必须整条挡掉");
             Assert.AreEqual(90f, logic.Stats.Health.Current, 1e-4f, "被挡住时不该扣血");
 
-            TickPlayer(logic, motor, Vector2.zero, 0.12f);
+            TickPlayer(logic, motor, Vector2.zero, 0.52f);
+
             Assert.AreEqual(0f, motor.Velocity.x, 1e-3f, "被挡住的那一次不许留下击退");
+            Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "被挡住时也不该进入受击状态");
 
             // ② 无敌到期后可以再扣
             Assert.IsTrue(logic.TakeDamage(in damage, 0.8f));
@@ -1419,13 +1431,246 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(100f, logic.Stats.Health.Current, 1e-4f);
             Assert.AreEqual(new Vector2(3f, 4f), motor.Position, "重生走物理体位置");
 
-            // 不重置执行器速度：让这一帧真的读到"上一局残留的速度"，
-            // 断言重生后的一帧会把它归零（否则这条断言是空转）
+            // 重生当场就把引擎速度清零：有惯性配置下，"留着上一局的速度慢慢衰减"会变成
+            // "复活后自己滑一段"（实测能滑出一点几个单位）—— 那不是重生该有的样子
+            Assert.AreEqual(Vector2.zero, motor.Velocity, "重生必须当场清掉残留在物理体上的速度");
+
             TickPlayer(logic, motor, Vector2.zero, 1f, resetVelocity: false);
 
-            Assert.AreEqual(Vector2.zero, motor.Velocity, "重生要停住：不该带着上一局的击退继续滑");
+            Assert.AreEqual(Vector2.zero, motor.Velocity, "重生后也不该带着上一局的击退继续滑");
 
             Object.DestroyImmediate(config);
+        }
+
+        // ================================================================
+        // G17 · 瞄准事实 / 投掷裁决 / 受击门禁
+        // ================================================================
+
+        /// <summary>记下每一次投掷请求的假裁决口。</summary>
+        private sealed class ProbeThrowSink : IThrowSink
+        {
+            /// <summary>采纳与否（测试用来模拟"世界侧不接"）。</summary>
+            public bool Accept = true;
+
+            public int RequestCount;
+
+            public ThrowIntent LastIntent;
+
+            public bool RequestThrow(in ThrowIntent intent)
+            {
+                RequestCount++;
+                LastIntent = intent;
+
+                return Accept;
+            }
+        }
+
+        /// <summary>收集 <c>AimChanged</c> 的订阅者（发布是去重的，所以条数本身就是断言对象）。</summary>
+        private sealed class AimRecorder
+        {
+            public int Count;
+
+            public AimChanged Last;
+
+            public void Handle(AimChanged evt)
+            {
+                Count++;
+                Last = evt;
+            }
+        }
+
+        /// <summary>装一个"能瞄准、能投掷"的玩家：几何 1 米格、射程 5、裁决口由测试给。</summary>
+        private static PlayerLogic NewAimingPlayer(
+            ProbeMotor motor,
+            PlayerConfig config,
+            InputBuffer buffer,
+            PlayerSpec spec,
+            IThrowSink sink,
+            out AimRecorder recorder)
+        {
+            GridGeometry geometry = Geometry();
+
+            var logic = new PlayerLogic(motor, config, buffer, in spec);
+
+            logic.ConfigureAim(in geometry, 5f, sink);
+
+            recorder = new AimRecorder();
+            EventBus<AimChanged>.Subscribe(recorder.Handle);
+
+            return logic;
+        }
+
+        [Test]
+        public void G17_瞄准事实只在真的变了时发布()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            var motor = new ProbeMotor { Position = new Vector2(0.5f, 0.5f) };
+            var buffer = new InputBuffer(0.12f, 50);
+            PlayerSpec spec = PlayerSpecFixture();
+
+            PlayerLogic logic = NewAimingPlayer(motor, config, buffer, spec, null, out AimRecorder recorder);
+            logic.Stats.AddWaterBall(1);
+
+            // ① 第一次瞄准：发一条
+            logic.UpdateAim(new Vector2(2.5f, 0.5f), 0f);
+
+            Assert.AreEqual(1, recorder.Count, "第一次拿到瞄准必须发布一条事实");
+            Assert.IsTrue(recorder.Last.HasAim);
+            Assert.AreEqual(new Vector3Int(2, 0, 0), recorder.Last.Cell);
+            Assert.IsTrue(recorder.Last.Available, "射程内 ＋ 冷却就绪 ＋ 有水球");
+
+            // ② 同一个格再算一次：不发（瞄准是每帧算的，事实只在变化时发）
+            logic.UpdateAim(new Vector2(2.6f, 0.5f), 0.02f);
+
+            Assert.AreEqual(1, recorder.Count, "同一格不得重复发布（否则每帧一条事件）");
+
+            // ③ 换一格：发
+            logic.UpdateAim(new Vector2(3.5f, 0.5f), 0.04f);
+
+            Assert.AreEqual(2, recorder.Count);
+            Assert.AreEqual(new Vector3Int(3, 0, 0), recorder.Last.Cell);
+
+            // ④ 收起瞄准：发一条 HasAim=false
+            logic.ClearAim();
+
+            Assert.AreEqual(3, recorder.Count);
+            Assert.IsFalse(recorder.Last.HasAim, "暂停 / 没鼠标时必须发布'没有瞄准'，高亮才会收起来");
+
+            EventBus<AimChanged>.Unsubscribe(recorder.Handle);
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void G17_没有瞄到格时不提交投掷意图()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            var motor = new ProbeMotor { Position = new Vector2(0.5f, 0.5f) };
+            var buffer = new InputBuffer(0.12f, 50);
+            PlayerSpec spec = PlayerSpecFixture();
+
+            var sink = new ProbeThrowSink();
+
+            PlayerLogic logic = NewAimingPlayer(motor, config, buffer, spec, sink, out AimRecorder recorder);
+            logic.Stats.AddWaterBall(1);
+
+            // 鼠标压在脚下：TileAim 的契约是"拿不到格"
+            logic.UpdateAim(motor.Position, 0f);
+
+            Assert.IsFalse(logic.Combat.HasAim);
+            Assert.IsFalse(logic.RequestThrow(BallType.Water, 0f), "没瞄到格就什么都不做（审查：不做'不可投'提示）");
+            Assert.AreEqual(0, sink.RequestCount, "不该把无效意图递给世界侧");
+            Assert.AreEqual(1, logic.Stats.WaterBallCount, "更不该扣弹药");
+
+            EventBus<AimChanged>.Unsubscribe(recorder.Handle);
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void G17_世界侧拒绝时不扣弹药也不吃冷却()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            var motor = new ProbeMotor { Position = new Vector2(0.5f, 0.5f) };
+            var buffer = new InputBuffer(0.12f, 50);
+            PlayerSpec spec = PlayerSpecFixture();
+
+            var sink = new ProbeThrowSink { Accept = false };
+
+            PlayerLogic logic = NewAimingPlayer(motor, config, buffer, spec, sink, out AimRecorder recorder);
+            logic.Stats.AddWaterBall(1);
+
+            logic.UpdateAim(new Vector2(2.5f, 0.5f), 0f);
+
+            Assert.IsFalse(logic.RequestThrow(BallType.Water, 0f), "被拒绝时返回 false");
+            Assert.AreEqual(1, logic.Stats.WaterBallCount, "没被采纳就不该扣弹药");
+            Assert.AreEqual(1, sink.RequestCount, "但意图确实递过去了（裁决在世界侧）");
+
+            // 冷却没被吃掉：下一帧就能再投（世界侧一旦接受即可成功）
+            sink.Accept = true;
+
+            Assert.IsTrue(logic.RequestThrow(BallType.Water, 0.01f), "被拒绝不进冷却");
+            Assert.AreEqual(0, logic.Stats.WaterBallCount, "采纳后才扣");
+
+            EventBus<AimChanged>.Unsubscribe(recorder.Handle);
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void G17_采纳后进入冷却且土球不吃弹药()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            var motor = new ProbeMotor { Position = new Vector2(0.5f, 0.5f) };
+            var buffer = new InputBuffer(0.12f, 50);
+            PlayerSpec spec = PlayerSpecFixture();
+
+            var sink = new ProbeThrowSink();
+
+            PlayerLogic logic = NewAimingPlayer(motor, config, buffer, spec, sink, out AimRecorder recorder);
+            logic.Stats.AddWaterBall(2);
+
+            logic.UpdateAim(new Vector2(2.5f, 0.5f), 0f);
+
+            Assert.IsTrue(logic.RequestThrow(BallType.Water, 0f));
+            Assert.AreEqual(1, logic.Stats.WaterBallCount);
+
+            // 冷却内：同一个格、同样有弹药，也投不出去
+            Assert.IsFalse(logic.RequestThrow(BallType.Water, 0.1f), "冷却内不得再投");
+            Assert.AreEqual(1, sink.RequestCount, "被冷却挡下时不该去打扰世界侧");
+
+            // 冷却过后
+            Assert.IsTrue(logic.RequestThrow(BallType.Water, spec.AttackInterval));
+            Assert.AreEqual(0, logic.Stats.WaterBallCount);
+
+            // 没水球了：水球投不出去，土球照样能投（副攻击不吃弹药）
+            Assert.IsFalse(logic.RequestThrow(BallType.Water, spec.AttackInterval * 3f), "没弹药投不出去");
+            Assert.IsTrue(logic.RequestThrow(BallType.Earth, spec.AttackInterval * 3f), "土球不吃弹药");
+            Assert.AreEqual(BallType.Earth, sink.LastIntent.Ball);
+
+            // 意图里的落点必须是瞄准格的几何中心（与吸附共用同一份几何）
+            Assert.AreEqual(new Vector3Int(2, 0, 0), sink.LastIntent.Cell);
+            Assert.AreEqual(new Vector2(2.5f, 0.5f), sink.LastIntent.Target);
+
+            EventBus<AimChanged>.Unsubscribe(recorder.Handle);
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void G17_受击滑停到零后交还控制()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            config.moveAcceleration = 60f;      // 12 / 60 = 0.2 秒滑停（12 帧 @0.02）
+
+            var motor = new ProbeMotor { Position = Vector2.zero };
+            var buffer = new InputBuffer(0.12f, 50);
+            PlayerSpec spec = PlayerSpecFixture();
+
+            var logic = new PlayerLogic(motor, config, buffer, in spec);
+
+            var damage = new Damage(Vector2.zero, 0f, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
+
+            Assert.IsTrue(logic.TakeDamage(in damage, 0f));
+
+            // 第一帧：满冲量（进入受击的那一帧不衰减）
+            TickPlayer(logic, motor, Vector2.zero, 0.02f);
+
+            Assert.AreEqual(StatusStateTag.Hurt, logic.Status.Current);
+            Assert.AreEqual(spec.KnockbackImpulse, motor.Velocity.x, 1e-3f);
+
+            // 第二帧：开始按加速度衰减，且输入（向左）不生效
+            TickPlayer(logic, motor, Vector2.left, 0.04f);
+
+            Assert.AreEqual(spec.KnockbackImpulse - config.moveAcceleration * 0.02f, motor.Velocity.x, 1e-3f,
+                "受击期间速度按 moveAcceleration 衰减；等于 -moveSpeed 说明输入已经抢走了控制权");
+
+            // 滑停：12 / 60 = 0.2s ⇒ 再跑 12 帧一定停
+            for (int i = 0; i < 12; i++) TickPlayer(logic, motor, Vector2.zero, 0.06f + i * 0.02f);
+
+            Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "速度归零后必须交还控制权");
+
+            // 交还之后输入立刻生效（当帧到位：本用例的加速度是 60，但一帧足够走 1.2，故断言"在往左加速"）
+            motor.Velocity = Vector2.zero;
+            TickPlayer(logic, motor, Vector2.left, 0.5f);
+
+            Assert.Less(motor.Velocity.x, 0f, "受击结束后玩家必须能重新控制移动");
         }
     }
 }

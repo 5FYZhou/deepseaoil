@@ -30,7 +30,7 @@ namespace DeepseaOil.Presentation
     /// 的逻辑层）。Unity 保证"所有 Awake 先于任何 Start"。</para>
     /// <para><b>没接线时是显式降级</b>：报一条 Error 并停用，而不是静默留一个"按了没反应"的场景。</para>
     /// </remarks>
-    public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked
+    public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
     {
         /// <summary>驱动顺序：世界侧排在玩家侧（<c>-100</c>）之后。</summary>
         public int Order => 0;
@@ -42,13 +42,7 @@ namespace DeepseaOil.Presentation
         [Tooltip("格子视图（提供格子几何与地板）。")]
         [SerializeField] private GridView gridView = default;
 
-        [Tooltip("输入采样器（场景里的 InputProvider）。")]
-        [SerializeField] private InputProvider inputProvider = default;
-
         [Header("可选接线")]
-        [Tooltip("瞄准用的相机。留空取 Camera.main。")]
-        [SerializeField] private Camera aimCamera = default;
-
         [Tooltip("球与瞄准件的父物体。留空则建在场景根下。")]
         [SerializeField] private Transform ballRoot = default;
 
@@ -69,7 +63,7 @@ namespace DeepseaOil.Presentation
         private ThrowController _throw;
         private LandingResolver _resolver;
         private WaveDirector _waves;
-        private TileAimView _aim;
+        private TileHighlightView _highlight;
 
         /// <summary>接触判定复用的格缓冲（每个物理帧都要跑，不能每帧分配）。</summary>
         private readonly List<Vector3Int> _contactCells = new List<Vector3Int>(9);
@@ -111,6 +105,9 @@ namespace DeepseaOil.Presentation
 
         private void OnDestroy()
         {
+            // 订阅时机与装配对称：谁开始听，谁停止听
+            _highlight?.Detach();
+
             // 用 Start 里抓住的引用：销毁期再问 GameRoot.Instance 可能当场造一个新的出来
             if (_root != null) _root.UnregisterSceneRoot(this);
         }
@@ -229,20 +226,61 @@ namespace DeepseaOil.Presentation
         /// 清场：把世界侧一局里的"临时东西"清空（打空重来 / 切场景）。
         /// </summary>
         /// <remarks>
-        /// 层级规范是"各层清自己的、上层负责下发"：本类只把请求转发给各调度器。
-        /// 球与掉落物在后面的批次里接上（它们各自的 Director 会在这里多两行）。
+        /// 层级规范是"各层清自己的、上层负责下发"：本类只把请求转发给各执行器。
+        /// 掉落物与球在后面的批次里接上（它们各自的 Director 会在这里多两行）。
         /// </remarks>
         public void ClearAll()
         {
             if (_waves != null) _waves.ClearAll();
+
+            // 球也要清：不清的话玩家复活后会被自己上一局扔出的球砸出一片泥
+            _throw?.ClearBalls();
+        }
+
+        /// <summary>
+        /// 裁决一次投掷请求（<see cref="IThrowSink"/>）：<b>落点合法性是世界信息</b>，
+        /// 所以这一问必须由世界侧回答，而不是玩家侧猜。
+        /// </summary>
+        /// <param name="intent">意图（球种 ＋ 目标格 ＋ 出手点与落点）。</param>
+        /// <returns>采纳（球已经生成）为 <c>true</c>；被拒绝时玩家侧不扣弹药、不进冷却。</returns>
+        /// <remarks>否决的判据当前只有一条：<b>落点那一格没有地板</b>（<c>GridLogic.HasCell</c>）。
+        /// 将来的阻挡 / 占位物会加在这里，加的时候玩家侧一行都不用改。</remarks>
+        public bool RequestThrow(in ThrowIntent intent)
+        {
+            if (!IsReady) return false;
+
+            if (_grid == null || !_grid.HasCell(intent.Cell)) return false;
+
+            return _throw != null && _throw.Throw(in intent);
+        }
+
+        /// <summary>
+        /// 投掷射程上限：取<b>水球</b>那一行。
+        /// </summary>
+        /// <remarks>
+        /// 射程是"投掷这一组参数"，与球种无关（表里两行同值）—— 收口前写死在 <c>ThrowController</c> 里，
+        /// 现在它由世界侧交给玩家侧（射程属玩家资格）。
+        /// <para>表里一行都没有时返回 0，而 <c>TileAim</c> 对非法射程的处理是"按不限"（它自己的契约）——
+        /// 于是"表坏了"的表现是"射程变得很远"，而不是"投不出去"。</para>
+        /// </remarks>
+        private static float MaxThrowDistance(IReadOnlyList<BallSpec> balls)
+        {
+            if (balls == null) return 0f;
+
+            for (int i = 0; i < balls.Count; i++)
+            {
+                if (balls[i].Type == BallType.Water) return balls[i].Throw.MaxThrowDistance;
+            }
+
+            return 0f;
         }
 
         private void Assemble()
         {
-            if (player == null || gridView == null || inputProvider == null)
+            if (player == null || gridView == null)
             {
                 Debug.LogError(
-                    "CombatRoot 引用未接线（player / gridView / inputProvider 至少缺一个），战斗内容已停用。",
+                    "CombatRoot 引用未接线（player / gridView 至少缺一个），战斗内容已停用。",
                     this);
                 return;
             }
@@ -275,28 +313,19 @@ namespace DeepseaOil.Presentation
             int cells = gridView.RegisterCells(_grid);
             int initialStates = _grid.LoadInitialStates(SpecCatalog.TileInitials());
 
-            _aim = CreateAimView(geometry, tuning);
+            // 瞄准高亮：它是"逻辑层发布 AimChanged → 表现层转成特效调用"的订阅者，
+            // 订阅时机由本类收口（Attach/Detach），不自己 OnEnable
+            _highlight = CreateHighlightView(geometry);
+            _highlight.Attach();
 
             _resolver = gameObject.AddComponent<LandingResolver>();
             _resolver.Initialize(_grid, tuning, balls);
 
-            // 表值由玩家侧读一次（PlayerController.Awake → SpecCatalog），这里经它转手拿：
-            // 同一行表值只有一个读者，列名改了不会牵动两处
-            PlayerSpec playerSpec = player.Logic.Spec;
+            // 玩家侧的瞄准需要三样世界信息：格子几何、射程上限、投掷裁决口（本类）
+            player.Logic.ConfigureAim(in geometry, MaxThrowDistance(balls), this);
 
             _throw = gameObject.AddComponent<ThrowController>();
-            _throw.Initialize(
-                player,
-                gridView,
-                inputProvider,
-                _grid,
-                tuning,
-                _resolver,
-                _aim,
-                in playerSpec,
-                balls,
-                ballRoot,
-                aimCamera);
+            _throw.Initialize(tuning, _resolver, balls, ballRoot);
 
             if (enableWaves)
             {
@@ -332,7 +361,7 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        private TileAimView CreateAimView(in GridGeometry geometry, ThrowTuning tuning)
+        private TileHighlightView CreateHighlightView(in GridGeometry geometry)
         {
             var go = new GameObject("瞄准格高亮");
 
@@ -340,9 +369,9 @@ namespace DeepseaOil.Presentation
 
             if (ballRoot != null) go.transform.SetParent(ballRoot, true);
 
-            var view = go.AddComponent<TileAimView>();
+            var view = go.AddComponent<TileHighlightView>();
 
-            view.Initialize(geometry.IsValid ? geometry.CellSize : 1f, RenderOrder.Aim);
+            view.Initialize(in geometry, geometry.IsValid ? geometry.CellSize : 1f);
 
             return view;
         }
