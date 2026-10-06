@@ -6,9 +6,8 @@ using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Presentation.Actor;
-using DeepseaOil.Presentation.Combat;
+using DeepseaOil.Presentation.Ball;
 using DeepseaOil.Presentation.Grid;
-using DeepseaOil.Presentation.Player;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
 using cfg.demo;
@@ -22,7 +21,8 @@ namespace DeepseaOil.Presentation
     /// <b>它自己没有 <c>Update</c> / <c>FixedUpdate</c>。</b>它把自己注册给 <c>GameRoot</c>
     /// （<see cref="ISceneRoot"/>），由 <c>GameRoot</c> 的两个通道分别调
     /// <see cref="RenderTick"/> 与 <see cref="FixedTick"/>。
-    /// 帧内顺序因此是可预测的：格子 → 投掷/瞄准 → 喷泉；落地结算 → 敌人 → 玩家受击。
+    /// 帧内顺序因此是可预测的：渲染帧 = 格子 → 球（飞行 ＋ 落地改格）→ 喷泉；
+    /// 物理帧 = 落地冲量 → 敌人 → 玩家受击。
     /// <para><b>环境事实只在这里组装一次</b>：调参资产、Luban 表值、格子几何、敌人归属表、
     /// 各子系统之间的引用。子系统自己不认识彼此 —— 它们只认识被注入的东西。</para>
     /// <para><b>装配放在 <c>Start</c> 而不是 <c>Awake</c>：</b>它要读 <c>ConfigModule</c>（由
@@ -60,8 +60,13 @@ namespace DeepseaOil.Presentation
 
         private GridLogic _grid;
         private EnemyCellRegistry _registry;
-        private ThrowController _throw;
-        private LandingResolver _resolver;
+
+        /// <summary>球链路：造 ＋ 持 ＋ 驱（含落地改格）。</summary>
+        private BallDirector _balls;
+
+        /// <summary>落地冲量的物理帧执行者。</summary>
+        private ImpulseExecutor _impulses;
+
         private WaveDirector _waves;
         private TileHighlightView _highlight;
 
@@ -130,10 +135,11 @@ namespace DeepseaOil.Presentation
         {
             if (!IsReady) return;
 
-            // 顺序：格子先跑（泥浆可能在这一帧到期并结算），再处理投掷（落地只入队）。
+            // 顺序：格子先跑（泥浆可能在这一帧到期并结算），再推进球（落地那一帧就改格 ＋ 排冲量），
+            // 最后是喷泉（它只负责产出节拍）。
             _grid.Tick(Time.time, deltaTime);
 
-            _throw.Tick(deltaTime);
+            _balls.Tick(deltaTime);
 
             for (int i = 0; i < fountains.Length; i++)
             {
@@ -151,8 +157,8 @@ namespace DeepseaOil.Presentation
 
             float now = Time.fixedTime;
 
-            // ① 落地结算：冲量必须在物理帧施加（见 LandingResolver）。
-            _resolver.FixedTick();
+            // ① 落地冲量：必须在物理帧施加（见 ImpulseExecutor 的类注释）。
+            _impulses.FixedTick();
 
             // ② 敌人：先让它们按本帧的位置追一步，再让格子按新位置结算（顺序固定 = 可复现）。
             if (_waves != null) _waves.FixedTick(now, deltaTime);
@@ -227,14 +233,15 @@ namespace DeepseaOil.Presentation
         /// </summary>
         /// <remarks>
         /// 层级规范是"各层清自己的、上层负责下发"：本类只把请求转发给各执行器。
-        /// 掉落物与球在后面的批次里接上（它们各自的 Director 会在这里多两行）。
+        /// 掉落物在后面的批次里接上（它自己的 Director 会在这里多一行）。
         /// </remarks>
         public void ClearAll()
         {
             if (_waves != null) _waves.ClearAll();
 
-            // 球也要清：不清的话玩家复活后会被自己上一局扔出的球砸出一片泥
-            _throw?.ClearBalls();
+            // 球也要清：不清的话玩家复活后会被自己上一局扔出的球砸出一片泥，
+            // 而已经排队的落地冲量会砸到下一局的箱子上。
+            _balls?.ClearAll();
         }
 
         /// <summary>
@@ -251,7 +258,7 @@ namespace DeepseaOil.Presentation
 
             if (_grid == null || !_grid.HasCell(intent.Cell)) return false;
 
-            return _throw != null && _throw.Throw(in intent);
+            return _balls != null && _balls.Throw(in intent);
         }
 
         /// <summary>
@@ -263,7 +270,7 @@ namespace DeepseaOil.Presentation
         /// <para>表里一行都没有时返回 0，而 <c>TileAim</c> 对非法射程的处理是"按不限"（它自己的契约）——
         /// 于是"表坏了"的表现是"射程变得很远"，而不是"投不出去"。</para>
         /// </remarks>
-        private static float MaxThrowDistance(IReadOnlyList<BallSpec> balls)
+        private static float MaxThrowDistance(IReadOnlyList<BallDefinition> balls)
         {
             if (balls == null) return 0f;
 
@@ -302,7 +309,7 @@ namespace DeepseaOil.Presentation
 
             ThrowTuning tuning = ThrowTuning.LoadOrDefault();
 
-            IReadOnlyList<BallSpec> balls = SpecCatalog.AllBalls();
+            IReadOnlyList<BallDefinition> balls = SpecCatalog.AllBalls();
 
             _registry = new EnemyCellRegistry();
 
@@ -318,14 +325,15 @@ namespace DeepseaOil.Presentation
             _highlight = CreateHighlightView(geometry);
             _highlight.Attach();
 
-            _resolver = gameObject.AddComponent<LandingResolver>();
-            _resolver.Initialize(_grid, tuning, balls);
+            // 球链路：冲量的物理帧执行者 ＋ 球的调度器（造 / 持 / 驱 / 落地结算）。
+            // 顺序无关，但两者都在这里被造 —— "谁造球"因此只有一个答案。
+            _impulses = new ImpulseExecutor();
+
+            _balls = new BallDirector();
+            _balls.Attach(_grid, balls, tuning, _impulses, ballRoot);
 
             // 玩家侧的瞄准需要三样世界信息：格子几何、射程上限、投掷裁决口（本类）
             player.Logic.ConfigureAim(in geometry, MaxThrowDistance(balls), this);
-
-            _throw = gameObject.AddComponent<ThrowController>();
-            _throw.Initialize(tuning, _resolver, balls, ballRoot);
 
             if (enableWaves)
             {

@@ -191,25 +191,21 @@ namespace DeepseaOil.Logic.Grid
         // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 球落地：把落点格切到该球种对应的状态，并结算一次该状态的"进入冲击"。
+        /// 一次球落地：把落点格切成指定状态，并结算这次转换的"进入冲击"。
         /// </summary>
         /// <param name="cell">落点格。</param>
-        /// <param name="ball">球种配置行。</param>
-        /// <returns>真的作用到了格子上为 <c>true</c>（落在地板外为 <c>false</c>）。</returns>
+        /// <param name="next">该球种要让这一格变成的状态。</param>
+        /// <returns>真的作用到了格子上为 <c>true</c>（落在地板外、或状态没变时为 <c>false</c>）。</returns>
         /// <remarks>
-        /// <b>为什么"已经是该状态"也要结算一次冲击：</b>白模的行为是"每一颗水球落地都对这一格的敌人
-        /// 造成一次伤害"，与那一格是不是已经是泥浆无关。把冲击挂在"状态转换"上会静默改掉伤害节奏
-        /// （打同一格的第一颗球有用、后面几颗全被丢掉），而"不重入状态机"保证了泥浆计时不被刷新 ——
-        /// 与白模逐条一致：<b>伤害照给，计时不重置</b>。
+        /// <b>参数是"格状态"而不是"球"：</b>格子层只回答"把这一格切成什么"，
+        /// 不关心这个请求来自哪一种球 —— 于是换一种球、给表加一列，本文件都不用动。
+        /// <para><b>只有真的发生了转换才结算冲击</b>（与状态机"同状态不重入"同一条口径）：
+        /// 同一格连投第二颗球时状态没变 ⇒ 不重入、不刷新计时、也不再产生伤害。
+        /// 于是"反复砸同一格"不再是额外伤害的来源，伤害的节奏与"这一格的状态变没变"绑定。</para>
         /// </remarks>
-        public bool OnBallHit(Vector3Int cell, in BallSpec ball)
+        public bool OnBallHit(Vector3Int cell, TileStateType next)
         {
-            if (!_cells.Contains(cell)) return false;
-
-            SwitchState(cell, ball.TileState, applyEnterImpact: false);
-            ApplyEnterImpact(cell, ball.TileState);
-
-            return true;
+            return SwitchState(cell, next, applyEnterImpact: true);
         }
 
         // ─────────────────────────────────────────────
@@ -288,13 +284,19 @@ namespace DeepseaOil.Logic.Grid
         /// <param name="applyEnterImpact">是否结算目标状态的"进入冲击"。</param>
         /// <returns>真的发生了切换为 <c>true</c>。</returns>
         /// <remarks>
-        /// <b>切换与冲击是两件事，所以分成两个参数：</b>球的落地是"切换（可能没切）+ 每次都给冲击"，
-        /// 而状态自己发起的转换（泥浆到期落回常规）是"切换 + 给冲击"，
-        /// 开局加载是"只切换、绝不给冲击"。三种组合都在这里表达，不需要三份代码。
+        /// <b>"切换"与"冲击"分成两个参数，是因为调用方的语义不同：</b>
+        /// 球落地（<see cref="OnBallHit"/>）与状态自己发起的转换（泥浆到期落回常规）都是
+        /// "切换 + 给冲击"；而开局加载是"只切换、绝不给冲击" —— 加载不是"发生了转换"，
+        /// 是"本来就是这样"。三种组合都在这一个方法里表达，不需要三份代码。
         /// </remarks>
         public bool SwitchState(Vector3Int cell, TileStateType next, bool applyEnterImpact)
         {
             if (!_cells.Contains(cell)) return false;
+
+            // 没有实现的状态（配置里没有这一行）不算一次转换：状态机对未注册 id 会返回"切换成功"
+            // 并把当前状态置空，于是"转换"会凭空发生一次（一条事件 + 一次冲击），而场上什么都没变。
+            // 判定用配置行而不是工厂：工厂返回 null 也可能是"这一状态故意没有实现"。
+            if (next != TileStateType.Normal && !_specs.ContainsKey(next)) return false;
 
             if (!_machines.TryGetValue(cell, out TileStateMachine machine))
             {

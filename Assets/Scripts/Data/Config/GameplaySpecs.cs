@@ -3,36 +3,6 @@ using cfg.demo;
 namespace DeepseaOil.Data
 {
     /// <summary>
-    /// 一个球种的全部数值。<b>纯数据</b>，由 Luban 的 <c>projectile</c> 行填充。
-    /// </summary>
-    /// <remarks>
-    /// 表行 → 本结构体的折算只发生在 <see cref="SpecCatalog"/> 一处，
-    /// 于是"表里加一列"的影响面是"一个结构体 + 一个折算点"，而不是散落在所有消费者里。
-    /// </remarks>
-    public readonly struct BallSpec
-    {
-        /// <summary>球种（= 表主键）。</summary>
-        public readonly BallType Type;
-
-        /// <summary>显示名。</summary>
-        public readonly string Name;
-
-        /// <summary>飞行参数（时长 / 弧高 / 距离上下限）。</summary>
-        public readonly ThrowSpec Throw;
-
-        /// <summary>落地后目标格转成的状态；<see cref="TileStateType.Normal"/> = 不改格子。</summary>
-        public readonly TileStateType TileState;
-
-        public BallSpec(BallType type, string name, in ThrowSpec throwSpec, TileStateType tileState)
-        {
-            Type = type;
-            Name = name;
-            Throw = throwSpec;
-            TileState = tileState;
-        }
-    }
-
-    /// <summary>
     /// 一个格子状态的全部数值。<b>纯数据</b>，由 Luban 的 <c>tile_state</c> 行填充。
     /// </summary>
     /// <remarks>

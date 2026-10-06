@@ -6,7 +6,7 @@ using UnityEngine;
 namespace DeepseaOil.Presentation.Projectile
 {
     /// <summary>
-    /// 推进一颗球的飞行进度，每帧把两个视效件摆到位，<c>t ≥ 1</c> 时结算落地。
+    /// 推进一颗球的飞行进度，每帧把两个视效件摆到位，<c>t ≥ 1</c> 时回调落地。
     /// </summary>
     /// <remarks>
     /// <b>本类没有 <c>Update</c>，也不查任何碰撞体</b>：落点由 <see cref="BallData"/> 自己算出来，
@@ -105,20 +105,21 @@ namespace DeepseaOil.Presentation.Projectile
         }
 
         /// <summary>
-        /// 结算落地：先回调（让监听方在球还"活着"的时候拿到落点），再销毁自己。
+        /// 结算落地：回调监听方，<b>自己不做任何清理</b>。
         /// </summary>
         /// <remarks>
         /// 用 <c>t = 1</c> 采样落点，而不是用"最后一帧的进度"：回调方拿到的一定是精确的落点，
         /// 与指示器画的位置逐位一致。否则玩家会看到"指示圈在这里、冲量生效在那里"，
         /// 差一帧的落点在最远处能差 0.4 米以上。
+        /// <para><b>为什么不再自己 <c>Destroy</c>：</b>回收权归持有者（<c>BallActor</c> →
+        /// <c>BallDirector</c>）。收口前"驱动器自毁 ＋ 控制器兜底销毁"是两条销毁路径，
+        /// 谁也说不清某一帧谁先跑；现在只有一个答案。</para>
         /// </remarks>
         private void Land()
         {
             Vector2 landing = _data.SampleGround(1f);
 
             _onLanded?.Invoke(landing, _data.Type);
-
-            Destroy(gameObject);
         }
     }
 }

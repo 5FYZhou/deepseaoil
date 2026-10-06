@@ -32,7 +32,7 @@ namespace DeepseaOil.Data
         public const int DefaultWaveId = 1;
 
         /// <summary>读一个球种。</summary>
-        public static BallSpec Ball(BallType type)
+        public static BallDefinition Ball(BallType type)
         {
             Projectile row = ConfigModule.Tables.TbProjectile.Get(type);
 
@@ -42,15 +42,15 @@ namespace DeepseaOil.Data
                 row.MaxThrowDistance,
                 row.MinThrowDistance);
 
-            return new BallSpec(row.Id, row.Name, in throwSpec, row.TileState);
+            return new BallDefinition(row.Id, row.Name, in throwSpec, row.TileState);
         }
 
         /// <summary>全部球种（按表顺序）。</summary>
-        public static IReadOnlyList<BallSpec> AllBalls()
+        public static IReadOnlyList<BallDefinition> AllBalls()
         {
             IReadOnlyList<Projectile> rows = ConfigModule.Tables.TbProjectile.DataList;
 
-            var result = new List<BallSpec>(rows.Count);
+            var result = new List<BallDefinition>(rows.Count);
 
             for (int i = 0; i < rows.Count; i++)
             {
@@ -62,7 +62,7 @@ namespace DeepseaOil.Data
                     row.MaxThrowDistance,
                     row.MinThrowDistance);
 
-                result.Add(new BallSpec(row.Id, row.Name, in throwSpec, row.TileState));
+                result.Add(new BallDefinition(row.Id, row.Name, in throwSpec, row.TileState));
             }
 
             return result;
