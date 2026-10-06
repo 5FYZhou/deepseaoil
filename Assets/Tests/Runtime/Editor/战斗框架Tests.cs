@@ -19,10 +19,12 @@
 
 using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
+using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Projectile;
@@ -890,9 +892,9 @@ namespace DeepseaOil.Tests
         // G12 · 玩家血量与资源
         // ================================================================
 
-        private static PlayerSpec PlayerSpecFixture(float maxHp = 100f, float invulnerable = 0.8f)
+        private static PlayerSpec PlayerSpecFixture(float maxHp = 100f, float invulnerable = 0.8f, float contactRadius = 1f)
         {
-            return new PlayerSpec(1, "玩家", maxHp, 10f, invulnerable, 1.2f, 0.5f, 12f, 12f, 1f);
+            return new PlayerSpec(1, "玩家", maxHp, 10f, invulnerable, 1.2f, 0.5f, 12f, 12f, contactRadius);
         }
 
         [Test]
@@ -944,35 +946,50 @@ namespace DeepseaOil.Tests
         [Test]
         public void G12_资源不足时不得改动任何状态()
         {
-            var resources = new PlayerResources();
+            PlayerSpec spec = PlayerSpecFixture();
+            var stats = new PlayerStats(in spec);
 
-            Assert.IsFalse(resources.TryConsume(1), "没有资源时消耗必须失败");
-            Assert.AreEqual(0, resources.WaterBallCount);
+            Assert.IsFalse(stats.TryConsumeWater(1), "没有资源时消耗必须失败");
+            Assert.AreEqual(0, stats.WaterBallCount);
 
-            resources.Add(2);
+            stats.AddWaterBall(2);
 
-            Assert.AreEqual(2, resources.WaterBallCount);
-            Assert.IsFalse(resources.TryConsume(3), "不够就是不够，不允许扣成负数");
-            Assert.AreEqual(2, resources.WaterBallCount, "失败时数量必须原样");
-            Assert.IsTrue(resources.TryConsume(2));
-            Assert.AreEqual(0, resources.WaterBallCount);
+            Assert.AreEqual(2, stats.WaterBallCount);
+            Assert.IsFalse(stats.TryConsumeWater(3), "不够就是不够，不允许扣成负数");
+            Assert.AreEqual(2, stats.WaterBallCount, "失败时数量必须原样");
+            Assert.IsTrue(stats.TryConsumeWater(2));
+            Assert.AreEqual(0, stats.WaterBallCount);
+        }
+
+        [Test]
+        public void G12_账本同时持有水球与血量()
+        {
+            PlayerSpec spec = PlayerSpecFixture();
+            var stats = new PlayerStats(in spec);
+
+            Assert.AreEqual(100f, stats.Health.Current, 1e-4f, "血量由账本自己初始化");
+            Assert.IsTrue(stats.IsAlive);
+
+            stats.Health.ApplyDamage(1000f, 0f);
+
+            Assert.IsFalse(stats.IsAlive, "打空之后账本必须如实回答");
         }
 
         [Test]
         public void G12_攻击冷却()
         {
-            var cooldown = new AttackCooldown();
+            var cooldown = new Cooldown();
 
-            Assert.IsTrue(cooldown.CanAttack(0f), "开局即可攻击");
+            Assert.IsTrue(cooldown.CanUse(0f), "开局即可用");
 
             cooldown.MarkUsed(0f, 0.5f);
 
-            Assert.IsFalse(cooldown.CanAttack(0.49f));
-            Assert.IsTrue(cooldown.CanAttack(0.5f), "间隔是闭区间：到点即可攻击");
+            Assert.IsFalse(cooldown.CanUse(0.49f));
+            Assert.IsTrue(cooldown.CanUse(0.5f), "间隔是闭区间：到点即可用");
 
             cooldown.Reset();
 
-            Assert.IsTrue(cooldown.CanAttack(0.5f));
+            Assert.IsTrue(cooldown.CanUse(0.5f));
         }
 
         // ================================================================
@@ -1239,6 +1256,176 @@ namespace DeepseaOil.Tests
                 RequestCount++;
                 LastBall = ball;
             }
+        }
+
+        // ================================================================
+        // G16 · 接触判定与玩家受击
+        // ================================================================
+
+        /// <summary>推进一个逻辑帧（帧首把执行器速度归零模拟物理结算）。</summary>
+        private static void TickPlayer(PlayerLogic logic, ProbeMotor motor, Vector2 move, float now, bool resetVelocity = true)
+        {
+            if (resetVelocity) motor.Velocity = Vector2.zero;
+
+            var snapshot = new InputSnapshot(move, false, false, false);
+            var world = new WorldInfo(move, default(BoundsArea));
+
+            logic.FixedTick(new LogicContext(now, 0.02f, in world, in snapshot));
+        }
+
+        [Test]
+        public void G16_接触判定按九宫格扫描且取最近的一个()
+        {
+            var registry = new EnemyCellRegistry();
+            var buffer = new List<Vector3Int>();
+
+            var playerPosition = new Vector2(0.5f, 0.5f);
+
+            // ① 只有邻格里有目标（距离 0.9）：只看玩家自己那一格的实现会漏掉它
+            var neighbourCellOnly = new ProbeTarget { Position = new Vector2(1.4f, 0.5f) };
+            registry.Register(new Vector3Int(1, 0, 0), neighbourCellOnly);
+
+            Assert.IsTrue(
+                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out Vector2 first, out float firstDistance),
+                "接触判定必须扫描邻格：玩家站在格里哪个位置都有可能");
+
+            Assert.AreEqual(neighbourCellOnly.Position, first);
+            Assert.AreEqual(0.9f, firstDistance, 1e-3f);
+
+            // ② 本格里再放一个更近的：必须取最近的那个
+            var inCell = new ProbeTarget { Position = new Vector2(0.8f, 0.5f) };
+            registry.Register(new Vector3Int(0, 0, 0), inCell);
+
+            Assert.IsTrue(
+                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out Vector2 second, out float secondDistance),
+                "两格都有目标时照样能判定");
+
+            Assert.AreEqual(inCell.Position, second, "有多个接触者时必须取最近的那个");
+            Assert.AreEqual(0.3f, secondDistance, 1e-3f);
+        }
+
+        [Test]
+        public void G16_接触半径之外与已死目标都不算接触()
+        {
+            var registry = new EnemyCellRegistry();
+            var buffer = new List<Vector3Int>();
+
+            var playerPosition = new Vector2(0.5f, 0.5f);
+
+            // 邻格、会被扫到，但距离 1.1 > 半径 1 —— 这条断的是"半径判定"，不是"扫描范围"
+            var tooFar = new ProbeTarget { Position = new Vector2(1.6f, 0.5f) };
+            registry.Register(new Vector3Int(1, 0, 0), tooFar);
+
+            Assert.IsFalse(
+                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out _, out _),
+                "半径之外不算接触");
+
+            registry.Unregister(tooFar);
+
+            var dead = new ProbeTarget { Position = new Vector2(0.6f, 0.5f), IsDead = true };
+            registry.Register(new Vector3Int(0, 0, 0), dead);
+
+            Assert.IsFalse(
+                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out _, out _),
+                "已死目标不算接触（表里可能还留着尸体）");
+
+            Assert.IsFalse(
+                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, null, buffer, out _, out _),
+                "没有归属表时必须安静地返回 false，不抛");
+        }
+
+        [Test]
+        public void G16_玩家受击扣血并在下一帧把击退写进执行器()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            PlayerSpec spec = PlayerSpecFixture();
+
+            var motor = new ProbeMotor { Position = Vector2.zero };
+            var buffer = new InputBuffer(0.12f, 50);
+            var logic = new PlayerLogic(motor, config, buffer, in spec);
+
+            // 世界侧在玩家那一帧之后递交（与 CombatRoot 的实际顺序一致）
+            var damage = new Damage(Vector2.zero, spec.ContactDamage, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
+
+            Assert.IsTrue(logic.TakeDamage(in damage, 0f), "第一次接触必须生效");
+            Assert.AreEqual(90f, logic.Stats.Health.Current, 1e-4f);
+
+            TickPlayer(logic, motor, Vector2.zero, 0.02f);
+
+            Assert.AreEqual(spec.KnockbackImpulse, motor.Velocity.x, 1e-3f,
+                "击退必须在下一帧被写进执行器（旧实现把它在帧首清掉了，表现是'被撞了纹丝不动'）");
+
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void G16_无敌期内的接触不改动任何状态()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            PlayerSpec spec = PlayerSpecFixture();
+
+            var motor = new ProbeMotor { Position = Vector2.zero };
+            var buffer = new InputBuffer(0.12f, 50);
+            var logic = new PlayerLogic(motor, config, buffer, in spec);
+
+            var damage = new Damage(Vector2.zero, spec.ContactDamage, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
+
+            // 第一次：扣血 ＋ 挂起击退
+            Assert.IsTrue(logic.TakeDamage(in damage, 0f));
+
+            // 紧接着一帧：击退在这一帧落地（写进执行器）
+            TickPlayer(logic, motor, Vector2.zero, 0.02f);
+            Assert.AreEqual(spec.KnockbackImpulse, motor.Velocity.x, 1e-3f, "第一次的击退必须落地");
+
+            // 再一帧：没有输入 → 站住（同时验证"击退只接管一帧"）
+            TickPlayer(logic, motor, Vector2.zero, 0.04f);
+            Assert.AreEqual(0f, motor.Velocity.x, 1e-3f);
+
+            // ① 无敌期内（0.8s）再来一次：不扣血、也不留下击退
+            Assert.IsFalse(logic.TakeDamage(in damage, 0.1f), "无敌期内必须整条挡掉");
+            Assert.AreEqual(90f, logic.Stats.Health.Current, 1e-4f, "被挡住时不该扣血");
+
+            TickPlayer(logic, motor, Vector2.zero, 0.12f);
+            Assert.AreEqual(0f, motor.Velocity.x, 1e-3f, "被挡住的那一次不许留下击退");
+
+            // ② 无敌到期后可以再扣
+            Assert.IsTrue(logic.TakeDamage(in damage, 0.8f));
+            Assert.AreEqual(80f, logic.Stats.Health.Current, 1e-4f);
+
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void G16_重生把血量恢复满并停住()
+        {
+            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            PlayerSpec spec = PlayerSpecFixture();
+
+            var motor = new ProbeMotor { Position = Vector2.zero };
+            var buffer = new InputBuffer(0.12f, 50);
+            var logic = new PlayerLogic(motor, config, buffer, in spec);
+
+            var lethal = new Damage(Vector2.zero, 1000f, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
+
+            Assert.IsTrue(logic.TakeDamage(in lethal, 0f));
+            Assert.IsFalse(logic.IsAlive);
+
+            // 模拟"打空那一帧已经被撞飞的引擎速度"：重生不能带着它继续滑
+            motor.Velocity = new Vector2(spec.KnockbackImpulse, 0f);
+
+            logic.RespawnTo(new Vector2(3f, 4f));
+
+            Assert.IsTrue(logic.IsAlive, "重生必须满血复活");
+            Assert.AreEqual(100f, logic.Stats.Health.Current, 1e-4f);
+            Assert.AreEqual(new Vector2(3f, 4f), motor.Position, "重生走物理体位置");
+
+            // 不重置执行器速度：让这一帧真的读到"上一局残留的速度"，
+            // 断言重生后的一帧会把它归零（否则这条断言是空转）
+            TickPlayer(logic, motor, Vector2.zero, 1f, resetVelocity: false);
+
+            Assert.AreEqual(Vector2.zero, motor.Velocity, "重生要停住：不该带着上一局的击退继续滑");
+
+            Object.DestroyImmediate(config);
         }
     }
 }

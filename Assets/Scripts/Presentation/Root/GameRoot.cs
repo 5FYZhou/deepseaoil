@@ -46,6 +46,9 @@ namespace DeepseaOil.Presentation
         /// <summary>场景根：按 <see cref="ISceneRoot.Order"/> 升序排列，小者先跑。</summary>
         private readonly List<ISceneRoot> _sceneRoots = new();
 
+        /// <summary>已注册、还没装配的场景根（每帧最多清一次，见 <see cref="EnsureAttached"/>）。</summary>
+        private readonly List<ISceneRoot> _pendingAttach = new();
+
         /// <summary>进程级服务：<b>加进来的顺序既是 Init 序也是每帧 Tick 序</b>。</summary>
         private readonly List<IService> _services = new();
 
@@ -80,12 +83,15 @@ namespace DeepseaOil.Presentation
         // ─────────────────────────────────────────────
 
         /// <summary>注册一个场景根（重复注册是 no-op）。</summary>
+        /// <remarks>注册只记名；真正的装配推迟到第一个被驱动的帧（见 <see cref="EnsureAttached"/>）。</remarks>
         public void RegisterSceneRoot(ISceneRoot root)
         {
             if (root == null || _sceneRoots.Contains(root)) return;
 
             _sceneRoots.Add(root);
             _sceneRoots.Sort(CompareSceneRoots);
+
+            if (!_pendingAttach.Contains(root)) _pendingAttach.Add(root);
         }
 
         /// <summary>注销一个场景根（场景对象销毁时调；没注册过是 no-op）。</summary>
@@ -94,6 +100,7 @@ namespace DeepseaOil.Presentation
             if (root == null) return;
 
             _sceneRoots.Remove(root);
+            _pendingAttach.Remove(root);
         }
 
         /// <summary>注册输入采样器：<b>每帧的采样由本类发起</b>（见 <see cref="Update"/> 的 ⓐ）。</summary>
@@ -213,6 +220,9 @@ namespace DeepseaOil.Presentation
         {
             if (!IsReady) return;
 
+            // ⓪ 场景根装配（只在本帧有新注册者时才真的做事）
+            EnsureAttached();
+
             // ⓐ 输入采样：全工程唯一采样点，必须在任何消费者之前（按下沿只在动态更新里有效）
             if (_input != null) _input.Sample();
 
@@ -230,8 +240,6 @@ namespace DeepseaOil.Presentation
             AssetModule.Tick(Time.deltaTime);
 
             // ③ 场景根（渲染帧）：玩家侧（瞄准 / 投掷意图）→ 世界侧（格子 / 球 / 掉落物 / 喷泉）
-            PruneSceneRoots();
-
             for (int i = 0; i < _sceneRoots.Count; i++)
             {
                 if (_sceneRoots[i] is IRenderTicked ticked) ticked.RenderTick(Time.deltaTime);
@@ -249,12 +257,15 @@ namespace DeepseaOil.Presentation
         /// <c>PlayerController.FixedUpdate</c> 与 <c>GameRoot.FixedUpdate</c> 是两个
         /// <c>MonoBehaviour</c>，谁先跑由 Unity 决定，而 <c>CombatRoot.FixedTick</c> 的接触结算
         /// 读的是"玩家这一帧提交后的位置"。暂停时 Unity 不跑本方法，所以不需要额外挡一层。
+        /// <para><b>为什么这里也要装一遍：</b>一帧里 <c>FixedUpdate</c> 可能先于
+        /// <c>Update</c> 跑（甚至跑好几遍），装配必须在那之前完成，而 <see cref="EnsureAttached"/>
+        /// 本身是幂等的。</para>
         /// </remarks>
         private void FixedUpdate()
         {
             if (!IsReady) return;
 
-            PruneSceneRoots();
+            EnsureAttached();
 
             for (int i = 0; i < _sceneRoots.Count; i++)
             {
@@ -298,6 +309,37 @@ namespace DeepseaOil.Presentation
         // ─────────────────────────────────────────────
         // 内部
         // ─────────────────────────────────────────────
+
+        /// <summary>
+        /// 把新注册的场景根按 <see cref="ISceneRoot.Order"/> 装配一次（幂等）。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么装配推迟到这里而不是各自的 <c>Start</c>：</b>见 <see cref="ISceneRoot.Attach"/> ——
+        /// 组件之间的 <c>Awake</c> / <c>Start</c> 顺序 Unity 都不保证，而装配既要读配表
+        /// （要等 <c>GameRoot.Awake</c>），世界侧又要读玩家侧的 <c>Logic</c>。
+        /// 交给本方法按 <c>Order</c> 逐个调，两个问题一起消失。
+        /// <para>先移出待装列表再调：某个场景根装配失败（抛异常）时不该每帧重试 ——
+        /// 它自己的 <c>IsReady</c> 会让后续 Tick 保持 no-op。</para>
+        /// </remarks>
+        private void EnsureAttached()
+        {
+            PruneSceneRoots();
+
+            if (_pendingAttach.Count == 0) return;
+
+            _pendingAttach.Sort(CompareSceneRoots);
+
+            ISceneRoot[] attaching = _pendingAttach.ToArray();
+
+            _pendingAttach.Clear();
+
+            for (int i = 0; i < attaching.Length; i++)
+            {
+                if (!IsAlive(attaching[i])) continue;
+
+                attaching[i].Attach();
+            }
+        }
 
         private void PruneSceneRoots()
         {

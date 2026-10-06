@@ -8344,7 +8344,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3180fa70822433a45b0d2b8db73ef5d1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  combat: {fileID: 1372230006}
 --- !u!4 &544939643
 Transform:
   m_ObjectHideFlags: 0
@@ -8783,7 +8782,7 @@ MonoBehaviour:
   actorRoot: {fileID: 0}
   fountains:
   - {fileID: 1990094019}
-  enableWaves: 0
+  enableWaves: 1
 --- !u!4 &1372230007
 Transform:
   m_ObjectHideFlags: 0

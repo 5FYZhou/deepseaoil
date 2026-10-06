@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
@@ -65,12 +66,16 @@ namespace DeepseaOil.Presentation
 
         private GridLogic _grid;
         private EnemyCellRegistry _registry;
-        private PlayerResources _resources;
         private ThrowController _throw;
-        private PlayerHealthController _health;
         private LandingResolver _resolver;
         private WaveDirector _waves;
         private TileAimView _aim;
+
+        /// <summary>接触判定复用的格缓冲（每个物理帧都要跑，不能每帧分配）。</summary>
+        private readonly List<Vector3Int> _contactCells = new List<Vector3Int>(9);
+
+        /// <summary>打空之后允许重来的时刻；没打空时是正无穷。</summary>
+        private float _retryAt = float.PositiveInfinity;
 
         /// <summary>装配是否成功（失败时所有 Tick 都是 no-op）。</summary>
         public bool IsReady { get; private set; }
@@ -83,10 +88,23 @@ namespace DeepseaOil.Presentation
 
         private void Start()
         {
-            // 先报到再装配：报到这一步会**确保 GameRoot（进而 Data 层）已就绪** ——
-            // 本类的装配要读 ConfigModule，场景里没有 GameRoot 的场合下顺序反了会直接抛。
+            // 只报到：装配推迟到 GameRoot 的第一个被驱动的帧（见 Attach）
             _root = GameRoot.Instance;
             _root.RegisterSceneRoot(this);
+        }
+
+        /// <summary>
+        /// 装配战斗切片。<b>由 <c>GameRoot</c> 在第一个被驱动的帧按 <see cref="Order"/> 调</b>。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么不再放在 <c>Start</c>：</b>本类的装配要读三样东西 —— 配表（等 <c>GameRoot.Awake</c>）、
+        /// 场景里玩家的 <c>Logic</c>（等 <c>PlayerController</c> 装配）、格子几何（等 <c>GridView.Awake</c>）。
+        /// 而 Unity 只保证"所有 <c>Awake</c> 先于任何 <c>Start</c>"，<b>不保证两个 <c>Start</c> 的先后</b> ——
+        /// 玩家侧 <c>Order = -100</c> 排在前面，于是"谁先装配"从抽签变成一个数字。
+        /// </remarks>
+        public void Attach()
+        {
+            if (IsReady) return;
 
             Assemble();
         }
@@ -143,7 +161,80 @@ namespace DeepseaOil.Presentation
             if (_waves != null) _waves.FixedTick(now, deltaTime);
 
             // ③ 玩家受击：接触检测读的是物理体位置，放在敌人移动之后才是"这一帧的真实站位"。
-            _health.FixedTick(now);
+            UpdatePlayerContact(now);
+        }
+
+        /// <summary>
+        /// 世界侧的两件"玩家相关"裁决：<b>谁打到了玩家</b>、<b>打空了怎么重来</b>。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么由组合根做：</b>接触判定要同时看"玩家在哪一格"（<c>GridLogic</c>）、
+        /// "这一格上站着谁"（<c>EnemyCellRegistry</c>）与玩家表值 —— 这三样都只在这里齐备。
+        /// 判定本身是纯函数（<see cref="ContactDamage.TryFindAttacker"/>），所以它能在 EditMode 里测；
+        /// 收口前这条判定住在表现层的 <c>PlayerHealthController</c> 里，靠 <c>Physics2D</c> 才测得了。
+        /// <para><b>世界 → 玩家只有"通知"一条路</b>：本方法组装一次 <see cref="Damage"/>，
+        /// 经 <c>PlayerLogic.TakeDamage</c> 递交；扣多少血、进入多久无敌、被推多远都由玩家侧自己决定。</para>
+        /// <para>打空之后不再判接触（尸体不该继续挨打），等重试延时到点再重来。</para>
+        /// </remarks>
+        private void UpdatePlayerContact(float now)
+        {
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            if (logic == null || _grid == null) return;
+
+            if (!logic.IsAlive)
+            {
+                if (now < _retryAt) return;
+
+                _retryAt = float.PositiveInfinity;
+
+                // 世界侧决定"重来"：玩家回出生点满血，场上清空
+                player.RespawnToSpawn();
+                ClearAll();
+
+                return;
+            }
+
+            PlayerSpec spec = logic.Spec;
+
+            Vector2 position = player.Position;
+            Vector3Int cell = _grid.WorldToCell(position);
+
+            if (!ContactDamage.TryFindAttacker(
+                    cell,
+                    position,
+                    spec.ContactRadius,
+                    _registry,
+                    _contactCells,
+                    out Vector2 attacker,
+                    out _))
+            {
+                return;
+            }
+
+            // 方向由 Damage.At 算（"从接触者指向玩家"），与格子伤害共用同一份方向数学
+            Damage damage = Damage.At(
+                attacker,
+                position,
+                spec.ContactDamage,
+                DamageSource.Contact,
+                spec.KnockbackImpulse);
+
+            if (!logic.TakeDamage(in damage, now)) return;
+
+            if (!logic.IsAlive) _retryAt = now + spec.RetryDelay;
+        }
+
+        /// <summary>
+        /// 清场：把世界侧一局里的"临时东西"清空（打空重来 / 切场景）。
+        /// </summary>
+        /// <remarks>
+        /// 层级规范是"各层清自己的、上层负责下发"：本类只把请求转发给各调度器。
+        /// 球与掉落物在后面的批次里接上（它们各自的 Director 会在这里多两行）。
+        /// </remarks>
+        public void ClearAll()
+        {
+            if (_waves != null) _waves.ClearAll();
         }
 
         private void Assemble()
@@ -162,10 +253,18 @@ namespace DeepseaOil.Presentation
                 return;
             }
 
+            if (player.Logic == null)
+            {
+                Debug.LogError(
+                    "CombatRoot 拿不到玩家的逻辑层（PlayerController 的 config / motor 没接好，" +
+                    "或它的装配失败），战斗内容已停用。",
+                    this);
+                return;
+            }
+
             ThrowTuning tuning = ThrowTuning.LoadOrDefault();
 
             IReadOnlyList<BallSpec> balls = SpecCatalog.AllBalls();
-            PlayerSpec playerSpec = SpecCatalog.Player();
 
             _registry = new EnemyCellRegistry();
 
@@ -181,7 +280,9 @@ namespace DeepseaOil.Presentation
             _resolver = gameObject.AddComponent<LandingResolver>();
             _resolver.Initialize(_grid, tuning, balls);
 
-            _resources = new PlayerResources();
+            // 表值由玩家侧读一次（PlayerController.Awake → SpecCatalog），这里经它转手拿：
+            // 同一行表值只有一个读者，列名改了不会牵动两处
+            PlayerSpec playerSpec = player.Logic.Spec;
 
             _throw = gameObject.AddComponent<ThrowController>();
             _throw.Initialize(
@@ -192,7 +293,6 @@ namespace DeepseaOil.Presentation
                 tuning,
                 _resolver,
                 _aim,
-                _resources,
                 in playerSpec,
                 balls,
                 ballRoot,
@@ -203,14 +303,14 @@ namespace DeepseaOil.Presentation
                 _waves = CreateWaveDirector();
             }
 
-            _health = gameObject.AddComponent<PlayerHealthController>();
-            _health.Initialize(player, in playerSpec, _waves);
-
             IsReady = true;
 
             Debug.Log(
                 $"[Combat] 装配完成：格子 {cells} 个（初始状态 {initialStates} 个），" +
-                $"球种 {balls.Count} 个，喷泉 {fountains.Length} 个，敌人 {(enableWaves ? "启用" : "关闭")}");
+                $"球种 {balls.Count} 个，喷泉 {fountains.Length} 个，" +
+                (enableWaves
+                    ? "敌人 启用"
+                    : "敌人 关闭（CombatRoot 的「是否刷敌人」未勾选：想要刷怪请在 Inspector 上勾上它）"));
         }
 
         /// <summary>
@@ -265,16 +365,18 @@ namespace DeepseaOil.Presentation
             return director;
         }
 
+        /// <summary>水球被领取：<b>世界 → 玩家的通知</b>，落到玩家侧账本上。</summary>
         private void OnWaterBallCollected(WaterBallCollected evt)
         {
-            _resources?.Add(1);
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            logic?.Stats.AddWaterBall(1);
         }
 
         /// <summary>HUD 面板加载完成时的重播：把三块读数各播一次当前值。</summary>
         private void OnRequestHudRefresh(RequestHudRefresh evt)
         {
-            _resources?.Announce();
-            _health?.Announce();
+            player?.Logic?.Stats.Announce();
             _waves?.Announce();
         }
     }
