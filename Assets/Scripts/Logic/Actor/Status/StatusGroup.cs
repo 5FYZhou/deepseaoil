@@ -18,6 +18,12 @@ namespace DeepseaOil.Logic
     {
         private readonly HurtState _hurt;
 
+        /// <summary>当前减速修饰的乘数（1 = 没有修饰）。</summary>
+        private float _slowScale = 1f;
+
+        /// <summary>减速修饰还剩多久过期（秒）。</summary>
+        private float _slowRemaining;
+
         /// <param name="logic">宿主角色的账本（玩家与敌人都适用）。</param>
         public StatusGroup(ActorLogic logic)
         {
@@ -34,11 +40,47 @@ namespace DeepseaOil.Logic
         /// <summary>受击状态实例（供调试面板与测试读它的剩余速度）。</summary>
         public HurtState Hurt => _hurt;
 
+        /// <summary>当前生效的减速乘数（<c>1</c> = 没有减速修饰）。</summary>
+        public float SlowScale => _slowRemaining > 0f ? _slowScale : 1f;
+
+        /// <summary>
+        /// 续一次减速修饰（由格子的执行者按格施加）。
+        /// </summary>
+        /// <param name="speedScale">速度乘数（<c>1</c> = 不减速）。</param>
+        /// <param name="seconds">存活时长（秒）；<c>≤ 0</c> 时忽略这次提交。</param>
+        /// <remarks>
+        /// <b>为什么是"续命"而不是"设一个开关"：</b>施加方（格状态）不持有、也不查询"格上的目标"，
+        /// 它只在自己每次 Tick 时续一次 —— 于是"谁摘掉这个修饰"这个问题不存在：
+        /// 离开泥浆 ⇒ 不再续命 ⇒ 修饰自然过期；暂停 ⇒ 格子不 Tick ⇒ 恢复后立刻续上。
+        /// <para><b>它住在本层（状态效果）而不是移动层</b>：这是"作用在角色身上的效果"，
+        /// 移动层只接收"这一帧速度乘多少"的门禁。</para>
+        /// <para>非数按"不起作用"（1）处理：非数一旦进入速度，角色会带着非数坐标消失，且不报错。</para>
+        /// </remarks>
+        public void ApplySlow(float speedScale, float seconds)
+        {
+            if (seconds <= 0f) return;
+
+            _slowScale = float.IsNaN(speedScale) ? 1f : Mathf.Clamp01(speedScale);
+            _slowRemaining = seconds;
+        }
+
         /// <summary>本帧提交给移动层的门禁。</summary>
-        /// <remarks>只有受击期间非空：那一帧的"该被推成什么样"就是本层对下层的全部输出。</remarks>
-        public MoveGates Gates => Current == StatusStateTag.Hurt
-            ? new MoveGates(_hurt.ForcedVelocity)
-            : MoveGates.None;
+        /// <remarks>
+        /// 两件事合成一个门禁：受击期间的"该被推成什么样"（强制速度），
+        /// 与减速修饰的"这一帧速度乘多少"（速度乘数）。<b>受击时不带乘数</b>：
+        /// 外力滑停不该被地面减速拖短。
+        /// </remarks>
+        public MoveGates Gates
+        {
+            get
+            {
+                if (Current == StatusStateTag.Hurt) return MoveGates.Forced(_hurt.ForcedVelocity);
+
+                float scale = SlowScale;
+
+                return scale < 1f ? MoveGates.Scaled(scale) : MoveGates.None;
+            }
+        }
 
         /// <summary>是否正处于受击中（视效用它决定闪不闪）。</summary>
         public bool IsHurt => Current == StatusStateTag.Hurt;
@@ -47,6 +89,9 @@ namespace DeepseaOil.Logic
         /// <param name="pendingKnockback">帧外挂起的击退冲量（速度向量）；零表示没有。</param>
         public void Tick(in LogicContext ctx, Vector2 pendingKnockback)
         {
+            // 修饰的计时走 Δt：暂停时 dt = 0 ⇒ 不过期（"暂停 = 时间冻结"自动成立）。
+            if (_slowRemaining > 0f) _slowRemaining -= ctx.deltaTime;
+
             EnterHurtIfPending(in ctx, pendingKnockback);
 
             TickStates(in ctx);

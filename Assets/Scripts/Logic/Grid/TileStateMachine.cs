@@ -27,9 +27,6 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>当前状态实例；没有状态时为 <c>null</c>。</summary>
         public ITileState Current => _current;
 
-        /// <summary>本格当前的速度系数；没有状态时为 1。</summary>
-        public float SlowMultiplier => _current != null ? _current.SlowMultiplier : 1f;
-
         /// <summary>注册一个状态的工厂。<see cref="TileStateType.Normal"/> 不需要注册。</summary>
         public void Register(TileStateType id, System.Func<ITileState> factory)
         {

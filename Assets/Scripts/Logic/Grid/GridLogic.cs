@@ -60,6 +60,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>结算时的目标快照缓冲：受害方可能在结算里死亡并注销自己。</summary>
         private readonly List<IDamageable> _dealScratch = new();
 
+        /// <summary>速度修正的执行者（"这一格续一次减速"由它去找人并施加）。可为 <c>null</c>。</summary>
+        private readonly ITileSlowApplier _slow;
+
         /// <summary>最近一次 <see cref="Tick"/> 的时间；状态回调里读到的是它。</summary>
         private float _now;
         private float _deltaTime;
@@ -68,15 +71,18 @@ namespace DeepseaOil.Logic.Grid
         /// <param name="stateSpecs">全部状态配置行。</param>
         /// <param name="stateFactory">状态工厂：给 ID 造一个新实例；返回 <c>null</c> 表示该 ID 没有实现。</param>
         /// <param name="registry">敌人归属表；<c>null</c> 时自建一个。</param>
+        /// <param name="slow">速度修正的执行者；<c>null</c> 时状态提交的减速无人执行（逻辑层单独跑测试的场合）。</param>
         public GridLogic(
             in GridGeometry geometry,
             IReadOnlyList<TileStateSpec> stateSpecs,
             Func<TileStateType, ITileState> stateFactory,
-            EnemyCellRegistry registry = null)
+            EnemyCellRegistry registry = null,
+            ITileSlowApplier slow = null)
         {
             _geometry = geometry;
             _stateFactory = stateFactory;
             _registry = registry ?? new EnemyCellRegistry();
+            _slow = slow;
 
             if (stateSpecs != null)
             {
@@ -212,19 +218,9 @@ namespace DeepseaOil.Logic.Grid
         // 查询
         // ─────────────────────────────────────────────
 
-        /// <summary>世界坐标处的速度系数（<c>1</c> = 不减速）。</summary>
-        public float GetSlowMultiplier(Vector2 world)
-        {
-            if (!_geometry.IsValid) return 1f;
-
-            return GetSlowMultiplierAt(_geometry.WorldToCell(world));
-        }
-
-        /// <summary>本格的速度系数（<c>1</c> = 不减速）。</summary>
-        public float GetSlowMultiplierAt(Vector3Int cell)
-        {
-            return _machines.TryGetValue(cell, out TileStateMachine machine) ? machine.SlowMultiplier : 1f;
-        }
+        // 查询口都在上面「格子集合」那一节里（WorldToCell / StateOf / HasCell）——
+        // 这里曾经还有一对 GetSlowMultiplier*：那是"角色每帧来问本格减速系数"的拉取口，
+        // 现在减速改成格子主动提交（见 ITileSlowApplier），拉取口随之删除。
 
         // ─────────────────────────────────────────────
         // ITileScheduler
@@ -373,7 +369,7 @@ namespace DeepseaOil.Logic.Grid
 
         private TileContext BuildContext(Vector3Int cell)
         {
-            return new TileContext(cell, _now, _deltaTime, this, this);
+            return new TileContext(cell, _now, _deltaTime, this, this, _slow);
         }
     }
 }

@@ -31,7 +31,7 @@ namespace DeepseaOil.Presentation
     /// 的逻辑层）。Unity 保证"所有 Awake 先于任何 Start"。</para>
     /// <para><b>没接线时是显式降级</b>：报一条 Error 并停用，而不是静默留一个"按了没反应"的场景。</para>
     /// </remarks>
-    public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
+    public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink, ITileSlowApplier
     {
         /// <summary>驱动顺序：世界侧排在玩家侧（<c>-100</c>）之后。</summary>
         public int Order => 0;
@@ -268,6 +268,37 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>
+        /// 续一次减速修饰（<see cref="ITileSlowApplier"/>）：<b>"谁站在这一格上"是世界侧的信息</b>，
+        /// 格状态只提交一句"这一格续一次减速"。
+        /// </summary>
+        /// <param name="cell">格子。</param>
+        /// <param name="speedScale">速度乘数（<c>1</c> = 不减速）。</param>
+        /// <param name="seconds">这次续命能让修饰再活多久（秒）。</param>
+        /// <remarks>
+        /// <b>玩家不在归属表里</b>（那张表是"敌人站在哪一格"），所以它那一格由本类直接判 ——
+        /// 只有这一处，不构成第二个真源。
+        /// <para><b>不做快照</b>（对比 <c>GridLogic.Deal</c> 的快照）：施加修饰不会让目标死亡或注销自己，
+        /// 所以可以在表上直接遍历。</para>
+        /// </remarks>
+        public void ApplySlow(Vector3Int cell, float speedScale, float seconds)
+        {
+            if (seconds <= 0f) return;
+
+            if (player != null && player.Logic != null && _grid != null &&
+                _grid.WorldToCell(player.Position) == cell)
+            {
+                player.Logic.Status.ApplySlow(speedScale, seconds);
+            }
+
+            if (_registry == null || !_registry.TryGetIn(cell, out List<IDamageable> targets)) return;
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (targets[i] is ISlowEffectTarget target) target.ApplySlow(speedScale, seconds);
+            }
+        }
+
+        /// <summary>
         /// 投掷射程上限：取<b>水球</b>那一行。
         /// </summary>
         /// <remarks>
@@ -321,7 +352,8 @@ namespace DeepseaOil.Presentation
 
             GridGeometry geometry = gridView.ReadGeometry();
 
-            _grid = new GridLogic(geometry, SpecCatalog.AllTileStates(), CreateTileState, _registry);
+            // 速度修正的执行者就是本类：只有它同时认识"敌人归属表"与"玩家"。
+            _grid = new GridLogic(geometry, SpecCatalog.AllTileStates(), CreateTileState, _registry, this);
 
             // 先开始听"格子状态变了"，再灌初始状态：初始状态走的是同一条转换路径
             // （订阅晚了那一批泥浆就不会被画出来 —— 而它们是最不该漏的一批）。

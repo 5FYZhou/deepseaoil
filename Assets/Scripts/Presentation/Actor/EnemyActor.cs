@@ -20,7 +20,7 @@ namespace DeepseaOil.Presentation.Actor
     /// 而这件事只有敌人自己每帧知道（位置是它自己的）。</para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class EnemyActor : MonoBehaviour, IDamageable
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowEffectTarget
     {
         /// <summary>头顶耐久数字的字号（<c>TextMesh.characterSize</c>，世界单位量级）。</summary>
         /// <remarks>
@@ -57,12 +57,14 @@ namespace DeepseaOil.Presentation.Actor
         private Vector3Int _currentCell;
 
         /// <summary>
-        /// 本帧实际喂进逻辑层的减速系数。
+        /// 本帧实际生效的减速乘数（<b>视效读数</b>；速度那边由门禁经账本落地）。
         /// </summary>
         /// <remarks>
         /// <b>刻意留一份，而不是"视效自己去查一次格子"。</b>两处独立实现同一条判据时，
         /// 颜色与速度迟早会在某一帧不一致（比如泥浆刚好在那一帧消失），
         /// 现象是"颜色变回来了但人还是慢的"—— 而两者看起来都"没错"。一份数据、一个来源、两个消费者。
+        /// <para>值的来源是状态效果层的减速修饰（格状态提交、执行者施加），
+        /// 在物理帧刷 —— 与移动层读的是同一份修饰。</para>
         /// </remarks>
         private float _slowMultiplier = 1f;
 
@@ -193,16 +195,26 @@ namespace DeepseaOil.Presentation.Actor
         {
             if (_dead) return;
 
-            // 先算"这一帧踩没踩在减速格里"，再把它喂给逻辑层和视效 —— 同一个来源。
-            _slowMultiplier = _grid == null ? 1f : _grid.GetSlowMultiplier(Position);
-
             _logic.SetTarget(_target == null ? (Vector2?)null : TargetPosition());
-            _logic.SetSlowMultiplier(_slowMultiplier);
             _logic.Tick(now, deltaTime);
+
+            // 视效读数取"逻辑层这一帧真正生效的修饰"：收口前是每帧去问一次格子
+            // （拉的路径已随减速改成"推"一起删除）。
+            _slowMultiplier = _logic.Status.SlowScale;
 
             UpdateCell(force: false);
             UpdateBodyColor();
             UpdateSortingOrder();
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// <b>转发给状态效果层</b>：修饰的存活与门禁输出都在那里（本类只做一次转发，
+        /// 于是"谁会被减速"这件事仍然只有一个答案）。
+        /// </remarks>
+        public void ApplySlow(float speedScale, float seconds)
+        {
+            _logic?.Status.ApplySlow(speedScale, seconds);
         }
 
         /// <summary>选中时把接触判定半径之外的追击参数画出来，便于对照配置。</summary>

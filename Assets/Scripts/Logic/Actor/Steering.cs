@@ -7,7 +7,7 @@ namespace DeepseaOil.Logic
     /// </summary>
     /// <remarks>
     /// 拆成"方向"与"速度"两件事而不是一个速度向量，是因为两者来源不同：
-    /// 方向来自几何（目标减自己），速度来自数值（基准速 × 减益系数）。
+    /// 方向来自几何（目标减自己），速度来自数值（基准速 × 门禁乘数）。
     /// 合成一个向量会让"泥浆把速度压到 45%"与"方向要不要归一化"混在一起，
     /// 而后者正是"斜向快 √2 倍"那类缺陷的温床。
     /// </remarks>
@@ -42,7 +42,6 @@ namespace DeepseaOil.Logic
         /// <param name="stopDistance">进入这个距离就不动（世界单位）。</param>
         /// <param name="chaseRange">超出这个距离就放弃（世界单位）。</param>
         /// <param name="maxSpeed">追击基准速度（单位/秒）。</param>
-        /// <param name="slowFromSource">泥浆减速系数（已钳过的值）。</param>
         /// <returns>方向与目标速度；不该动时两者都表示"不动"。</returns>
         /// <remarks>
         /// <b>三个"不动"的条件，每一个都对应一类真实缺陷：</b>
@@ -52,8 +51,10 @@ namespace DeepseaOil.Logic
         /// <item>方向向量为零（正好站在目标点上）不动 —— 零向量归一化是 <c>NaN</c>，
         /// 角色会带着非数坐标消失（球的那条上限栽过同一个跟头）。</item>
         /// </list>
-        /// <para><b>速度恒为正、且恒不超过 <paramref name="maxSpeed"/>：</b>减益只做乘法，不做加法。
-        /// 这是"泥浆只减速不放大"这条不变量在代码里的落点。</para>
+        /// <para><b>减速不在这里了</b>（收口前它带一个 <c>slowFromSource</c> 参数）：泥浆减速改成
+        /// 由格状态提交、由目标的状态效果层持有、经移动层门禁落地 —— 于是本函数的目标速度
+        /// 永远等于配置速度，"慢下来"由 <c>ActorLogic.SetSpeedScale</c> 乘在目标速度上。
+        /// "减益只做乘法、不做加法"这条不变量还在，只是落在了它该在的那一层。</para>
         /// <para><b>"够近了"不能返回 <c>default</c>：</b>那样连方向都没了。
         /// 两者的区别在将来会被分开处理（"够近了但仍然要面向玩家"），提前抹掉就再也分不开。</para>
         /// </remarks>
@@ -62,8 +63,7 @@ namespace DeepseaOil.Logic
             Vector2 target,
             float stopDistance,
             float chaseRange,
-            float maxSpeed,
-            float slowFromSource)
+            float maxSpeed)
         {
             Vector2 delta = target - self;
 
@@ -76,7 +76,7 @@ namespace DeepseaOil.Logic
             // 超出追击范围：不给方向 ⇒ 走指数衰减，是"滑停"而不是"定住"。
             if (distance > chaseRange) return default;
 
-            float speed = distance <= stopDistance ? 0f : maxSpeed * slowFromSource;
+            float speed = distance <= stopDistance ? 0f : maxSpeed;
 
             return new Steering(delta, speed);
         }

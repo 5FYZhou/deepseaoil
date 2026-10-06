@@ -39,16 +39,22 @@ namespace DeepseaOil.Logic
                 : MovementStateTag.Idle;
         }
 
-        /// <summary>推进一个物理帧：状态先按意图写速度，门禁最后统一施加。</summary>
+        /// <summary>推进一个物理帧：速度乘数先交给账本、状态再按意图写速度、强制速度最后整条接管。</summary>
         /// <param name="gates">上层（状态效果层）提交的门禁；空门禁时本层完全按自己的状态走。</param>
         public void Tick(in LogicContext ctx, in MoveGates gates)
         {
+            // 乘数落在"目标速度"上，所以必须赶在状态算速度之前交给账本（见 ActorLogic.SetSpeedScale）。
+            _logic.SetSpeedScale(gates.SpeedScale);
+
             TickStates(in ctx);
 
             ApplyGates(in gates);
         }
 
-        /// <summary>把门禁落到速度上（与玩家移动组同一套：只有这里能按上层要求改速度）。</summary>
+        /// <summary>
+        /// 把门禁落到速度上（与玩家移动组同一套：只有这里能按上层要求改速度）。
+        /// </summary>
+        /// <remarks><b>强制速度不叠加速度乘数</b>：受击滑停是外力，叠上地面减速会把它拖短。</remarks>
         private void ApplyGates(in MoveGates gates)
         {
             if (gates.HasForcedVelocity) _logic.SetVelocity(gates.ForcedVelocity);
