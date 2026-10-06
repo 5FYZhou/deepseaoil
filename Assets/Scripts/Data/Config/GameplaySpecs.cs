@@ -70,7 +70,15 @@ namespace DeepseaOil.Data
         /// <summary>超出这个距离就放弃追击（世界单位）。</summary>
         public readonly float ChaseRange;
 
-        /// <summary>受击后的禁足时长（秒）。</summary>
+        /// <summary>
+        /// 受击后的禁足时长（秒）。<b>当前无消费者</b>。
+        /// </summary>
+        /// <remarks>
+        /// 敌人的受击已经改走与玩家共用的 <c>HurtState</c>：滑停多久由
+        /// <c>CharacterConfig.hurtDecay</c>（= 本类的 <see cref="KnockbackDecay"/>）决定，
+        /// 不再是"整帧禁足 N 帧"。这一列<b>刻意保留</b>（不删表列、不动配表）：
+        /// 将来若要"被撞后硬直一段时间不能动"，它就是这个数。
+        /// </remarks>
         public readonly float StunSeconds;
 
         /// <summary>耐久。</summary>

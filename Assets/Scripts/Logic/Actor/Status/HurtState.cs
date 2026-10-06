@@ -2,10 +2,10 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
-namespace DeepseaOil.Logic.Player
+namespace DeepseaOil.Logic
 {
     /// <summary>
-    /// 受击：速度被外力接管，输入暂时失效；<b>滑停到零就结束</b>。
+    /// 受击：速度被外力接管，输入暂时失效；<b>滑停到零就结束</b>。<b>玩家与敌人共用</b>。
     /// </summary>
     /// <remarks>
     /// <b>为什么它是状态而不是一个"击退计时器"：</b>判据来自审查 —— "冷却/受击期间有没有行为"。
@@ -14,10 +14,12 @@ namespace DeepseaOil.Logic.Player
     /// <see cref="ForcedVelocity"/>，由状态组包成门禁交给移动层执行。</para>
     /// <para><b>退出条件是"速度归零"而不是"时长到"：</b>冲量大小会变（表值、将来的技能），
     /// 固定时长要么在被撞得轻时留一段"站着不动"的空转，要么在被撞得重时半路收回控制权。
-    /// 用同一份加速度把速度滑到零，两种情况下手感一致。</para>
-    /// <para><b>减速用 <c>moveAcceleration</c></b>（角色共用的运动参数，与走路加速同一个数）：
-    /// 于是"被撞出去多远"= 冲量² / (2 × 加速度)，不需要为一个新机制再引一个调参字段。
-    /// 填 0 表示零惯性配置：此时速度当帧归零，受击退化为"一帧的位移"。</para>
+    /// 用同一份减速度把速度滑到零，两种情况下手感一致。</para>
+    /// <para><b>减速度取 <c>hurtDecay</c>，填 0 时落回 <c>moveAcceleration</c></b>：
+    /// 于是"被撞出去多远"＝ 冲量² / (2 × 减速度)，不需要为一个新机制再引一套公式。
+    /// 玩家与敌人各填各的数：玩家那份是"零惯性配置下的当帧停顿"，敌人那份来自
+    /// <c>knockback_decay</c>（与它自己的转向衰减同一个量纲）。<b>两者都填 0</b> 时退化为
+    /// "一帧的位移"（速度当帧归零）。</para>
     /// </remarks>
     public sealed class HurtState : StateBase<StatusStateTag>
     {
@@ -55,7 +57,7 @@ namespace DeepseaOil.Logic.Player
         public override void Enter(LogicContext ctx)
         {
             // 冲量是瞬时量：进入的那一帧速度就是冲量本身，不衰减。
-            // 少了这一条，"被撞开的第一帧"会比冲量小一个 Δt 的量，而那个差额在低加速度下肉眼可见。
+            // 少了这一条，"被撞开的第一帧"会比冲量小一个 Δt 的量，而那个差额在低减速度下肉眼可见。
             _justEntered = true;
         }
 
@@ -73,16 +75,30 @@ namespace DeepseaOil.Logic.Player
 
             if (_speed <= 0f) return;
 
-            float acceleration = Config.moveAcceleration;
+            float deceleration = Deceleration();
 
-            _speed = acceleration > 0f
-                ? Mathf.Max(0f, _speed - acceleration * ctx.deltaTime)
+            _speed = deceleration > 0f
+                ? Mathf.Max(0f, _speed - deceleration * ctx.deltaTime)
                 : 0f;
         }
 
         public override bool IsDone(LogicContext ctx)
         {
             return _speed <= 0f;
+        }
+
+        /// <summary>
+        /// 本帧的滑停减速度：<c>hurtDecay</c> 优先，填 0（或非数）时落回 <c>moveAcceleration</c>。
+        /// </summary>
+        /// <remarks>
+        /// <b>非数按"没填"处理</b>：NaN 参与比较恒为 false，直接拿去算会把速度变成非数、
+        /// 角色带着非数坐标消失 —— 而这一条没有任何报错。
+        /// </remarks>
+        private float Deceleration()
+        {
+            float decay = Config.hurtDecay;
+
+            return decay > 0f ? decay : Config.moveAcceleration;
         }
     }
 }

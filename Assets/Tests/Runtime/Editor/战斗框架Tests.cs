@@ -722,7 +722,7 @@ namespace DeepseaOil.Tests
         }
 
         // ================================================================
-        // G10 · 敌人逻辑：受伤禁足与击退（白模 W19 / W20 的回归）
+        // G10 · 敌人骨架：大脑意图 ＋ 受击滑停（白模 W19 / W20 的回归）
         // ================================================================
 
         private static EnemySpec EnemySpecFixture()
@@ -738,55 +738,94 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void G10_禁足帧数必须字面成立()
+        public void G10_大脑没有目标时给出不动意图()
         {
-            var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            var brain = new EnemyBrain(in spec);
 
-            // 不把"12"写死在断言里：秒 → 帧的换算是 CeilToInt，浮点除法在边界上会给出 12 或 13。
-            // 真正要钉住的是**递减的位置**（帧末）—— 曾经在帧首递减，于是实际少禁足一帧，
-            // 冲量在最后那一帧被转向覆盖（实测速度从 5.5 掉到 3.6）。
-            int expected = Mathf.CeilToInt(0.24f / 0.02f);
+            EnemyIntent intent = brain.Decide(EnemyBrain.Context.WithoutTarget(Vector2.zero, 1f));
 
-            Assert.Greater(expected, 1, "前提：这次禁足至少两帧，否则测不出「少一帧」");
-
-            logic.BeginStun(0.24f, 0.02f);
-
-            int observed = 0;
-
-            for (int i = 0; i < expected + 5; i++)
-            {
-                if (logic.IsStunned) observed++;
-
-                logic.Tick(i * 0.02f, 0.02f);
-            }
-
-            Assert.AreEqual(expected, observed,
-                $"禁足必须恰好持续 {expected} 帧（帧首递减会变成 {expected - 1} 帧）");
+            Assert.IsTrue(intent.IsIdle, "没有目标 ⇒ 不动（不该凭记忆朝旧位置走过去）");
         }
 
         [Test]
-        public void G10_禁足期间冲量不得被衰减()
+        public void G10_大脑在停止距离内不给速度但保留方向()
+        {
+            EnemySpec spec = EnemySpecFixture();
+            var brain = new EnemyBrain(in spec);
+
+            var target = new Vector2(spec.StopDistance * 0.5f, 0f);
+
+            EnemyIntent intent = brain.Decide(new EnemyBrain.Context(Vector2.zero, target, true, 1f));
+
+            Assert.AreEqual(0f, intent.Speed, 1e-4f, "进了停止距离就不该再给速度（否则会贴着玩家抖）");
+            Assert.Greater(intent.Direction.sqrMagnitude, 0f, "方向不能丢：将来要「够近了也面向玩家」");
+        }
+
+        [Test]
+        public void G10_敌人骨架追击时朝玩家推进()
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
             EnemyLogic logic = NewEnemyLogic(motor, in spec);
 
-            logic.SetTarget(null);
-            logic.ApplyKnockback(5.5f, Vector2.right);
-            logic.BeginStun(0.24f, 0.02f);
-
+            logic.SetTarget(new Vector2(5f, 0f));
             logic.Tick(0f, 0.02f);
 
-            Assert.AreEqual(5.5f, motor.Velocity.magnitude, 1e-3f,
-                "禁足第一帧必须原样写出冲量（写成纯提前返回会让冲量永远进不了引擎）");
+            Assert.AreEqual(MovementStateTag.Move, logic.CurrentState, "有目标且在追击范围内 ⇒ 移动层进追击态");
+            Assert.Greater(logic.Intent.Speed, 0f, "意图必须真的给出速度");
+            Assert.Greater(logic.Intent.Direction.x, 0f, "意图方向应当指向玩家（＋x）");
+            Assert.Greater(motor.Velocity.x, 0f, "账本必须把意图落到执行器上");
+        }
 
-            // 后续帧：零提交 ⇒ 引擎速度原样保留。
-            for (int i = 1; i < 12; i++) logic.Tick(i * 0.02f, 0.02f);
+        [Test]
+        public void G10_敌人骨架无目标时滑停到零并回到基础态()
+        {
+            var motor = new ProbeMotor();
+            EnemySpec spec = EnemySpecFixture();
+            EnemyLogic logic = NewEnemyLogic(motor, in spec);
 
+            logic.SetTarget(new Vector2(5f, 0f));
+            logic.Tick(0f, 0.02f);
+
+            Assert.Greater(motor.Velocity.magnitude, 0f, "前提：先把速度跑起来");
+
+            logic.SetTarget(null);
+
+            for (int i = 0; i < 200; i++)
+            {
+                logic.Tick(0.02f + i * 0.02f, 0.02f);
+            }
+
+            Assert.AreEqual(0f, motor.Velocity.magnitude, 1e-4f, "没有目标必须滑停到零");
+            Assert.AreEqual(MovementStateTag.Idle, logic.CurrentState, "停住之后应当落在基础态（站立）");
+        }
+
+        [Test]
+        public void G10_受击第一帧原样写出冲量之后按hurtDecay滑停()
+        {
+            var motor = new ProbeMotor();
+            EnemySpec spec = EnemySpecFixture();
+            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+
+            CharacterConfig config = EnemyCharacterFactory.Build(in spec);
+
+            logic.SetTarget(null);
+            logic.ApplyKnockback(5.5f, Vector2.right);
+            logic.Tick(0f, 0.02f);
+
+            Assert.AreEqual(StatusStateTag.Hurt, logic.Status.Current, "击退必须由状态效果层的受击状态承载");
             Assert.AreEqual(5.5f, motor.Velocity.magnitude, 1e-3f,
-                "禁足期间速度必须保持不变（零提交，不是「衰减到 0」）");
+                "受击第一帧必须原样写出冲量（写成纯提前返回会让冲量永远进不了引擎）");
+
+            // 之后按 hurtDecay 衰减：5.5 / 10 ≈ 0.55 秒滑到零。
+            Assert.Greater(config.hurtDecay, 0f, "前提：敌人配置给了受击减速度（否则这条测不出衰减）");
+
+            for (int i = 0; i < 5; i++) logic.Tick(0.02f + i * 0.02f, 0.02f);
+
+            Assert.Less(motor.Velocity.magnitude, 5.5f,
+                "受击期间速度必须按 hurtDecay 衰减（旧口径是「零提交、保持不变」）");
+            Assert.Greater(motor.Velocity.magnitude, 0f, "还没到零：不该一帧就停下");
         }
 
         [Test]
@@ -798,13 +837,12 @@ namespace DeepseaOil.Tests
 
             logic.SetTarget(null);
             logic.ApplyKnockback(5.5f, Vector2.right);
-            logic.BeginStun(0.24f, 0.02f);
 
             float dt = 0.02f;
             float now = 0f;
             Vector2 start = motor.Position;
 
-            // 禁足 12 帧 + 之后 1 秒的滑停。
+            // 滑停大约 0.55 秒（冲量 5.5 ÷ 减速度 10），这里给足 1.24 秒。
             for (int i = 0; i < 12 + 50; i++)
             {
                 logic.Tick(now, dt);
@@ -820,7 +858,7 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void G10_禁足结束后必须还能重新贴上来()
+        public void G10_受击滑停结束后必须还能重新贴上来()
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
@@ -831,7 +869,6 @@ namespace DeepseaOil.Tests
 
             logic.SetTarget(player);
             logic.ApplyKnockback(5.5f, Vector2.right);
-            logic.BeginStun(0.24f, 0.02f);
 
             float dt = 0.02f;
             float now = 0f;

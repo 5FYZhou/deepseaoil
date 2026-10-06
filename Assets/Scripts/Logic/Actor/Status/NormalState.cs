@@ -1,7 +1,7 @@
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Movement;
 
-namespace DeepseaOil.Logic.Player
+namespace DeepseaOil.Logic
 {
     /// <summary>
     /// 平常：没有任何效果在生效，门禁为空，<b>永不结束</b>。

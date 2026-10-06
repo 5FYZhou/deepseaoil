@@ -8,25 +8,26 @@ using UnityEngine;
 namespace DeepseaOil.Presentation.Actor
 {
     /// <summary>
-    /// 敌人调度：按波次生成、逐只驱动、清场。<b>它是敌人的组合根</b>。
+    /// 战斗调度：按波次生成敌人、逐只驱动、清场。<b>它是敌人的组合根（造 ＋ 持 ＋ 驱）</b>。
     /// </summary>
     /// <remarks>
-    /// 白模里"波次计时 + 建物体 + 存活计数 + 逐只驱动"是同一个类；这里把计时与分支交给
+    /// <b>设计原则：世界信息由 <c>CombatRoot</c> 收集并提供，本类只是调度器与执行者</b> ——
+    /// 玩家引用、波次与敌人数值、格子门面、归属表全部经 <see cref="Initialize"/> 注入，
+    /// 本类<b>不自己去找世界</b>（没有 <c>FindObjectOfType</c>、也没有静态入口）。
+    /// <para>白模里"波次计时 ＋ 建物体 ＋ 存活计数 ＋ 逐只驱动"是同一个类；这里把计时与分支交给
     /// <see cref="WaveLogic"/>（纯逻辑、可喂 dt 复现），本类只做三件引擎相关的事：
-    /// 建物体、按固定顺序驱动、数存活数。
+    /// 建物体、按固定顺序驱动、数存活数。它与球那边的 <c>BallDirector</c> 是同级件，都由组合根驱动。</para>
     /// <para><b>不自己挂 <c>FixedUpdate</c></b>：由组合根（<c>CombatRoot</c>）在每个物理帧调
     /// <see cref="FixedTick"/>。框架的硬契约是"每帧只有四个驱动入口"，自驱会让帧内顺序不可预测。</para>
     /// <para><b>它是存活数与波次的唯一权威</b>：HUD 读的 <c>WaveChanged</c> 由这里发布 ——
     /// 只有它同时知道"第几波"（来自 <see cref="WaveLogic"/>）与"还剩几只"（来自敌人列表）。</para>
     /// </remarks>
-    public sealed class WaveDirector : MonoBehaviour
+    public sealed class CombatDirector : MonoBehaviour
     {
-        [Tooltip("敌人的父物体。留空则在场景根下建（只为层级整洁，不影响行为）。")]
-        [SerializeField] private Transform actorRoot = default;
-
         private WaveLogic _logic;
         private EnemySpec _enemySpec;
         private Transform _player;
+        private Transform _actorRoot;
         private GridLogic _grid;
         private EnemyCellRegistry _registry;
 
@@ -59,16 +60,18 @@ namespace DeepseaOil.Presentation.Actor
         /// <param name="enemySpec">敌人种类数值。</param>
         /// <param name="grid">格子门面。</param>
         /// <param name="registry">敌人归属表。</param>
+        /// <param name="actorRoot">敌人的父物体；<c>null</c> 时建在场景根下（只为层级整洁，不影响行为）。</param>
         public void Initialize(
             Transform player,
             in WaveSpec waveSpec,
             in EnemySpec enemySpec,
             GridLogic grid,
-            EnemyCellRegistry registry)
+            EnemyCellRegistry registry,
+            Transform actorRoot)
         {
             if (player == null)
             {
-                Debug.LogError("WaveDirector 没有玩家引用，敌人不会生成，已停用。", this);
+                Debug.LogError("CombatDirector 没有玩家引用，敌人不会生成，已停用。", this);
                 enabled = false;
                 return;
             }
@@ -77,6 +80,7 @@ namespace DeepseaOil.Presentation.Actor
             _enemySpec = enemySpec;
             _grid = grid;
             _registry = registry;
+            _actorRoot = actorRoot;
             _logic = new WaveLogic(in waveSpec);
 
             PublishIfChanged();
@@ -98,7 +102,8 @@ namespace DeepseaOil.Presentation.Actor
 
             _enemies.Clear();
 
-            _logic.Reset();
+            // _logic 可能为 null：player 未接线时 Initialize 会提前返回（那时也不会有敌人）
+            _logic?.Reset();
 
             AliveCount = 0;
             NearestEnemyDistance = -1f;
@@ -149,7 +154,7 @@ namespace DeepseaOil.Presentation.Actor
         {
             var go = new GameObject($"敌人_{request.WaveIndex}_{request.Remaining}");
 
-            if (actorRoot != null) go.transform.SetParent(actorRoot, false);
+            if (_actorRoot != null) go.transform.SetParent(_actorRoot, false);
 
             var actor = go.AddComponent<EnemyActor>();
 
@@ -160,7 +165,7 @@ namespace DeepseaOil.Presentation.Actor
                 PlayerPosition() - request.Position,
                 _grid,
                 _registry,
-                actorRoot);
+                _actorRoot);
 
             _enemies.Add(actor);
         }

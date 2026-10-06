@@ -9,7 +9,8 @@ namespace DeepseaOil.Data
     /// 字段按"谁在用"分三组：
     /// ① 正在被消费：<c>moveSpeed</c> / <c>snapToEightDirections</c> / <c>dashSpeed</c> / <c>dashDuration</c>；
     /// ② 通用控制律：<c>moveAcceleration</c> / <c>turnDecayRate</c> —— 俯视角玩家用不上（零惯性），敌人追击与击退滑行要用，
-    ///    由 <c>ActorLogic.ApproachX</c> 消费；
+    ///    由 <c>ActorLogic.ApproachX</c> 消费；<c>hurtDecay</c> 是受击滑停的减速度（填 0 落回 <c>moveAcceleration</c>），
+    ///    玩家与敌人因此可以各填一份"被撞多远"；
     /// ③ 外力强度缩放：<c>extraForceScale</c> —— 由 <c>ActorLogic.ApplyExtraForce</c> 消费，玩家填 0（不施加外力），
     ///    结冰打滑、水流推挤、被吸附等按需填正数。
     /// 重力与跳跃曲线（<c>jumpSpeed</c> / <c>riseGravity</c> / <c>fallGravity</c> / <c>jumpCutMultiplier</c> /
@@ -34,6 +35,9 @@ namespace DeepseaOil.Data
 
         [Tooltip("反向输入的转向衰减率（1/秒），越大转身越快；供需要惯性的角色使用")]
         public float turnDecayRate = 20f;
+
+        [Tooltip("受击滑停的减速度（单位/秒²）。填 0 = 沿用 moveAcceleration；玩家与敌人的「被撞出去多远」因此可以分开调")]
+        public float hurtDecay = 0f;
 
         [Header("Extra Force")]
         [Tooltip("外力累加强度缩放。俯视角玩家填 0（不施加外力）；需要被击退/被推/被吸附的角色填 1 或更大")]
