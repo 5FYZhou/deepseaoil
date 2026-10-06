@@ -118,6 +118,11 @@ namespace DeepseaOil.Presentation.Actor
             BuildBody();
 
             _motor = gameObject.AddComponent<EnemyMotor>();
+
+            // 建完刚体立刻固化物理参数：否则"造出来到第一次读位置"之间的那个物理步
+            // 会用默认重力跑（偏差极小，但那是隐式答案）
+            _motor.EnsureInitialized();
+
             _logic = new EnemyLogic(_motor, in spec, EnemyCharacterFactory.Build(in spec));
 
             // 朝向先立起来：否则第一个朝向的左/右是"上一个物体留下的"。
@@ -215,18 +220,15 @@ namespace DeepseaOil.Presentation.Actor
         // 组装
         // ─────────────────────────────────────────────
 
+        /// <summary>建物理体：只建"形状"（刚体 ＋ 圆形碰撞体）。</summary>
+        /// <remarks>
+        /// <b>物理参数不在这里</b>：重力缩放 / 冻结旋转 / 连续碰撞检测是"敌人执行器"的事
+        /// （<c>EnemyMotor.ApplyPhysics</c>）。收口前它们写在建物体的地方，
+        /// 于是"敌人的物理长什么样"有两个可能的答案（这里 ＋ 执行器）。
+        /// </remarks>
         private void BuildBody()
         {
-            var body = gameObject.AddComponent<Rigidbody2D>();
-
-            // 俯视角：没有"下落"。不关掉重力角色会一直往下掉。
-            body.gravityScale = 0f;
-
-            // 碰撞后不该被撞得打转（否则会带着旋转去撞墙，看起来像陀螺）。
-            body.freezeRotation = true;
-
-            // 速度都在个位数，连续检测足够，不必开连续碰撞（那是给高速弹丸用的）。
-            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            gameObject.AddComponent<Rigidbody2D>();
 
             var collider = gameObject.AddComponent<CircleCollider2D>();
             collider.radius = _spec.Radius;
