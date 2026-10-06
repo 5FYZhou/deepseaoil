@@ -12,7 +12,7 @@ namespace DeepseaOil.Presentation.Actor
     /// </summary>
     /// <remarks>
     /// 环境事实（刚体、半径、配置、格子归属）只在这里组装一次，逻辑层（<see cref="EnemyLogic"/>）不碰引擎类型。
-    /// <para><b>不自己驱动逻辑</b>：由 <c>WaveDirector</c> 统一逐只 <see cref="FixedTick"/>。
+    /// <para><b>不自己驱动逻辑</b>：由 <c>CombatDirector</c> 统一逐只 <see cref="FixedTick"/>。
     /// "每个实例自己 Tick"会引出执行顺序问题（谁先读位置、谁后写速度），而顺序必须可预测。</para>
     /// <para><b>受伤只有一条路</b>：<see cref="TakeDamage"/>。它实现了 <see cref="IDamageable"/>，
     /// 于是格子系统不需要认识"敌人"这个类型 —— 它只知道"这一格上有个可结算的目标"。</para>
@@ -70,13 +70,18 @@ namespace DeepseaOil.Presentation.Actor
         public bool IsDead => _dead;
 
         /// <inheritdoc />
-        public Vector2 Position => transform.position;
+        /// <remarks>
+        /// <b>取执行器的物理体位置，不取 <c>transform.position</c>：</b>后者会被刚体的位置积分覆盖，
+        /// 而本属性同时喂给"伤害方向从哪算"与"我站在哪一格"两件事 ——
+        /// 留着两个位置真值，它们迟早会在某一帧对不上（而那一帧没有任何报错）。
+        /// </remarks>
+        public Vector2 Position => _motor != null ? _motor.Position : (Vector2)transform.position;
 
         /// <summary>剩余耐久（只读，供调试读数）。</summary>
         public int Hp => _hp;
 
-        /// <summary>当前是否处于受击禁足（禁足期间不转向、不衰减）。</summary>
-        public bool IsStunned => _logic != null && _logic.IsStunned;
+        /// <summary>当前是否处于受击（速度被外力接管的那一段）。</summary>
+        public bool IsHurt => _logic != null && _logic.IsHurt;
 
         /// <summary>引擎当前速度（单位/秒）。<b>只给调试读数用</b>，不参与任何判定。</summary>
         /// <remarks>
@@ -158,11 +163,9 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasKnockback && _logic != null)
             {
+                // 只递交：冲量在下一次逻辑帧由状态效果层变成一次"进入受击"（见 EnemyLogic 的注释）。
+                // "被撞多远 / 滑多久"因此归角色配置（hurtDecay），不归这里。
                 _logic.ApplyKnockback(damage.Impulse, damage.Direction);
-
-                // 禁足时长要带上步长：EnemyLogic 按"整帧"计数（见 IsStunned 的注释），
-                // 而"秒 → 帧"的换算只有驱动方知道步长是多少。
-                _logic.BeginStun(_spec.StunSeconds, Time.fixedDeltaTime);
             }
 
             if (_hp <= 0)
@@ -180,7 +183,7 @@ namespace DeepseaOil.Presentation.Actor
         /// 推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。
         /// </summary>
         /// <remarks>
-        /// 由 <c>WaveDirector</c> 调用，<b>不</b>用 <c>Update</c> ——
+        /// 由 <c>CombatDirector</c> 调用，<b>不</b>用 <c>Update</c> ——
         /// 速度必须在一个物理帧里被提交一次，而不是每个渲染帧提交多次。
         /// <para>视效在物理帧刷而不是渲染帧刷：<b>颜色要跟逻辑层用的是同一份减速系数</b>
         /// （见 <see cref="_slowMultiplier"/> 的注释）。两者用不同频率更新就会出现一帧的不同步，
@@ -337,14 +340,14 @@ namespace DeepseaOil.Presentation.Actor
         /// <remarks>
         /// 闪烁相位用 <c>Time.time</c> 而不是自己累加：累加出来的相位会随帧率漂，
         /// 而"闪了几下"是玩家会数的东西。
-        /// <para>判"该不该闪"用 <c>IsStunned</c>：闪烁与禁足是同一件事的两面
-        /// （禁足结束，闪也结束），另立一个计时器只会让两者悄悄不同步。</para>
+        /// <para>判"该不该闪"用受击状态（<c>IsHurt</c>）：闪烁与"被撞飞的那一段"是同一件事的两面
+        /// （速度滑停到零，闪也结束），另立一个计时器只会让两者悄悄不同步。</para>
         /// </remarks>
         private void UpdateBodyColor()
         {
             if (_body == null) return;
 
-            bool flashOn = _logic != null && _logic.IsStunned && EnemyVisual.IsFlashOn(Time.time, _spec.FlashHz);
+            bool flashOn = IsHurt && EnemyVisual.IsFlashOn(Time.time, _spec.FlashHz);
 
             _body.color = EnemyVisual.BodyColor(_slowMultiplier, flashOn);
         }

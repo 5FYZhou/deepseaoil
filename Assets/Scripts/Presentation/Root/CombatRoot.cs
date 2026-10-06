@@ -67,7 +67,7 @@ namespace DeepseaOil.Presentation
         /// <summary>落地冲量的物理帧执行者。</summary>
         private ImpulseExecutor _impulses;
 
-        private WaveDirector _waves;
+        private CombatDirector _combat;
         private TileHighlightView _highlight;
 
         /// <summary>接触判定复用的格缓冲（每个物理帧都要跑，不能每帧分配）。</summary>
@@ -81,9 +81,6 @@ namespace DeepseaOil.Presentation
 
         /// <summary>格子门面（诊断 / 测试用）。</summary>
         public GridLogic Grid => _grid;
-
-        /// <summary>敌人调度器；未启用时为 <c>null</c>。</summary>
-        public WaveDirector Waves => _waves;
 
         private void Start()
         {
@@ -161,7 +158,7 @@ namespace DeepseaOil.Presentation
             _impulses.FixedTick();
 
             // ② 敌人：先让它们按本帧的位置追一步，再让格子按新位置结算（顺序固定 = 可复现）。
-            if (_waves != null) _waves.FixedTick(now, deltaTime);
+            if (_combat != null) _combat.FixedTick(now, deltaTime);
 
             // ③ 玩家受击：接触检测读的是物理体位置，放在敌人移动之后才是"这一帧的真实站位"。
             UpdatePlayerContact(now);
@@ -237,7 +234,7 @@ namespace DeepseaOil.Presentation
         /// </remarks>
         public void ClearAll()
         {
-            if (_waves != null) _waves.ClearAll();
+            if (_combat != null) _combat.ClearAll();
 
             // 球也要清：不清的话玩家复活后会被自己上一局扔出的球砸出一片泥，
             // 而已经排队的落地冲量会砸到下一局的箱子上。
@@ -337,7 +334,7 @@ namespace DeepseaOil.Presentation
 
             if (enableWaves)
             {
-                _waves = CreateWaveDirector();
+                _combat = CreateCombatDirector();
             }
 
             IsReady = true;
@@ -384,20 +381,21 @@ namespace DeepseaOil.Presentation
             return view;
         }
 
-        private WaveDirector CreateWaveDirector()
+        private CombatDirector CreateCombatDirector()
         {
             var go = new GameObject("敌人调度");
 
             if (actorRoot != null) go.transform.SetParent(actorRoot, true);
 
-            var director = go.AddComponent<WaveDirector>();
+            var director = go.AddComponent<CombatDirector>();
 
             director.Initialize(
                 player.transform,
                 SpecCatalog.Wave(),
                 SpecCatalog.Enemy(),
                 _grid,
-                _registry);
+                _registry,
+                actorRoot);
 
             return director;
         }
@@ -414,7 +412,7 @@ namespace DeepseaOil.Presentation
         private void OnRequestHudRefresh(RequestHudRefresh evt)
         {
             player?.Logic?.Stats.Announce();
-            _waves?.Announce();
+            _combat?.Announce();
         }
     }
 }

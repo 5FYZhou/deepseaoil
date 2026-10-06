@@ -35,6 +35,10 @@ namespace DeepseaOil.Data
             config.snapToEightDirections = false;   // 敌人不吃输入，吸附与否无关；显式关掉避免将来误用
             config.moveAcceleration = spec.Acceleration;
             config.turnDecayRate = spec.KnockbackDecay;
+
+            // 受击滑停用 knockback_decay 而不是 acceleration：这条列的语义正是"被撞之后速度怎么掉"，
+            // 用它才能保住"被撞出去多远"的手感（冲量 5.5 / 10 ⇒ 约 1.5 米，与禁足时代同量级）。
+            config.hurtDecay = spec.KnockbackDecay;
             config.extraForceScale = 0f;            // 敌人不走 ApplyExtraForce（速度由自己的账本写）
             config.dashSpeed = 0f;                  // 敌人没有冲刺
             config.dashDuration = 0f;
