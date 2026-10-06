@@ -66,10 +66,7 @@ namespace DeepseaOil.Presentation
         /// <summary>头顶读数层（耐久数字）。高于频带：数字不该被邻居的身体盖住。</summary>
         public const int ActorOverlay = 560;
 
-        /// <summary>落地瞬闪层。比频带高一层，落地那一下才不会被球本体盖住。</summary>
-        public const int LandingRing = 1100;
-
-        /// <summary>碎片层。比球还高：碎片是"这一帧发生了什么"的最高优先级读数。</summary>
+        /// <summary>碎片层。比频带还高：碎片是"这一帧发生了什么"的最高优先级读数。</summary>
         public const int ShatterPiece = 1200;
 
         /// <summary>视觉件使用的 Unity layer（0 = Default）。</summary>

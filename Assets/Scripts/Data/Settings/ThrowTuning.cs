@@ -71,9 +71,6 @@ namespace DeepseaOil.Data
         [Tooltip("落地冲量查询碰撞体时多查的余量（世界单位）。纯优化余量，不参与判定")]
         public float pushQueryMargin = 2f;
 
-        [Tooltip("落地瞬闪的持续时间（秒）")]
-        public float landingRingDuration = 0.15f;
-
         /// <summary>
         /// 取调参资产；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。
         /// </summary>

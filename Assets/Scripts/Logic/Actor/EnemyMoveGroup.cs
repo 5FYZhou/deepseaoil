@@ -1,3 +1,4 @@
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Movement.States;
 
@@ -17,7 +18,7 @@ namespace DeepseaOil.Logic
     /// <c>IdleState</c>（松手滑停）、<c>MoveGates</c> 门禁落地。门的语义与玩家完全一致：
     /// <b>状态先写速度、门禁最后统一施加</b> —— 否则"挨打了却纹丝不动"会以另一种形式回来。</para>
     /// </remarks>
-    public sealed class EnemyMoveGroup : StateGroup<MovementStateTag>
+    public sealed class EnemyMoveGroup : StateGroup<MovementStateTag, LogicContext>
     {
         private readonly EnemyLogic _logic;
 
@@ -25,8 +26,8 @@ namespace DeepseaOil.Logic
         {
             _logic = logic;
 
-            AddState(new IdleState(logic, logic.Config));
-            AddState(new EnemyChaseState(logic, logic.Config));
+            AddState(new IdleState(logic));
+            AddState(new EnemyChaseState(logic));
         }
 
         protected override MovementStateTag EmptyTag => MovementStateTag.Empty;

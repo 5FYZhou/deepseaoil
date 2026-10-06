@@ -15,7 +15,7 @@ namespace DeepseaOil.Logic
     /// <b>速度真值只有引擎一份</b>：帧首读真值、帧内只累加本帧的提交、帧末一次写出；速度类变量一律不跨帧（见 <c>Docs/框架设计/分层设计/逻辑层.md</c>）。
     /// 提交分两类：瞬变累进 <c>_delta</c>（格/秒），加速度累进 <c>_accel</c>（格/秒²），帧末统一乘一次 Δt。
     /// </remarks>
-    public abstract class ActorLogic : IFixedTickable
+    public abstract class ActorLogic : IFixedTickable, Foundation.IStateHost
     {
         private float _moveLockUntil = float.NegativeInfinity;
         private Vector2 _frameStart;

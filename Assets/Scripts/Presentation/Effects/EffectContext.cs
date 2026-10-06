@@ -63,7 +63,7 @@ namespace DeepseaOil.Presentation.Effects
         /// 都不会把颜色留成透明（透明 = 什么也看不见，且不报错）。
         /// </summary>
         /// <remarks>
-        /// 只有把它当参数的驱动才读它（<c>LandingRing</c> / <c>EnemyShatter</c>）；
+        /// 只有把它当参数的驱动才读它（<c>EnemyShatter</c> / <c>TileHighlight</c>）；
         /// 粒子驱动刻意忽略它 —— 颜色在预制体里，两处都能定色会让人分不清哪一处生效。
         /// </remarks>
         public Color Tint

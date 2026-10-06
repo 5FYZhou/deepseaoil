@@ -1,3 +1,4 @@
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
@@ -14,7 +15,7 @@ namespace DeepseaOil.Logic
     /// <c>Order</c> 固定），所以帧外递交的击退只能"挂起"，由本层在下一帧的开头变成一次状态进入。</para>
     /// <para>本层<b>不写速度</b>：它只回答"这一帧该被外力推成什么样"。</para>
     /// </remarks>
-    public sealed class StatusGroup : StateGroup<StatusStateTag>
+    public sealed class StatusGroup : StateGroup<StatusStateTag, LogicContext>
     {
         private readonly HurtState _hurt;
 
@@ -27,9 +28,9 @@ namespace DeepseaOil.Logic
         /// <param name="logic">宿主角色的账本（玩家与敌人都适用）。</param>
         public StatusGroup(ActorLogic logic)
         {
-            _hurt = new HurtState(logic, logic.Config);
+            _hurt = new HurtState(logic);
 
-            AddState(new NormalState(logic, logic.Config));
+            AddState(new NormalState(logic));
             AddState(_hurt);
         }
 

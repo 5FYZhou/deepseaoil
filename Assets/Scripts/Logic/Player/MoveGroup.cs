@@ -20,7 +20,7 @@ namespace DeepseaOil.Logic.Player
     /// <para>俯视角下抢占链只剩冲刺一条；加新状态时在构造函数里 <c>AddState</c>、
     /// 在 <see cref="TryDecidePreempt"/> 排优先级。</para>
     /// </remarks>
-    public sealed class MoveGroup : StateGroup<MovementStateTag>
+    public sealed class MoveGroup : StateGroup<MovementStateTag, LogicContext>
     {
         private readonly PlayerLogic _logic;
         private readonly DashState _dash;
@@ -32,10 +32,10 @@ namespace DeepseaOil.Logic.Player
         {
             _logic = logic;
 
-            _dash = new DashState(logic, logic.Config);
+            _dash = new DashState(logic);
 
-            AddState(new IdleState(logic, logic.Config));
-            AddState(new MoveState(logic, logic.Config));
+            AddState(new IdleState(logic));
+            AddState(new MoveState(logic));
             AddState(_dash);
 
             StateChanged += OnStateChanged;
