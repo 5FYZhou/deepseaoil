@@ -38,7 +38,7 @@ namespace DeepseaOil.Presentation
         public int Order => -100;
 
         [SerializeField] private PlayerConfig config = default;
-        [SerializeField] private MovementMotor motor = default;
+        [SerializeField] private PlayerMotor motor = default;
         [SerializeField] private InputProvider inputProvider = default;
 
         [Tooltip("瞄准用的相机。留空取 Camera.main（战斗场景里就是主相机，所以通常不用拖）")]

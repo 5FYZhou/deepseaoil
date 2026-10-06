@@ -34,7 +34,7 @@
 //   （把 Unity 内置的 m_Material / m_ProbeAnchor 之类当成"未接线"），而假红会训练人忽略它。
 //   宁可不查，也不要报一堆假红。所以：本文件绿了只代表 Logic 层对，不代表场景接对了。
 //
-// 【与射线检测的关系】MovementMotor 已不含 groundCheck/wallCheck/groundMask：
+// 【与射线检测的关系】PlayerMotor 已不含 groundCheck/wallCheck/groundMask：
 //   俯视角的阻挡由刚体碰撞解算，逻辑层不需要"是否站地/是否贴墙"。
 //   将来若有角色需要地形探测，按那个角色的需求单独实现，不预先把射线塞回移动执行器。
 //
@@ -245,7 +245,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void M5_朝向只翻水平符号()
         {
-            var go = CreateMotorObject("移动测试_朝向", out MovementMotor motor, out _);
+            var go = CreateMotorObject("移动测试_朝向", out PlayerMotor motor, out _);
             try
             {
                 // 「朝左」与「纯竖直」的先后顺序是本用例的重点：先朝左再朝上，
@@ -449,7 +449,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void M12_刚体速度真的被写入()
         {
-            var go = CreateMotorObject("移动测试_速度", out MovementMotor motor, out Rigidbody2D body);
+            var go = CreateMotorObject("移动测试_速度", out PlayerMotor motor, out Rigidbody2D body);
             try
             {
                 // 首次访问触发惰性自取与初始化
@@ -462,7 +462,7 @@ namespace DeepseaOil.Tests
                     "俯视角：Initialize 必须把重力缩放写成 0（创建时故意留成 1，才能区分初始化跑没跑）");
                 Assert.IsTrue(body.freezeRotation,
                     "俯视角：Initialize 必须冻结旋转（创建时故意留成不冻结）");
-                Assert.AreEqual(new Vector2(3f, -4f), body.velocity, "MovementMotor.Move 必须写进 Rigidbody2D.velocity");
+                Assert.AreEqual(new Vector2(3f, -4f), body.velocity, "PlayerMotor.Move 必须写进 Rigidbody2D.velocity");
                 Assert.AreEqual(new Vector2(3f, -4f), motor.Velocity, "Velocity 必须回读同一份真值");
 
                 motor.SetPosition(new Vector2(1.5f, 2.5f));
@@ -472,6 +472,43 @@ namespace DeepseaOil.Tests
                 body.gravityScale = 0.5f;
                 _ = motor.Velocity;
                 Assert.AreEqual(0.5f, body.gravityScale, "重复访问不得再次执行初始化");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        /// <summary>
+        /// 敌人的物理参数归敌人执行器：连续碰撞检测由 <see cref="EnemyMotor"/> 固化，
+        /// 不再写在"造一只敌人"的地方。
+        /// </summary>
+        /// <remarks>
+        /// 与 M12 同一套写法（创建时<b>故意</b>留成非默认值，否则断言恒真 = 假绿）。
+        /// 收口前这三条参数写在 <c>EnemyActor.BuildBody</c> 里，而执行器自己一份都不设 ——
+        /// "敌人的物理长什么样"因此有两个可能的答案。
+        /// </remarks>
+        [Test]
+        public void M22_敌人执行器固化敌人侧的物理参数()
+        {
+            var go = new GameObject("移动测试_敌人执行器");
+
+            try
+            {
+                var body = go.AddComponent<Rigidbody2D>();
+                body.gravityScale = 1f;
+                body.freezeRotation = false;
+                body.collisionDetectionMode = CollisionDetectionMode2D.Discrete;
+
+                var motor = go.AddComponent<EnemyMotor>();
+
+                motor.EnsureInitialized();
+
+                Assert.IsTrue(motor.IsInitialized);
+                Assert.AreEqual(0f, body.gravityScale, "共同的物理参数（重力缩放 0）");
+                Assert.IsTrue(body.freezeRotation, "共同的物理参数（冻结旋转）");
+                Assert.AreEqual(CollisionDetectionMode2D.Continuous, body.collisionDetectionMode,
+                    "敌人侧独有的物理参数必须由敌人的执行器固化");
             }
             finally
             {
@@ -641,19 +678,19 @@ namespace DeepseaOil.Tests
         // ================================================================
 
         /// <summary>
-        /// 建一个 MovementMotor 物体：Rigidbody2D ＋ 组件，接线与场景一致。
+        /// 建一个 PlayerMotor 物体：Rigidbody2D ＋ 组件，接线与场景一致。
         /// </summary>
         /// <remarks>
-        /// 顺序不能反：先加 Rigidbody2D 再加 MovementMotor，不依赖 <c>RequireComponent</c> 的自动补加顺序。
+        /// 顺序不能反：先加 Rigidbody2D 再加 PlayerMotor，不依赖 <c>RequireComponent</c> 的自动补加顺序。
         /// <para><b>物理参数故意留成非默认值</b>（<c>gravityScale = 1</c> / 不冻旋转）：
         /// 只有这样才能区分"<c>Initialize()</c> 真的跑了"与"值恰好就是默认的 0/false"。
         /// 早先这里写的是 <c>body.gravityScale = 0f</c>，于是 M12 的两条断言恒真 —— 假绿。</para>
         /// <para><b>注意 EditMode 下 <c>AddComponent</c> 不会触发 <c>Awake</c></b>，所以本类不能依赖
-        /// <c>Awake</c> 里的自取与自检——<c>MovementMotor</c> 的物理体引用因此做成惰性兜底（见其 <c>Body</c> 属性）。
+        /// <c>Awake</c> 里的自取与自检——<c>PlayerMotor</c> 的物理体引用因此做成惰性兜底（见其 <c>Body</c> 属性）。
         /// 这也意味着 <c>gravityScale = 0</c> / <c>freezeRotation</c> 那两行在 EditMode 测试里
         /// 只有通过"首次访问属性"这条惰性路径才会执行 —— M12 走的正是那条路径。</para>
         /// </remarks>
-        private static GameObject CreateMotorObject(string name, out MovementMotor motor, out Rigidbody2D body)
+        private static GameObject CreateMotorObject(string name, out PlayerMotor motor, out Rigidbody2D body)
         {
             var go = new GameObject(name);
 
@@ -661,7 +698,7 @@ namespace DeepseaOil.Tests
             body.gravityScale = 1f;          // 非默认：断言"被 Initialize 改成 0"才有意义
             body.freezeRotation = false;     // 非默认：同上
 
-            motor = go.AddComponent<MovementMotor>();
+            motor = go.AddComponent<PlayerMotor>();
 
             return go;
         }
