@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -25,15 +25,15 @@ namespace DeepseaOil.Presentation.UI
             switch (btnName)
             {
                 case "StartBtn":
-                    GameManager.Instance.ChangeState(GameState.Running);
+                    GameRoot.Instance.Game.ChangeState(GameState.Running);
                     break;
                 case "ContinueBtn":
                     break;
                 case "SettingBtn":
-                    UIMgr.Instance.ShowPanel<SettingPanel>();
+                    GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
                 case "ExitBtn":
-                    GameManager.Instance.ChangeState(GameState.BeforeExit);
+                    GameRoot.Instance.Game.ChangeState(GameState.BeforeExit);
                     break;
             }
         }

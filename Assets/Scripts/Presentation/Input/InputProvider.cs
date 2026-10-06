@@ -8,15 +8,25 @@ namespace DeepseaOil.Presentation
     /// <summary>
     /// 输入采样器。
     /// 使用 Input System 生成的 InputSys 读取输入，
-    /// 在 Update 中采样，在 FixedUpdate 对应的调用方中消费。
+    /// <b>由 <c>GameRoot</c> 每渲染帧调一次 <see cref="Sample"/></b>，
+    /// 在物理帧侧由消费者调 <see cref="ConsumeSnapshot"/> 取走按下沿。
     /// </summary>
     /// <remarks>
     /// <b>它同时是战斗切片的"指针采样点"</b>（瞄准位置与左右键），见 <see cref="SamplePointer"/>：
     /// 那一组输入暂时直读 <c>Mouse.current</c>，理由与迁移路径写在那个方法的注释里。
+    /// <para><b>收口前它是第二个自驱入口</b>（自己的 <c>Update</c>）：它采样的时刻与
+    /// <c>GameRoot.Update</c> 的先后由 Unity 决定，而"按下沿必须在同一帧被采到"是硬需求 ——
+    /// 所以改成由 <c>GameRoot</c> 在顺序表最前面调 <see cref="Sample"/>，
+    /// 采样点仍然唯一，但顺序第一次成为代码里的事实。</para>
+    /// <para><b>它自己向 <c>GameRoot</c> 报到</b>（<c>Start</c> 注册、<c>OnDestroy</c> 注销），
+    /// 不再需要谁在 Inspector 里拖它。</para>
     /// </remarks>
     public sealed class InputProvider : MonoBehaviour
     {
         private InputSys _input;
+
+        /// <summary>注册时抓住的 GameRoot 引用；销毁期只经它退订（理由见 <see cref="OnDestroy"/>）。</summary>
+        private GameRoot _root;
 
         private Vector2 _move;
 
@@ -44,7 +54,23 @@ namespace DeepseaOil.Presentation
         {
             _input = new InputSys();
         }
-        
+
+        private void Start()
+        {
+            // 场景对象自己报到：装配顺序由 Order 决定，不由"谁先在 Inspector 里被拖上"
+            _root = GameRoot.Instance;
+            _root.RegisterInputProvider(this);
+        }
+
+        private void OnDestroy()
+        {
+            // 用 Start 里抓住的引用，**不能**在这里再写 GameRoot.Instance：
+            // 退出 Play / 切场景时 GameRoot 可能已经先被销毁，那时 Instance 的 getter
+            // 会当场再 new 一个 GameRoot 出来（并在关闭过程中跑一遍装配）——
+            // 这类"销毁期又造对象"的行为表现为一堆收尾日志与泄漏警告。
+            if (_root != null) _root.UnregisterInputProvider(this);
+        }
+
         private void OnEnable()
         {
             _input.Player.Enable();
@@ -55,7 +81,10 @@ namespace DeepseaOil.Presentation
             _input.Player.Disable();
         }
 
-        private void Update()
+        /// <summary>
+        /// 采样一个渲染帧的输入。由 <c>GameRoot.Update</c> 在顺序表最前面调一次。
+        /// </summary>
+        public void Sample()
         {
             // 指针类输入**先采**，且不受 _inputEnabled 影响：
             // 禁用期间必须把上一帧的按下沿清掉，否则恢复的那一帧会把暂停前的按键当成"刚按下"。
@@ -71,7 +100,7 @@ namespace DeepseaOil.Presentation
 
             _grabHeld = _input.Player.Grab.IsPressed();
 
-            // 瞬时输入：累积到被 FixedUpdate 消费
+            // 瞬时输入：累积到物理帧侧被 ConsumeSnapshot 取走
             _jumpPressed |= _input.Player.Jump.WasPressedThisFrame();
             _dashPressed |= _input.Player.Dash.WasPressedThisFrame();
         }

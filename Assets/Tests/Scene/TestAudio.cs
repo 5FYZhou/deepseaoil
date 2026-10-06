@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Data;
+using DeepseaOil.Data;
 using DeepseaOil.Presentation;
 using DeepseaOil.Presentation.UI;
 using System.Collections;
@@ -11,7 +11,7 @@ public class TestAudio : MonoBehaviour
     void Start()
     {
 
-        AudioManager.Instance.PlayBgm(AudioId.Bgm);
+        GameRoot.Instance.Audio.PlayBgm(AudioId.Bgm);
     }
 
     // Update is called once per frame
