@@ -103,11 +103,55 @@ namespace DeepseaOil.Logic
         }
 
         /// <summary>急停：速度当帧归零（朝向不变）；移动锁定期内不响应。</summary>
+        /// <remarks>
+        /// <b>它的语义是"硬停"</b>（重生、禁用、速度被外力完全接管时用）。
+        /// 手感上的"松手滑停"走 <see cref="BrakeTowards"/> —— 两者刻意分开，
+        /// 否则"想立刻停住"的地方会静默变成"滑一段"，而那种偏差只表现为"角色不听话"。
+        /// </remarks>
         public void StopMove()
         {
             if (IsMoveLocked) return;
 
             SnapVelocity(Vector2.zero);
+        }
+
+        /// <summary>
+        /// 移动层的"走"：<b>有惯性按加速度逼近，零惯性当帧直达</b>。
+        /// </summary>
+        /// <param name="direction">目标方向（可未归一化；零向量表示没有期望方向）。</param>
+        /// <param name="speed">该方向上的目标速度。</param>
+        /// <remarks>
+        /// 判据是 <see cref="CharacterConfig.moveAcceleration"/>（<c>&le; 0</c> = 零惯性配置）：
+        /// 于是"要不要惯性"是一个配置问题而不是一次代码改动 —— 俯视角玩家把加速度填 0
+        /// 就退回"当帧到位、松手当帧停"的旧手感。
+        /// <para>加速度与转向衰减都取自角色配置，本方法不引入任何新字段；
+        /// 控制律本身是 <see cref="SteerTowards"/>，与敌人追击共用一份数学。</para>
+        /// </remarks>
+        public void MoveTowards(Vector2 direction, float speed)
+        {
+            if (Config.moveAcceleration <= 0f)
+            {
+                MoveDirection(direction, speed);
+                return;
+            }
+
+            SteerTowards(direction, speed, Config.moveAcceleration, Config.turnDecayRate);
+        }
+
+        /// <summary>
+        /// 移动层的"停"：<b>有惯性滑停，零惯性当帧停</b>。
+        /// </summary>
+        /// <remarks>与 <see cref="MoveTowards"/> 同一套判据。"松手后多久归零"因此等于
+        /// <c>速度 / 加速度</c>，不需要另立一个"停止时长"参数。</remarks>
+        public void BrakeTowards()
+        {
+            if (Config.moveAcceleration <= 0f)
+            {
+                StopMove();
+                return;
+            }
+
+            SteerTowards(Vector2.zero, 0f, Config.moveAcceleration, Config.turnDecayRate);
         }
 
         /// <summary>按输入方向加速到目标速度；移动锁定期内不响应，并按输入方向更新朝向。</summary>

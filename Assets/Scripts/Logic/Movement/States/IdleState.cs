@@ -4,10 +4,12 @@ using DeepseaOil.Logic.Movement;
 namespace DeepseaOil.Logic.Movement.States
 {
     /// <summary>
-    /// 站立：无输入，速度当帧归零。
+    /// 站立：无输入，朝零速度收敛（<b>有没有惯性由角色的加速度配置决定</b>）。
     /// </summary>
     /// <remarks>
-    /// 俯视角零惯性：不存在"减速到 0"的过程，直接停。朝向由 <c>StopMove</c> 保持不变。
+    /// <c>BrakeTowards</c> 是"惯性感知"的入口：加速度填 0 ⇒ 当帧停（俯视角零惯性），
+    /// 填正数 ⇒ 按加速度滑停（用时 = 速度 / 加速度）。
+    /// 朝向由速度接管的那一套保持不变（零方向不翻面）。
     /// </remarks>
     public sealed class IdleState : StateBase<MovementStateTag>
     {
@@ -27,7 +29,7 @@ namespace DeepseaOil.Logic.Movement.States
 
         public override void Tick(LogicContext ctx)
         {
-            Logic.StopMove();
+            Logic.BrakeTowards();
         }
 
         public override bool IsDone(LogicContext ctx)

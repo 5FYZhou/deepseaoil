@@ -20,6 +20,9 @@ namespace DeepseaOil.Presentation.Effects
 
         /// <summary>敌人碎裂：程序生成扇形碎片，不需要资源。</summary>
         EnemyShatter = 2,
+
+        /// <summary>瞄准格高亮：程序生成整格色块，<b>持续型</b>（创建一次、之后只更新），不需要资源。</summary>
+        TileHighlight = 3,
     }
 
     /// <summary>
@@ -107,6 +110,10 @@ namespace DeepseaOil.Presentation.Effects
             // 程序生成的两个（白模迁移）：不需要预制体，池上限按"同屏可能同时存在几个"给。
             new EffectSpec(EffectId.LandingRing,   EffectDriverKind.LandingRing,   maxSize: 16, prewarm: 0),
             new EffectSpec(EffectId.EnemyShatter,  EffectDriverKind.EnemyShatter,  maxSize: 16, prewarm: 0),
+
+            // 瞄准高亮（持续型）：同时只会有一个实例（创建一次、之后走 Update），
+            // 所以池上限 1、不预热 —— 预热一个开局用不到的对象没有收益。
+            new EffectSpec(EffectId.TileHighlight, EffectDriverKind.TileHighlight, isSingleton: true, maxSize: 1, prewarm: 0),
 
             // 待实现驱动的三种（加行即接入，EffectModule 不用改）：
             // new EffectSpec(EffectId.EnemyFlashWhite, maxSize: 16, prewarm: 4),

@@ -50,6 +50,13 @@ namespace DeepseaOil.Presentation
         /// <summary>本渲染帧是否按下副攻击（鼠标右键）。</summary>
         public bool AltAttackPressedThisFrame { get; private set; }
 
+        /// <summary>
+        /// 输入当前是否被允许（暂停 / 菜单时为 <c>false</c>）。
+        /// </summary>
+        /// <remarks>消费者用它回答"这一帧要不要读输入" —— 比各自去订阅暂停事件可靠：
+        /// 暂停事件是一次发布，订阅晚了的组件永远收不到（而组件之间的生命周期顺序 Unity 不保证）。</remarks>
+        public bool IsInputEnabled => _inputEnabled;
+
         private void Awake()
         {
             _input = new InputSys();
@@ -127,7 +134,10 @@ namespace DeepseaOil.Presentation
         {
             Mouse mouse = Mouse.current;
 
-            if (mouse == null)
+            // 输入被禁用时必须把**按下沿**清成 false：指针采样不受动作表开关影响，
+            // 少了这道闸，"暂停时点一下鼠标"会被当成一次真实开火。
+            // 瞄准位置照常更新 —— 它是"当前位置"而不是按下沿，禁用期间留着没有副作用。
+            if (mouse == null || !_inputEnabled)
             {
                 AttackPressedThisFrame = false;
                 AltAttackPressedThisFrame = false;

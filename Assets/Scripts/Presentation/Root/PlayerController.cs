@@ -4,6 +4,7 @@ using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Player;
+using cfg.demo;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation
@@ -26,8 +27,12 @@ namespace DeepseaOil.Presentation
     /// <c>GameRoot.FixedUpdate</c>（战斗切片的物理帧通道）谁先跑由 Unity 决定，
     /// 而战斗切片的接触结算读的是"玩家这一帧提交后的位置"。现在物理帧只有一个发起者
     /// （<c>GameRoot</c>），顺序由 <see cref="Order"/> 明确写死：玩家侧（<c>-100</c>）先于世界侧（<c>0</c>）。</para>
+    /// <para><b>两个帧相位各有一件事</b>：物理帧 = <see cref="FixedTick"/>（输入 → 逻辑 → 提交速度），
+    /// 渲染帧 = <see cref="RenderTick"/>（瞄准 ＋ 开火意图）。瞄准是非物理逻辑，
+    /// 而"屏幕 → 世界"这一步只有表现层做得了（只有它认识相机）—— 所以换算在这里，
+    /// 吸附到哪一格由逻辑层算（<c>PlayerLogic.UpdateAim</c>）。</para>
     /// </remarks>
-    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked
+    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked
     {
         /// <summary>驱动顺序：玩家侧必须早于世界侧（先提交速度、先读输入）。</summary>
         public int Order => -100;
@@ -35,6 +40,9 @@ namespace DeepseaOil.Presentation
         [SerializeField] private PlayerConfig config = default;
         [SerializeField] private MovementMotor motor = default;
         [SerializeField] private InputProvider inputProvider = default;
+
+        [Tooltip("瞄准用的相机。留空取 Camera.main（战斗场景里就是主相机，所以通常不用拖）")]
+        [SerializeField] private Camera aimCamera = default;
 
         [Tooltip("地图活动区域：拖入覆盖可行走区域的 BoxCollider2D。不接则不钳位（不报错，调试面板会显示未接线）")]
         [SerializeField] private BoxCollider2D boundsArea = default;
@@ -51,6 +59,12 @@ namespace DeepseaOil.Presentation
         private InputBuffer _buffer;
         private WorldInfo _world;
         private BoundsArea _bounds;
+
+        /// <summary>观感调参（瞄准平面深度）。<c>Start</c> 里读一次；缺失时用代码默认值。</summary>
+        private ThrowTuning _tuning;
+
+        /// <summary>是否已暂停（暂停时不瞄准、不开火 —— 输入被关掉，但指针采样并没有）。</summary>
+        private bool _paused;
 
         /// <summary>出生点（<c>Awake</c> 时记一次）；打空重来时回到这里。</summary>
         private Vector2 _spawnPoint;
@@ -125,12 +139,16 @@ namespace DeepseaOil.Presentation
 
         private void OnGamePaused(GamePaused evt)
         {
+            _paused = true;
+
             inputProvider.SetInputEnabled(false); // 内部已 Clear，无需再调一次
             _buffer.Clear();
         }
 
         private void OnGameResumed(GameResumed evt)
         {
+            _paused = false;
+
             inputProvider.SetInputEnabled(true);
         }
 
@@ -216,6 +234,9 @@ namespace DeepseaOil.Presentation
             PlayerSpec spec = SpecCatalog.Player();
 
             Logic = new PlayerLogic(motor, config, _buffer, in spec);
+
+            // 观感调参（瞄准平面深度）：配置缺失时 LoadOrDefault 会给一份默认值 ＋ 一条 Warning
+            _tuning = ThrowTuning.LoadOrDefault();
         }
 
         /// <summary>
@@ -256,6 +277,63 @@ namespace DeepseaOil.Presentation
             {
                 motor.SetPosition(clamped);
             }
+        }
+
+        /// <summary>
+        /// 渲染帧：瞄准 ＋ 开火意图（由 <c>GameRoot.Update</c> 按 <see cref="Order"/> 驱动）。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么瞄准在这里而不在物理帧：</b>帧相位口径是"物理帧只放角色移动与参与物理的逻辑"，
+        /// 而瞄准既不吃物理也不产出物理量。
+        /// <para><b>"屏幕 → 世界"这一步只有本类做得了</b>（只有表现层认识相机）：
+        /// 换算完把<b>世界点</b>交给逻辑层，吸附到哪一格由 <c>TileAim</c> 算 ——
+        /// 于是"看着能扔到、其实扔不到"这条缺陷的根源（两处各算一次）从结构上消失。</para>
+        /// <para><b>暂停 / 菜单下不瞄准也不开火</b>：判据取"输入开关"（<c>InputProvider.IsInputEnabled</c>）
+        /// 而不是自己记一个暂停标志 —— 暂停事件是一次发布，订阅晚了的组件永远收不到，
+        /// 而"这一帧能不能读输入"必须每帧都答得对。</para>
+        /// </remarks>
+        public void RenderTick(float deltaTime)
+        {
+            if (Logic == null) return;
+
+            if (_paused || (inputProvider != null && !inputProvider.IsInputEnabled))
+            {
+                // 收起高亮（发布一条"没有瞄准"的事实，去重后最多发一次）
+                Logic.ClearAim();
+                return;
+            }
+
+            Camera camera = aimCamera != null ? aimCamera : Camera.main;
+
+            if (camera == null || inputProvider == null) return;
+
+            float now = Time.time;
+
+            Logic.UpdateAim(AimWorldPoint(camera), now);
+
+            // 攻击输入：动作表里没有攻击动作，它由 InputProvider 直读指针产出（渲染帧语义）。
+            // 主攻击 = 水球（吃弹药），副攻击 = 土球（不吃）。
+            if (inputProvider.AttackPressedThisFrame) Logic.RequestThrow(BallType.Water, now);
+            if (inputProvider.AltAttackPressedThisFrame) Logic.RequestThrow(BallType.Earth, now);
+        }
+
+        /// <summary>
+        /// 屏幕点 → 世界点。
+        /// </summary>
+        /// <remarks>
+        /// <b>不读相机的 z：</b><c>Camera.main.transform.position.z</c> 被 Cinemachine 每帧驱动，
+        /// 依赖它等于让落点跟着相机插件走。正交相机下给一个足够大的常量深度即可
+        /// （见 <c>ThrowTuning.cameraPlaneDepth</c>）。
+        /// </remarks>
+        private Vector2 AimWorldPoint(Camera camera)
+        {
+            Vector2 screen = inputProvider.AimScreen;
+
+            float depth = _tuning != null ? _tuning.cameraPlaneDepth : 100f;
+
+            Vector3 world = camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, depth));
+
+            return new Vector2(world.x, world.y);
         }
 
         /// <summary>

@@ -55,6 +55,21 @@ namespace DeepseaOil.Presentation.Effects
         /// <summary>播放一次。失败返回 <see cref="EffectHandle.None"/>。</summary>
         EffectHandle Play(EffectId id, in EffectContext ctx);
 
+        /// <summary>
+        /// 更新一次<b>已经在播</b>的实例（位置 / 颜色 / 半径）。
+        /// </summary>
+        /// <param name="handle">该次播放的句柄。</param>
+        /// <param name="ctx">新的上下文（语义与 <see cref="Play"/> 一致）。</param>
+        /// <remarks>
+        /// <b>持续型特效的入口</b>（瞄准高亮、将来的引导线与范围指示）：创建一次、
+        /// 之后每帧只更新 —— 每帧 <c>Play</c> 一次会每帧新建一个实例。
+        /// <para><b>默认实现是空的</b>：多数特效"播一次就不管"，让它们各写一个空方法只是样板；
+        /// 需要持续更新的驱动覆写它。句柄无效 / 不属于本驱动时必须是 no-op（与 <see cref="Stop"/> 同一条纪律）。</para>
+        /// </remarks>
+        void UpdateInstance(EffectHandle handle, in EffectContext ctx)
+        {
+        }
+
         /// <summary>提前停掉一次播放。句柄过期 / 不属于本驱动时必须是 no-op。</summary>
         void Stop(EffectHandle handle);
 

@@ -97,6 +97,12 @@ namespace DeepseaOil.Tests
             _config.snapToEightDirections = true;
             _config.extraForceScale = 0f;
 
+            // 零惯性基准：本文件里绝大多数用例钉的是"当帧到位 / 松手当帧停"那套语义，
+            // 而加速度现在是配置项（玩家资产填 60 = 有惯性）。
+            // 要测惯性本身请在自己的用例里显式改这两个值。
+            _config.moveAcceleration = 0f;
+            _config.turnDecayRate = 0f;
+
             // 玩家表值：血量 / 无敌帧 / 接触伤害 / 击退。移动测试用不到它们，
             // 但 PlayerLogic 的构造要吃它（账本 PlayerStats 由它初始化）
             _spec = new PlayerSpec(1, "玩家", 100f, 10f, 0.8f, 1.2f, 0.5f, 12f, 12f, 1f);
@@ -293,21 +299,21 @@ namespace DeepseaOil.Tests
             // 窗口内：可消费
             _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 0f);
 
-            Assert.IsTrue(_logic.CanDash(0.01f), "窗口内的冲刺按下应判定为可冲刺");
-            Assert.IsTrue(_logic.TryConsumeDash(0.01f), "首次消费应成功");
-            Assert.IsFalse(_logic.TryConsumeDash(0.01f), "同一次按下只能消费一次");
+            Assert.IsTrue(_logic.MoveGroup.CanDash(0.01f), "窗口内的冲刺按下应判定为可冲刺");
+            Assert.IsTrue(_logic.MoveGroup.TryConsumeDash(0.01f), "首次消费应成功");
+            Assert.IsFalse(_logic.MoveGroup.TryConsumeDash(0.01f), "同一次按下只能消费一次");
 
             // 窗口外：不可消费
             _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 10f);
 
-            Assert.IsFalse(_logic.CanDash(10f + _config.dashBufferTime + 0.5f), "超出缓冲窗口的按下必须失效");
+            Assert.IsFalse(_logic.MoveGroup.CanDash(10f + _config.dashBufferTime + 0.5f), "超出缓冲窗口的按下必须失效");
 
             // 冷却内：即使缓冲有按下也不可冲
             _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 20f);
-            Assert.IsTrue(_logic.TryConsumeDash(20f), "冷却已过应能消费");
+            Assert.IsTrue(_logic.MoveGroup.TryConsumeDash(20f), "冷却已过应能消费");
 
             _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 20.1f);
-            Assert.IsFalse(_logic.CanDash(20.1f), "冷却未过时不得再冲");
+            Assert.IsFalse(_logic.MoveGroup.CanDash(20.1f), "冷却未过时不得再冲");
         }
 
         /// <summary>
@@ -324,7 +330,7 @@ namespace DeepseaOil.Tests
             var snap = new InputSnapshot(Vector2.right, false, true, false);
             _buffer.Push(in snap, 0f);
 
-            Assert.IsTrue(_logic.CanDash(0f), "前置条件：首帧冷却与缓冲都成立");
+            Assert.IsTrue(_logic.MoveGroup.CanDash(0f), "前置条件：首帧冷却与缓冲都成立");
 
             Tick(Vector2.right, 0f, dashPressed: true);
 
@@ -658,6 +664,95 @@ namespace DeepseaOil.Tests
             motor = go.AddComponent<MovementMotor>();
 
             return go;
+        }
+
+        // ================================================================
+        // M19~M21 · 惯性（配置驱动）与门禁
+        // ================================================================
+
+        /// <summary>
+        /// 有惯性时：加速受 <c>moveAcceleration</c> 限制，松手按同一个加速度滑停。
+        /// </summary>
+        /// <remarks>
+        /// 这两条合起来才是"惯性"的完整定义 —— 只测加速会让"松手当帧停"这种半吊子实现蒙混过关。
+        /// 数值取 1 帧（0.02s）× 加速度，所以断言是解析解而不是"看起来变了"。
+        /// </remarks>
+        [Test]
+        public void M19_有惯性时加速与滑停都受加速度限制()
+        {
+            _config.moveAcceleration = 20f;   // 20 单位/秒² × 0.02s = 每帧 0.4
+            _config.turnDecayRate = 0f;
+
+            // 有惯性时"帧首速度"就是积分状态，所以这里**不能**每帧把执行器速度清零
+            // （清零等于每帧都从零开始，永远加不上去）
+            Tick(Vector2.right, 0f, resetVelocity: false);
+
+            Assert.AreEqual(0.4f, _motor.Velocity.x, 1e-3f,
+                "第一帧只能加到 加速度 × Δt；直接等于 moveSpeed 说明状态还在当帧接管速度");
+
+            // 再跑 19 帧：0.4 × 20 = 8 = moveSpeed，之后不再涨
+            for (int i = 1; i <= 19; i++) Tick(Vector2.right, i * 0.02f, resetVelocity: false);
+
+            Assert.AreEqual(_config.moveSpeed, _motor.Velocity.x, 1e-3f, "持续按住应收敛到 moveSpeed");
+
+            // 松手：按同一个加速度滑停（8 / 20 = 0.4 秒 = 20 帧），不是当帧归零
+            Tick(Vector2.zero, 0.4f, resetVelocity: false);
+
+            Assert.AreEqual(_config.moveSpeed - 0.4f, _motor.Velocity.x, 1e-3f,
+                "松手第一帧应当只掉 加速度 × Δt；直接归零说明走的是当帧急停");
+
+            for (int i = 1; i <= 25; i++) Tick(Vector2.zero, 0.4f + i * 0.02f, resetVelocity: false);
+
+            Assert.AreEqual(0f, _motor.Velocity.x, 1e-3f, "滑够时间必须真的停下");
+        }
+
+        /// <summary>
+        /// 惯性不改变冲刺的语义：冲刺进入时仍然当帧接管速度。
+        /// </summary>
+        /// <remarks>冲刺是"定时恒速"，与走路的加减速是两套语义；有惯性时它不该被"先加速再到达"。
+        /// 这条是给"把 <c>SnapVelocity</c> 也改成渐进逼近"这种改法准备的钉子。</remarks>
+        [Test]
+        public void M20_惯性不改变冲刺的当帧接管()
+        {
+            _config.moveAcceleration = 20f;
+            _config.turnDecayRate = 0f;
+
+            var snap = new InputSnapshot(Vector2.right, false, true, false);
+            _buffer.Push(in snap, 0f);
+
+            Tick(Vector2.right, 0f, dashPressed: true);
+
+            Assert.AreEqual(MovementStateTag.Dash, _logic.CurrentState);
+            Assert.AreEqual(_config.dashSpeed, _motor.Velocity.magnitude, 1e-3f,
+                "冲刺必须当帧到达 dashSpeed，而不是按走路加速度爬上去");
+        }
+
+        /// <summary>
+        /// 受击期间：门禁接管速度，输入完全不生效。
+        /// </summary>
+        /// <remarks>
+        /// 门禁由状态效果层产出（受击状态），在移动层的状态跑完之后统一施加 ——
+        /// 写在状态之前会被 <c>SnapVelocity</c> 覆盖掉，而那正是旧实现"挨打了却纹丝不动"的成因之一。
+        /// </remarks>
+        [Test]
+        public void M21_受击期间输入不接管速度()
+        {
+            _config.moveAcceleration = 0f;    // 让击退一帧到位、便于断言
+
+            var damage = new DeepseaOil.Logic.Combat.Damage(
+                Vector2.zero,
+                0f,                                             // 只推不扣血
+                DeepseaOil.Logic.Combat.DamageSource.Contact,
+                Vector2.right,
+                12f);
+
+            Assert.IsTrue(_logic.TakeDamage(in damage, 0f), "纯击退也该生效");
+
+            // 这一帧玩家正按着"上"
+            Tick(Vector2.up, 0.02f);
+
+            Assert.AreEqual(12f, _motor.Velocity.x, 1e-3f, "受击帧的速度由门禁决定");
+            Assert.AreEqual(0f, _motor.Velocity.y, 1e-3f, "输入不该在受击帧生效");
         }
     }
 }

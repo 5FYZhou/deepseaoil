@@ -51,5 +51,17 @@ namespace DeepseaOil.Presentation.Effects
 
         /// <summary>敌人碎裂：耐久归零时飞出的几块碎片，沿 <c>ctx.Direction</c> 扇形散开。</summary>
         EnemyShatter,
+
+        /// <summary>
+        /// 瞄准格高亮：<b>持续型</b>特效，跟着"逻辑层发布的瞄准格"走，可更新、可停止。
+        /// </summary>
+        /// <remarks>
+        /// <b>它是持续效果口的第一个消费者</b>（<c>EffectModule.Update</c>）：创建一次，
+        /// 之后每帧只更新位置与颜色 —— 每帧 <c>Play</c> 一次等于每帧新建一个实例，
+        /// 而"每帧新建"正是这个能力被加进来的原因。
+        /// <para>高亮的资产（描边图 / 材质）在正式美术阶段由这个驱动自持，现在用运行期图元顶替
+        /// （见 <c>TileHighlightDriver</c> 的说明）。</para>
+        /// </remarks>
+        TileHighlight,
     }
 }

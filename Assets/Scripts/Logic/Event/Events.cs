@@ -54,6 +54,36 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
+    /// <summary>
+    /// 瞄准变了（<b>事实</b>；发布方去重，只在真的变了时发）。
+    /// </summary>
+    /// <remarks>
+    /// <b>为什么走事实事件而不是端口：</b>瞄准结果本身就是逻辑层的产出（"我现在瞄着哪一格、这格可不可投"），
+    /// 它不属于"请求某项能力"，因此不该用端口或全局静态入口；而它又需要每帧可见 ——
+    /// 去重发布正好满足两边（不产生每帧垃圾，也不新增机制，与 <c>TileStateChanged</c> 完全同路）。
+    /// <para><b><see cref="Available"/> 是玩家侧口径</b>：射程内 ＋ 冷却就绪 ＋ 有水球
+    /// （土球是副攻击、不吃弹药）。世界侧"接不接受"由裁决回执决定，不进本事件 ——
+    /// 否则高亮会提前替世界侧回答一个它还没回答的问题。</para>
+    /// </remarks>
+    public readonly struct AimChanged
+    {
+        /// <summary>是否有瞄准（无鼠标 / 瞄不到格 / 暂停时为 <c>false</c>）。</summary>
+        public readonly bool HasAim;
+
+        /// <summary>瞄到的格；<see cref="HasAim"/> 为 <c>false</c> 时无意义。</summary>
+        public readonly Vector3Int Cell;
+
+        /// <summary>玩家侧是否可投（射程内 ＋ 冷却就绪 ＋ 有水球）。</summary>
+        public readonly bool Available;
+
+        public AimChanged(bool hasAim, Vector3Int cell, bool available)
+        {
+            HasAim = hasAim;
+            Cell = cell;
+            Available = available;
+        }
+    }
+
     /// <summary>水球飞到玩家身上了。领取方（组合根）据此给资源 +1。</summary>
     public readonly struct WaterBallCollected { }
 
