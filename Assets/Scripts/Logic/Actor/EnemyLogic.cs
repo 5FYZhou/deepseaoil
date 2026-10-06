@@ -21,8 +21,9 @@ namespace DeepseaOil.Logic
     /// </code>
     /// <b>决策放在 <c>Tick</c> 而不是 <c>OnTick</c> 里做</b>：意图必须先进入上下文
     /// （移动层的基础态判据就是它），而上下文在驱动之前组装一次。</para>
-    /// <para><b>它不查世界</b>：目标位置与减速系数由表现层的组合根每帧喂入
-    /// （<see cref="SetTarget"/> / <see cref="SetSlowMultiplier"/>）。</para>
+    /// <para><b>它不查世界</b>：目标位置由表现层的组合根每帧喂入（<see cref="SetTarget"/>）；
+    /// 减速不再由组合根喂系数 —— 它由格状态提交、由状态效果层持有（见 <c>StatusGroup.ApplySlow</c>），
+    /// 本类完全不需要知道"脚下是不是泥浆"。</para>
     /// </remarks>
     public sealed class EnemyLogic : ActorLogic
     {
@@ -33,9 +34,6 @@ namespace DeepseaOil.Logic
 
         /// <summary>追击目标（玩家位置）。没有目标时不提交任何移动。</summary>
         private Vector2? _target;
-
-        /// <summary>本帧的减速系数（由组合根每帧喂入）。</summary>
-        private float _slowMultiplier = 1f;
 
         /// <summary>
         /// 已递交、但还没被状态效果层消费的击退冲量。
@@ -91,18 +89,6 @@ namespace DeepseaOil.Logic
         }
 
         /// <summary>
-        /// 设置本帧的减速系数（每帧都要喂；判断该喂多少是组合根的事）。
-        /// </summary>
-        /// <remarks>
-        /// 入口处做一次净化：<c>NaN</c> 参与比较恒为 <c>false</c>，<c>Mathf.Clamp</c> 遇到它会原样返回，
-        /// 于是非数会一路传染进速度、角色带着非数坐标消失。非数按"不起作用"（1）处理。
-        /// </remarks>
-        public void SetSlowMultiplier(float multiplier)
-        {
-            _slowMultiplier = float.IsNaN(multiplier) ? 1f : Mathf.Clamp01(multiplier);
-        }
-
-        /// <summary>
         /// 施加一次击退冲量（速度的瞬时变化）。<b>可以调用在帧外</b> —— 它只挂起，不动账本。
         /// </summary>
         /// <remarks>同一帧内多次调用会累加（被两处同时结算就是两股冲量）。</remarks>
@@ -127,8 +113,8 @@ namespace DeepseaOil.Logic
             //    方向直接进 inputSnapshot.Move —— 它是"本帧的移动指令"，量纲不影响消费者
             //    （MoveTowards 内部归一化）。
             var brainContext = _target.HasValue
-                ? new EnemyBrain.Context(Motor.Position, _target.Value, true, _slowMultiplier)
-                : EnemyBrain.Context.WithoutTarget(Motor.Position, _slowMultiplier);
+                ? new EnemyBrain.Context(Motor.Position, _target.Value, true)
+                : EnemyBrain.Context.WithoutTarget(Motor.Position);
 
             _intent = _brain.Decide(in brainContext);
 

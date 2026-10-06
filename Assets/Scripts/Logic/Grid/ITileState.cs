@@ -11,8 +11,12 @@ namespace DeepseaOil.Logic.Grid
     /// <list type="bullet">
     /// <item>只结算一次 → 在 <see cref="OnEnter"/> 里提交一次即可；</item>
     /// <item>周期结算 → 在 <see cref="OnTick"/> 末尾再提交一次；</item>
-    /// <item>不需要 Tick → 都不提交（减速这类"被查询的修正值"属于这一档）。</item>
+    /// <item>不需要 Tick → 都不提交（纯装饰、或只在进入那一刻起一次作用的状态属于这一档）。</item>
     /// </list>
+    /// <para><b>效果是"推"而不是"被查询"：</b>接口上只有三个钩子，没有"踩在本格上的速度系数"
+    /// 这类查询字段。状态要起作用就在钩子里<b>提交</b>（伤害、Tick、速度修正、将来的占位物），
+    /// 找人与施加由执行者完成 —— 于是新增一种效果不需要给接口加字段，
+    /// 也不需要每个状态为它写一遍空实现（审查的口径：通用字段会让接口为每一种效果膨胀）。</para>
     /// <para><b>实现类必须无参可测：</b>状态是纯 C#，不许碰 <c>MonoBehaviour</c> / <c>Time</c> / <c>Physics2D</c>；
     /// 时间与提交口都在 <see cref="TileContext"/> 里。</para>
     /// <para><b>实现类的实例是"每格一份"</b>：<see cref="TileStateMachine"/> 每次进入状态都调工厂造一个新的，
@@ -23,9 +27,6 @@ namespace DeepseaOil.Logic.Grid
     {
         /// <summary>本状态对应的配置 ID。</summary>
         TileStateType Id { get; }
-
-        /// <summary>踩在本格上的速度系数（<c>1</c> = 不减速）。被查询，不是被推送。</summary>
-        float SlowMultiplier { get; }
 
         /// <summary>进入本格状态时调用一次。初次转换与"从别的状态切过来"走同一条路。</summary>
         void OnEnter(in TileContext ctx);

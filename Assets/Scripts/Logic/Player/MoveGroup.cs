@@ -73,11 +73,14 @@ namespace DeepseaOil.Logic.Player
         }
 
         /// <summary>
-        /// 推进一个物理帧：<b>状态先按输入写速度，门禁最后统一施加</b>。
+        /// 推进一个物理帧：<b>速度乘数先交给账本、状态再按输入写速度、强制速度最后整条接管</b>。
         /// </summary>
         /// <param name="gates">上层（状态效果 / 战斗）提交的门禁；空门禁时本层完全按自己的状态走。</param>
         public void Tick(in LogicContext ctx, in MoveGates gates)
         {
+            // 乘数落在"目标速度"上，所以必须赶在状态算速度之前交给账本（见 ActorLogic.SetSpeedScale）。
+            _logic.SetSpeedScale(gates.SpeedScale);
+
             TickStates(in ctx);
 
             ApplyGates(in gates);
@@ -120,6 +123,8 @@ namespace DeepseaOil.Logic.Player
         /// <remarks>
         /// 放在状态跑完之后：状态（<c>MoveState</c> / <c>IdleState</c>）会整体接管速度，
         /// 门禁写在它们前面等于没写 —— 这也是旧实现"挨打了却纹丝不动"的成因之一。
+        /// <para><b>强制速度不叠加速度乘数</b>：受击滑停是外力，叠上地面减速会把它拖短，
+        /// 而"被撞飞多远"应当只由冲量与受击减速度决定。</para>
         /// </remarks>
         private void ApplyGates(in MoveGates gates)
         {

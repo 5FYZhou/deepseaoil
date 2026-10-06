@@ -24,6 +24,9 @@ namespace DeepseaOil.Logic
         private float _extraForceScale = 1f;
         private float _speedLimit = float.PositiveInfinity;
 
+        /// <summary>本帧的速度乘数（门禁提交；1 = 不缩放）。<b>帧首复位</b>。</summary>
+        private float _speedScale = 1f;
+
         /// <summary>移动执行器。</summary>
         protected IMovementMotor Motor { get; }
 
@@ -65,6 +68,10 @@ namespace DeepseaOil.Logic
             // 上限是**一次性**的：上一帧声明的到这一帧开头就失效。不这样做的话"这一帧被推了一下"
             // 会变成"从此一直被限速"——玩家永久失去一部分速度，而没有任何东西会报错。
             _speedLimit = float.PositiveInfinity;
+
+            // 速度乘数同样是**一次性**的：门禁必须每帧重新提交。忘了提交等于"这一帧没减速"，
+            // 而不是"从此一直慢"——后者会在泥浆消失后表现为"角色怎么突然不听话了"。
+            _speedScale = 1f;
 
             OnTick(in ctx);
 
@@ -116,26 +123,57 @@ namespace DeepseaOil.Logic
         }
 
         /// <summary>
+        /// 本帧的速度乘数（<c>1</c> = 不缩放）；由移动层的门禁每帧提交。
+        /// </summary>
+        /// <remarks>
+        /// <b>它落在"目标速度"上而不是乘在已提交的速度上</b>（见 <see cref="MoveTowards"/>）：
+        /// 每帧把整体速度乘一次会与加速度互相拉锯 —— 稳态速度远低于"配置速度 × 乘数"。
+        /// <para>帧首复位为 <c>1</c>（与速度上限同一条纪律）：门禁必须每帧重新提交。</para>
+        /// </remarks>
+        public float SpeedScale => _speedScale;
+
+        /// <summary>
+        /// 设置本帧的速度乘数。
+        /// </summary>
+        /// <param name="speedScale">乘数；<c>&gt; 1</c> 夹到 1（加速是另一件事），负数夹到 0（定住而不是反向推）。</param>
+        /// <remarks>非数按 <c>1</c>（不起作用）处理：非数一旦进入速度就会让角色带着非数坐标消失，且不报错。</remarks>
+        public void SetSpeedScale(float speedScale)
+        {
+            if (float.IsNaN(speedScale))
+            {
+                _speedScale = 1f;
+                return;
+            }
+
+            _speedScale = speedScale < 0f ? 0f : (speedScale > 1f ? 1f : speedScale);
+        }
+
+        /// <summary>
         /// 移动层的"走"：<b>有惯性按加速度逼近，零惯性当帧直达</b>。
         /// </summary>
         /// <param name="direction">目标方向（可未归一化；零向量表示没有期望方向）。</param>
-        /// <param name="speed">该方向上的目标速度。</param>
+        /// <param name="speed">该方向上的目标速度（<b>会乘上本帧的速度乘数</b>）。</param>
         /// <remarks>
         /// 判据是 <see cref="CharacterConfig.moveAcceleration"/>（<c>&le; 0</c> = 零惯性配置）：
         /// 于是"要不要惯性"是一个配置问题而不是一次代码改动 —— 俯视角玩家把加速度填 0
         /// 就退回"当帧到位、松手当帧停"的旧手感。
         /// <para>加速度与转向衰减都取自角色配置，本方法不引入任何新字段；
         /// 控制律本身是 <see cref="SteerTowards"/>，与敌人追击共用一份数学。</para>
+        /// <para><b>速度乘数在这里落地</b>（<see cref="SetSpeedScale"/>）：乘的是目标速度，
+        /// 于是"泥浆里走得慢"对零惯性角色当帧生效，对有惯性角色的<b>稳态</b>也精确等于
+        /// <c>配置速度 × 乘数</c>。</para>
         /// </remarks>
         public void MoveTowards(Vector2 direction, float speed)
         {
+            float scaled = speed * _speedScale;
+
             if (Config.moveAcceleration <= 0f)
             {
-                MoveDirection(direction, speed);
+                MoveDirection(direction, scaled);
                 return;
             }
 
-            SteerTowards(direction, speed, Config.moveAcceleration, Config.turnDecayRate);
+            SteerTowards(direction, scaled, Config.moveAcceleration, Config.turnDecayRate);
         }
 
         /// <summary>

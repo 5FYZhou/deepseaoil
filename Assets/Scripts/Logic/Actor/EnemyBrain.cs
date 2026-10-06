@@ -31,21 +31,17 @@ namespace DeepseaOil.Logic
             /// <summary>这一帧有没有目标。</summary>
             public readonly bool HasTarget;
 
-            /// <summary>本帧的减速系数（1 = 不减速）。</summary>
-            public readonly float SlowMultiplier;
-
-            public Context(Vector2 self, Vector2 target, bool hasTarget, float slowMultiplier)
+            public Context(Vector2 self, Vector2 target, bool hasTarget)
             {
                 Self = self;
                 Target = target;
                 HasTarget = hasTarget;
-                SlowMultiplier = slowMultiplier;
             }
 
             /// <summary>没有目标（玩家不见了 / 已死 / 场景里没有玩家）。</summary>
-            public static Context WithoutTarget(Vector2 self, float slowMultiplier)
+            public static Context WithoutTarget(Vector2 self)
             {
-                return new Context(self, default, false, slowMultiplier);
+                return new Context(self, default, false);
             }
         }
 
@@ -77,8 +73,7 @@ namespace DeepseaOil.Logic
                 ctx.Target,
                 _enemy.StopDistance,
                 _enemy.ChaseRange,
-                _enemy.MaxSpeed,
-                ctx.SlowMultiplier);
+                _enemy.MaxSpeed);
 
             return new EnemyIntent(steering.Direction, steering.Speed);
         }

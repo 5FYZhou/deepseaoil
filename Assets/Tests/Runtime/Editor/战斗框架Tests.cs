@@ -81,7 +81,7 @@ namespace DeepseaOil.Tests
             return new TileStateSpec(TileStateType.Normal, "常规", 1f, 0f, 0f, 0f);
         }
 
-        private static GridLogic NewGrid(EnemyCellRegistry registry = null)
+        private static GridLogic NewGrid(EnemyCellRegistry registry = null, ITileSlowApplier slow = null)
         {
             var list = new List<TileStateSpec> { NormalSpec(), MudSpec() };
 
@@ -89,7 +89,29 @@ namespace DeepseaOil.Tests
                 Geometry(),
                 list,
                 id => id == TileStateType.Mud ? new MudTileState(MudSpec()) : null,
-                registry);
+                registry,
+                slow);
+        }
+
+        /// <summary>
+        /// 记录"格子提交了几次减速修饰"的假执行者。
+        /// </summary>
+        /// <remarks>减速改成"推"之后，格子这边唯一能观察到的就是<b>提交</b>：
+        /// 找人与施加都在执行者那一侧（真实现是 <c>CombatRoot</c>）。</remarks>
+        private sealed class ProbeSlowApplier : ITileSlowApplier
+        {
+            public int SubmitCount;
+            public Vector3Int LastCell;
+            public float LastScale;
+            public float LastSeconds;
+
+            public void ApplySlow(Vector3Int cell, float speedScale, float seconds)
+            {
+                SubmitCount++;
+                LastCell = cell;
+                LastScale = speedScale;
+                LastSeconds = seconds;
+            }
         }
 
         /// <summary>被结算的假目标：只记事实，不碰引擎。</summary>
@@ -340,7 +362,8 @@ namespace DeepseaOil.Tests
         public void G5_水球落地把目标格切成泥浆并结算一次伤害()
         {
             var registry = new EnemyCellRegistry();
-            GridLogic grid = NewGrid(registry);
+            var slow = new ProbeSlowApplier();
+            GridLogic grid = NewGrid(registry, slow);
 
             var cell = new Vector3Int(2, 2, 0);
             grid.RegisterCell(cell);
@@ -355,7 +378,10 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(TileStateType.Mud, grid.StateOf(cell), "状态应当切成泥浆");
             Assert.AreEqual(1, target.HitCount, "状态转换应当结算一次伤害");
             Assert.AreEqual(1f, target.LastAmount, 1e-4f);
-            Assert.Less(grid.GetSlowMultiplierAt(cell), 1f, "泥浆格必须减速");
+            Assert.GreaterOrEqual(slow.SubmitCount, 1, "泥浆格必须提交减速修饰（进入那一刻就续一次）");
+            Assert.AreEqual(cell, slow.LastCell, "修饰必须提交给本格");
+            Assert.AreEqual(0.45f, slow.LastScale, 1e-4f, "乘数来自配置行");
+            Assert.Greater(slow.LastSeconds, 0f, "续命时长必须为正，否则修饰立刻过期");
         }
 
         [Test]
@@ -451,10 +477,11 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void G5_泥浆到期后落回常规并恢复速度()
+        public void G5_泥浆到期后落回常规并不再续减速()
         {
             var registry = new EnemyCellRegistry();
-            GridLogic grid = NewGrid(registry);
+            var slow = new ProbeSlowApplier();
+            GridLogic grid = NewGrid(registry, slow);
 
             var cell = new Vector3Int(0, 0, 0);
             grid.RegisterCell(cell);
@@ -468,8 +495,14 @@ namespace DeepseaOil.Tests
             for (int i = 0; i < 8; i++) grid.Tick(i, 1f);
 
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(cell));
-            Assert.AreEqual(1f, grid.GetSlowMultiplierAt(cell), 1e-4f, "状态结束后必须恢复 1");
             Assert.AreEqual(0, grid.ActiveStateCount, "落回常规的格不该继续占着状态机");
+
+            // 减速是"推"：不再续命就等于离开泥浆（修饰由目标自己过期，格子这边没有"摘"的动作）。
+            int submitsAtExpiry = slow.SubmitCount;
+
+            for (int i = 8; i < 12; i++) grid.Tick(i, 1f);
+
+            Assert.AreEqual(submitsAtExpiry, slow.SubmitCount, "落回常规之后不得再提交减速修饰");
         }
 
         [Test]
@@ -684,7 +717,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void G9_停止距离内不给速度但保留方向()
         {
-            Steering near = Steering.Resolve(Vector2.zero, new Vector2(0.3f, 0f), 0.6f, 60f, 3.6f, 1f);
+            Steering near = Steering.Resolve(Vector2.zero, new Vector2(0.3f, 0f), 0.6f, 60f, 3.6f);
 
             Assert.AreEqual(0f, near.Speed, 1e-4f, "进入停止距离后目标速度必须是 0");
             Assert.Greater(near.Direction.sqrMagnitude, 0f,
@@ -694,7 +727,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void G9_超出追击范围不给方向()
         {
-            Steering far = Steering.Resolve(Vector2.zero, new Vector2(100f, 0f), 0.6f, 60f, 3.6f, 1f);
+            Steering far = Steering.Resolve(Vector2.zero, new Vector2(100f, 0f), 0.6f, 60f, 3.6f);
 
             Assert.IsTrue(far.IsIdle, "超出追击范围必须是「不动」，否则「跑得够远能脱离」永远不成立");
         }
@@ -702,23 +735,9 @@ namespace DeepseaOil.Tests
         [Test]
         public void G9_站在目标点上不给方向()
         {
-            Steering same = Steering.Resolve(new Vector2(2f, 2f), new Vector2(2f, 2f), 0.6f, 60f, 3.6f, 1f);
+            Steering same = Steering.Resolve(new Vector2(2f, 2f), new Vector2(2f, 2f), 0.6f, 60f, 3.6f);
 
             Assert.IsTrue(same.IsIdle, "零向量归一化是 NaN：必须返回「不动」而不是硬塞方向");
-        }
-
-        [Test]
-        public void G9_减速只做乘法不做钳制()
-        {
-            Steering slowed = Steering.Resolve(Vector2.zero, new Vector2(5f, 0f), 0.6f, 60f, 3.6f, 0.45f);
-
-            Assert.AreEqual(3.6f * 0.45f, slowed.Speed, 1e-4f);
-
-            Steering boosted = Steering.Resolve(Vector2.zero, new Vector2(5f, 0f), 0.6f, 60f, 3.6f, 5f);
-
-            Assert.AreEqual(3.6f * 5f, boosted.Speed, 1e-4f,
-                "本函数不做钳制：把系数夹到 [0,1] 是 EnemyLogic.SetSlowMultiplier 的职责" +
-                "（判据收在一处，测试才好钉）");
         }
 
         // ================================================================
@@ -743,7 +762,7 @@ namespace DeepseaOil.Tests
             EnemySpec spec = EnemySpecFixture();
             var brain = new EnemyBrain(in spec);
 
-            EnemyIntent intent = brain.Decide(EnemyBrain.Context.WithoutTarget(Vector2.zero, 1f));
+            EnemyIntent intent = brain.Decide(EnemyBrain.Context.WithoutTarget(Vector2.zero));
 
             Assert.IsTrue(intent.IsIdle, "没有目标 ⇒ 不动（不该凭记忆朝旧位置走过去）");
         }
@@ -756,7 +775,7 @@ namespace DeepseaOil.Tests
 
             var target = new Vector2(spec.StopDistance * 0.5f, 0f);
 
-            EnemyIntent intent = brain.Decide(new EnemyBrain.Context(Vector2.zero, target, true, 1f));
+            EnemyIntent intent = brain.Decide(new EnemyBrain.Context(Vector2.zero, target, true));
 
             Assert.AreEqual(0f, intent.Speed, 1e-4f, "进了停止距离就不该再给速度（否则会贴着玩家抖）");
             Assert.Greater(intent.Direction.sqrMagnitude, 0f, "方向不能丢：将来要「够近了也面向玩家」");
@@ -888,7 +907,7 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void G10_减速系数必须被净化()
+        public void G10_减速修饰的系数必须被净化()
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
@@ -896,17 +915,48 @@ namespace DeepseaOil.Tests
 
             logic.SetTarget(new Vector2(5f, 0f));
 
-            logic.SetSlowMultiplier(float.NaN);
+            logic.Status.ApplySlow(float.NaN, 1f);
             logic.Tick(0f, 0.02f);
 
             Assert.IsFalse(float.IsNaN(motor.Velocity.x), "非数减速系数不得传染进速度（否则角色会消失）");
+            Assert.AreEqual(1f, logic.Status.SlowScale, 1e-4f, "非数按「不起作用」处理");
 
             motor.Velocity = Vector2.zero;
-            logic.SetSlowMultiplier(-3f);
+            logic.Status.ApplySlow(-3f, 1f);
             logic.Tick(0.02f, 0.02f);
 
-            Assert.AreEqual(0f, motor.Velocity.magnitude, 1e-6f,
-                "负数系数必须被夹到 0（定住），而不是把速度反过来推");
+            Assert.AreEqual(0f, logic.Status.SlowScale, 1e-6f, "负数系数夹到 0（定住），而不是把速度反过来推");
+            Assert.AreEqual(0f, motor.Velocity.magnitude, 1e-6f, "乘数 0 ⇒ 目标速度 0 ⇒ 速度归零");
+        }
+
+        [Test]
+        public void G10_减速修饰落在目标速度上而不是每帧乘在已提交速度上()
+        {
+            var motor = new ProbeMotor();
+            EnemySpec spec = EnemySpecFixture();
+            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+
+            // 目标放在远处：整个测试都处在"追击中"，不受停止距离影响。
+            logic.SetTarget(new Vector2(20f, 0f));
+
+            // 续命 5 秒，足够跑到稳态。
+            logic.Status.ApplySlow(0.45f, 5f);
+
+            float dt = 0.02f;
+
+            for (int i = 0; i < 200; i++) logic.Tick(i * dt, dt);
+
+            float expected = spec.MaxSpeed * 0.45f;
+
+            Assert.AreEqual(expected, motor.Velocity.magnitude, 1e-2f,
+                $"减速的稳态速度必须是「配置速度 × 乘数」= {expected}；" +
+                "每帧把整体速度乘一次会与加速度互相拉锯，稳态会远低于这个值（这条用例就是为它立的）");
+
+            // 不再续命 ⇒ 修饰过期 ⇒ 速度回到配置速度。
+            for (int i = 0; i < 400; i++) logic.Tick(5f + i * dt, dt);
+
+            Assert.AreEqual(spec.MaxSpeed, motor.Velocity.magnitude, 1e-2f,
+                "修饰过期后必须回到配置速度（「不再续命」就等于离开泥浆）");
         }
 
         // ================================================================
