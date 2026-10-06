@@ -63,6 +63,9 @@ namespace DeepseaOil.Presentation
         /// <summary>观感调参（瞄准平面深度）。<c>Start</c> 里读一次；缺失时用代码默认值。</summary>
         private ThrowTuning _tuning;
 
+        /// <summary>本体渲染器（Y-Sort 用；惰性自取，场景里摆的那个 SpriteRenderer）。</summary>
+        private SpriteRenderer _body;
+
         /// <summary>是否已暂停（暂停时不瞄准、不开火 —— 输入被关掉，但指针采样并没有）。</summary>
         private bool _paused;
 
@@ -296,6 +299,9 @@ namespace DeepseaOil.Presentation
         {
             if (Logic == null) return;
 
+            // 遮挡是观感，与物理步无关，所以放渲染帧；放在暂停判断之前：暂停时也要保持档位正确。
+            UpdateSortingOrder();
+
             if (_paused || (inputProvider != null && !inputProvider.IsInputEnabled))
             {
                 // 收起高亮（发布一条"没有瞄准"的事实，去重后最多发一次）
@@ -315,6 +321,23 @@ namespace DeepseaOil.Presentation
             // 主攻击 = 水球（吃弹药），副攻击 = 土球（不吃）。
             if (inputProvider.AttackPressedThisFrame) Logic.RequestThrow(BallType.Water, now);
             if (inputProvider.AltAttackPressedThisFrame) Logic.RequestThrow(BallType.Earth, now);
+        }
+
+        /// <summary>
+        /// 按 y 刷新本体的渲染档位（Y-Sort）。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么由本类做：</b>玩家本体是<b>场景里摆的</b> <c>SpriteRenderer</c>（不是代码建的），
+        /// 而"谁挡住谁"必须每帧按 y 重算 —— 场景里填的 <c>sortingOrder</c> 只是初始值。
+        /// 档位换算在地基（<c>YSort</c>），频带在 <c>RenderOrder</c>。
+        /// </remarks>
+        private void UpdateSortingOrder()
+        {
+            if (_body == null) _body = GetComponent<SpriteRenderer>();
+
+            if (_body == null) return;
+
+            _body.sortingOrder = RenderOrder.ActorOrder(Position.y);
         }
 
         /// <summary>

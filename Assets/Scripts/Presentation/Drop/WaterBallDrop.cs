@@ -25,11 +25,13 @@ namespace DeepseaOil.Presentation.Drop
 
             var renderer = gameObject.AddComponent<SpriteRenderer>();
 
+            // 档位按**落点**的 y 取一次：掉落物参与 Y-Sort（与球同一频带），而飞行途中改档
+            // 会让它在半空里穿来穿去 —— 落点就是它最终待在的地方。
             PrimitiveSprites.Configure(
                 renderer,
                 PrimitiveSprites.Circle,
                 CombatPalette.WaterBall,
-                RenderOrder.Ball,
+                RenderOrder.BallOrder(Landing.y),
                 BodyDiameter);
 
             // 触发体只需要挂在一边（玩家有刚体），所以掉落物自己不需要 Rigidbody2D。

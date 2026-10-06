@@ -41,7 +41,7 @@ namespace DeepseaOil.Presentation
         [SerializeField] private PlayerController player = default;
 
         [Tooltip("格子视图（提供格子几何与地板）。")]
-        [SerializeField] private GridView gridView = default;
+        [SerializeField] private TilemapAdapter gridView = default;
 
         [Header("可选接线")]
         [Tooltip("球与瞄准件的父物体。留空则建在场景根下。")]
@@ -98,7 +98,7 @@ namespace DeepseaOil.Presentation
         /// </summary>
         /// <remarks>
         /// <b>为什么不再放在 <c>Start</c>：</b>本类的装配要读三样东西 —— 配表（等 <c>GameRoot.Awake</c>）、
-        /// 场景里玩家的 <c>Logic</c>（等 <c>PlayerController</c> 装配）、格子几何（等 <c>GridView.Awake</c>）。
+        /// 场景里玩家的 <c>Logic</c>（等 <c>PlayerController</c> 装配）、格子几何（等 <c>TilemapAdapter</c> 唤醒）。
         /// 而 Unity 只保证"所有 <c>Awake</c> 先于任何 <c>Start</c>"，<b>不保证两个 <c>Start</c> 的先后</b> ——
         /// 玩家侧 <c>Order = -100</c> 排在前面，于是"谁先装配"从抽签变成一个数字。
         /// </remarks>
@@ -113,6 +113,7 @@ namespace DeepseaOil.Presentation
         {
             // 订阅时机与装配对称：谁开始听，谁停止听
             _highlight?.Detach();
+            gridView?.Detach();
 
             // 用 Start 里抓住的引用：销毁期再问 GameRoot.Instance 可能当场造一个新的出来
             if (_root != null) _root.UnregisterSceneRoot(this);
@@ -299,7 +300,7 @@ namespace DeepseaOil.Presentation
 
             if (!gridView.IsWired)
             {
-                Debug.LogError("CombatRoot 的 GridView 没有接 Tilemap，战斗内容已停用。", this);
+                Debug.LogError("CombatRoot 的 TilemapAdapter 没有接 Tilemap，战斗内容已停用。", this);
                 return;
             }
 
@@ -321,6 +322,10 @@ namespace DeepseaOil.Presentation
             GridGeometry geometry = gridView.ReadGeometry();
 
             _grid = new GridLogic(geometry, SpecCatalog.AllTileStates(), CreateTileState, _registry);
+
+            // 先开始听"格子状态变了"，再灌初始状态：初始状态走的是同一条转换路径
+            // （订阅晚了那一批泥浆就不会被画出来 —— 而它们是最不该漏的一批）。
+            gridView.Attach();
 
             int cells = gridView.RegisterCells(_grid);
             int initialStates = _grid.LoadInitialStates(SpecCatalog.TileInitials());
