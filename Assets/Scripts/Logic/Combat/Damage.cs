@@ -2,10 +2,10 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Combat
 {
-    /// <summary>伤害来源。当前只有一个消费者语义：格子状态转换。</summary>
+    /// <summary>伤害来源。用来回答"这一下是谁造成的"。</summary>
     /// <remarks>
     /// 白模的 <c>BallType</c> 曾经占着这个字段（"哪颗球打的"），迁移后球不再直接伤害敌人，
-    /// 于是它换成"这次结算是谁发起的"。环境伤害（陷阱、地形）先占位，无消费者。
+    /// 于是它换成"这次结算是谁发起的"。
     /// </remarks>
     public enum DamageSource
     {
@@ -14,6 +14,11 @@ namespace DeepseaOil.Logic.Combat
 
         /// <summary>环境（陷阱 / 地形 / 脚本）。预留，当前无发布者。</summary>
         Environment = 1,
+
+        /// <summary>
+        /// 接触伤害：敌人贴在身上（世界侧判定"谁被打到了"之后，经玩家侧入口触发）。
+        /// </summary>
+        Contact = 2,
     }
 
     /// <summary>

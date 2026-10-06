@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Player;
@@ -30,7 +31,7 @@ namespace DeepseaOil.Presentation.Player
         /// <summary>球种 → 配置行。</summary>
         private readonly Dictionary<BallType, BallSpec> _balls = new Dictionary<BallType, BallSpec>();
 
-        private readonly AttackCooldown _cooldown = new AttackCooldown();
+        private readonly Cooldown _cooldown = new Cooldown();
 
         private PlayerController _player;
         private GridView _gridView;
@@ -40,7 +41,6 @@ namespace DeepseaOil.Presentation.Player
         private ThrowTuning _tuning;
         private LandingResolver _resolver;
         private TileAimView _aim;
-        private PlayerResources _resources;
         private PlayerSpec _playerSpec;
         private Transform _ballRoot;
 
@@ -61,7 +61,6 @@ namespace DeepseaOil.Presentation.Player
             ThrowTuning tuning,
             LandingResolver resolver,
             TileAimView aim,
-            PlayerResources resources,
             in PlayerSpec playerSpec,
             IReadOnlyList<BallSpec> balls,
             Transform ballRoot,
@@ -74,7 +73,6 @@ namespace DeepseaOil.Presentation.Player
             _tuning = tuning;
             _resolver = resolver;
             _aim = aim;
-            _resources = resources;
             _playerSpec = playerSpec;
             _ballRoot = ballRoot;
             _camera = camera != null ? camera : Camera.main;
@@ -162,7 +160,7 @@ namespace DeepseaOil.Presentation.Player
 
             HasAim = true;
 
-            bool hasAmmo = _resources != null && _resources.WaterBallCount > 0;
+            bool hasAmmo = HasAmmo();
 
             if (_aim != null) _aim.Show(cell, _grid.Geometry.CellCenter(cell), hasAmmo);
 
@@ -186,14 +184,14 @@ namespace DeepseaOil.Presentation.Player
 
             float now = Time.time;
 
-            if (!_cooldown.CanAttack(now)) return;
+            if (!_cooldown.CanUse(now)) return;
 
             if (_inputProvider.AttackPressedThisFrame)
             {
                 // 没弹药时按左键不消耗冷却：否则"空点一下"会白白吃掉半秒。
                 if (!hasAmmo) return;
 
-                if (!_resources.TryConsume(1)) return;
+                if (!_player.Logic.Stats.TryConsumeWater(1)) return;
 
                 if (Throw(BallType.Water, cell)) _cooldown.MarkUsed(now, _playerSpec.AttackInterval);
 
@@ -289,6 +287,15 @@ namespace DeepseaOil.Presentation.Player
 
                 ball.Tick(deltaTime);
             }
+        }
+
+        /// <summary>
+        /// 本帧有没有水球可投。弹药归<b>玩家侧账本</b>（<c>PlayerLogic.Stats</c>），
+        /// 本类只是读它 —— 收口前它手里还捏着一份 <c>PlayerResources</c> 引用。
+        /// </summary>
+        private bool HasAmmo()
+        {
+            return _player != null && _player.Logic != null && _player.Logic.Stats.WaterBallCount > 0;
         }
 
         private void HideAim()

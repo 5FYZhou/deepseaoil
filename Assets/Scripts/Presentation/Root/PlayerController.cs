@@ -45,29 +45,6 @@ namespace DeepseaOil.Presentation
         /// <summary>8 向吸附的一档（弧度）。45° 一档共 8 档。</summary>
         private const float OctantRadians = 2f * Mathf.PI / 8f;
 
-        /// <summary>
-        /// 逻辑层与它本帧的速度上限。<b>白模阶段新增</b>的受击推挤口，见
-        /// <see cref="OverrideLogicSpeedTargets"/>。
-        /// </summary>
-        /// <remarks>
-        /// 做成一个具名结构体而不是两个并列参数，是为了让"逻辑层引用 + 上限"这一对永远一起传、
-        /// 一起漏 —— 漏一个的后果是"推挤静默生效在另一个玩家身上"。
-        /// </remarks>
-        internal readonly struct LogicSpeedTargets
-        {
-            /// <summary>玩家的逻辑层入口。</summary>
-            public readonly PlayerLogic Logic;
-
-            /// <summary>本帧的速度上限（单位/秒）。</summary>
-            public readonly float MaxSpeed;
-
-            public LogicSpeedTargets(PlayerLogic logic, float maxSpeed)
-            {
-                Logic = logic;
-                MaxSpeed = maxSpeed;
-            }
-        }
-
         /// <summary>吸附到 8 向时的一族单位方向，键为"档位序号化的弧度"，避免浮点直接比 key。</summary>
         private static readonly Dictionary<int, Vector2> Snapped = BuildSnappedTable();
 
@@ -75,21 +52,17 @@ namespace DeepseaOil.Presentation
         private WorldInfo _world;
         private BoundsArea _bounds;
 
+        /// <summary>出生点（<c>Awake</c> 时记一次）；打空重来时回到这里。</summary>
+        private Vector2 _spawnPoint;
+
         /// <summary>注册时抓住的 GameRoot 引用；销毁期只经它退订（理由见 <see cref="OnDestroy"/>）。</summary>
         private GameRoot _root;
 
-        /// <summary>
-        /// 本帧被外部要求的速度上限；<c>null</c> 表示不覆盖（逻辑层按自己的满速档位走）。
-        /// </summary>
-        /// <remarks>
-        /// <b>一次性</b>：<c>FixedUpdate</c> 用它算完当帧上限后立刻清空，所以外因必须每帧重新声明。
-        /// 这正是我们要的语义 —— "这一帧被推了一下"与"从此一直被限速"是两件事，
-        /// 后者会永久改掉玩家的移动能力却不报错。
-        /// </remarks>
-        private LogicSpeedTargets? _speedLimit;
-
         /// <summary>逻辑层入口，供调试面板读取。</summary>
         public PlayerLogic Logic { get; private set; }
+
+        /// <summary>物理体位置（世界侧判接触、算重生点用物理体而不是 <c>transform</c>）。</summary>
+        public Vector2 Position => motor == null ? Vector2.zero : motor.Position;
 
         /// <summary>本物理帧喂进逻辑层的环境事实。</summary>
         public WorldInfo World => _world;
@@ -162,42 +135,24 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>
-        /// <b>白模阶段新增</b>：本帧把玩家的速度上限换成给定值，并给出逻辑层入口。
+        /// 回到出生点并满血（打空重来）。
         /// </summary>
         /// <remarks>
-        /// 用法是"声明式"的：调用方（首个是白模的 <c>PlayerHealth</c>）每帧调用一次表示
-        /// "这一帧我还想限速"，下一帧不调即自动恢复满速档位。
-        /// <para><b>为什么需要它：</b>玩家被撞开时，本类已经在同一个物理帧里把速度写成
-        /// <c>输入方向 × moveSpeed</c> 了。要让"被撞"表现出来，只能在这之后<b>再写一次</b>速度 ——
-        /// 而本类是玩家速度的唯一写者，所以这个口子必须开在这里，不能开在受害者自己那边
-        /// （那样就成了第二个速度写者，直接违反 <c>PlayerLogic</c> 与 <c>MovementMotor</c> 的核心不变量）。
-        /// 逻辑层本身不被改动语义：它只多知道一个"本帧上限"。</para>
-        /// <para>参数是结构体而不是两个独立方法，理由见 <see cref="LogicSpeedTargets"/>。</para>
+        /// <b>为什么这个口子在本类：</b>出生点是<b>本类的环境事实</b>（<c>Awake</c> 时记下的物理体位置），
+        /// 而"该不该重来"是世界侧的事（<c>CombatRoot</c> 数重试延时、清场）。
+        /// 于是分工是：世界侧决定"什么时候重来"，玩家侧执行"回到哪、满血、停住"。
+        /// <para>边界钳位：出生点理论上在图内，但它是运行期读到的位置；越界时钳回来，
+        /// 否则玩家会回到一张"看不见自己"的地图外（与 <c>FixedTick</c> 末尾那条保险丝同源）。</para>
         /// </remarks>
-        internal void OverrideLogicSpeedTargets(PlayerLogic logic, float maxSpeed)
+        public void RespawnToSpawn()
         {
-            if (logic == null) return;
+            if (Logic == null) return;
 
-            // 用结构体把"哪一层"与"上限多少"绑在一起传：两者分开传的时候漏一个，
-            // 后果是限速静默生效在另一个玩家身上（现在只有一个玩家，所以谁也发现不了）。
-            _speedLimit = new LogicSpeedTargets(logic, maxSpeed);
-        }
+            Vector2 position = _spawnPoint;
 
-        /// <summary>
-        /// <b>白模阶段新增</b>：本帧往玩家的速度账本里加一次冲量（击退、水流、吸附等外因用）。
-        /// </summary>
-        /// <param name="deltaVelocity">一次性的速度变化（单位/秒），<b>不</b>乘 Δt。</param>
-        /// <remarks>
-        /// <b>必须先 <see cref="OverrideLogicSpeedTargets"/> 再调用本方法。</b>理由同那条的注释：
-        /// 本方法是"写第二次速度"，而本类在同一个物理帧里已经写过第一次了。
-        /// <para>累加在账本上，所以不是"绕过逻辑层写刚体"：帧末仍由本类的一次写出生效，
-        /// 玩家速度依然只有一个写者。</para>
-        /// </remarks>
-        internal void AddLogicImpulse(PlayerLogic logic, Vector2 deltaVelocity)
-        {
-            if (logic == null) return;
+            if (_bounds.TryClamp(position, out Vector2 clamped)) position = clamped;
 
-            logic.AddImpulse(deltaVelocity);
+            Logic.RespawnTo(position);
         }
 
         private void Awake()
@@ -219,7 +174,7 @@ namespace DeepseaOil.Presentation
 
             _bounds = ReadBounds();
             _world = new WorldInfo(Vector2.zero, in _bounds); // 首帧前也不留 default
-            Logic = new PlayerLogic(motor, config, _buffer);
+            _spawnPoint = motor.Position;
 
             if (!_bounds.IsValid)
             {
@@ -232,7 +187,7 @@ namespace DeepseaOil.Presentation
 
         private void Start()
         {
-            // 场景根自己报到：GameRoot 按 Order 驱动，不再由 Inspector 拖引用
+            // 场景根自己报到：GameRoot 按 Order 装配并驱动，不再由 Inspector 拖引用
             _root = GameRoot.Instance;
             _root.RegisterSceneRoot(this);
         }
@@ -244,6 +199,26 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>
+        /// 装配玩家逻辑。<b>由 <c>GameRoot</c> 在第一个被驱动的帧调</b>（见 <see cref="ISceneRoot.Attach"/>）。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么读表放在这里而不是 <c>Awake</c>：</b><c>SpecCatalog</c> 要经
+        /// <c>ConfigModule</c>，而配表由 <c>GameRoot.Awake</c> 装配 —— 组件之间的 <c>Awake</c>
+        /// 顺序 Unity 不保证，写在 <c>Awake</c> 里就是一次"看运气"的启动崩溃
+        /// （<c>ConfigModule.Tables</c> 在未就绪时会抛）。
+        /// <para>同一行表值由本类读一次，世界侧经 <c>Logic.Spec</c> 拿：
+        /// 改列名的影响面因此只落在这一处。</para>
+        /// </remarks>
+        public void Attach()
+        {
+            if (Logic != null || _buffer == null || motor == null) return;
+
+            PlayerSpec spec = SpecCatalog.Player();
+
+            Logic = new PlayerLogic(motor, config, _buffer, in spec);
+        }
+
+        /// <summary>
         /// 物理帧：由 <c>GameRoot.FixedUpdate</c> 按 <see cref="Order"/> 驱动。
         /// </summary>
         /// <remarks>
@@ -252,6 +227,9 @@ namespace DeepseaOil.Presentation
         /// </remarks>
         public void FixedTick(float deltaTime)
         {
+            // 装配失败（引用未接线）或还没装配时整体 no-op：不读半装配状态
+            if (Logic == null) return;
+
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 
             Vector2 move = SnapMoveToEightDirections(raw.Move, config.snapToEightDirections);
@@ -263,26 +241,6 @@ namespace DeepseaOil.Presentation
             _buffer.Push(in snapshot, Time.fixedTime);
 
             _world = new WorldInfo(move, in _bounds);
-
-            // 白模阶段新增：本帧的受击推挤。**必须在 Logic.FixedTick 之前声明**——
-            // FixedTick 帧末按这个上限把速度一次写出，声明晚了这一帧就被浪费掉。
-            // 声明是"一次性"的：用完立刻清空，所以外因要每帧重新声明（见 _speedLimit 的注释）。
-            if (_speedLimit.HasValue)
-            {
-                LogicSpeedTargets targets = _speedLimit.Value;
-
-                // 只对声明的那个逻辑层生效：将来场景里有第二个"逻辑被驱动的角色"时，
-                // 漏判这一条会让限速静默作用在别人身上。
-                if (!ReferenceEquals(targets.Logic, Logic))
-                {
-                    _speedLimit = null;
-                }
-                else
-                {
-                    Logic.SetSpeedLimit(targets.MaxSpeed);
-                    _speedLimit = null;
-                }
-            }
 
             Logic.FixedTick(
                 new LogicContext(

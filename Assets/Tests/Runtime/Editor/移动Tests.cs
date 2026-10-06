@@ -77,6 +77,7 @@ namespace DeepseaOil.Tests
         }
 
         private PlayerConfig _config;
+        private PlayerSpec _spec;
         private InputBuffer _buffer;
         private RecordingMotor _motor;
         private PlayerLogic _logic;
@@ -96,13 +97,17 @@ namespace DeepseaOil.Tests
             _config.snapToEightDirections = true;
             _config.extraForceScale = 0f;
 
+            // 玩家表值：血量 / 无敌帧 / 接触伤害 / 击退。移动测试用不到它们，
+            // 但 PlayerLogic 的构造要吃它（账本 PlayerStats 由它初始化）
+            _spec = new PlayerSpec(1, "玩家", 100f, 10f, 0.8f, 1.2f, 0.5f, 12f, 12f, 1f);
+
             _buffer = new InputBuffer(
                 Mathf.Max(_config.inputBufferTime, _config.dashBufferTime),
                 Mathf.RoundToInt(1f / 0.02f)
                 );
 
             _motor = new RecordingMotor();
-            _logic = new PlayerLogic(_motor, _config, _buffer);
+            _logic = new PlayerLogic(_motor, _config, _buffer, in _spec);
 
             _stateChangeCount = 0;
             EventBus<MovementStateChanged>.Subscribe(OnStateChanged);
