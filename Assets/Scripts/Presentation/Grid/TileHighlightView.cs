@@ -6,41 +6,24 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Grid
 {
-    /// <summary>
-    /// 瞄准格高亮的<b>表现侧订阅者</b>：听逻辑层发布的 <see cref="AimChanged"/>，转成一次特效调用。
-    /// </summary>
+    /// <summary>瞄准格高亮的<b>表现侧订阅者</b>：听逻辑层发布的 <see cref="AimChanged"/>，转成一次特效调用。</summary>
     /// <remarks>
-    /// <b>它替代了白模件 <c>TileAimView</c></b>（那个 MonoBehaviour 自己画色块、自己存 SpriteRenderer）。
-    /// 现在"高亮长什么样"归特效系统（<c>EffectId.Highlight</c> 的驱动自持资产），
-    /// 本类只剩一件职责：<b>把逻辑层的事实翻译成特效调用</b>。
-    /// <para><b>订阅时机由组合根收口</b>：它不自己 <c>OnEnable</c> 订阅，而是由 <c>CombatRoot</c>
-    /// 在装配期调 <see cref="Attach"/>、销毁期调 <see cref="Detach"/> ——
-    /// 于是"什么时候开始听、什么时候停止听"只有一个答案。</para>
-    /// <para><b>持续效果</b>：创建一次（<c>Play</c>），之后每帧只 <c>Update</c> 位置与颜色，
-    /// 不瞄了就 <c>Stop</c>。这是"持续效果口"在工程里的第一个调用点。</para>
-    /// <para><b>色源是观感表</b>（<c>ConfigModule.Visuals</c>）：收口前这里借的是
-    /// <c>ConfigModule.GetEnemy().Visuals</c> —— 两个字段本来就是高亮自己的语义，
-    /// 借敌人的取值边界只是"顺手拿到同一个 SO"，归属接错了线。</para>
+    /// 色源是观感表（<c>ConfigModule.Visuals</c>），<b>不是敌人的取值边界</b>；"高亮长什么样"归特效系统（<c>EffectId.Highlight</c> 的驱动自持资产）。
+    /// 订阅时机由组合根收口：装配期调 <see cref="Attach"/>、销毁期调 <see cref="Detach"/>。
+    /// 持续效果：创建一次（<c>Play</c>），之后每帧只 <c>Update</c> 位置与颜色，不瞄了就 <c>Stop</c>。
     /// </remarks>
     public sealed class TileHighlightView : MonoBehaviour
     {
         private GridGeometry _geometry;
 
-        /// <summary>格子边长（世界单位）。</summary>
         private float _cellSize = 1f;
 
         private EffectHandle _handle;
 
         private bool _attached;
 
-        /// <summary>当前是否有高亮在显示（诊断 / 测试读数）。</summary>
         public bool IsVisible => _handle.IsValid;
 
-        /// <summary>
-        /// 装配：记下格子几何（"格 → 世界中心"的换算只有一份）。
-        /// </summary>
-        /// <param name="geometry">格子几何。</param>
-        /// <param name="cellSize">格子边长；非法值按 1 处理。</param>
         public void Initialize(in GridGeometry geometry, float cellSize)
         {
             _geometry = geometry;
@@ -88,13 +71,11 @@ namespace DeepseaOil.Presentation.Grid
             _handle = EffectModule.Play(EffectId.Highlight, in ctx);
         }
 
-        /// <summary>可用色（白，半透明：它是提示不是物体）。</summary>
         private static Color AvailableColor()
         {
             return ConfigModule.Visuals.highlightAvailable;
         }
 
-        /// <summary>不可用色（红）。</summary>
         private static Color BlockedColor()
         {
             return ConfigModule.Visuals.highlightBlocked;

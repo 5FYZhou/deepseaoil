@@ -2,19 +2,13 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Grid
 {
-    /// <summary>
-    /// 瞄准吸附：鼠标世界点 → <b>格子</b>。<b>静态纯函数</b>，不吃 Time、不吃 Camera、不吃 Tilemap。
-    /// </summary>
-    /// <remarks>
-    /// <b>它算出来的格子必须就是球真正会落的那一格。</b>所以投掷与指示器共用本函数，
-    /// 不是"两份长得差不多的数学"—— 各写一份必然会漂移，表现是"看着能扔到、其实扔不到"。
-    /// <para><b>为什么是"先取鼠标格、超距再沿线回退"而不是"把鼠标点夹到最远距离"：</b>
-    /// 需求要的是落点<b>吸附到格子中心</b>。先夹距离再取整会让贴边时落点跳格、
-    /// 指示器在边界上抖；沿"玩家 → 鼠标"方向从最远处往回找<b>第一个中心点落在射程内的格</b>，
-    /// 得到的格子稳定，且与鼠标指向同侧。</para>
-    /// <para><b>回退步长 0.1 与 <see cref="MaxSteps"/> 是刻意写死的：</b>步长决定边界附近取到哪一格
-    /// （步长越小越贴近真实射程边界），上限只是防"射程输入异常大"时循环失控。</para>
-    /// </remarks>
+    // 瞄准吸附的静态纯函数：鼠标世界点 → 格子，不吃 Time、不吃 Camera、不吃 Tilemap。
+    // 它算出来的格子必须就是球真正会落的那一格：投掷与指示器共用本函数，各写一份必然漂移，
+    // 表现是"看着能扔到、其实扔不到"。
+    // 优先支是"鼠标所在格的中心在射程内"；超距才沿线回退（而不是把鼠标点夹到最远距离），
+    // 先夹距离再取整会让贴边时落点跳格、指示器在边界上抖。
+    // 回退步长 0.1 决定边界附近取到哪一格；MaxSteps 是防"射程输入异常大"时循环失控。
+    // 鼠标压在出手点上或几何非法时返回 false；maxDistance 非法值按"不限"处理。
     public static class TileAim
     {
         /// <summary>超距回退的搜索步长（世界单位）。</summary>
@@ -23,15 +17,6 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>回退搜索的最大步数；<c>0.1 × 4096 ≈ 409 米</c>，远超任何合理射程。</summary>
         private const int MaxSteps = 4096;
 
-        /// <summary>
-        /// 玩家位置 + 鼠标世界点 → 吸附后的落点格。
-        /// </summary>
-        /// <param name="geometry">格子几何。非法时返回 <c>false</c>。</param>
-        /// <param name="origin">出手点（玩家位置）。</param>
-        /// <param name="mouseWorld">鼠标世界坐标（已换算到地面平面）。</param>
-        /// <param name="maxDistance">最大投掷距离（世界单位）；非法值按"不限"处理。</param>
-        /// <param name="cell">吸附后的格子。</param>
-        /// <returns>拿到可用格子为 <c>true</c>；鼠标压在出手点上或几何非法时为 <c>false</c>。</returns>
         public static bool TryGetAimCell(
             in GridGeometry geometry,
             Vector2 origin,

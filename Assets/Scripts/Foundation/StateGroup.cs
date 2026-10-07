@@ -2,60 +2,37 @@ using System.Collections.Generic;
 
 namespace DeepseaOil.Foundation
 {
-    /// <summary>
-    /// 状态组通用骨架：持有状态机、按<b>两段式</b>仲裁转移，并把"当前状态"暴露给外部。
-    /// </summary>
-    /// <remarks>
-    /// 状态机只做"叫我切谁就切谁"；"该不该切、按什么顺序"由本类回答 ——
-    /// 子类用 <see cref="TryDecidePreempt"/>（评估）/ <see cref="TryCommitPreempt"/>（消费）/ <see cref="Fallback"/> 补上自己的规则。
-    /// <para><b>"先判后消费"这条纪律现在属于骨架，不属于某一个组：</b>评估是纯查询，
-    /// 判不中就不消费任何缓冲与余额。领域式分层（移动 / 战斗 / 状态效果各一台状态组）之后，
-    /// 三个组必须共用同一套切换语义，否则"同样是抢占，一边吃掉了余额、一边没吃"
-    /// 这种事只会以手感差异的形式出现。</para>
-    /// <para><b>为什么公开入口由子类自己定：</b>每个组要的东西不一样（移动层要门禁、状态效果层要挂起的冲量）。
-    /// 骨架只提供 <see cref="TickStates"/>，谁暴露什么样的公开 <c>Tick</c> 由子类决定 ——
-    /// 免得留一个"能调但语义不全"的公共入口。</para>
-    /// <para><b>它住在地基</b>（收口前在 <c>Logic/Movement/</c>）：它不认识任何具体领域 ——
-    /// 标签与上下文都是泛型参数，宿主是 <see cref="IStateHost"/>。搬过来之后
-    /// "状态机通用逻辑放地基"这条口径才真的成立。</para>
-    /// </remarks>
+    /// <summary>状态组通用骨架：持有状态机、按两段式仲裁转移，并把"当前状态"暴露给外部。</summary>
+    /// <remarks>状态机只做"叫我切谁就切谁"；"该不该切、按什么顺序"由本类回答：子类用 <see cref="TryDecidePreempt"/>（评估）/ <see cref="TryCommitPreempt"/>（消费）/ <see cref="Fallback"/> 补自己的规则。
+    /// 评估是纯查询：判不中就不消费任何缓冲与余额 —— 三个组必须共用同一套切换语义，否则差异只以手感形式出现。骨架只提供 <see cref="TickStates"/>，公开 <c>Tick</c> 由子类自己定（移动层要门禁、状态效果层要挂起的冲量）。</remarks>
     public abstract class StateGroup<TStateTag, TContext> where TStateTag : struct, System.Enum
     {
         private readonly StateMachine<TStateTag, TContext> _machine = new();
 
-        /// <summary>"还没有进入任何状态"时对外报的标签（各组的 <c>Empty</c> 哨兵）。</summary>
         protected abstract TStateTag EmptyTag { get; }
 
         /// <summary>当前状态标签；还没进入任何状态时是 <see cref="EmptyTag"/>。</summary>
         public TStateTag Current => _machine.CurrentState == null ? EmptyTag : _machine.CurrentState.StateTag;
 
-        /// <summary>基础态：没有更高优先级的抢占、且当前状态已结束时的归宿。</summary>
         protected abstract TStateTag Fallback(in TContext ctx);
 
-        /// <summary>
-        /// 状态切换回调（当前、前一个）；<b>首次进入不发</b>。
-        /// </summary>
-        /// <remarks>子类用它把切换发布成事实事件（如 <c>MovementStateChanged</c>）。
-        /// 转发而不是直接暴露状态机：状态机是本骨架的内部件。</remarks>
+        /// <summary>状态切换回调（当前、前一个）；首次进入不发。</summary>
         protected event System.Action<TStateTag, TStateTag> StateChanged
         {
             add => _machine.OnStateChanged += value;
             remove => _machine.OnStateChanged -= value;
         }
 
-        /// <summary>注册一个状态（键 = 状态自己的 <see cref="IState{TStateTag, TContext}.StateTag"/>）。</summary>
         protected void AddState(IState<TStateTag, TContext> state)
         {
             _machine.AddState(state);
         }
 
-        /// <summary>直接切换（子类在把入场参数喂好之后调）。</summary>
         protected bool ChangeState(TStateTag tag, in TContext ctx)
         {
             return _machine.ChangeState(tag, ctx);
         }
 
-        /// <summary>推进一帧：先仲裁，再用（可能已切换的）当前状态跑一次。</summary>
         protected void TickStates(in TContext ctx)
         {
             _machine.ChangeState(CheckTransitions(in ctx), ctx);
@@ -63,7 +40,6 @@ namespace DeepseaOil.Foundation
             _machine.CurrentState?.Tick(ctx);
         }
 
-        /// <summary>抢占判定：<b>纯查询</b>，不消费任何缓冲与余额。</summary>
         protected virtual bool TryDecidePreempt(in TContext ctx, out TStateTag target)
         {
             target = EmptyTag;
@@ -80,8 +56,7 @@ namespace DeepseaOil.Foundation
         {
             IState<TStateTag, TContext> current = _machine.CurrentState;
 
-            // 首帧没有当前状态：抢占照常判定，判不中才落到基础态。
-            // 不能让首帧直接走基础态——那会让第一个物理帧成为"无抢占"特权帧。
+            // 首帧没有当前状态：抢占照常判定，判不中才落到基础态（否则第一个物理帧成了"无抢占"特权帧）。
             if (TryDecidePreempt(in ctx, out TStateTag target)
                 && (current == null || !EqualityComparer<TStateTag>.Default.Equals(target, current.StateTag))
                 && TryCommitPreempt(target, in ctx))

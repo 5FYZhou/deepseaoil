@@ -3,16 +3,14 @@ using DeepseaOil.Foundation;
 namespace DeepseaOil.Logic.Movement.States
 {
     /// <summary>
-    /// 站立：无输入，朝零速度收敛（<b>有没有惯性由角色的加速度配置决定</b>）。
+    /// 站立：无输入，朝零速度收敛。有没有惯性由角色的加速度配置决定。
     /// </summary>
     /// <remarks>
-    /// <c>BrakeTowards</c> 是"惯性感知"的入口：加速度填 0 ⇒ 当帧停（俯视角零惯性），
-    /// 填正数 ⇒ 按加速度滑停（用时 = 速度 / 加速度）。
-    /// 朝向由速度接管的那一套保持不变（零方向不翻面）。
+    /// <c>BrakeTowards</c>：加速度填 0 ⇒ 当帧停（俯视角零惯性）；填正数 ⇒ 按加速度滑停（用时 = 速度 / 加速度）。
     /// </remarks>
     public sealed class IdleState : StateBase<MovementStateTag, LogicContext>
     {
-        /// <param name="host">宿主（移动层账本）。</param>
+        /// <summary>宿主（移动层账本）。</summary>
         public IdleState(IStateHost host) : base(host)
         {
         }

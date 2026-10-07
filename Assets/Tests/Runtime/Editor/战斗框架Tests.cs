@@ -644,7 +644,10 @@ namespace DeepseaOil.Tests
         [Test]
         public void G16_受击扣血并落地击退_无敌期内整条挡掉_滑停后交还控制()
         {
-            var config = ScriptableObject.CreateInstance<PlayerConfig>();
+            // CharacterConfig.moveAcceleration 的声明默认值，也是 PlayerConfig.asset 里的值。
+            // 只用于算断言里的期望值；真值仍由 PlayerLogic 从取值边界折成快照后使用。
+            const float PlayerAcceleration = 60f;
+
             PlayerSpec spec = PlayerSpecFixture();
             var motor = new ProbeMotor { Position = Vector2.zero };
             var buffer = new InputBuffer(0.12f, 50);
@@ -659,10 +662,12 @@ namespace DeepseaOil.Tests
                 "击退必须在下一帧被写进执行器（旧实现把它在帧首清掉了，表现是'被撞了纹丝不动'）");
             Assert.AreEqual(StatusStateTag.Hurt, logic.Status.Current, "击退由状态效果层的受击状态承载");
 
-            // 受击期间按 moveAcceleration 衰减（不是"只接管一帧"，也不是当帧归零）
+            // 受击期间按 moveAcceleration 衰减（不是"只接管一帧"，也不是当帧归零）。
+            // 帧数预算见下面第二次受击处的注释：12 ÷ 60 = 0.2 秒，而进入受击的那一帧不衰减
+            // （HurtState._justEntered）⇒ 1 + 10 = 11 帧到零，这里留到 14 帧做余量。
             TickPlayer(logic, motor, Vector2.zero, 0.04f);
-            Assert.AreEqual(spec.KnockbackImpulse - config.moveAcceleration * 0.02f, motor.EngineVelocity.x, 1e-3f,
-                "受击期间速度每帧按 moveAcceleration 衰减（12 − 60×0.02 = 10.8）");
+            Assert.AreEqual(spec.KnockbackImpulse - PlayerAcceleration * 0.02f, motor.EngineVelocity.x, 1e-3f,
+                $"受击期间速度每帧按 moveAcceleration 衰减（12 − {PlayerAcceleration}×0.02 = 10.8）");
             for (int i = 0; i < 12; i++) TickPlayer(logic, motor, Vector2.zero, 0.06f + i * 0.02f);
             Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "滑停到零之后必须交还控制权");
 
@@ -672,19 +677,29 @@ namespace DeepseaOil.Tests
             TickPlayer(logic, motor, Vector2.zero, 0.52f);
             Assert.AreEqual(0f, motor.EngineVelocity.x, 1e-3f, "被挡住的那一次不许留下击退");
             Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "被挡住时也不该进入受击状态");
+
+            // 无敌到期后再挨一次：**这一次真的会击退**，所以必须等它滑停完再测"交还控制"。
+            // （这里曾直接断言"输入立刻生效"，而那一帧玩家正处在受击状态里 —— 门禁用强制速度覆盖输入，
+            //   于是断言恒假。不是实现的问题：受击期间本来就该由外力接管。）
             Assert.IsTrue(logic.TakeDamage(in damage, 0.8f), "无敌到期后必须能再扣");
             Assert.AreEqual(80f, logic.Stats.Current, 1e-4f);
 
-            // 交还之后输入立刻生效（当帧到位：本用例的加速度是 60，一帧足够走 1.2，故断言"在往左加速"）
-            TickPlayer(logic, motor, Vector2.left, 1f);
+            // 帧数预算：进入受击的那一帧不衰减（HurtState._justEntered），之后每帧只掉
+            // moveAcceleration×Δt = 60×0.02 = 1.2 ⇒ 12 需要 1 + 10 = 11 帧才到零。
+            // 这里给 14 帧，**与上面第一次受击的预算一致**（那里是 1 + 1 + 12 = 14 帧才过）：
+            // 两处预算取同一个数，就不必再猜"边界是不是差一帧"；多出来的几帧顺手钉住
+            // "到零之后不会自己再动"。**改小之前先确认第一次受击那段也一起改。**
+            for (int i = 0; i < 14; i++) TickPlayer(logic, motor, Vector2.zero, 0.82f + i * 0.02f);
+            Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "第二次受击也必须滑停到零");
+
+            // 交还之后输入立刻生效（本用例的加速度是 60，一帧足够走 1.2，故断言"在往左加速"）
+            TickPlayer(logic, motor, Vector2.left, 1.2f);
             Assert.Less(motor.EngineVelocity.x, 0f, "受击结束后玩家必须能重新控制移动（否则被打一次就废了）");
-            Object.DestroyImmediate(config);
         }
 
         [Test]
         public void G16_重生把血量恢复满并清掉残留速度()
         {
-            var config = ScriptableObject.CreateInstance<PlayerConfig>();
             PlayerSpec spec = PlayerSpecFixture();
             var motor = new ProbeMotor { Position = Vector2.zero };
             var buffer = new InputBuffer(0.12f, 50);
@@ -699,7 +714,6 @@ namespace DeepseaOil.Tests
             Assert.IsTrue(logic.IsAlive, "重生必须满血复活");
             Assert.AreEqual(100f, logic.Stats.Current, 1e-4f);
             Assert.AreEqual(Vector2.zero, motor.EngineVelocity, "重生必须当场清掉残留在物理体上的速度");
-            Object.DestroyImmediate(config);
         }
 
         // G17 · 瞄准事实 / 投掷裁决
@@ -765,3 +779,4 @@ namespace DeepseaOil.Tests
         }
     }
 }
+

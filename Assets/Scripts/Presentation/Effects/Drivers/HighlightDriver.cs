@@ -4,24 +4,11 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>
-    /// 瞄准格高亮的驱动：整格半透明色块，<b>创建一次、之后只更新</b>。程序生成，不需要资源。
-    /// </summary>
-    /// <remarks>
-    /// <b>它是"持续效果"的第一个消费者。</b>与另外三个驱动不同，它不参与"播完就回收"的循环：
-    /// 高亮要一直亮着，直到逻辑层说"不瞄了"（<c>Stop</c>）。所以它没有池、没有时长、
-    /// 也没有 <c>Tick</c> 里的到期回收 —— 那些都是"一次性特效"的机制。
-    /// <para><b>为什么整格而不是圆：</b>落点已经被吸附到格子中心，画一个圆反而让人以为落点在圆心上、
-    /// 与格子无关。整格色块把"这一格会变成泥浆"这件事直接画出来（与它替代掉的那个白模件同口径）。</para>
-    /// <para><b>资产</b>：现在用运行期生成的方块图元（<c>PrimitiveSprites.Square</c>）顶替，
-    /// 正式美术到位后把 <see cref="Apply"/> 里的图元换成驱动自持的贴图 / 材质即可 ——
-    /// 换的时候不需要动调用方（它只认识 <c>EffectId.Highlight</c> 与 <c>EffectContext</c>）。</para>
-    /// <para><b>单例语义由本类自己保证</b>：<c>EffectModule</c> 不读 <c>IsSingleton</c>（设计如此），
-    /// 重复 <c>Play</c> 时本类复用同一个物体、只递增编号。</para>
-    /// </remarks>
+    /// <summary>瞄准格高亮驱动：整格半透明色块，创建一次后只更新；持续型，无池、无时长、无 Tick 回收，只由 <c>Stop</c> 关闭。</summary>
+    /// <remarks>色源是观感表 <c>ConfigModule.Visuals</c>（经 <c>ctx.Tint</c> 传入）；程序生成，换正式美术只改 <see cref="Apply"/> 里的图元。
+    /// 句柄＝编号＋代次：<c>CleanAll</c> 递增代次，旧句柄不得误停或挪动新实例（不符即 no-op）。</remarks>
     public sealed class HighlightDriver : IEffectDriver
     {
-        /// <summary>色块的排序层：低于球、高于地板与格效果层。</summary>
         private const int SortingOrder = RenderOrder.Aim;
 
         private readonly Transform _root;
@@ -35,13 +22,10 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private bool _active;
         private bool _disposed;
 
-        /// <summary>由装配表构造（<c>EffectDriverFactory</c> 用）。</summary>
         internal HighlightDriver(in EffectSpec spec, Transform root) : this(root, spec.MaxSize)
         {
         }
 
-        /// <param name="root">特效根（实例挂在它下面，销毁根即回收）。</param>
-        /// <param name="maxSize">同屏上限；本驱动只用一个实例，参数保留是为了与其它驱动同形。</param>
         public HighlightDriver(Transform root, int maxSize = 1)
         {
             _root = root;
@@ -52,7 +36,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         public bool IsSingleton => true;
 
         /// <inheritdoc />
-        /// <remarks>空串 = "不需要资源"：既不预加载也不懒加载，也不会被"没有同名预制体"判为缺失。</remarks>
+        /// <remarks>空串 = "不需要资源"：既不预加载也不懒加载，也不会被判为缺失。</remarks>
         public string AssetKey => string.Empty;
 
         /// <inheritdoc />
@@ -62,13 +46,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         public int ActiveInstanceCount => _active ? 1 : 0;
 
         /// <inheritdoc />
-        /// <remarks>本驱动不建池；"待用"指那个已经建好但当前没显示的物体（对外读数用）。</remarks>
         public int PooledObjectCount => _go != null && !_active ? 1 : 0;
 
         /// <inheritdoc />
         public void OnAssetLoaded(Object asset)
         {
-            // 不需要资源：本驱动永远不会被要求加载。
         }
 
         /// <inheritdoc />
@@ -87,10 +69,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         }
 
         /// <inheritdoc />
-        /// <remarks>
-        /// 句柄必须与"当前这一次播放"对上：编号或代次不符就是过期句柄，no-op ——
-        /// 否则一个旧句柄会把新的高亮挪到旧位置（而那种抖动看起来像"高亮跟丢了"）。
-        /// </remarks>
         public void UpdateInstance(EffectHandle handle, in EffectContext ctx)
         {
             if (_disposed || !_active) return;
@@ -118,7 +96,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         }
 
         /// <inheritdoc />
-        /// <remarks>持续型特效不随时间推进：显隐与位置都由 <c>Play</c>/<c>UpdateInstance</c>/<c>Stop</c> 决定。</remarks>
         public void Tick(float dt)
         {
         }
@@ -151,7 +128,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             _renderer = _go.AddComponent<SpriteRenderer>();
 
-            // 单位方块图元（1×1 世界单位），尺寸由 Apply 按 ctx.Radius 缩放
             PrimitiveSprites.Configure(
                 _renderer,
                 PrimitiveSprites.Square,
@@ -164,8 +140,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             return true;
         }
 
-        /// <summary>摆位与着色：位置 = <c>ctx.Position</c>，边长 = <c>ctx.Radius × 2</c>。</summary>
-        /// <remarks><c>ctx.Radius</c> 的语义与落地环一致（半径），所以高亮传进来的应该是"半格"。</remarks>
         private void Apply(in EffectContext ctx)
         {
             if (_go == null) return;

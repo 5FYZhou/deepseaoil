@@ -2,24 +2,18 @@ using cfg.demo;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 一波敌人的取值边界：持有 <c>wave</c> 表行，暴露被消费的语义点。
-    /// </summary>
-    /// <remarks>行不对外暴露（见 <see cref="ProjectileSpec"/> 的同一条纪律）。</remarks>
+    /// <summary>一波敌人的取值边界：持有 <c>wave</c> 表行，暴露被消费的语义点（行不对外暴露）。</summary>
     public sealed class WaveSpec
     {
         private readonly Wave _row;
 
-        /// <param name="row">表行（<c>wave</c>）。</param>
         public WaveSpec(Wave row)
         {
             _row = row;
         }
 
-        /// <summary>编号（= 表主键）。</summary>
         public int Id => _row.Id;
 
-        /// <summary>每波敌人数。</summary>
         public int EnemiesPerWave => _row.EnemiesPerWave;
 
         /// <summary>同一波内两只敌人之间的间隔（秒）。</summary>
