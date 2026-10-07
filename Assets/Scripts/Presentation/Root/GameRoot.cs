@@ -1,16 +1,25 @@
+<<<<<<< HEAD
 using System;
+=======
+﻿using DeepseaOil.Logic;
+using System.Collections;
+>>>>>>> main
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
+<<<<<<< HEAD
 using DeepseaOil.Logic.Service;
 using DeepseaOil.Presentation.Adapters;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.UI;
 using UnityEngine;
+=======
+using DeepseaOil.Logic.Services;
+>>>>>>> main
 
 namespace DeepseaOil.Presentation
 {
@@ -34,6 +43,7 @@ namespace DeepseaOil.Presentation
 
         private UIInputProvider _uiInputProvider;
         private ITickable _uiInput;
+<<<<<<< HEAD
         private IGameTime _gameTime;
 
         /// <summary>真正装配了进程级件的那个实例；只有它负责拆（重复的 <c>GameRoot</c> 被销毁时不许拆掉别人正在用的缓存）。</summary>
@@ -41,6 +51,31 @@ namespace DeepseaOil.Presentation
 
         /// <summary>渲染帧驱动项：<c>Order</c>（升序执行）＋ <c>Label</c>（诊断用）＋ 一个步骤；<b>顺序是数据而不是方法体里的一段注释</b>。</summary>
         private readonly struct DriveStep
+=======
+
+        private List<IService> services = new();
+
+        private TimerManager _timerService;
+
+        /// <summary>真正装配了 Data 层的那个 GameRoot；只有它负责拆（"谁 Init 谁 Dispose"）。</summary>
+        private static GameRoot _dataLayerOwner;
+
+        private IGameTime _gameTime;
+
+        /// <summary>
+        /// Data 层装配。放在 Awake 而不是 Start：Unity 保证所有 Awake 都先于任何 Start，
+        /// 这样别的脚本（例如 ConfigLoader）在自己的 Start 里就能确定性地拿到已就绪的配置。
+        /// 顺序不能反：AssetModule 的 Key 来自 ConfigModule。
+        /// 失败即抛（ConfigModule.Init 的契约）：带病数据不进运行时。
+        ///
+        /// 幂等守卫：`GameRoot` 是**场景对象**（没有 `DontDestroyOnLoad`），而 `ConfigModule` 是
+        /// 进程级常驻、`Init` 只许调一次（第二次直接抛）。所以"重开本关""从关卡 A 进关卡 B"这类
+        /// 二次进入场景，会撞上第一次留下的 `_ready`——必须先问再 Init。
+        /// `AssetModule` 侧则相反：它在 `OnDestroy` 里被 `Dispose` 过，`_initialized` 已复位，
+        /// 再 `Init` 是合法的；这里的守卫只为防同一帧里出现第二个 `GameRoot`。
+        /// </summary>
+        private void Awake()
+>>>>>>> main
         {
             public readonly int Order;
             public readonly string Label;
@@ -158,7 +193,11 @@ namespace DeepseaOil.Presentation
             _uiInputProvider = new UIInputProvider();
             _uiInputProvider.Init();
 
+<<<<<<< HEAD
             _uiInput = new UIInputLogic(UI, Game);
+=======
+            _gameTime = new GameTime();
+>>>>>>> main
 
             var pauseService = new PauseService(_gameTime);
             var sceneService = new SceneService(pauseService);
@@ -175,7 +214,14 @@ namespace DeepseaOil.Presentation
             _services.Add(saveService);
             _services.Add(Audio);
 
+<<<<<<< HEAD
             BuildDriveSteps();
+=======
+            _timerService = TimerManager.Instance;
+            _timerService.Init();
+
+            _uiInput = new UIInputLogic(UIMgr.Instance);
+>>>>>>> main
 
             if (Game.CurState == GameState.None)
             {
@@ -283,9 +329,43 @@ namespace DeepseaOil.Presentation
         /// <summary>渲染帧通道：<b>按 <see cref="UpdateSteps"/> 的 <c>Order</c> 升序跑</b>（全工程唯一入口）。</summary>
         private void Update()
         {
+<<<<<<< HEAD
             if (!IsReady) return;
 
             RunUpdateSteps();
+=======
+            // 输入采样
+            _uiInputProvider.Sample();
+            // 获取快照
+            var snapshot = _uiInputProvider.ConsumeSnapshot();
+            _uiInput.Tick(new UILogicContext(snapshot, GameManager.Instance.CurState));
+
+            // 服务
+            foreach (var service in services)
+            {
+                service.Tick(Time.unscaledDeltaTime);
+            }
+
+            // Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰（蓝图 §2 每帧时序 step ②）
+            AssetModule.Tick(Time.deltaTime);
+
+            // 特效：顺序表第 ③ 步。用 dt 而不是 unscaledDeltaTime —— 暂停（timeScale = 0）时特效整体冻结
+            EffectModule.Tick(Time.deltaTime);
+
+            // 战斗切片：顺序表第 ④ 步。同样用 dt —— 暂停时它拿到的是 0，各子系统自然冻结。
+            // 由本类驱动而不是让 CombatRoot 自驱 Update：蓝图契约 #2 "每帧只有四个驱动入口"。
+            if (combat != null) combat.Tick(Time.deltaTime);
+
+            _timerService.Tick(Time.deltaTime, Time.unscaledDeltaTime);
+
+            //actors.Tick(Time.deltaTime);
+
+            //views.Tick(Time.unscaledDeltaTime);
+
+            //debugOverlay.Tick();
+
+            //EventBus<FrameEnded>.Publish(new FrameEnded());
+>>>>>>> main
         }
 
         /// <summary>物理帧通道：<b>按 <see cref="FixedSteps"/> 的 <c>Order</c> 升序跑</b>（场景根内部再按各自的 <c>ISceneRoot.Order</c>：玩家侧先跑，世界侧后跑）。</summary>

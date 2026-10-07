@@ -34,11 +34,13 @@ namespace DeepseaOil.Tests
     /// </remarks>
     internal static class RowFactory
     {
-        /// <summary>一行水球：飞行 0.6 秒、弧高 2、射程 5、最近 0.4、落地切成泥浆。</summary>
+        /// <summary>一行水球：飞行 0.6 秒、弧高 2、射程 5、最近 0.4；元素四件 = 纯水（type 0 / temp 0 / wet 3 / cond 1 / tags 0）。</summary>
+        /// <remarks>落地切成什么状态由 <c>element_rule</c> 与地形元素合成后决定，<b>不再有 <c>tile_state</c> 列</b>（旧链路已作废）。</remarks>
         public static Projectile WaterRow()
             => new Projectile(JSON.Parse(
-                "{\"id\":0,\"name\":\"水球\",\"flight_duration\":0.6,\"max_height\":2," +
-                "\"max_throw_distance\":5,\"min_throw_distance\":0.4,\"tile_state\":1}"));
+                "{\"id\":0,\"name\":\"纯水\",\"flight_duration\":0.6,\"max_height\":2," +
+                "\"max_throw_distance\":5,\"min_throw_distance\":0.4," +
+                "\"type\":0,\"temp\":0,\"wet\":3,\"conductive\":1,\"tags\":0}"));
 
         /// <summary>一行敌人：半径 0.45、满速 3.6、加速 14、击退衰减 10、停止 0.6、追击 60、耐久 3、闪 4Hz。</summary>
         public static Enemy EnemyRow()
@@ -60,26 +62,10 @@ namespace DeepseaOil.Tests
                 "{\"id\":1,\"name\":\"默认\",\"enemies_per_wave\":4,\"spawn_interval\":0.25," +
                 "\"initial_delay\":1.5,\"respawn_delay\":2.5,\"spawn_radius\":5}"));
 
-        /// <summary>一行泥浆状态：减速 0.45、持续 8 秒、进入伤害 1、进入击退 1.83。</summary>
-        public static TileState MudRow(float slow = 0.45f, float duration = 8f, float damage = 1f, float knockback = 1.83f)
-            => new TileState(JSON.Parse(
-                $"{{\"id\":1,\"name\":\"泥浆\",\"slow_factor\":{Num(slow)},\"duration\":{Num(duration)}," +
-                $"\"enter_damage\":{Num(damage)},\"enter_knockback\":{Num(knockback)}}}"));
-
-        /// <summary>一行常规格。</summary>
-        public static TileState NormalRow()
-            => new TileState(JSON.Parse(
-                "{\"id\":0,\"name\":\"常规\",\"slow_factor\":1,\"duration\":0," +
-                "\"enter_damage\":0,\"enter_knockback\":0}"));
-
-        /// <summary>一行关卡初始格（状态 1 = 泥浆）。</summary>
+        /// <summary>一行关卡初始格（状态 1 = 空地）。</summary>
         public static TileInitial TileInitialRow(int cellX, int cellY, int stateId)
             => new TileInitial(JSON.Parse(
                 $"{{\"id\":1,\"cell_x\":{cellX},\"cell_y\":{cellY},\"state_id\":{stateId}}}"));
-
-        /// <summary>不变文化格式：拼 JSON 时不能用本地小数点（逗号会拼出非法 JSON）。</summary>
-        private static string Num(float value)
-            => value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>

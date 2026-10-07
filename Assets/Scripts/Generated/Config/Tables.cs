@@ -50,6 +50,14 @@ public partial class Tables
     /// 关卡初始格子状态
     /// </summary>
     public demo.TbTileInitial TbTileInitial {get; }
+    /// <summary>
+    /// 元素反应规则
+    /// </summary>
+    public demo.TbElementRule TbElementRule {get; }
+    /// <summary>
+    /// 反应效果
+    /// </summary>
+    public demo.TbTileEffect TbTileEffect {get; }
 
     public Tables(System.Func<string, JSONNode> loader)
     {
@@ -62,6 +70,8 @@ public partial class Tables
         TbPlayer = new demo.TbPlayer(loader("demo_tbplayer"));
         TbWave = new demo.TbWave(loader("demo_tbwave"));
         TbTileInitial = new demo.TbTileInitial(loader("demo_tbtileinitial"));
+        TbElementRule = new demo.TbElementRule(loader("demo_tbelementrule"));
+        TbTileEffect = new demo.TbTileEffect(loader("demo_tbtileeffect"));
         ResolveRef();
     }
     
@@ -76,6 +86,8 @@ public partial class Tables
         TbPlayer.ResolveRef(this);
         TbWave.ResolveRef(this);
         TbTileInitial.ResolveRef(this);
+        TbElementRule.ResolveRef(this);
+        TbTileEffect.ResolveRef(this);
     }
 }
 

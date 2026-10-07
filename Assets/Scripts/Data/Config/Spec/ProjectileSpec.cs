@@ -51,8 +51,9 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <summary>落地后目标格转成的状态；<see cref="TileStateType.Normal"/> = 不改格子 —— "土球现在没有世界效果"是一条配置事实，不是表现层里的一个 <c>if</c>。</summary>
-        public TileStateType TileState => _row.TileState;
+        /// <summary>本球种携带的<b>元素</b>（温度 / 湿度 / 导电 / 标签）：落地时与落点格的地形元素合成，结果决定新状态。</summary>
+        /// <remarks>它是"球能改变世界"的唯一依据：旧链路的 <c>tile_state</c> 列已随上游表改版删除（球不再直接指定目标状态）。<c>Type</c> 当前不参与判定（D13）。</remarks>
+        public ElementValue Element => new ElementValue(_row.Type, _row.Tags, _row.Temp, _row.Wet, _row.Conductive);
 
         public ThrowTuning Tuning => _tuning;
 
@@ -63,8 +64,6 @@ namespace DeepseaOil.Data
         public Color ShadowColor => ConfigModule.Visuals.shadow;
 
         public float BallRadius => _tuning != null ? _tuning.ballRadiusMeters : FallbackBallRadius;
-
-        public bool HasLandingEffect => TileState != TileStateType.Normal;
 
         private static float Positive(float value, float fallback)
         {

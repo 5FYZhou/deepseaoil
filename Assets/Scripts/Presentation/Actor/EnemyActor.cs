@@ -1,4 +1,4 @@
-using DeepseaOil.Data;
+﻿using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
@@ -15,7 +15,11 @@ namespace DeepseaOil.Presentation.Actor
     /// <remarks><b>受伤只有一条路</b>：<see cref="TakeDamage"/>；脚底中心每帧登记进 <see cref="EnemyCellRegistry"/>（格子按"人站在哪一格"结算）。
     /// <b>不自己驱动</b>：由 <c>CombatDirector</c> 统一逐只 <see cref="FixedTick"/>，自驱会让帧内顺序不可预测。</remarks>
     [DisallowMultipleComponent]
+<<<<<<< HEAD
     public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowEffectTarget, IAlivable, IManagedActor
+=======
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable
+>>>>>>> main
     {
         private const float HpTextCharacterSize = 0.13f;
 
@@ -117,17 +121,55 @@ namespace DeepseaOil.Presentation.Actor
             UpdateHpText();
         }
 
+<<<<<<< HEAD
         /// <summary>推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。</summary>
         /// <remarks>由 <c>CombatDirector</c> 调用，<b>不</b>用 <c>Update</c>：速度必须一个物理帧只提交一次。视效同频刷新 —— 颜色与逻辑层用同一份减速系数，分两个频率会有一帧不同步。</remarks>
         public void FixedTick(float now, float deltaTime)
         {
             if (!Stats.IsAlive) return;
+=======
+        /// <summary>
+        /// 实现ISlowable接口，结算减速效果
+        /// </summary>
+        public void SetSlowMultiplier(float multiplier)
+        {
+            _slowMultiplier = _grid == null ? 1f : multiplier;
+        }
+        public void ResetSlow()
+        {
+            _slowMultiplier = 1f;
+        }
+
+
+        /// <summary>
+        /// 推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。
+        /// </summary>
+        /// <remarks>
+        /// 由 <c>WaveDirector</c> 调用，<b>不</b>用 <c>Update</c> ——
+        /// 速度必须在一个物理帧里被提交一次，而不是每个渲染帧提交多次。
+        /// <para>视效在物理帧刷而不是渲染帧刷：<b>颜色要跟逻辑层用的是同一份减速系数</b>
+        /// （见 <see cref="_slowMultiplier"/> 的注释）。两者用不同频率更新就会出现一帧的不同步，
+        /// 而那一帧正好是"泥浆刚消失"的时候。</para>
+        /// </remarks>
+        public void FixedTick(float now, float deltaTime)
+        {
+            if (_dead) return;
+
+            // 先算"这一帧踩没踩在减速格里"，再把它喂给逻辑层和视效 —— 同一个来源。
+            //_slowMultiplier = _grid == null ? 1f : _grid.GetSlowMultiplier(Position);
+>>>>>>> main
 
             _logic.SetTarget(_target == null ? (Vector2?)null : TargetPosition());
             _logic.Tick(now, deltaTime);
 
+<<<<<<< HEAD
             _slowMultiplier = _logic.Status.SlowScale;
 
+=======
+            ///
+            /// 是否要在结算格子之前更新敌人坐标？
+            ///
+>>>>>>> main
             UpdateCell(force: false);
             UpdateBodyColor();
             UpdateSortingOrder();

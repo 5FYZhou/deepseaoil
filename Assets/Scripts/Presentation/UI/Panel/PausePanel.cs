@@ -1,9 +1,4 @@
-using DeepseaOil.Logic;
-using DeepseaOil.Logic.Events;
-using DeepseaOil.Presentation.UI;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using DeepseaOil.Logic;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -20,16 +15,16 @@ namespace DeepseaOil.Presentation.UI
         {
             switch (name)
             {
-                case "ContinueBtn":
-                    GameRoot.Instance.Game.ChangeState(GameState.Running);
+                case "BtnContinue":
+                    GameManager.Instance.ChangeState(GameState.Running);
                     break;
-                case "SettingBtn":
+                case "BtnSetting":
                     // 打开设置面板
-                    GameRoot.Instance.UI.ShowPanel<SettingPanel>();
+                    UIMgr.Instance.ShowPanel<SettingPanel>();
                     break;
-                case "ReturnMenuBtn":
+                case "BtnReturnMenu":
                     // 切换到开始场景
-                    GameRoot.Instance.Game.ChangeState(GameState.Menu);
+                    GameManager.Instance.ChangeState(GameState.Menu);
                     break;
             }
         }

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
@@ -14,6 +14,7 @@ using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
 using cfg.demo;
+using DeepseaOil.Logic.Grid.Effects;
 
 namespace DeepseaOil.Presentation
 {
@@ -49,6 +50,17 @@ namespace DeepseaOil.Presentation
 
         private GridLogic _grid;
         private EnemyCellRegistry _registry;
+<<<<<<< HEAD
+=======
+        private PlayerResources _resources;
+        private ThrowController _throw;
+        private PlayerHealthController _health;
+        private LandingResolver _resolver;
+        private WaveDirector _waves;
+        private TileAimView _aim;
+        private ReactionResolver _reactionResolver;
+        private TileEffectExecutor _tileEffectExecutor;
+>>>>>>> main
 
         private BallDirector _balls;
 
@@ -245,14 +257,27 @@ namespace DeepseaOil.Presentation
 
             IReadOnlyList<ProjectileSpec> balls = ConfigModule.GetAllBalls();
 
+            var rules = SpecCatalog.AllElementRules();
+            _reactionResolver = new(rules);
+
             _registry = new EnemyCellRegistry();
 
             GridGeometry geometry = gridView.ReadGeometry();
 
+<<<<<<< HEAD
             _grid = new GridLogic(geometry, ConfigModule.GetAllTileStates(), CreateTileState, _registry);
 
             // 先开始听"格子状态变了"，再灌初始状态：订阅晚了那一批泥浆就不会被画出来。
             gridView.Attach();
+=======
+            var effects = SpecCatalog.AllTileEffects();
+            _tileEffectExecutor = new(effects);
+            _tileEffectExecutor.Register(new SlowEffect());
+            _tileEffectExecutor.Register(new DamageInstantEffect(_registry, geometry));
+            _tileEffectExecutor.Register(new KnockBackEffect(_registry, geometry));
+
+            _grid = new GridLogic(geometry, SpecCatalog.AllTileStates(), CreateTileState, _reactionResolver, _tileEffectExecutor, _registry);
+>>>>>>> main
 
             int cells = gridView.RegisterCells(_grid);
             int initialStates = _grid.LoadInitialStates(ConfigModule.GetTileInitials());
@@ -284,10 +309,15 @@ namespace DeepseaOil.Presentation
 
             Debug.Log(
                 $"[Combat] 装配完成：格子 {cells} 个（初始状态 {initialStates} 个），" +
+<<<<<<< HEAD
                 $"球种 {balls.Count} 个，喷泉 {fountains.Length} 个，" +
                 (enableWaves
                     ? "敌人 启用"
                     : "敌人 关闭（CombatRoot 的「是否刷敌人」未勾选：想要刷怪请在 Inspector 上勾上它）"));
+=======
+                $"球种 {balls.Count} 个，喷泉 {fountains.Length} 个，敌人 {(enableWaves ? "启用" : "关闭")}，" +
+                $"反应规则 {rules.Count}条, 效果{effects.Count}个");
+>>>>>>> main
         }
 
         /// <summary>状态工厂：给 ID 造一个新实例。返回 <c>null</c> 表示"这个 ID 没有实现"。</summary>

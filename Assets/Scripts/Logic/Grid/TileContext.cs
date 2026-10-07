@@ -1,6 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
 using cfg.demo;
 using DeepseaOil.Logic.Combat;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Logic.Grid
 {
@@ -15,6 +16,7 @@ namespace DeepseaOil.Logic.Grid
 
         public readonly ITileScheduler Scheduler;
 
+<<<<<<< HEAD
         /// <summary>唯一的效果出口；可为 <c>null</c>（逻辑层单跑测试的场合）。</summary>
         public readonly ITileResolver Resolver;
 
@@ -24,12 +26,18 @@ namespace DeepseaOil.Logic.Grid
             float deltaTime,
             ITileScheduler scheduler,
             ITileResolver resolver)
+=======
+        public TileContext(Vector3Int cell, float now, float deltaTime, ITileScheduler scheduler)
+>>>>>>> main
         {
             Cell = cell;
             Now = now;
             DeltaTime = deltaTime;
             Scheduler = scheduler;
+<<<<<<< HEAD
             Resolver = resolver;
+=======
+>>>>>>> main
         }
     }
 
@@ -41,6 +49,7 @@ namespace DeepseaOil.Logic.Grid
         void Transition(Vector3Int cell, TileStateType next);
     }
 
+<<<<<<< HEAD
     public enum TileEffectKind
     {
         None = 0,
@@ -103,4 +112,6 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>续一次减速修饰；<b>不是</b>"立刻把速度乘一下"，修饰由目标的状态效果层持有。</summary>
         void ApplySlow(float speedScale, float seconds);
     }
+=======
+>>>>>>> main
 }

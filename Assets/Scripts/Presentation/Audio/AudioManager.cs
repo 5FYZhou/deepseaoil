@@ -22,12 +22,34 @@ namespace DeepseaOil.Presentation
     }
 
     /// <summary>
-    /// 音频：<c>PlaySfx</c> 从池里取一个 <c>AudioSource</c> 播一次、<c>PlayBgm</c> 用固定一个循环播。
-    /// 普通类、由 <c>GameRoot</c> 持有，作为 <c>IService</c> 每帧被驱动（回收播完的音效）。
+    /// 音频：<c>EnqueueSfx</c> / <c>EnqueueBgm</c> <b>只入队</b>，真正的播放统一在 <see cref="Tick"/> 里消费 —— 播放请求与实际播放在时间上解耦，同一帧里的多次请求按入队顺序各播各的。
+    /// 普通类、由 <c>GameRoot</c> 持有，作为 <c>IService</c> 每帧被驱动（先消费队列、再回收播完的音效）。
     /// </summary>
+    /// <remarks>
+    /// <b>单帧只消费"本 Tick 开始时已存在的请求"</b>：消费循环先取 <c>count</c> 再跑，于是播放过程中新产生的请求留到下一 Tick —— 没有它，一个在回调里自排队的调用点能让这一帧停不下来。
+    /// 队列不是线程安全设施：全程主线程，它解决的是"请求/消费解耦"，不是并发。
+    /// </remarks>
     public sealed class AudioManager : IService
     {
         private const string CONFIGKEY = "Config/AudioConfig";
+
+        private enum AudioRequestType
+        {
+            Sfx,
+            Bgm,
+        }
+
+        private readonly struct AudioRequest
+        {
+            public readonly AudioRequestType type;
+            public readonly AudioId id;
+
+            public AudioRequest(AudioRequestType type, AudioId id)
+            {
+                this.type = type;
+                this.id = id;
+            }
+        }
 
         private readonly Transform _host;
 
@@ -35,15 +57,22 @@ namespace DeepseaOil.Presentation
 
         private readonly Dictionary<AudioId, string> _idToFileName = new();
         private readonly Dictionary<AudioId, AudioClip> _cache = new();
+
+        /// <summary>待播放请求（先入先出）。只在 <c>GameRoot</c> 的服务通道（unscaled 时间）里被消费。</summary>
+        private readonly Queue<AudioRequest> _requestQueue = new();
+
+        private readonly List<PlayingEntry> _playing = new();
+
         private string _path;
 
         private GameObject _rootGo;
         private Transform _audioRootT;
+
         private GameObject _bgmGameObject;
         private AudioSource _bgmSource;
+
         private Pool<GameObject> _audioPool;
         private Pool<PlayingEntry> _entryPool;
-        private readonly List<PlayingEntry> _playing = new();
 
         private float _bgmVolume;
         private float _sfxVolume;
@@ -51,8 +80,8 @@ namespace DeepseaOil.Presentation
         /// <summary>装配是否完成（未完成时播放与音量设置是 no-op）。</summary>
         public bool IsReady => _initialized;
 
-        public float BgmVolume { get => _bgmVolume; }
-        public float SfxVolume { get => _sfxVolume; }
+        public float BgmVolume => _bgmVolume;
+        public float SfxVolume => _sfxVolume;
 
         /// <param name="host">音频根的宿主；传场景根之外的对象会让音频随它一起消失。</param>
         public AudioManager(Transform host)
@@ -88,6 +117,7 @@ namespace DeepseaOil.Presentation
                 onRelease: obj => obj.SetActive(false)
             );
 
+            // 初始化 PlayingEntry 池
             _entryPool = new PoolInClass<PlayingEntry>(
                 factory: () => new PlayingEntry()
             );
@@ -103,29 +133,79 @@ namespace DeepseaOil.Presentation
             _initialized = true;
         }
 
+        /// <summary>先消费队列、再回收播完的音效；顺序反了会让"本帧入队的音效"晚一帧才播。</summary>
         public void Tick(float unscaledDeltaTime)
         {
             if (!_initialized) return;
 
-            for (int i = _playing.Count - 1; i >= 0; i--)
+            ProcessRequests();
+
+            UpdatePlaying(unscaledDeltaTime);
+        }
+
+        // 消息队列
+
+        /// <summary>请求播放音效，<b>只入队</b>，不立即操作 Unity AudioSource；<c>AudioId.None</c> 直接丢弃。</summary>
+        public void EnqueueSfx(AudioId id)
+        {
+            if (id == AudioId.None)
+                return;
+
+            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Sfx, id));
+        }
+
+        /// <summary>请求播放 BGM，<b>只入队</b>，不立即操作 Unity AudioSource；<c>AudioId.None</c> 直接丢弃。</summary>
+        public void EnqueueBgm(AudioId id)
+        {
+            if (id == AudioId.None)
+                return;
+
+            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id));
+        }
+
+        /// <summary>消费本次 Tick 开始时已经存在的请求；过程中新产生的请求留到下一 Tick。</summary>
+        private void ProcessRequests()
+        {
+            int count = _requestQueue.Count;
+
+            for (int i = 0; i < count; i++)
             {
-                var e = _playing[i];
-                e.remaining -= unscaledDeltaTime;
+                AudioRequest request = _requestQueue.Dequeue();
 
-                if (e.remaining <= 0f || !e.source.isPlaying)
+                switch (request.type)
                 {
-                    e.source.clip = null;
+                    case AudioRequestType.Sfx:
+                        PlaySfxInternal(request.id);
+                        break;
 
-                    _audioPool.Release(e.go);
-                    _playing.RemoveAt(i);
-
-                    e.Reset();
-                    _entryPool.Release(e);
+                    case AudioRequestType.Bgm:
+                        PlayBgmInternal(request.id);
+                        break;
                 }
             }
         }
 
-        /// <summary>拆除：停掉在播的音效、还清资源引用、销毁音频根。<b>幂等。</b></summary>
+        /// <summary>音效播放维护：倒序遍历，播完（或剩余时长耗尽）就归还两个池。</summary>
+        private void UpdatePlaying(float unscaledDeltaTime)
+        {
+            for (int i = _playing.Count - 1; i >= 0; i--)
+            {
+                var entry = _playing[i];
+                entry.remaining -= unscaledDeltaTime;
+
+                if (entry.remaining <= 0f || !entry.source.isPlaying)
+                {
+                    entry.source.clip = null;
+                    _audioPool.Release(entry.go);
+                    _playing.RemoveAt(i);
+
+                    entry.Reset();
+                    _entryPool.Release(entry);
+                }
+            }
+        }
+
+        /// <summary>拆除：清空待播请求、停掉在播的音效、还清资源引用、销毁音频根。<b>幂等。</b></summary>
         /// <remarks>必须早于 <c>AssetModule.Dispose</c>（归还引用计数要经它）。</remarks>
         public void Dispose()
         {
@@ -133,13 +213,19 @@ namespace DeepseaOil.Presentation
 
             _initialized = false;
 
+            // 待播请求先丢：拆除之后再播出来的音效没有根可挂。
+            _requestQueue.Clear();
+
             foreach (var e in _playing)
             {
-                e.source.clip = null;
-                _audioPool.Release(e.go);
+                if (e.source != null) e.source.clip = null;
+
+                if (e.go != null) _audioPool?.Release(e.go);
+
                 e.Reset();
-                _entryPool.Release(e);
+                _entryPool?.Release(e);
             }
+
             _playing.Clear();
 
             foreach (KeyValuePair<AudioId, AudioClip> kv in _cache)
@@ -163,38 +249,47 @@ namespace DeepseaOil.Presentation
             _audioRootT = null;
         }
 
-        private void LoadConfig(string key)
+        // 实际播放（只由 Tick → ProcessRequests 调用）
+
+        private void PlaySfxInternal(AudioId id)
         {
-            var config = AssetModule.Load<AudioConfig>(key);
-
-            if (config == null)
-            {
-                Debug.LogError("AudioConfig 加载失败");
+            var clip = GetClip(id);
+            if (clip == null)
                 return;
-            }
 
-            _path = config.path;
-            _bgmVolume = config.bgmVolume;
-            _sfxVolume = config.sfxVolume;
+            var go = _audioPool.Get();
 
-            _idToFileName.Clear();
+            if (go == null) return;
 
-            foreach (var m in config.AudioMaps)
-            {
-                if (m.id == AudioId.None)
-                    continue;
+            if (_audioRootT != null && go.transform.parent != _audioRootT)
+                go.transform.SetParent(_audioRootT, false);
 
-                if (string.IsNullOrEmpty(m.fileName))
-                {
-                    Debug.LogWarning($"AudioConfig: {m.id} 没有配置文件名");
-                    continue;
-                }
-                if (!_idToFileName.TryAdd(m.id, m.fileName))
-                {
-                    Debug.LogWarning($"AudioConfig: 重复的 AudioId：{m.id}");
-                }
-            }
+            var a = go.GetComponent<AudioSource>();
+            if (a == null) a = go.AddComponent<AudioSource>();
+
+            a.clip = clip;
+            a.volume = _sfxVolume;
+            a.Play();
+
+            var entry = _entryPool.Get();
+            entry.go = go;
+            entry.source = a;
+            entry.remaining = clip.length;
+            _playing.Add(entry);
         }
+
+        private void PlayBgmInternal(AudioId id)
+        {
+            var clip = GetClip(id);
+            if (clip == null)
+                return;
+
+            _bgmSource.clip = clip;
+            _bgmSource.volume = _bgmVolume;
+            _bgmSource.Play();
+        }
+
+        // 音频资源
 
         /// <summary>音频资源 Key：<c>&lt;配置里的目录&gt;/&lt;文件名&gt;</c>（<c>AssetRegistry.ResolvePath</c> 会去掉扩展名）。</summary>
         private static string ClipKey(string fileName) => "audio/" + fileName;
@@ -223,50 +318,40 @@ namespace DeepseaOil.Presentation
             return clip;
         }
 
-        public void PlaySfx(AudioId id)
+        // 配置
+        private void LoadConfig(string key)
         {
-            if (!_initialized) return;
+            var config = AssetModule.Load<AudioConfig>(key);
 
-            var clip = GetClip(id);
-
-            if (clip == null)
+            if (config == null)
+            {
+                Debug.LogError("AudioConfig 加载失败");
                 return;
+            }
 
-            var go = _audioPool.Get();
+            _path = config.path;
+            _bgmVolume = config.bgmVolume;
+            _sfxVolume = config.sfxVolume;
 
-            if (go == null) return;
+            _idToFileName.Clear();
 
-            if (_audioRootT != null && go.transform.parent != _audioRootT)
-                go.transform.SetParent(_audioRootT, false);
+            foreach (var m in config.AudioMaps)
+            {
+                if (m.id == AudioId.None)
+                    continue;
 
-            var a = go.GetComponent<AudioSource>();
-            if (a == null) a = go.AddComponent<AudioSource>();
+                if (string.IsNullOrEmpty(m.fileName))
+                {
+                    Debug.LogWarning($"AudioConfig: {m.id} 没有配置文件名");
+                    continue;
+                }
 
-            a.clip = clip;
-            a.volume = _sfxVolume;
-            a.Play();
-
-            var entry = _entryPool.Get();
-            entry.go = go;
-            entry.source = a;
-            entry.remaining = clip.length;
-            _playing.Add(entry);
+                if (!_idToFileName.TryAdd(m.id, m.fileName))
+                    Debug.LogWarning($"AudioConfig: 重复的 AudioId：{m.id}");
+            }
         }
 
-        public void PlayBgm(AudioId id)
-        {
-            if (!_initialized) return;
-
-            var clip = GetClip(id);
-
-            if (clip == null)
-                return;
-
-            _bgmSource.clip = clip;
-            _bgmSource.volume = _bgmVolume;
-            _bgmSource.Play();
-        }
-
+        // 音量
         public void SetBgmVolume(float value)
         {
             _bgmVolume = Mathf.Clamp01(value);
@@ -279,9 +364,7 @@ namespace DeepseaOil.Presentation
             _sfxVolume = Mathf.Clamp01(value);
 
             for (int i = 0; i < _playing.Count; i++)
-            {
                 _playing[i].source.volume = _sfxVolume;
-            }
         }
     }
 }
