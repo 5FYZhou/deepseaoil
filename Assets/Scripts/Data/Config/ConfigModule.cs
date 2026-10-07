@@ -155,11 +155,24 @@ namespace DeepseaOil.Data
             return result;
         }
 
+        /// <summary>读一个格子状态。<b>表里没有这一行时抛异常</b>（Luban 的 <c>Get</c> 语义）：配置事故应该在启动期炸出来。</summary>
         public static TileStateSpec GetTileState(TileStateType id)
         {
             EnsureAssets();
 
             return new TileStateSpec(_holder.Tables.TbTileState.Get(id), ResolveEffect);
+        }
+
+        /// <summary>读一个格子状态；<b>表里没有这一行时返回 <c>null</c></b>（不抛异常）。</summary>
+        /// <remarks>给"按 ID 造状态"的工厂用：那个调用点必须能回答"这个 ID 到底有没有实现"，而"有没有实现"的第一道判据就是"配置里有没有这一行" ——
+        /// 用会抛异常的 <see cref="GetTileState"/> 会让"切到一个没配的状态"变成一条异常，而不是一次可以判定的失败。</remarks>
+        public static TileStateSpec TryGetTileState(TileStateType id)
+        {
+            EnsureAssets();
+
+            TileState row = _holder.Tables.TbTileState.GetOrDefault(id);
+
+            return row != null ? new TileStateSpec(row, ResolveEffect) : null;
         }
 
         public static IReadOnlyList<TileStateSpec> GetAllTileStates()
@@ -344,7 +357,7 @@ namespace DeepseaOil.Data
         // ③ 例外：必须在此登记并说明理由。**当前例外为零** ——
         //    全库 `using cfg.demo;` 的 17 个非 Data 文件（含两处测试夹具）里只有一个
         //    真实用法形态：吃枚举做 switch / 字典键。一行都不碰生成行。
-        //    `MudTileState` 看起来像例外，其实拿的是 `TileStateSpec`（包装件），不是 `TileState`。
+        //    `TableTileState` 看起来像例外，其实拿的是 `TileStateSpec`（包装件），不是 `TileState`。
         //
         // 判据怎么用：翻一个文件，问"它 `using cfg.demo;` 之后碰了什么类型"。
         // 只碰枚举 ⇒ ①；碰了行 ⇒ 必须先在这里登记；都不是 ⇒ 违纪。

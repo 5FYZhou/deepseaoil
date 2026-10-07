@@ -125,11 +125,63 @@ namespace DeepseaOil.Presentation.Adapters
                     "（表现为地上出现一块空洞）。请用两层不同的 Tilemap。", this);
             }
 
+            ValidateStateTiles();
+        }
+
+#if UNITY_EDITOR
+        /// <remarks>接线属于"在 Inspector 里一眼可查"的错，不该等到进 Play 才发现：这里也跑一遍自检。
+        /// 它不写任何序列化字段（只读 <c>stateTiles</c> 并打日志），所以不会和 Unity 的 Inspector 抢值。运行期也会被调到（编辑器里开着 Inspector 时），
+        /// 但自检是幂等的：重复跑只是把同一条错再说一遍，不会改变状态。</remarks>
+        private void OnValidate()
+        {
+            ValidateStateTiles();
+        }
+#endif
+
+        /// <summary>校验 <c>stateTiles</c> 这张"状态 → 贴图"表：<see cref="TileStateType.Normal"/> 与重复状态都必须报出来。</summary>
+        /// <remarks>
+        /// 两条都是"不报错也能跑、但一定画错"的配置事故：
+        /// <list type="bullet">
+        /// <item><b>Normal</b>：<c>OnTileStateChanged</c> 把 <see cref="TileStateType.Normal"/> 当"擦除"（<c>Restore</c>），所以给它绑贴图是自相矛盾的 ——
+        /// 库里那条绑定永远不会被当成"画这张图"来用；而真正想画的那个状态反而查不到贴图，表现为"投了球、地上什么也没变"。</item>
+        /// <item><b>重复状态</b>：<c>TileFor</c> 取第一条命中，后面的行静默失效。改错行修不出效果，是最难查的一类"改了没用"。</item>
+        /// </list>
+        /// </remarks>
+        private void ValidateStateTiles()
+        {
             if (stateTiles == null || stateTiles.Length == 0)
             {
                 Debug.LogWarning(
                     "[Grid] TilemapAdapter.stateTiles 是空的：任何格子状态都不会被画出来（逻辑仍然生效）。" +
                     "把「状态 → 贴图」填进去，例如 Mud → Tile_Mud。", this);
+
+                return;
+            }
+
+            for (int i = 0; i < stateTiles.Length; i++)
+            {
+                StateTileBinding binding = stateTiles[i];
+
+                if (binding.State == TileStateType.Normal)
+                {
+                    Debug.LogError(
+                        $"[Grid] TilemapAdapter.stateTiles 第 {i} 行绑的是 Normal（= 擦除）：效果层上「回到原样」由逻辑直接触发，不需要（也不该有）贴图绑定。" +
+                        "如果这一行想画的是泥浆，把 State 改成 Mud（表 id = 2）。", this);
+                }
+
+                if (binding.State == TileStateType.None)
+                {
+                    Debug.LogWarning(
+                        $"[Grid] TilemapAdapter.stateTiles 第 {i} 行的 State 是 None（默认值，多半是没选）：这一行永远不会被用到。", this);
+                }
+
+                for (int j = i + 1; j < stateTiles.Length; j++)
+                {
+                    if (stateTiles[j].State != binding.State) continue;
+
+                    Debug.LogError(
+                        $"[Grid] TilemapAdapter.stateTiles 里 {binding.State} 出现了两次（第 {i} 行与第 {j} 行）：只会取第一条，后面的静默失效。", this);
+                }
             }
         }
 

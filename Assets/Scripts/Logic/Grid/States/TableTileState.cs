@@ -3,17 +3,20 @@ using cfg.demo;
 
 namespace DeepseaOil.Logic.Grid.States
 {
-    /// <summary>一个<b>表驱动</b>的地块状态：它的一切行为都来自 <see cref="TileStateSpec"/> —— 效果清单已在数据层解析成定值，这里只负责"按节拍提交"。泥浆（减速）是它的第一个使用者。</summary>
+    /// <summary>
+    /// <b>表驱动的地块状态</b>：它的一切行为都来自 <see cref="TileStateSpec"/> —— 效果清单已在数据层解析成定值，这里只负责"按节拍提交 ＋ 到点到期"。
+    /// <b>所有状态共用这一个实现</b>（禁止为每种状态各写一个类：18 个状态就会变成 18 份只差一行参数的代码）。
+    /// </summary>
     /// <remarks>
-    /// <b>减速是"推"而不是"被查询"的：</b><see cref="OnEnter"/> 与每次 <see cref="OnTick"/> 只<b>提交</b>清单里的效果，找人与施加由结算口完成（见 <see cref="ITileResolver"/>）；
-    /// 减速修饰靠每次 Tick 续命，不续就等于"离开泥浆"，所以永久（<c>duration &lt;= 0</c>）的泥浆也必须每帧被调度到。
-    /// <para><b>没有"只在进入那一刻生效"的第二个通道</b>：清单在进入时提交一次、此后按 <c>TickInterval</c> 重复提交；<c>interval = 0</c> 的效果就是每帧触发
-    /// （泥浆的减速靠"每帧续命"表达持续，而不是靠一个"续 8 秒"的时长参数）。表里那些<b>一次性</b>效果（如"进格伤害 1 次即销毁"）本轮没有区分口 —— 见报告的待决问题。</para>
+    /// <b>减速 / 伤害是"推"而不是"被查询"的：</b><see cref="OnEnter"/> 与每次 <see cref="OnTick"/> 只<b>提交</b>清单里的效果，找人与施加由结算口完成（见 <see cref="ITileResolver"/>）。
+    /// 泥浆的减速靠"每帧续命"表达持续（<c>interval = 0</c> 的效果就是每帧触发），不续就等于"离开泥浆"。
+    /// <para><b>没有"只在进入那一刻生效"的第二个通道</b>：清单在进入时提交一次、此后按 <c>TickInterval</c> 重复提交。表里那些一次性效果（如"进格伤害 1 次即销毁"）本轮没有区分口，见 §6 的止步清单。</para>
     /// <para><b>DoT 的扣血节奏在这里自己累加</b>（D12 二次决策）：格子本身每帧就在 Tick，天然有钟；给每个中毒格挂一个全局计时器只会让格子数变成 timer 数。
     /// 于是本类在 <c>GridLogic</c> 的依赖之外<b>零新增依赖</b>：不吃 <c>ConfigModule</c>、不吃计时器、不吃 <c>Time</c>。</para>
+    /// <para><b>元素不在这里碰</b>：格子的元素由元素层按 D9 在状态切换时刷（<c>GridLogic.SwitchState</c>），状态只读表值干活。</para>
     /// <para>计时用一次性 Tick 队列而不是协程：于是"暂停 = 时间冻结"自动成立（<c>DeltaTime</c> 为 0 ⇒ 累加不动），整条时序可在 EditMode 里喂 dt 复现。</para>
     /// </remarks>
-    public sealed class MudTileState : ITileState
+    public sealed class TableTileState : ITileState
     {
         private readonly TileStateSpec _spec;
 
@@ -26,7 +29,7 @@ namespace DeepseaOil.Logic.Grid.States
         /// <summary>连续伤害自己的扣血累加（与上面的节拍分开：一件是"状态多久提交一次清单"，一件是"这一格多久扣一次血"）。</summary>
         private float _dotAccumulator;
 
-        public MudTileState(TileStateSpec spec)
+        public TableTileState(TileStateSpec spec)
         {
             _spec = spec;
         }
@@ -74,7 +77,7 @@ namespace DeepseaOil.Logic.Grid.States
         {
         }
 
-        /// <summary>按节拍提交效果清单。清单为空时仍然每帧提交 Tick —— "这个状态暂时没有效果"不该让它悄悄停摆。</summary>
+        /// <summary>按节拍提交效果清单。清单为空时仍然每帧提交 Tick —— "这个状态暂时没有效果"不该让它悄悄停摆（它还要判到期）。</summary>
         private void ApplyTick(in TileContext ctx)
         {
             float interval = _spec.TickInterval;
