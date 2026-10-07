@@ -34,25 +34,29 @@ namespace cfg.demo
         /// </summary>
         EarthWet = 4,
         /// <summary>
-        /// 沙土
+        /// 沙
         /// </summary>
-        EarthSand = 5,
+        Sand = 5,
+        /// <summary>
+        /// 粘土
+        /// </summary>
+        Clay = 6,
         /// <summary>
         /// 冰种子
         /// </summary>
-        SeedIce = 6,
+        SeedIce = 7,
         /// <summary>
         /// 火种子
         /// </summary>
-        SeedFire = 7,
+        SeedFire = 8,
         /// <summary>
         /// 植物种子
         /// </summary>
-        SeedPlant = 8,
+        SeedPlant = 9,
         /// <summary>
         /// 电种子
         /// </summary>
-        SeedElec = 9,
+        SeedElec = 10,
     }
 
 } 

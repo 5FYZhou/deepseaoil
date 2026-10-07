@@ -55,9 +55,9 @@ public partial class Tables
     /// </summary>
     public demo.TbElementRule TbElementRule {get; }
     /// <summary>
-    /// 元素反应结果地块
+    /// 反应效果
     /// </summary>
-    public demo.TbElementResult TbElementResult {get; }
+    public demo.TbTileEffect TbTileEffect {get; }
 
     public Tables(System.Func<string, JSONNode> loader)
     {
@@ -71,7 +71,7 @@ public partial class Tables
         TbWave = new demo.TbWave(loader("demo_tbwave"));
         TbTileInitial = new demo.TbTileInitial(loader("demo_tbtileinitial"));
         TbElementRule = new demo.TbElementRule(loader("demo_tbelementrule"));
-        TbElementResult = new demo.TbElementResult(loader("demo_tbelementresult"));
+        TbTileEffect = new demo.TbTileEffect(loader("demo_tbtileeffect"));
         ResolveRef();
     }
     
@@ -87,7 +87,7 @@ public partial class Tables
         TbWave.ResolveRef(this);
         TbTileInitial.ResolveRef(this);
         TbElementRule.ResolveRef(this);
-        TbElementResult.ResolveRef(this);
+        TbTileEffect.ResolveRef(this);
     }
 }
 

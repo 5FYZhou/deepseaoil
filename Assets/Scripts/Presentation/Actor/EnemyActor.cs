@@ -1,4 +1,4 @@
-using DeepseaOil.Data;
+﻿using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
@@ -20,7 +20,7 @@ namespace DeepseaOil.Presentation.Actor
     /// 而这件事只有敌人自己每帧知道（位置是它自己的）。</para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class EnemyActor : MonoBehaviour, IDamageable
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable
     {
         /// <summary>头顶耐久数字的字号（<c>TextMesh.characterSize</c>，世界单位量级）。</summary>
         /// <remarks>
@@ -172,6 +172,19 @@ namespace DeepseaOil.Presentation.Actor
         }
 
         /// <summary>
+        /// 实现ISlowable接口，结算减速效果
+        /// </summary>
+        public void SetSlowMultiplier(float multiplier)
+        {
+            _slowMultiplier = _grid == null ? 1f : multiplier;
+        }
+        public void ResetSlow()
+        {
+            _slowMultiplier = 1f;
+        }
+
+
+        /// <summary>
         /// 推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。
         /// </summary>
         /// <remarks>
@@ -186,12 +199,15 @@ namespace DeepseaOil.Presentation.Actor
             if (_dead) return;
 
             // 先算"这一帧踩没踩在减速格里"，再把它喂给逻辑层和视效 —— 同一个来源。
-            _slowMultiplier = _grid == null ? 1f : _grid.GetSlowMultiplier(Position);
+            //_slowMultiplier = _grid == null ? 1f : _grid.GetSlowMultiplier(Position);
 
             _logic.SetTarget(_target == null ? (Vector2?)null : TargetPosition());
             _logic.SetSlowMultiplier(_slowMultiplier);
             _logic.Tick(now, deltaTime);
 
+            ///
+            /// 是否要在结算格子之前更新敌人坐标？
+            ///
             UpdateCell(force: false);
             UpdateBodyColor();
         }

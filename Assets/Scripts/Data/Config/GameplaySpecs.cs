@@ -1,5 +1,5 @@
-﻿using Assets.Scripts.Data;
-using cfg.demo;
+﻿using cfg.demo;
+using System.Collections.Generic;
 
 namespace DeepseaOil.Data
 {
@@ -21,15 +21,17 @@ namespace DeepseaOil.Data
         /// <summary>飞行参数（时长 / 弧高 / 距离上下限）。</summary>
         public readonly ThrowSpec Throw;
 
-        /// <summary>落地后目标格转成的状态；<see cref="TileStateType.Normal"/> = 不改格子。</summary>
+        public readonly ElementSpec Element;
+
         public readonly TileStateType TileState;
 
-        public BallSpec(BallType type, string name, in ThrowSpec throwSpec, TileStateType tileState)
+        public BallSpec(BallType type, string name, in ThrowSpec throwSpec, in ElementSpec elementSpec)
         {
             Type = type;
             Name = name;
             Throw = throwSpec;
-            TileState = tileState;
+            Element = elementSpec;
+            TileState = new TileStateType();
         }
     }
 
@@ -60,13 +62,28 @@ namespace DeepseaOil.Data
         /// <summary>进入该状态时对该格敌人的击退冲量；<c>0</c> = 不击退。</summary>
         public readonly float EnterKnockback;
 
+        public readonly bool WillSpread;
+
+        public readonly bool CanReact;
+
+        public readonly ElementSpec Element;
+
+        public readonly TileEffectInfoSpec EffectInfoSpec;
+
+        public readonly string IconPath;
+
         public TileStateSpec(
             TileStateType id,
             string name,
             float slowFactor,
             float duration,
             float enterDamage,
-            float enterKnockback)
+            float enterKnockback,
+            bool willSpread,
+            bool canReact,
+            in ElementSpec element,
+            TileEffectInfoSpec effInfoSpec,
+            string path)
         {
             Id = id;
             Name = name;
@@ -74,6 +91,11 @@ namespace DeepseaOil.Data
             Duration = duration;
             EnterDamage = enterDamage;
             EnterKnockback = enterKnockback;
+            WillSpread = willSpread;
+            CanReact = canReact;
+            Element = element;
+            EffectInfoSpec = effInfoSpec;
+            IconPath = path;
         }
     }
 
@@ -240,9 +262,8 @@ namespace DeepseaOil.Data
         }
     }
 
-
     /// <summary>
-    /// 一条元素反应规则
+    /// 一条元素反应规则。纯数据，由 Luban 的 element_rule 行填充
     /// </summary>
     public readonly struct ElementRuleSpec
     {
@@ -259,10 +280,12 @@ namespace DeepseaOil.Data
 
         public readonly int ConductivityMin;
 
-        public readonly TileType ResultTileType;
+        public readonly TileStateType ResultTileType;
+        public readonly TileEffectInfoSpec EffectInfoSpec;
 
         public ElementRuleSpec(int p, ElementTag r, ElementTag e, 
-            int tmin, int tmax, int wmin, int wmax, int cmin, TileType tile)
+            int tmin, int tmax, int wmin, int wmax, int cmin, 
+            TileStateType tile, TileEffectInfoSpec effectInfoSpec)
         {
             Priority = p;
             RequireTags = r;
@@ -270,9 +293,10 @@ namespace DeepseaOil.Data
             TemperatureMin = tmin; 
             TemperatureMax = tmax; 
             WetMin = wmin; 
-            WetMax = cmin;    
-            ConductivityMin = tmin;
+            WetMax = wmax;    
+            ConductivityMin = cmin;
             ResultTileType = tile;
+            EffectInfoSpec = effectInfoSpec;
         }
 
         public bool Match(ElementSpec a)
@@ -299,6 +323,30 @@ namespace DeepseaOil.Data
                 return false;
 
             return true;
+        }
+    }
+
+    /// <summary>
+    /// 所有地块效果。纯数据，由 Luban 的 tile_Effect 行填充
+    /// </summary>
+    public readonly struct TileEffectSpec
+    {
+        public readonly TileEffectType Type;
+        public readonly string Name;
+        public readonly IReadOnlyList<float> values1;
+        public readonly IReadOnlyList<float> values2;
+        public readonly IReadOnlyList<float> interval;
+        public readonly IReadOnlyList<bool> flags;
+
+        public TileEffectSpec(TileEffectType effectType, string name, 
+            IReadOnlyList<float> v1, IReadOnlyList<float> v2, IReadOnlyList<float> i, IReadOnlyList<bool> f)
+        {
+            this.Type = effectType;
+            this.Name = name;
+            this.values1 = v1;
+            this.values2 = v2;
+            this.interval = i;
+            this.flags = f;
         }
     }
 }

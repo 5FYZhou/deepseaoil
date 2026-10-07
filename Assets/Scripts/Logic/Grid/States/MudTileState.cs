@@ -1,5 +1,6 @@
-using DeepseaOil.Data;
+﻿using DeepseaOil.Data;
 using cfg.demo;
+using UnityEngine;
 
 namespace DeepseaOil.Logic.Grid.States
 {
@@ -32,12 +33,10 @@ namespace DeepseaOil.Logic.Grid.States
         public TileStateType Id => _spec.Id;
 
         /// <inheritdoc />
-        public float SlowMultiplier => _spec.SlowFactor;
-
-        /// <inheritdoc />
         /// <remarks>进入即开始计时。已经有状态时不会走到这里（同状态不重入，见 <c>TileStateMachine</c>）。</remarks>
         public void OnEnter(in TileContext ctx)
         {
+            Debug.Log("MudEnter");
             _elapsed = 0f;
 
             if (_spec.Duration > 0f) ctx.Scheduler.ScheduleTick(ctx.Cell);

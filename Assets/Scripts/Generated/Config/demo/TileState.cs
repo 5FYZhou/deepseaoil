@@ -22,10 +22,17 @@ public sealed partial class TileState : Luban.BeanBase
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = (demo.TileStateType)_buf["id"].AsInt; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
-        { if(!_buf["slow_factor"].IsNumber) { throw new SerializationException(); }  SlowFactor = _buf["slow_factor"]; }
+        { if(!_buf["willSpread"].IsBoolean) { throw new SerializationException(); }  WillSpread = _buf["willSpread"]; }
         { if(!_buf["duration"].IsNumber) { throw new SerializationException(); }  Duration = _buf["duration"]; }
-        { if(!_buf["enter_damage"].IsNumber) { throw new SerializationException(); }  EnterDamage = _buf["enter_damage"]; }
-        { if(!_buf["enter_knockback"].IsNumber) { throw new SerializationException(); }  EnterKnockback = _buf["enter_knockback"]; }
+        { if(!_buf["canReact"].IsBoolean) { throw new SerializationException(); }  CanReact = _buf["canReact"]; }
+        { if(!_buf["temp"].IsNumber) { throw new SerializationException(); }  Temp = _buf["temp"]; }
+        { if(!_buf["wet"].IsNumber) { throw new SerializationException(); }  Wet = _buf["wet"]; }
+        { if(!_buf["cond"].IsNumber) { throw new SerializationException(); }  Cond = _buf["cond"]; }
+        { if(!_buf["tags"].IsNumber) { throw new SerializationException(); }  Tags = (demo.ElementTag)_buf["tags"].AsInt; }
+        { var __json0 = _buf["effects"]; if(!__json0.IsArray) { throw new SerializationException(); } Effects = new System.Collections.Generic.List<demo.TileEffectType>(__json0.Count); foreach(JSONNode __e0 in __json0.Children) { demo.TileEffectType __v0;  { if(!__e0.IsNumber) { throw new SerializationException(); }  __v0 = (demo.TileEffectType)__e0.AsInt; }  Effects.Add(__v0); }   }
+        { var __json0 = _buf["effectValuePos"]; if(!__json0.IsArray) { throw new SerializationException(); } EffectValuePos = new System.Collections.Generic.List<int>(__json0.Count); foreach(JSONNode __e0 in __json0.Children) { int __v0;  { if(!__e0.IsNumber) { throw new SerializationException(); }  __v0 = __e0; }  EffectValuePos.Add(__v0); }   }
+        { if(!_buf["tip"].IsString) { throw new SerializationException(); }  Tip = _buf["tip"]; }
+        { if(!_buf["icon"].IsString) { throw new SerializationException(); }  Icon = _buf["icon"]; }
     }
 
     public static TileState DeserializeTileState(JSONNode _buf)
@@ -34,7 +41,7 @@ public sealed partial class TileState : Luban.BeanBase
     }
 
     /// <summary>
-    /// 状态ID
+    /// 地块id
     /// </summary>
     public readonly demo.TileStateType Id;
     /// <summary>
@@ -42,21 +49,49 @@ public sealed partial class TileState : Luban.BeanBase
     /// </summary>
     public readonly string Name;
     /// <summary>
-    /// 踩在上面的速度系数（1=不减速）
+    /// 是否扩散
     /// </summary>
-    public readonly float SlowFactor;
+    public readonly bool WillSpread;
     /// <summary>
-    /// 持续时间（秒，0=永久）
+    /// 持续秒数（-1=永久）
     /// </summary>
     public readonly float Duration;
     /// <summary>
-    /// 进入该状态时对该格敌人的伤害
+    /// 会继续参与反应（有温湿电属性）
     /// </summary>
-    public readonly float EnterDamage;
+    public readonly bool CanReact;
     /// <summary>
-    /// 进入该状态时对该格敌人的击退冲量
+    /// 温度
     /// </summary>
-    public readonly float EnterKnockback;
+    public readonly int Temp;
+    /// <summary>
+    /// 湿度
+    /// </summary>
+    public readonly int Wet;
+    /// <summary>
+    /// 导电性
+    /// </summary>
+    public readonly int Cond;
+    /// <summary>
+    /// 标签(含土,含沙,含植物)
+    /// </summary>
+    public readonly demo.ElementTag Tags;
+    /// <summary>
+    /// 效果类型
+    /// </summary>
+    public readonly System.Collections.Generic.List<demo.TileEffectType> Effects;
+    /// <summary>
+    /// 效果数值编号
+    /// </summary>
+    public readonly System.Collections.Generic.List<int> EffectValuePos;
+    /// <summary>
+    /// 注释
+    /// </summary>
+    public readonly string Tip;
+    /// <summary>
+    /// 图标（目前没定路径，占位用）
+    /// </summary>
+    public readonly string Icon;
    
     public const int __ID__ = 1399173144;
     public override int GetTypeId() => __ID__;
@@ -70,10 +105,17 @@ public sealed partial class TileState : Luban.BeanBase
         return "{ "
         + "id:" + Id + ","
         + "name:" + Name + ","
-        + "slowFactor:" + SlowFactor + ","
+        + "willSpread:" + WillSpread + ","
         + "duration:" + Duration + ","
-        + "enterDamage:" + EnterDamage + ","
-        + "enterKnockback:" + EnterKnockback + ","
+        + "canReact:" + CanReact + ","
+        + "temp:" + Temp + ","
+        + "wet:" + Wet + ","
+        + "cond:" + Cond + ","
+        + "tags:" + Tags + ","
+        + "effects:" + Luban.StringUtil.CollectionToString(Effects) + ","
+        + "effectValuePos:" + Luban.StringUtil.CollectionToString(EffectValuePos) + ","
+        + "tip:" + Tip + ","
+        + "icon:" + Icon + ","
         + "}";
     }
 }

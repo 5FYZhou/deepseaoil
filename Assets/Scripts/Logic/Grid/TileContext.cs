@@ -1,6 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
 using cfg.demo;
 using DeepseaOil.Logic.Combat;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Logic.Grid
 {
@@ -28,16 +29,12 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>提交下一次 Tick / 请求状态转换。</summary>
         public readonly ITileScheduler Scheduler;
 
-        /// <summary>对本格结算一次伤害。</summary>
-        public readonly IDamageDealer Dealer;
-
-        public TileContext(Vector3Int cell, float now, float deltaTime, ITileScheduler scheduler, IDamageDealer dealer)
+        public TileContext(Vector3Int cell, float now, float deltaTime, ITileScheduler scheduler)
         {
             Cell = cell;
             Now = now;
             DeltaTime = deltaTime;
             Scheduler = scheduler;
-            Dealer = dealer;
         }
     }
 
@@ -58,20 +55,4 @@ namespace DeepseaOil.Logic.Grid
         void Transition(Vector3Int cell, TileStateType next);
     }
 
-    /// <summary>
-    /// 伤害结算口：对<b>站在该格上</b>的目标逐个结算。
-    /// </summary>
-    /// <remarks>
-    /// 方向由结算方按"格心 → 受害者"逐个算，所以这里只收"多少伤害、多少击退"，
-    /// 不收方向 —— 一格上可能站着不止一个目标，方向是<b>每个目标各一份</b>的。
-    /// </remarks>
-    public interface IDamageDealer
-    {
-        /// <summary>对 <paramref name="cell"/> 上的全部目标结算一次。</summary>
-        /// <param name="cell">格子。</param>
-        /// <param name="amount">伤害值；<c>0</c> = 只击退。</param>
-        /// <param name="knockback">击退冲量；<c>0</c> = 不击退。</param>
-        /// <param name="source">来源标记。</param>
-        void Deal(Vector3Int cell, float amount, float knockback, DamageSource source);
-    }
 }

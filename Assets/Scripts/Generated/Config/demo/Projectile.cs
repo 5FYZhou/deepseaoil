@@ -26,7 +26,6 @@ public sealed partial class Projectile : Luban.BeanBase
         { if(!_buf["max_height"].IsNumber) { throw new SerializationException(); }  MaxHeight = _buf["max_height"]; }
         { if(!_buf["max_throw_distance"].IsNumber) { throw new SerializationException(); }  MaxThrowDistance = _buf["max_throw_distance"]; }
         { if(!_buf["min_throw_distance"].IsNumber) { throw new SerializationException(); }  MinThrowDistance = _buf["min_throw_distance"]; }
-        { if(!_buf["tile_state"].IsNumber) { throw new SerializationException(); }  TileState = (demo.TileStateType)_buf["tile_state"].AsInt; }
         { if(!_buf["type"].IsNumber) { throw new SerializationException(); }  Type = (demo.ElementType)_buf["type"].AsInt; }
         { if(!_buf["temp"].IsNumber) { throw new SerializationException(); }  Temp = _buf["temp"]; }
         { if(!_buf["wet"].IsNumber) { throw new SerializationException(); }  Wet = _buf["wet"]; }
@@ -64,10 +63,6 @@ public sealed partial class Projectile : Luban.BeanBase
     /// </summary>
     public readonly float MinThrowDistance;
     /// <summary>
-    /// 落地后目标格转成的状态（Normal=不改）
-    /// </summary>
-    public readonly demo.TileStateType TileState;
-    /// <summary>
     /// 类型
     /// </summary>
     public readonly demo.ElementType Type;
@@ -104,7 +99,6 @@ public sealed partial class Projectile : Luban.BeanBase
         + "maxHeight:" + MaxHeight + ","
         + "maxThrowDistance:" + MaxThrowDistance + ","
         + "minThrowDistance:" + MinThrowDistance + ","
-        + "tileState:" + TileState + ","
         + "type:" + Type + ","
         + "temp:" + Temp + ","
         + "wet:" + Wet + ","

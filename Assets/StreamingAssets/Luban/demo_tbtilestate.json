@@ -1,18 +1,349 @@
 [
   {
-    "id": 0,
-    "name": "常规",
-    "slow_factor": 1,
+    "id": 2,
+    "name": "普通泥浆",
+    "willSpread": false,
+    "duration": 10,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      1
+    ],
+    "effectValuePos": [
+      1
+    ],
+    "tip": "减速50%",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 3,
+    "name": "稀泥",
+    "willSpread": false,
+    "duration": 10,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "滑行2格",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 4,
+    "name": "冰沙",
+    "willSpread": false,
+    "duration": 8,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      1,
+      8
+    ],
+    "effectValuePos": [
+      1,
+      1
+    ],
+    "tip": "减速50%|瞬时伤害1",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 5,
+    "name": "结冰",
+    "willSpread": false,
+    "duration": 15,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "滑行1格",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 6,
+    "name": "陶砖",
+    "willSpread": false,
+    "duration": 20,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      5
+    ],
+    "effectValuePos": [
+      1
+    ],
+    "tip": "阻挡|击退1格",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 7,
+    "name": "冻土",
+    "willSpread": false,
+    "duration": 20,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      5
+    ],
+    "effectValuePos": [
+      1
+    ],
+    "tip": "阻挡",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 8,
+    "name": "蒸汽",
+    "willSpread": true,
+    "duration": 3,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      9
+    ],
+    "effectValuePos": [
+      1
+    ],
+    "tip": "持续伤害|击退2格",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 9,
+    "name": "导电",
+    "willSpread": true,
+    "duration": 3,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      9,
+      6
+    ],
+    "effectValuePos": [
+      1,
+      1
+    ],
+    "tip": "持续伤害|麻痹抽搐1.5s",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 10,
+    "name": "藤蔓",
+    "willSpread": false,
+    "duration": 15,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      5,
+      7
+    ],
+    "effectValuePos": [
+      1,
+      1
+    ],
+    "tip": "阻挡|缠绕定身15s",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 11,
+    "name": "玻璃",
+    "willSpread": false,
     "duration": 0,
-    "enter_damage": 0,
-    "enter_knockback": 0
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "击退1格|瞬时伤害1次即销毁",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 12,
+    "name": "燃烧",
+    "willSpread": false,
+    "duration": 3,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      9
+    ],
+    "effectValuePos": [
+      2
+    ],
+    "tip": "持续伤害|击退1格|清除植物",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 13,
+    "name": "灰烬",
+    "willSpread": false,
+    "duration": 5,
+    "canReact": false,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "无",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 14,
+    "name": "基础水地块",
+    "willSpread": false,
+    "duration": -1,
+    "canReact": true,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "温湿度继承",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 15,
+    "name": "基础土地块",
+    "willSpread": false,
+    "duration": -1,
+    "canReact": true,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 1,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "温湿度继承",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 16,
+    "name": "基础火池",
+    "willSpread": false,
+    "duration": -1,
+    "canReact": true,
+    "temp": 4,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "无",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 17,
+    "name": "基础冰面",
+    "willSpread": false,
+    "duration": -1,
+    "canReact": true,
+    "temp": -4,
+    "wet": 2,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "无",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 18,
+    "name": "基础电源",
+    "willSpread": false,
+    "duration": -1,
+    "canReact": true,
+    "temp": 1,
+    "wet": 0,
+    "cond": 2,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "无",
+    "icon": "Resources\\Icons\\sardline.png"
+  },
+  {
+    "id": 19,
+    "name": "基础植物区",
+    "willSpread": false,
+    "duration": -1,
+    "canReact": true,
+    "temp": 0,
+    "wet": 1,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      5
+    ],
+    "effectValuePos": [
+      1
+    ],
+    "tip": "阻挡",
+    "icon": "Resources\\Icons\\sardline.png"
   },
   {
     "id": 1,
-    "name": "泥浆",
-    "slow_factor": 0.45,
-    "duration": 8,
-    "enter_damage": 1,
-    "enter_knockback": 1.83
+    "name": "空地",
+    "willSpread": false,
+    "duration": -1,
+    "canReact": true,
+    "temp": 0,
+    "wet": 0,
+    "cond": 0,
+    "tags": 0,
+    "effects": [
+      0
+    ],
+    "effectValuePos": [],
+    "tip": "无",
+    "icon": "Resources\\Icons\\sardline.png"
   }
 ]
