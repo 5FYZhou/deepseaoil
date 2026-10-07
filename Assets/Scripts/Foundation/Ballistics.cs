@@ -6,7 +6,7 @@ namespace DeepseaOil.Foundation
     /// 抛物线几何：<b>两端精确贴地、顶点恰好为 1</b>的归一化弧高。
     /// </summary>
     /// <remarks>
-    /// <b>为什么值得放进地基：</b>这个式子在两处各写过一遍（球的飞行 <c>BallData.SampleHeight01</c>
+    /// <b>为什么值得放进地基：</b>这个式子在两处各写过一遍（球的飞行 <c>ProjectileTrajectory.SampleHeight01</c>
     /// 与掉落物的抛物线 <c>WaterBallDrop</c>），而它们的语义必须一致 ——
     /// "两端恰好为 0"是"落地那一刻高度精确归零"的依据，两份实现漂了就会出现
     /// "球看起来浮在地上"或"掉落物陷进地面"这类只有肉眼能发现的偏差。

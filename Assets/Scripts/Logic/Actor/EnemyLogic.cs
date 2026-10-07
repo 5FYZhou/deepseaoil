@@ -6,13 +6,14 @@ using UnityEngine;
 namespace DeepseaOil.Logic
 {
     /// <summary>
-    /// 敌人的逻辑层：持有速度账本 ＋ <b>状态效果层 ＋ 移动层</b>，与玩家同构；
+    /// 敌人的逻辑层：持有<b>速度账本 ＋ 状态效果层 ＋ 移动层 ＋ 大脑</b>，与玩家同构；
     /// 唯一差别是"输入从哪来" —— 玩家来自 <c>InputBuffer</c>，敌人来自 <see cref="EnemyBrain"/>。
     /// </summary>
     /// <remarks>
-    /// <b>它是敌人速度的唯一写者。</b>击退不是另外去写 <c>Rigidbody2D</c>，而是
-    /// <see cref="ApplyKnockback"/> 往账本里挂一次冲量 —— 于是"每帧只有一个速度写者"
-    /// 这条不变量在敌人身上也成立（玩家那侧由 <c>PlayerLogic</c> 保证）。
+    /// <b>它是组合件，不是转发层</b>（审查已定：让 Logic 退化为组合件，与玩家同风格）：
+    /// 速度账本与控制律在 <see cref="ActorLogic.Motor"/> 上，意图在 <see cref="Brain"/> 上，
+    /// 移动状态在 <see cref="MoveGroup"/> 上 —— 消费者直接去那几个件取，
+    /// 本类不再为它们各开一个同名的转发属性。
     /// <para><b>帧内顺序与玩家逐条对齐：</b>
     /// <code>
     /// ① 大脑决策（意图 = 方向 ＋ 速度）    // 玩家侧对应"读输入快照"
@@ -22,13 +23,10 @@ namespace DeepseaOil.Logic
     /// <b>决策放在 <c>Tick</c> 而不是 <c>OnTick</c> 里做</b>：意图必须先进入上下文
     /// （移动层的基础态判据就是它），而上下文在驱动之前组装一次。</para>
     /// <para><b>它不查世界</b>：目标位置由表现层的组合根每帧喂入（<see cref="SetTarget"/>）；
-    /// 减速不再由组合根喂系数 —— 它由格状态提交、由状态效果层持有（见 <c>StatusGroup.ApplySlow</c>），
-    /// 本类完全不需要知道"脚下是不是泥浆"。</para>
+    /// 减速不再由组合根喂系数 —— 它由格状态提交、由状态效果层持有（见 <c>StatusGroup.ApplySlow</c>）。</para>
     /// </remarks>
     public sealed class EnemyLogic : ActorLogic
     {
-        private readonly EnemySpec _enemy;
-        private readonly EnemyBrain _brain;
         private readonly StatusGroup _status;
         private readonly EnemyMoveGroup _move;
 
@@ -39,45 +37,32 @@ namespace DeepseaOil.Logic
         /// 已递交、但还没被状态效果层消费的击退冲量。
         /// </summary>
         /// <remarks>
-        /// <b>为什么冲量必须"挂着"而不是当场写进账本：</b><c>ActorLogic.FixedTick</c> 在<b>帧首</b>
-        /// 就把 <c>_delta</c> 清零了，而那一刻在 <c>OnTick</c> 之前。于是"在两次 Tick 之间调
-        /// <c>AddImpulse</c>"会被下一次固定帧的开头<b>静默抹掉</b> —— 冲量从头到尾没到过执行器，
-        /// 而账本看起来一切正常。
+        /// <b>为什么冲量必须"挂着"而不是当场写进账本：</b>账本在<b>帧首</b>就把累积区清零了，
+        /// 而那一刻在 <c>OnTick</c> 之前。于是"在两次 Tick 之间调 <c>AddImpulse</c>"会被下一次
+        /// 固定帧的开头<b>静默抹掉</b> —— 冲量从头到尾没到过执行器，而账本看起来一切正常。
         /// <para>这不是测试才有的问题：格子结算在渲染帧、敌人 Tick 在物理帧，两者之间插着帧边界。
         /// 现象是"打中了但敌人纹丝不动"，且没有任何报错。</para>
         /// </remarks>
         private Vector2 _pendingKnockback;
 
-        /// <summary>本帧大脑给出的意图（移动层的速度来源，也是调试与测试的读数）。</summary>
-        private EnemyIntent _intent;
-
-        /// <param name="motor">移动执行器。参数类型是<b>接口</b>而不是具体 MonoBehaviour：
-        /// 逻辑层不该知道"实现挂在物体上"，而测试要能塞一个不碰引擎的探针进来。</param>
-        /// <param name="spec">敌人的表值（追击 / 耐久）。</param>
-        /// <param name="characterConfig">折算后的角色运动参数（由 <c>EnemyCharacterFactory</c> 给出）。</param>
-        public EnemyLogic(IMovementMotor motor, in EnemySpec spec, CharacterConfig characterConfig)
-            : base(motor, characterConfig)
+        /// <param name="motor">移动执行器（账本 ＋ 控制律 ＋ 物理体读写；测试可塞纯 C# 探针）。</param>
+        /// <param name="spec">敌人的取值边界（表行 ＋ 角色运动配置）。</param>
+        public EnemyLogic(IActorMotor motor, EnemySpec spec)
+            : base(motor, spec.Config)
         {
-            _enemy = spec;
-            _brain = new EnemyBrain(in spec);
+            Brain = new EnemyBrain(spec);
             _status = new StatusGroup(this);
-            _move = new EnemyMoveGroup(this);
+            _move = new EnemyMoveGroup(this, motor);
         }
 
-        /// <summary>本种类敌人数值（只读，供组合根取半径 / 闪烁频率等）。</summary>
-        public EnemySpec Spec => _enemy;
+        /// <summary>大脑：<b>意图与转向的持有者</b>。谁要数据就来这里取（审查："把 Brain 开放"）。</summary>
+        public EnemyBrain Brain { get; }
 
-        /// <summary>状态效果层（受击 / 平常）。</summary>
+        /// <summary>状态效果层（受击 / 减速修饰）。</summary>
         public StatusGroup Status => _status;
 
-        /// <summary>移动层（追击 / 站立）。</summary>
+        /// <summary>移动层（追击 / 站立）。<b>当前移动状态去这里取</b>（<c>MoveGroup.Current</c>）。</summary>
         public EnemyMoveGroup MoveGroup => _move;
-
-        /// <summary>当前移动状态（与玩家同一套标签）。</summary>
-        public MovementStateTag CurrentState => _move.Current;
-
-        /// <summary>本帧的意图。</summary>
-        public EnemyIntent Intent => _intent;
 
         /// <summary>是否正处于受击（视效用它决定闪不闪）。</summary>
         public bool IsHurt => _status.IsHurt;
@@ -116,9 +101,9 @@ namespace DeepseaOil.Logic
                 ? new EnemyBrain.Context(Motor.Position, _target.Value, true)
                 : EnemyBrain.Context.WithoutTarget(Motor.Position);
 
-            _intent = _brain.Decide(in brainContext);
+            EnemyIntent intent = Brain.Decide(in brainContext);
 
-            var snapshot = new InputSnapshot(_intent.Direction, false, false, false);
+            var snapshot = new InputSnapshot(intent.Direction, false, false);
             var context = new LogicContext(now, deltaTime, default, snapshot);
 
             FixedTick(context);

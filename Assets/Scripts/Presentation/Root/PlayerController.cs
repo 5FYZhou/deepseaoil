@@ -3,6 +3,7 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
+using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using cfg.demo;
 using UnityEngine;
@@ -32,12 +33,11 @@ namespace DeepseaOil.Presentation
     /// 而"屏幕 → 世界"这一步只有表现层做得了（只有它认识相机）—— 所以换算在这里，
     /// 吸附到哪一格由逻辑层算（<c>PlayerLogic.UpdateAim</c>）。</para>
     /// </remarks>
-    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked
+    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked, IManagedActor
     {
         /// <summary>驱动顺序：玩家侧必须早于世界侧（先提交速度、先读输入）。</summary>
-        public int Order => -100;
+        public int Order => SceneOrder.Player;
 
-        [SerializeField] private PlayerConfig config = default;
         [SerializeField] private PlayerMotor motor = default;
         [SerializeField] private InputProvider inputProvider = default;
 
@@ -60,14 +60,14 @@ namespace DeepseaOil.Presentation
         private WorldInfo _world;
         private BoundsArea _bounds;
 
-        /// <summary>观感调参（瞄准平面深度）。<c>Start</c> 里读一次；缺失时用代码默认值。</summary>
-        private ThrowTuning _tuning;
+        /// <summary>移动参数（SO）；由 <c>ConfigModule.GetPlayer().Config</c> 给，<c>Attach</c> 时取一次。</summary>
+        private PlayerConfig _config;
+
+        /// <summary>瞄准平面深度（世界单位）；<c>Attach</c> 时取一次，缺失时用代码兜底值。</summary>
+        private float _cameraPlaneDepth = 100f;
 
         /// <summary>本体渲染器（Y-Sort 用；惰性自取，场景里摆的那个 SpriteRenderer）。</summary>
         private SpriteRenderer _body;
-
-        /// <summary>是否已暂停（暂停时不瞄准、不开火 —— 输入被关掉，但指针采样并没有）。</summary>
-        private bool _paused;
 
         /// <summary>出生点（<c>Awake</c> 时记一次）；打空重来时回到这里。</summary>
         private Vector2 _spawnPoint;
@@ -80,12 +80,11 @@ namespace DeepseaOil.Presentation
 
         /// <summary>物理体位置（世界侧判接触、算重生点用物理体而不是 <c>transform</c>）。</summary>
         public Vector2 Position => motor == null ? Vector2.zero : motor.Position;
-
         /// <summary>本物理帧喂进逻辑层的环境事实。</summary>
         public WorldInfo World => _world;
 
         /// <summary>引擎回读速度，与逻辑层的"提交后预期"对照；它滞后一个物理步。</summary>
-        public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.Velocity;
+        public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.EngineVelocity;
 
         /// <summary>
         /// 把原始输入吸附到 8 向并归一化：键盘同时按两个轴会得到模长 √2，摇杆则是任意角度。
@@ -128,33 +127,6 @@ namespace DeepseaOil.Presentation
             return table;
         }
 
-        private void OnEnable()
-        {
-            EventBus<GamePaused>.Subscribe(OnGamePaused);
-            EventBus<GameResumed>.Subscribe(OnGameResumed);
-        }
-
-        private void OnDisable()
-        {
-            EventBus<GamePaused>.Unsubscribe(OnGamePaused);
-            EventBus<GameResumed>.Unsubscribe(OnGameResumed);
-        }
-
-        private void OnGamePaused(GamePaused evt)
-        {
-            _paused = true;
-
-            inputProvider.SetInputEnabled(false); // 内部已 Clear，无需再调一次
-            _buffer.Clear();
-        }
-
-        private void OnGameResumed(GameResumed evt)
-        {
-            _paused = false;
-
-            inputProvider.SetInputEnabled(true);
-        }
-
         /// <summary>
         /// 回到出生点并满血（打空重来）。
         /// </summary>
@@ -178,20 +150,13 @@ namespace DeepseaOil.Presentation
 
         private void Awake()
         {
-            if (config == null
-                || motor == null
+            if (motor == null
                 || inputProvider == null)
             {
-                Debug.LogError("PlayerController 引用未接线（config / motor / inputProvider），已停用。", this);
+                Debug.LogError("PlayerController 引用未接线（motor / inputProvider），已停用。", this);
                 enabled = false;
                 return;
             }
-
-            // 缓冲容量取"容量参数"与各输入窗口的较大者：容量小于任何窗口时，窗口内的按下会被挤出历史。
-            _buffer = new InputBuffer(
-                Mathf.Max(config.inputBufferTime, config.dashBufferTime),
-                Mathf.RoundToInt(1f / Time.fixedDeltaTime)
-                );
 
             _bounds = ReadBounds();
             _world = new WorldInfo(Vector2.zero, in _bounds); // 首帧前也不留 default
@@ -223,23 +188,32 @@ namespace DeepseaOil.Presentation
         /// 装配玩家逻辑。<b>由 <c>GameRoot</c> 在第一个被驱动的帧调</b>（见 <see cref="ISceneRoot.Attach"/>）。
         /// </summary>
         /// <remarks>
-        /// <b>为什么读表放在这里而不是 <c>Awake</c>：</b><c>SpecCatalog</c> 要经
-        /// <c>ConfigModule</c>，而配表由 <c>GameRoot.Awake</c> 装配 —— 组件之间的 <c>Awake</c>
+        /// <b>为什么读表放在这里而不是 <c>Awake</c>：</b><c>ConfigModule</c> 由 <c>GameRoot.Awake</c>
+        /// 装配（含第二段 <c>BindAssets</c> —— SO 侧的取值就在那一段），而组件之间的 <c>Awake</c>
         /// 顺序 Unity 不保证，写在 <c>Awake</c> 里就是一次"看运气"的启动崩溃
-        /// （<c>ConfigModule.Tables</c> 在未就绪时会抛）。
-        /// <para>同一行表值由本类读一次，世界侧经 <c>Logic.Spec</c> 拿：
-        /// 改列名的影响面因此只落在这一处。</para>
+        /// （<c>ConfigModule</c> 在未就绪时会抛）。
+        /// <para><b>输入缓冲也在这里建</b>：它的容量是"容量参数 ≥ 各输入窗口"的产物，而两半都来自
+        /// 配表（<c>PlayerConfig</c>）—— 装配顺序因此只有一条：先拿到 <c>PlayerSpec</c>，再建缓冲。</para>
+        /// <para><b>一处读表、一处外发</b>：玩家表值由本类读一次并存进 <c>PlayerLogic</c>，
+        /// 世界侧经 <c>logic.Stats.Spec</c> 拿 —— 改列名的影响面因此只落在这里。</para>
         /// </remarks>
         public void Attach()
         {
-            if (Logic != null || _buffer == null || motor == null) return;
+            if (Logic != null || motor == null) return;
 
-            PlayerSpec spec = SpecCatalog.Player();
+            PlayerSpec spec = ConfigModule.GetPlayer();
 
-            Logic = new PlayerLogic(motor, config, _buffer, in spec);
+            _config = spec.Config;
 
-            // 观感调参（瞄准平面深度）：配置缺失时 LoadOrDefault 会给一份默认值 ＋ 一条 Warning
-            _tuning = ThrowTuning.LoadOrDefault();
+            // 缓冲容量取"容量参数"与各输入窗口的较大者：容量小于任何窗口时，窗口内的按下会被挤出历史。
+            _buffer = new InputBuffer(
+                Mathf.Max(_config.inputBufferTime, _config.dashBufferTime),
+                Mathf.RoundToInt(1f / Time.fixedDeltaTime)
+                );
+
+            _cameraPlaneDepth = spec.CameraPlaneDepth;
+
+            Logic = new PlayerLogic(motor, spec, _buffer);
         }
 
         /// <summary>
@@ -256,11 +230,11 @@ namespace DeepseaOil.Presentation
 
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 
-            Vector2 move = SnapMoveToEightDirections(raw.Move, config.snapToEightDirections);
+            Vector2 move = SnapMoveToEightDirections(raw.Move, _config.snapToEightDirections);
 
             // 归一化后的方向要写回快照：WorldInfo 与 InputBuffer 必须是同一份方向，
             // 否则 MoveGroup 取冲刺方向、PlayerLogic 记"最近朝向"时会看到另一份（未处理的）值。
-            var snapshot = new InputSnapshot(move, raw.JumpPressed, raw.DashPressed, raw.GrabHeld);
+            var snapshot = new InputSnapshot(move, raw.DashPressed, raw.GrabHeld);
 
             _buffer.Push(in snapshot, Time.fixedTime);
 
@@ -291,9 +265,10 @@ namespace DeepseaOil.Presentation
         /// <para><b>"屏幕 → 世界"这一步只有本类做得了</b>（只有表现层认识相机）：
         /// 换算完把<b>世界点</b>交给逻辑层，吸附到哪一格由 <c>TileAim</c> 算 ——
         /// 于是"看着能扔到、其实扔不到"这条缺陷的根源（两处各算一次）从结构上消失。</para>
-        /// <para><b>暂停 / 菜单下不瞄准也不开火</b>：判据取"输入开关"（<c>InputProvider.IsInputEnabled</c>）
-        /// 而不是自己记一个暂停标志 —— 暂停事件是一次发布，订阅晚了的组件永远收不到，
-        /// 而"这一帧能不能读输入"必须每帧都答得对。</para>
+        /// <para><b>暂停 / 菜单下不瞄准也不开火</b>：判据只有"输入开关"一个真值
+        /// （<c>InputProvider.IsInputEnabled</c>）。收口前这里还有一个 <c>_paused</c> 字段与
+        /// <c>GamePaused</c> / <c>GameResumed</c> 两个订阅 —— 与输入开关并存就是<b>同一件事两个真值</b>，
+        /// 而它们可以不一致（订阅晚了就永远收不到那条事件）。现在暂停只改输入开关一处。</para>
         /// </remarks>
         public void RenderTick(float deltaTime)
         {
@@ -302,7 +277,7 @@ namespace DeepseaOil.Presentation
             // 遮挡是观感，与物理步无关，所以放渲染帧；放在暂停判断之前：暂停时也要保持档位正确。
             UpdateSortingOrder();
 
-            if (_paused || (inputProvider != null && !inputProvider.IsInputEnabled))
+            if (inputProvider == null || !inputProvider.IsInputEnabled)
             {
                 // 收起高亮（发布一条"没有瞄准"的事实，去重后最多发一次）
                 Logic.ClearAim();
@@ -352,9 +327,7 @@ namespace DeepseaOil.Presentation
         {
             Vector2 screen = inputProvider.AimScreen;
 
-            float depth = _tuning != null ? _tuning.cameraPlaneDepth : 100f;
-
-            Vector3 world = camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, depth));
+            Vector3 world = camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, _cameraPlaneDepth));
 
             return new Vector2(world.x, world.y);
         }

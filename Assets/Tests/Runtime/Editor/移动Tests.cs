@@ -55,25 +55,15 @@ namespace DeepseaOil.Tests
 {
     public class 移动Tests
     {
-        /// <summary>逻辑层测试用的假执行器：只记录被写入的值，不碰物理。</summary>
-        private sealed class RecordingMotor : IMovementMotor
+        /// <summary>
+        /// 逻辑层测试用的假执行器：账本与控制律用生产实现，只额外记录"被写入引擎几次"。
+        /// </summary>
+        /// <remarks>
+        /// <b>底座是共享的 <see cref="MotorProbe"/></b>（把 <c>ActorLedger</c> 接到一个纯 C# 字段上）：
+        /// 于是这里验的账本与线上跑的是同一份代码，而 EditMode 不需要 Rigidbody2D。
+        /// </remarks>
+        private sealed class RecordingMotor : MotorProbe
         {
-            public Vector2 Velocity { get; set; }
-            public Vector2 Position { get; private set; }
-            public Vector2 Facing { get; set; }
-            public int MoveCallCount { get; private set; }
-
-            public void Move(Vector2 velocity)
-            {
-                // 模拟"物理步已结算"：下一帧帧首读到的就是这个值。
-                Velocity = velocity;
-                MoveCallCount++;
-            }
-
-            public void SetPosition(Vector2 position)
-            {
-                Position = position;
-            }
         }
 
         private PlayerConfig _config;
@@ -104,8 +94,9 @@ namespace DeepseaOil.Tests
             _config.turnDecayRate = 0f;
 
             // 玩家表值：血量 / 无敌帧 / 接触伤害 / 击退。移动测试用不到它们，
-            // 但 PlayerLogic 的构造要吃它（账本 PlayerStats 由它初始化）
-            _spec = new PlayerSpec(1, "玩家", 100f, 10f, 0.8f, 1.2f, 0.5f, 12f, 12f, 1f);
+            // 但 PlayerLogic 的构造要吃它（账本 PlayerStats 由它初始化）。
+            // 移动参数那一半（PlayerConfig）由取值边界自己带上 —— 收口的收益之一。
+            _spec = new PlayerSpec(RowFactory.PlayerRow(), _config, new ProjectileSpec(RowFactory.WaterRow(), null));
 
             _buffer = new InputBuffer(
                 Mathf.Max(_config.inputBufferTime, _config.dashBufferTime),
@@ -113,7 +104,7 @@ namespace DeepseaOil.Tests
                 );
 
             _motor = new RecordingMotor();
-            _logic = new PlayerLogic(_motor, _config, _buffer, in _spec);
+            _logic = new PlayerLogic(_motor, _spec, _buffer);
 
             _stateChangeCount = 0;
             EventBus<MovementStateChanged>.Subscribe(OnStateChanged);
@@ -138,9 +129,9 @@ namespace DeepseaOil.Tests
         /// </remarks>
         private void Tick(Vector2 move, float now, bool dashPressed = false, bool resetVelocity = true)
         {
-            if (resetVelocity) _motor.Velocity = Vector2.zero;
+            if (resetVelocity) _motor.EngineVelocity = Vector2.zero;
 
-            var snapshot = new InputSnapshot(move, false, dashPressed, false);
+            var snapshot = new InputSnapshot(move, dashPressed, false);
             var world = new WorldInfo(move, default(BoundsArea));
 
             _buffer.Push(in snapshot, now);
@@ -156,8 +147,8 @@ namespace DeepseaOil.Tests
         {
             Tick(Vector2.zero, 0f);
 
-            Assert.AreEqual(Vector2.zero, _motor.Velocity, "零输入必须当帧停住，不得残留速度");
-            Assert.AreEqual(MovementStateTag.Idle, _logic.CurrentState);
+            Assert.AreEqual(Vector2.zero, _motor.EngineVelocity, "零输入必须当帧停住，不得残留速度");
+            Assert.AreEqual(MovementStateTag.Idle, _logic.MoveGroup.Current);
         }
 
         [Test]
@@ -169,7 +160,7 @@ namespace DeepseaOil.Tests
             Tick(new Vector2(1f, 1f), 0f);
 
             float expected = _config.moveSpeed * _config.moveSpeed;
-            float actual = _motor.Velocity.sqrMagnitude;
+            float actual = _motor.EngineVelocity.sqrMagnitude;
 
             // 容差 0.01：Vector2.normalized 与 magnitude 的浮点误差约 1.2e-3，
             // 而"未归一化"造成的偏差是 +64（(1,1) 会得到 2×speed²），量级差 4 个数量级，不会误判。
@@ -220,10 +211,10 @@ namespace DeepseaOil.Tests
         public void M3_方向切换无惯性()
         {
             Tick(Vector2.right, 0f);
-            Assert.AreEqual(_config.moveSpeed, _motor.Velocity.x, 1e-3f, "向右一帧后速度应为 +moveSpeed");
+            Assert.AreEqual(_config.moveSpeed, _motor.EngineVelocity.x, 1e-3f, "向右一帧后速度应为 +moveSpeed");
 
             Tick(Vector2.left, 0.02f);
-            Assert.AreEqual(-_config.moveSpeed, _motor.Velocity.x, 1e-3f,
+            Assert.AreEqual(-_config.moveSpeed, _motor.EngineVelocity.x, 1e-3f,
                 "反向输入必须当帧变为 -moveSpeed，出现中间值即存在加速度/衰减");
         }
 
@@ -239,7 +230,7 @@ namespace DeepseaOil.Tests
 
             Tick(Vector2.zero, 0.02f);
             Assert.Less(_motor.Facing.x, 0f, "站住后朝向不得被重置");
-            Assert.AreEqual(MovementStateTag.Idle, _logic.CurrentState);
+            Assert.AreEqual(MovementStateTag.Idle, _logic.MoveGroup.Current);
         }
 
         [Test]
@@ -276,14 +267,14 @@ namespace DeepseaOil.Tests
         {
             // 先建立斜向朝向：喂未归一化的 (1,1)，由实现自己归一到 45°
             Tick(new Vector2(1f, 1f), 0f);
-            _motor.Velocity = Vector2.zero;
+            _motor.EngineVelocity = Vector2.zero;
 
             // 再触发冲刺（无输入 → 用最近朝向）
             Tick(Vector2.zero, 0.02f, dashPressed: true, resetVelocity: false);
 
-            Assert.AreEqual(MovementStateTag.Dash, _logic.CurrentState, "有缓冲按下且冷却已过，应抢占到 Dash");
+            Assert.AreEqual(MovementStateTag.Dash, _logic.MoveGroup.Current, "有缓冲按下且冷却已过，应抢占到 Dash");
 
-            Vector2 v = _motor.Velocity;
+            Vector2 v = _motor.EngineVelocity;
             Assert.AreEqual(_config.dashSpeed, v.magnitude, 1e-3f,
                 $"冲刺速率应为 dashSpeed={_config.dashSpeed}；"
                 + $"若为 {_config.dashSpeed * Mathf.Sqrt(2f):F2} 量级，说明方向没归一化就乘了速度");
@@ -297,22 +288,22 @@ namespace DeepseaOil.Tests
         public void M7_冲刺走输入缓冲窗口()
         {
             // 窗口内：可消费
-            _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 0f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 0f);
 
             Assert.IsTrue(_logic.MoveGroup.CanDash(0.01f), "窗口内的冲刺按下应判定为可冲刺");
             Assert.IsTrue(_logic.MoveGroup.TryConsumeDash(0.01f), "首次消费应成功");
             Assert.IsFalse(_logic.MoveGroup.TryConsumeDash(0.01f), "同一次按下只能消费一次");
 
             // 窗口外：不可消费
-            _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 10f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 10f);
 
             Assert.IsFalse(_logic.MoveGroup.CanDash(10f + _config.dashBufferTime + 0.5f), "超出缓冲窗口的按下必须失效");
 
             // 冷却内：即使缓冲有按下也不可冲
-            _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 20f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 20f);
             Assert.IsTrue(_logic.MoveGroup.TryConsumeDash(20f), "冷却已过应能消费");
 
-            _buffer.Push(new InputSnapshot(Vector2.zero, false, true, false), 20.1f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 20.1f);
             Assert.IsFalse(_logic.MoveGroup.CanDash(20.1f), "冷却未过时不得再冲");
         }
 
@@ -327,17 +318,17 @@ namespace DeepseaOil.Tests
         [Test]
         public void M14_首帧同样参与抢占()
         {
-            var snap = new InputSnapshot(Vector2.right, false, true, false);
+            var snap = new InputSnapshot(Vector2.right, true, false);
             _buffer.Push(in snap, 0f);
 
             Assert.IsTrue(_logic.MoveGroup.CanDash(0f), "前置条件：首帧冷却与缓冲都成立");
 
             Tick(Vector2.right, 0f, dashPressed: true);
 
-            Assert.AreEqual(MovementStateTag.Dash, _logic.CurrentState, "首帧应直接进入 Dash");
+            Assert.AreEqual(MovementStateTag.Dash, _logic.MoveGroup.Current, "首帧应直接进入 Dash");
             Assert.IsFalse(_buffer.CanConsume(InputType.Dash, 0f, _config.dashBufferTime),
                 "首帧既已提交，这次按下必须被消费掉（否则第二帧会再冲一次）");
-            Assert.Less(Vector2.Distance(new Vector2(_config.dashSpeed, 0f), _motor.Velocity), 1e-3f,
+            Assert.Less(Vector2.Distance(new Vector2(_config.dashSpeed, 0f), _motor.EngineVelocity), 1e-3f,
                 "首帧提交成功就该是冲刺速度，而不是基础态的 moveSpeed");
         }
 
@@ -357,18 +348,18 @@ namespace DeepseaOil.Tests
         public void M13_抢占失败不得改动状态()
         {
             Tick(Vector2.right, 0f, dashPressed: true);
-            Assert.AreEqual(MovementStateTag.Dash, _logic.CurrentState, "首帧应抢占到 Dash");
+            Assert.AreEqual(MovementStateTag.Dash, _logic.MoveGroup.Current, "首帧应抢占到 Dash");
             Assert.AreEqual(Vector2.right, _logic.MoveGroup.Dash.Direction, "Configure 应把入场方向喂成输入方向");
 
             // t=0.15 时冷却（1.5s）远未过：抢占判定为假，本帧什么都不该发生
-            _buffer.Push(new InputSnapshot(Vector2.up, false, true, false), 0.15f);
+            _buffer.Push(new InputSnapshot(Vector2.up, true, false), 0.15f);
             Tick(Vector2.up, 0.15f, dashPressed: true, resetVelocity: false);
 
-            Assert.AreEqual(MovementStateTag.Dash, _logic.CurrentState,
+            Assert.AreEqual(MovementStateTag.Dash, _logic.MoveGroup.Current,
                 "冲刺时长 0.2s 未到，且抢占未成立：必须仍在 Dash，不得被基础态接管");
             Assert.AreEqual(Vector2.right, _logic.MoveGroup.Dash.Direction,
                 "抢占未提交却改写了方向，说明 Configure 跑在消费成功之前");
-            Assert.Less(Vector2.Distance(new Vector2(_config.dashSpeed, 0f), _motor.Velocity), 1e-3f,
+            Assert.Less(Vector2.Distance(new Vector2(_config.dashSpeed, 0f), _motor.EngineVelocity), 1e-3f,
                 "抢占未提交不得让基础态接管速度：仍在 Dash 中应保持冲刺速度");
 
             // 按下还在缓冲里：这次按下从未被消费，只是随窗口自然老化
@@ -384,13 +375,13 @@ namespace DeepseaOil.Tests
         public void M8_状态流转站与走()
         {
             Tick(Vector2.right, 0f);
-            Assert.AreEqual(MovementStateTag.Move, _logic.CurrentState, "有输入应进入 Move");
+            Assert.AreEqual(MovementStateTag.Move, _logic.MoveGroup.Current, "有输入应进入 Move");
 
             Tick(Vector2.zero, 0.02f);
-            Assert.AreEqual(MovementStateTag.Idle, _logic.CurrentState, "输入归零应回到 Idle，不经任何空中态");
+            Assert.AreEqual(MovementStateTag.Idle, _logic.MoveGroup.Current, "输入归零应回到 Idle，不经任何空中态");
 
             Tick(Vector2.up, 0.04f);
-            Assert.AreEqual(MovementStateTag.Move, _logic.CurrentState, "再次输入应回到 Move");
+            Assert.AreEqual(MovementStateTag.Move, _logic.MoveGroup.Current, "再次输入应回到 Move");
         }
 
         [Test]
@@ -463,14 +454,14 @@ namespace DeepseaOil.Tests
                 Assert.IsTrue(body.freezeRotation,
                     "俯视角：Initialize 必须冻结旋转（创建时故意留成不冻结）");
                 Assert.AreEqual(new Vector2(3f, -4f), body.velocity, "PlayerMotor.Move 必须写进 Rigidbody2D.velocity");
-                Assert.AreEqual(new Vector2(3f, -4f), motor.Velocity, "Velocity 必须回读同一份真值");
+                Assert.AreEqual(new Vector2(3f, -4f), motor.EngineVelocity, "Velocity 必须回读同一份真值");
 
                 motor.SetPosition(new Vector2(1.5f, 2.5f));
                 Assert.AreEqual(new Vector2(1.5f, 2.5f), motor.Position, "SetPosition 必须落到物理体位置");
 
                 // 初始化只生效一次：不能每次读速度都把物理参数重写回去
                 body.gravityScale = 0.5f;
-                _ = motor.Velocity;
+                _ = motor.EngineVelocity;
                 Assert.AreEqual(0.5f, body.gravityScale, "重复访问不得再次执行初始化");
             }
             finally
@@ -514,163 +505,6 @@ namespace DeepseaOil.Tests
             {
                 UnityEngine.Object.DestroyImmediate(go);
             }
-        }
-
-        // ================================================================
-        // 外力与限速（ApplyExtraForce / ClampSpeed，本轮改造的核心语义）
-        // ================================================================
-
-        [Test]
-        public void M15_限速按当帧速度整体钳制()
-        {
-            var motor = new RecordingMotor();
-            var logic = new LimitProbe(motor);
-
-            // 无提交 + 无上限：不该产生任何速度（零提交帧不写速度）
-            logic.FixedTick(ProbeContext(0f));
-            Assert.AreEqual(Vector2.zero, motor.Velocity, "零提交帧不得凭空产生速度");
-
-            // 上限 ≤ 0 表示不限制
-            logic.Limit = 0f;
-            logic.Speed = new Vector2(8f, 0f);
-            logic.FixedTick(ProbeContext(0.02f));
-            Assert.Less(Vector2.Distance(new Vector2(8f, 0f), motor.Velocity), 1e-3f,
-                "ClampSpeed(0) 应视为不限制：速度原样写出");
-
-            // 负上限同样视为不限制（不许把速度翻成反方向 —— Mathf.ClampMagnitude 的负数入参会）
-            logic.Limit = -5f;
-            logic.Speed = new Vector2(8f, 0f);
-            logic.FixedTick(ProbeContext(0.03f));
-            Assert.Less(Vector2.Distance(new Vector2(8f, 0f), motor.Velocity), 1e-3f,
-                "ClampSpeed(负数) 必须视为不限制，不得把速度反向");
-
-            // 超限时按模长整体缩回
-            logic.Limit = 3f;
-            logic.Speed = new Vector2(8f, 0f);
-            logic.FixedTick(ProbeContext(0.04f));
-            Assert.Less(Vector2.Distance(new Vector2(3f, 0f), motor.Velocity), 1e-3f,
-                "超限速度应收敛到上限模长");
-
-            // 未超限时不得被改动
-            logic.Speed = new Vector2(1f, 1f);
-            logic.FixedTick(ProbeContext(0.06f));
-            Assert.Less(Vector2.Distance(new Vector2(1f, 1f), motor.Velocity), 1e-3f,
-                "未超限的速度不得被钳制改动");
-        }
-
-        [Test]
-        public void M16_外力按ΔT累进且受强度缩放()
-        {
-            var motor = new RecordingMotor();
-            var logic = new LimitProbe(motor);
-
-            // ① 力为零：当帧不产生提交
-            logic.Scale = 1f;
-            logic.Force = Vector2.zero;
-            logic.FixedTick(ProbeContext(0f));
-            Assert.AreEqual(Vector2.zero, motor.Velocity, "零外力不得产生速度");
-
-            // ② 终速 = 外力 × Δt（每帧提交，不预先乘 Δt）
-            logic.Force = new Vector2(0f, -100f);
-            logic.FixedTick(ProbeContext(0.02f));
-            Assert.Less(Vector2.Distance(new Vector2(0f, -2f), motor.Velocity), 1e-3f,
-                "外力 100、Δt 0.02 时终速应为 -2");
-
-            // ③ 强度缩放为 0：整段空转
-            motor.Velocity = Vector2.zero;
-            logic.Scale = 0f;
-            logic.FixedTick(ProbeContext(0.04f));
-            Assert.AreEqual(Vector2.zero, motor.Velocity, "extraForceScale = 0 时必须整段空转");
-
-            // ④ 上限高于终速 2 → 本帧外力应完整留下。
-            //    注意探针的 SetVelocity 走的是 _delta，所以钳制看到的是 (0,-2)+(0,-2) = (0,-4)；
-            //    上限用 4.5 留出余量，本段只为验"未触及时不被动过"。
-            motor.Velocity = Vector2.zero;
-            logic.Scale = 1f;
-            logic.Limit = 4.5f;
-            logic.FixedTick(ProbeContext(0.06f));
-            Assert.Less(Vector2.Distance(new Vector2(0f, -2f), motor.Velocity), 1e-3f,
-                "未触及上限的速度不得被钳制改动");
-
-            // ⑤ 同帧超限时被钳回上限
-            motor.Velocity = Vector2.zero;
-            logic.Limit = 1f;
-            logic.FixedTick(ProbeContext(0.08f));
-            Assert.Less(Vector2.Distance(new Vector2(0f, -1f), motor.Velocity), 1e-3f,
-                "超上限的外力结果应收敛到上限");
-        }
-
-        /// <summary>
-        /// 回归：<b>先累加外力、后钳制</b> —— 顺序反了本帧外力会被钳制整个吃掉。
-        /// </summary>
-        /// <remarks>
-        /// 为什么必须单独一条：钳制是"接管"而不是"追加"（<c>ClampSpeed</c> 按当帧
-        /// <c>Velocity</c> 整体覆盖），所以"顺序"这件事不看中间值就验不出来 ——
-        /// 只看帧末输出的话，"先钳后加外力"与"先加外力后钳"在多数参数下给出同一个数。
-        /// <para>断言的判据是<b>钳制那一刻看到的速度</b>（探针在 <c>ClampSpeed</c> 之前记一次快照）：
-        /// 顺序正确时它必须已经含上外力（<c>0 + 50×0.02 = 1</c>）；
-        /// 顺序反了它只会是 <c>0</c>。上限设 1，于是外力被钳掉后帧末只剩 −3，
-        /// 与"顺序正确"的 −1 差得足够远，不会误判。</para>
-        /// </remarks>
-        [Test]
-        public void M18_外力必须早于钳制()
-        {
-            var motor = new RecordingMotor();
-            var logic = new LimitProbe(motor);
-
-            logic.Speed = Vector2.zero;
-            logic.Scale = 1f;
-            logic.Force = new Vector2(0f, -50f);
-            logic.Limit = 1f;
-
-            logic.FixedTick(ProbeContext(0f));
-
-            Assert.Less(Vector2.Distance(new Vector2(0f, -1f), logic.VelocityBeforeClamp), 1e-3f,
-                $"钳制必须看到已累加的外力（期望 50×0.02=1），实测 {logic.VelocityBeforeClamp}；"
-                + "若为 (0,0) 说明钳制跑在 ApplyExtraForce 之前 —— 本帧外力会被整个吃掉且不报错");
-
-            Assert.Less(Vector2.Distance(new Vector2(0f, -1f), motor.Velocity), 1e-3f,
-                "钳制看到含外力的速度后，帧末应收敛到上限 1");
-        }
-
-        /// <summary>把 <see cref="ActorLogic"/> 的两个新写入口暴露出来的探针。</summary>
-        /// <remarks>
-        /// 直接测 <c>ActorLogic</c> 而不是 <c>PlayerLogic</c>：这两个入口是"共用件"，
-        /// 玩家不调用它们（零惯性 + 不施外力），消费者是未来的敌人、击退、水流等。
-        /// 用探针在 <c>OnTick</c> 里按测试脚本调用，才能覆盖到真实调用次序。
-        /// </remarks>
-        private sealed class LimitProbe : ActorLogic
-        {
-            public Vector2 Force;
-            public float Scale = 1f;
-            public float Limit;
-            public Vector2 Speed;
-
-            /// <summary>钳制那一刻看到的速度（在 <c>ClampSpeed</c> 之前记一次），用来验调用顺序。</summary>
-            public Vector2 VelocityBeforeClamp { get; private set; }
-
-            public LimitProbe(IMovementMotor motor) : base(motor, ScriptableObject.CreateInstance<CharacterConfig>())
-            {
-            }
-
-            protected override void OnTick(in LogicContext ctx)
-            {
-                SetVelocity(Speed);
-                SetExtraForceScale(Scale);
-                ApplyExtraForce(in ctx, Force);
-
-                VelocityBeforeClamp = Velocity;
-
-                ClampSpeed(Limit);
-            }
-        }
-
-        private static LogicContext ProbeContext(float now)
-        {
-            var snapshot = InputSnapshot.Empty;
-            var world = new WorldInfo(Vector2.zero, default(BoundsArea));
-
-            return new LogicContext(now, 0.02f, in world, in snapshot);
         }
 
         // ================================================================
@@ -724,23 +558,23 @@ namespace DeepseaOil.Tests
             // （清零等于每帧都从零开始，永远加不上去）
             Tick(Vector2.right, 0f, resetVelocity: false);
 
-            Assert.AreEqual(0.4f, _motor.Velocity.x, 1e-3f,
+            Assert.AreEqual(0.4f, _motor.EngineVelocity.x, 1e-3f,
                 "第一帧只能加到 加速度 × Δt；直接等于 moveSpeed 说明状态还在当帧接管速度");
 
             // 再跑 19 帧：0.4 × 20 = 8 = moveSpeed，之后不再涨
             for (int i = 1; i <= 19; i++) Tick(Vector2.right, i * 0.02f, resetVelocity: false);
 
-            Assert.AreEqual(_config.moveSpeed, _motor.Velocity.x, 1e-3f, "持续按住应收敛到 moveSpeed");
+            Assert.AreEqual(_config.moveSpeed, _motor.EngineVelocity.x, 1e-3f, "持续按住应收敛到 moveSpeed");
 
             // 松手：按同一个加速度滑停（8 / 20 = 0.4 秒 = 20 帧），不是当帧归零
             Tick(Vector2.zero, 0.4f, resetVelocity: false);
 
-            Assert.AreEqual(_config.moveSpeed - 0.4f, _motor.Velocity.x, 1e-3f,
+            Assert.AreEqual(_config.moveSpeed - 0.4f, _motor.EngineVelocity.x, 1e-3f,
                 "松手第一帧应当只掉 加速度 × Δt；直接归零说明走的是当帧急停");
 
             for (int i = 1; i <= 25; i++) Tick(Vector2.zero, 0.4f + i * 0.02f, resetVelocity: false);
 
-            Assert.AreEqual(0f, _motor.Velocity.x, 1e-3f, "滑够时间必须真的停下");
+            Assert.AreEqual(0f, _motor.EngineVelocity.x, 1e-3f, "滑够时间必须真的停下");
         }
 
         /// <summary>
@@ -754,13 +588,13 @@ namespace DeepseaOil.Tests
             _config.moveAcceleration = 20f;
             _config.turnDecayRate = 0f;
 
-            var snap = new InputSnapshot(Vector2.right, false, true, false);
+            var snap = new InputSnapshot(Vector2.right, true, false);
             _buffer.Push(in snap, 0f);
 
             Tick(Vector2.right, 0f, dashPressed: true);
 
-            Assert.AreEqual(MovementStateTag.Dash, _logic.CurrentState);
-            Assert.AreEqual(_config.dashSpeed, _motor.Velocity.magnitude, 1e-3f,
+            Assert.AreEqual(MovementStateTag.Dash, _logic.MoveGroup.Current);
+            Assert.AreEqual(_config.dashSpeed, _motor.EngineVelocity.magnitude, 1e-3f,
                 "冲刺必须当帧到达 dashSpeed，而不是按走路加速度爬上去");
         }
 
@@ -788,8 +622,8 @@ namespace DeepseaOil.Tests
             // 这一帧玩家正按着"上"
             Tick(Vector2.up, 0.02f);
 
-            Assert.AreEqual(12f, _motor.Velocity.x, 1e-3f, "受击帧的速度由门禁决定");
-            Assert.AreEqual(0f, _motor.Velocity.y, 1e-3f, "输入不该在受击帧生效");
+            Assert.AreEqual(12f, _motor.EngineVelocity.x, 1e-3f, "受击帧的速度由门禁决定");
+            Assert.AreEqual(0f, _motor.EngineVelocity.y, 1e-3f, "输入不该在受击帧生效");
         }
     }
 }

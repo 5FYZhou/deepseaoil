@@ -44,7 +44,7 @@ namespace DeepseaOil.Presentation.Effects
         /// </remarks>
         public static readonly EffectId[] PreloadList =
         {
-            EffectId.HitSpark,
+            EffectId.BurstSparks,
             EffectId.MudSplash,
         };
 

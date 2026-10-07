@@ -26,7 +26,7 @@ namespace DeepseaOil.Logic.Grid
     /// <para><b>它不知道 Tilemap、不知道物理、不知道 Time</b>：几何由组合根从 Tilemap 折算进来
     /// （见 <see cref="GridGeometry"/>），于是整套格子行为可以在 EditMode 里喂 dt 复现。</para>
     /// </remarks>
-    public sealed class GridLogic : ITileScheduler, IDamageDealer
+    public sealed class GridLogic : ITileScheduler, ITileResolver
     {
         /// <summary>格子的几何（世界 ↔ 格）。</summary>
         public GridGeometry Geometry => _geometry;
@@ -60,9 +60,6 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>结算时的目标快照缓冲：受害方可能在结算里死亡并注销自己。</summary>
         private readonly List<IDamageable> _dealScratch = new();
 
-        /// <summary>速度修正的执行者（"这一格续一次减速"由它去找人并施加）。可为 <c>null</c>。</summary>
-        private readonly ITileSlowApplier _slow;
-
         /// <summary>最近一次 <see cref="Tick"/> 的时间；状态回调里读到的是它。</summary>
         private float _now;
         private float _deltaTime;
@@ -71,18 +68,20 @@ namespace DeepseaOil.Logic.Grid
         /// <param name="stateSpecs">全部状态配置行。</param>
         /// <param name="stateFactory">状态工厂：给 ID 造一个新实例；返回 <c>null</c> 表示该 ID 没有实现。</param>
         /// <param name="registry">敌人归属表；<c>null</c> 时自建一个。</param>
-        /// <param name="slow">速度修正的执行者；<c>null</c> 时状态提交的减速无人执行（逻辑层单独跑测试的场合）。</param>
+        /// <remarks>
+        /// <b>效果执行者就是本类</b>（<see cref="ITileResolver"/>）："这一格上站着谁"本来就是
+        /// 归属表的知识，而归属表由本类持有 —— 于是收口前那个注入的 <c>ITileSlowApplier</c>
+        /// 彻底消失了（不需要任何注入）。
+        /// </remarks>
         public GridLogic(
             in GridGeometry geometry,
             IReadOnlyList<TileStateSpec> stateSpecs,
             Func<TileStateType, ITileState> stateFactory,
-            EnemyCellRegistry registry = null,
-            ITileSlowApplier slow = null)
+            EnemyCellRegistry registry = null)
         {
             _geometry = geometry;
             _stateFactory = stateFactory;
             _registry = registry ?? new EnemyCellRegistry();
-            _slow = slow;
 
             if (stateSpecs != null)
             {
@@ -140,13 +139,16 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>
         /// 按关卡数据灌入初始状态。
         /// </summary>
+        /// <param name="states">关卡初始格数据行（<c>tile_initial</c>）。</param>
         /// <remarks>
         /// <b>刻意不产生伤害</b>：开局就站在泥浆上的敌人不该凭空掉血 ——
         /// 伤害的语义是"状态<b>发生了转换</b>"，而加载是"本来就是这样"。
         /// <para>不合法（没有地板）的格会被忽略，不报错：关卡数据与场景不一致是常见的手工事故，
         /// 表现应该是"那片泥没出现"，而不是启动失败。</para>
+        /// <para><b>参数是生成行而不是包装件</b>：这是"每格一行"的批量数据，本方法只做一次遍历，
+        /// 外面那层包装不会带来任何语义。</para>
         /// </remarks>
-        public int LoadInitialStates(IReadOnlyList<TileInitialSpec> states)
+        public int LoadInitialStates(IReadOnlyList<TileInitial> states)
         {
             if (states == null) return 0;
 
@@ -154,15 +156,15 @@ namespace DeepseaOil.Logic.Grid
 
             for (int i = 0; i < states.Count; i++)
             {
-                TileInitialSpec state = states[i];
+                TileInitial state = states[i];
 
-                if (state.State == TileStateType.Normal) continue;
+                if (state.StateId == TileStateType.Normal) continue;
 
                 var cell = new Vector3Int(state.CellX, state.CellY, 0);
 
                 if (!_cells.Contains(cell)) continue;
 
-                if (SwitchState(cell, state.State, applyEnterImpact: false)) applied++;
+                if (SwitchState(cell, state.StateId, applyEnterImpact: false)) applied++;
             }
 
             return applied;
@@ -240,13 +242,60 @@ namespace DeepseaOil.Logic.Grid
         }
 
         // ─────────────────────────────────────────────
-        // IDamageDealer
+        // ITileResolver：唯一的效果出口
         // ─────────────────────────────────────────────
 
         /// <inheritdoc />
-        public void Deal(Vector3Int cell, float amount, float knockback, DamageSource source)
+        /// <remarks>
+        /// <b>按目标分流是这里的事</b>：伤害走归属表逐个结算（方向按"格心 → 受害者"各算一份），
+        /// 减速只施加给实现了 <see cref="ISlowEffectTarget"/> 的目标。
+        /// <para><b>玩家不在归属表里</b>（审查已定：玩家只能被怪打，格子作用不到玩家），
+        /// 所以"泥浆会减速玩家"这条行为不存在 —— 它是格子系统完全不认识玩家的必然推论。</para>
+        /// </remarks>
+        public void Apply(Vector3Int cell, in TileEffect effect)
         {
-            if (amount <= 0f && knockback <= 0f) return;
+            switch (effect.Kind)
+            {
+                case TileEffectKind.Damage:
+                    Deal(cell, in effect);
+                    return;
+
+                case TileEffectKind.Slow:
+                    ApplySlow(cell, effect.SpeedScale, effect.Seconds);
+                    return;
+            }
+        }
+
+        /// <summary>
+        /// 续一次减速修饰：给站在该格上的每个可被减速的目标递一句"续命"。
+        /// </summary>
+        /// <remarks>
+        /// <b>不做快照</b>（对比 <see cref="Deal"/> 的快照）：施加修饰不会让目标死亡或注销自己，
+        /// 所以可以在表上直接遍历。
+        /// <para><b>为什么是"续一次"而不是"设一个状态"：</b>格状态<b>不持有、也不查询"格上的目标"</b> ——
+        /// 它只在自己每次 Tick 时说一句"这一格续一次减速"。于是"谁摘掉这个修饰"这个问题自动消失：
+        /// 离开泥浆 ⇒ 不再续命 ⇒ 修饰自然过期；暂停 ⇒ 格子不 Tick ⇒ 恢复后立刻续上。</para>
+        /// </remarks>
+        private void ApplySlow(Vector3Int cell, float speedScale, float seconds)
+        {
+            if (seconds <= 0f) return;
+
+            if (!_registry.TryGetIn(cell, out List<IDamageable> targets) || targets.Count == 0) return;
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (targets[i] is ISlowEffectTarget target) target.ApplySlow(speedScale, seconds);
+            }
+        }
+
+        // ─────────────────────────────────────────────
+        // 内部：伤害结算
+        // ─────────────────────────────────────────────
+
+        /// <summary>对站在该格上的目标逐个结算一次伤害（含可选击退）。</summary>
+        private void Deal(Vector3Int cell, in TileEffect effect)
+        {
+            if (effect.Amount <= 0f && effect.Knockback <= 0f) return;
 
             if (!_registry.TryGetIn(cell, out List<IDamageable> targets) || targets.Count == 0) return;
 
@@ -261,10 +310,14 @@ namespace DeepseaOil.Logic.Grid
             {
                 IDamageable target = _dealScratch[i];
 
-                if (target == null || target.IsDead) continue;
+                // null 必须先判：已销毁的 MonoBehaviour 一碰 transform 就抛。
+                if (target == null) continue;
 
-                // IsDead 必须先判：已销毁的 MonoBehaviour 一碰 transform 就抛。
-                target.TakeDamage(Damage.At(center, target.Position, amount, source, knockback));
+                // 生命体征走 IAlivable（玩家侧与怪物侧同一个名字）：已死但还没被销毁的目标
+                // 不该被重复结算。实现该接口的目标才算 —— 只实现 IDamageable 的目标没有"死活"概念。
+                if (target is IAlivable livable && !livable.IsAlive) continue;
+
+                target.TakeDamage(Damage.At(center, target.Position, effect.Amount, effect.Source, effect.Knockback));
             }
         }
 
@@ -326,7 +379,7 @@ namespace DeepseaOil.Logic.Grid
 
             if (spec.EnterDamage <= 0f && spec.EnterKnockback <= 0f) return;
 
-            Deal(cell, spec.EnterDamage, spec.EnterKnockback, DamageSource.Tile);
+            Apply(cell, TileEffect.Damage(spec.EnterDamage, spec.EnterKnockback, DamageSource.Tile));
         }
 
         private void DrainPendingTransitions()
@@ -369,7 +422,7 @@ namespace DeepseaOil.Logic.Grid
 
         private TileContext BuildContext(Vector3Int cell)
         {
-            return new TileContext(cell, _now, _deltaTime, this, this, _slow);
+            return new TileContext(cell, _now, _deltaTime, this, this);
         }
     }
 }

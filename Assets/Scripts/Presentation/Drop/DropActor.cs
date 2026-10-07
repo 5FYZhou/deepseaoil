@@ -21,7 +21,7 @@ namespace DeepseaOil.Presentation.Drop
     /// 两个标志，四个阶段靠它们组合推断（"在飞但没被领取"＝等触发）。加一个阶段就要再加一个 bool，
     /// 而"两个 bool 同时为真"这种状态永远是 bug。</para>
     /// </remarks>
-    public abstract class DropActor : MonoBehaviour
+    public abstract class DropActor : MonoBehaviour, IDrivenEntity
     {
         /// <summary>阶段。<b>子类只在 <see cref="TickFalling"/> / <see cref="TickWaiting"/> / <see cref="TickHoming"/> 里做事。</b></summary>
         protected enum Phase
@@ -42,8 +42,11 @@ namespace DeepseaOil.Presentation.Drop
         /// <summary>抛物线已飞时长（秒）；由 <see cref="AdvanceFalling"/> 推进。</summary>
         private float _elapsed;
 
-        /// <summary>本次掉落物的取值定义。</summary>
-        protected DropDefinition Definition { get; private set; }
+        /// <summary>本次掉落物的取值边界（数值）。</summary>
+        protected DropSpec Definition { get; private set; }
+
+        /// <summary>本次掉落物的种类（名字牌：领取时的载荷与实体工厂都要它）。</summary>
+        protected DropType Type { get; private set; }
 
         /// <summary>当前阶段。</summary>
         protected Phase CurrentPhase { get; private set; }
@@ -60,17 +63,36 @@ namespace DeepseaOil.Presentation.Drop
         /// <summary>是否已经被领取。</summary>
         public bool IsCollected => CurrentPhase == Phase.Done;
 
+        /// <summary>是否还在场（未被领取即在场）。<see cref="IDrivenEntity"/> 的口径。</summary>
+        public bool IsAlive => CurrentPhase != Phase.Done;
+
         /// <summary>当前阶段的读数（诊断用；<c>0=Falling 1=Waiting 2=Homing 3=Done</c>）。</summary>
+        /// <remarks>
+        /// <b>它是"阶段枚举降级成 int"，这是刻意的</b>：读它的人（调试面板）要的是"第几档"这种
+        /// 一眼能比较的量，而不是再认识一个枚举类型。语义对照写在上面这一行里。
+        /// </remarks>
         public int PhaseCode => (int)CurrentPhase;
+
+        /// <summary>回收本实体（销毁自己的 GameObject）。<b>幂等</b>：重复调用不会重复销毁。</summary>
+        /// <remarks>所有权归持有者（<c>DropDirector</c>）：本方法只是"被回收"的实现，
+        /// 调用时机由持有者决定 —— 与 <c>BallActor.Dispose</c> 同一条纪律。</remarks>
+        public void Dispose()
+        {
+            if (this == null) return;
+
+            Destroy(gameObject);
+        }
 
         /// <summary>
         /// 组装：写数值、摆位置、建出自己需要的组件与观感。
         /// </summary>
         /// <param name="request">产出请求（种类 ＋ 起点 ＋ 落点）。</param>
-        /// <param name="definition">取值定义。</param>
+        /// <param name="type">掉落物种类。</param>
+        /// <param name="definition">取值边界（数值）。</param>
         /// <param name="player">玩家引用（持有者注入）。</param>
-        public void Initialize(in DropSpawnRequest request, in DropDefinition definition, Transform player)
+        public void Initialize(in DropSpawnRequest request, DropType type, DropSpec definition, Transform player)
         {
+            Type = type;
             Definition = definition;
             Player = player;
             Origin = request.Origin;
@@ -156,7 +178,7 @@ namespace DeepseaOil.Presentation.Drop
         /// 领取：进入 <see cref="Phase.Done"/> 并发一条事实事件。<b>回收不在这里</b>（归持有者）。
         /// </summary>
         /// <remarks>
-        /// 载荷带"是什么 ＋ 几个"（数量来自取值定义）：订阅方按类型裁决给玩家什么，
+        /// 载荷带"是什么 ＋ 几个"（数量来自取值边界）：订阅方按类型裁决给玩家什么，
         /// 而不是由掉落物直接去改玩家账本 —— 世界 → 玩家只有"通知"一条路。
         /// </remarks>
         protected void Collect()
@@ -165,7 +187,7 @@ namespace DeepseaOil.Presentation.Drop
 
             EnterPhase(Phase.Done);
 
-            EventBus<DropCollected>.Publish(new DropCollected(Definition.Type, Definition.Amount));
+            EventBus<DropCollected>.Publish(new DropCollected(Type, Definition.Amount));
         }
 
         /// <summary>

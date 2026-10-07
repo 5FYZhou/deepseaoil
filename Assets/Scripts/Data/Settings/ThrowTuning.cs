@@ -71,15 +71,19 @@ namespace DeepseaOil.Data
         [Tooltip("落地冲量查询碰撞体时多查的余量（世界单位）。纯优化余量，不参与判定")]
         public float pushQueryMargin = 2f;
 
+        /// <summary>进程内的那一份（见 <see cref="LoadOrDefault"/>）。</summary>
+        private static ThrowTuning Cached;
+
         /// <summary>
         /// 取调参资产；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。
         /// </summary>
         /// <remarks>
-        /// <b>重复调用返回同一份</b>：兜底分支会创建一个不进资源系统的 <c>ScriptableObject</c>，
-        /// 而调用方不止一处（组合根与玩家组合根各要一份）—— 每次新建会攒垃圾，更糟的是
-        /// "某一处改了字段、另一处看不见"。
+        /// <b>调用方只有 <c>ConfigModule.BindAssets</c> 一处</b>：取值口径收口之后，
+        /// 消费者不再直接读 SO，而是经 <c>ConfigModule.GetXxx</c> 拿到合并了表与 SO 的包装件。
+        /// <para><b>重复调用返回同一份</b>：兜底分支会创建一个不进资源系统的 <c>ScriptableObject</c>，
+        /// 每次新建会攒垃圾，更糟的是"某一处改了字段、另一处看不见"。</para>
         /// </remarks>
-        public static ThrowTuning LoadOrDefault()
+        internal static ThrowTuning LoadOrDefault()
         {
             if (Cached != null) return Cached;
 
@@ -103,8 +107,5 @@ namespace DeepseaOil.Data
 
             return Cached;
         }
-
-        /// <summary>进程内的那一份（见 <see cref="LoadOrDefault"/>）。</summary>
-        private static ThrowTuning Cached;
     }
 }

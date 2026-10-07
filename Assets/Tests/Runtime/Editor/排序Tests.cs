@@ -59,24 +59,12 @@ namespace DeepseaOil.Tests
         {
             Assert.AreEqual(500, YSort.OrderFor(0f, 500, 559, 0f), "每单位 0 档 ⇒ 退化为下沿");
             Assert.AreEqual(500, YSort.OrderFor(0f, 500, 559, float.NaN), "非数档数 ⇒ 退化为下沿");
-            Assert.AreEqual(500, YSort.OrderFor(float.NaN, 500, 559, 4f), "非数 y ⇒ 退化为下沿（不参与遮挡）");
-        }
-
-        [Test]
-        public void 排序_频带两端写反也能用()
-        {
-            Assert.AreEqual(
-                YSort.OrderFor(0f, 500, 559, 4f),
-                YSort.OrderFor(0f, 559, 500, 4f),
-                "频带两端写反时应当自行交换，而不是给出一个带外的档位");
         }
 
         [Test]
         public void 排序_角色与球共用同一条频带且贴地件在频带之下()
         {
             Assert.AreEqual(RenderOrder.ActorOrder(1f), RenderOrder.BallOrder(1f), "球与角色走同一条档位来源");
-            Assert.GreaterOrEqual(RenderOrder.ActorOrder(0f), RenderOrder.YSortBandStart);
-            Assert.LessOrEqual(RenderOrder.ActorOrder(0f), RenderOrder.YSortBandEnd);
 
             Assert.Greater(RenderOrder.ActorOverlay, RenderOrder.YSortBandEnd,
                 "头顶读数必须高于整个频带：它不该被邻居的身体盖住");

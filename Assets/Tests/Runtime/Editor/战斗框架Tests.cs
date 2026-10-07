@@ -30,6 +30,7 @@ using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Projectile;
 using DeepseaOil.Logic.Wave;
+using DeepseaOil.Presentation.Actor;
 using NUnit.Framework;
 using UnityEngine;
 using cfg.demo;
@@ -50,78 +51,82 @@ namespace DeepseaOil.Tests
             return new GridGeometry(Vector2.zero, 1f);
         }
 
-        /// <summary>一颗"水球"：落地把目标格切成泥浆。射程 5、时长 0.6、弧高 2、最小距离 0.4。</summary>
-        private static BallDefinition WaterBallDefinition()
+        /// <summary>
+        /// 投掷调参：一份就够。
+        /// </summary>
+        /// <remarks><b>刻意不给球种配自定义调参</b>：球侧的观感参数（半径 / 出手抬高量）与逻辑无关，
+        /// 用 SO 的字段默认值即可 —— 于是测试只关心 <c>projectile</c> 表那几列。</remarks>
+        private static ThrowTuning Tuning()
         {
-            return new BallDefinition(
-                BallType.Water,
-                "水球",
-                new ThrowSpec(0.6f, 2f, 5f, 0.4f),
-                TileStateType.Mud);
+            return ScriptableObject.CreateInstance<ThrowTuning>();
+        }
+
+        /// <summary>一颗"水球"：落地把目标格切成泥浆。射程 5、时长 0.6、弧高 2、最小距离 0.4。</summary>
+        private static ProjectileSpec WaterBall()
+        {
+            return new ProjectileSpec(RowFactory.WaterRow(), Tuning());
         }
 
         /// <summary>一颗"土球"：落地不改格子。</summary>
-        private static BallDefinition EarthBallDefinition()
+        private static ProjectileSpec EarthBall()
         {
-            return new BallDefinition(
-                BallType.Earth,
-                "土球",
-                new ThrowSpec(0.6f, 2f, 5f, 0.4f),
-                TileStateType.Normal);
+            return new ProjectileSpec(RowFactory.EarthRow(), Tuning());
         }
 
-        private static TileStateSpec MudSpec(float slow = 0.45f, float duration = 8f, float damage = 1f, float knockback = 1.83f)
+        private static TileStateSpec MudSpec(TileState row)
         {
-            return new TileStateSpec(TileStateType.Mud, "泥浆", slow, duration, damage, knockback);
+            return new TileStateSpec(row);
         }
 
         private static TileStateSpec NormalSpec()
         {
-            return new TileStateSpec(TileStateType.Normal, "常规", 1f, 0f, 0f, 0f);
+            return new TileStateSpec(RowFactory.NormalRow());
         }
 
-        private static GridLogic NewGrid(EnemyCellRegistry registry = null, ITileSlowApplier slow = null)
+        /// <summary>
+        /// 一张只注册了"常规 ＋ 泥浆"两种状态的格子门面。
+        /// </summary>
+        /// <remarks>
+        /// <b>效果执行者就是 <c>GridLogic</c> 自己</b>（它实现 <c>ITileResolver</c>）：
+        /// 收口前测试要往里塞一个 <c>ProbeSlowApplier</c> 才能观察减速提交，
+        /// 现在通过归属表里的目标（实现 <c>ISlowEffectTarget</c>）观察即可 —— 更接近真实链路。
+        /// </remarks>
+        private static GridLogic NewGrid(EnemyCellRegistry registry = null)
         {
-            var list = new List<TileStateSpec> { NormalSpec(), MudSpec() };
+            var list = new List<TileStateSpec> { NormalSpec(), MudSpec(RowFactory.MudRow()) };
 
             return new GridLogic(
                 Geometry(),
                 list,
-                id => id == TileStateType.Mud ? new MudTileState(MudSpec()) : null,
-                registry,
-                slow);
+                id => id == TileStateType.Mud ? new MudTileState(MudSpec(RowFactory.MudRow())) : null,
+                registry);
         }
 
         /// <summary>
-        /// 记录"格子提交了几次减速修饰"的假执行者。
+        /// 被结算的假目标：只记事实，不碰引擎。
         /// </summary>
-        /// <remarks>减速改成"推"之后，格子这边唯一能观察到的就是<b>提交</b>：
-        /// 找人与施加都在执行者那一侧（真实现是 <c>CombatRoot</c>）。</remarks>
-        private sealed class ProbeSlowApplier : ITileSlowApplier
-        {
-            public int SubmitCount;
-            public Vector3Int LastCell;
-            public float LastScale;
-            public float LastSeconds;
-
-            public void ApplySlow(Vector3Int cell, float speedScale, float seconds)
-            {
-                SubmitCount++;
-                LastCell = cell;
-                LastScale = speedScale;
-                LastSeconds = seconds;
-            }
-        }
-
-        /// <summary>被结算的假目标：只记事实，不碰引擎。</summary>
-        private sealed class ProbeTarget : IDamageable
+        /// <remarks>
+        /// <b>它同时实现三个接口，正是真实敌人的形状</b>：<c>IDamageable</c>（格子按归属表结算伤害）、
+        /// <c>ISlowEffectTarget</c>（格子按归属表施加减速）、<c>IAlivable</c>（结算方跳过硬目标）。
+        /// 于是"格状态只提交、执行者找人与施加"这条口径可以在一个探针上观察全链。
+        /// </remarks>
+        private sealed class ProbeTarget : IDamageable, ISlowEffectTarget, IAlivable
         {
             public int HitCount;
             public float LastAmount;
             public float LastImpulse;
             public Vector2 LastDirection;
 
-            public bool IsDead { get; set; }
+            /// <summary>减速修饰被续了几次。</summary>
+            public int SlowSubmitCount;
+
+            /// <summary>最近一次续命的速度乘数。</summary>
+            public float LastSpeedScale;
+
+            /// <summary>最近一次续命的存活时长。</summary>
+            public float LastSlowSeconds;
+
+            public bool IsAlive { get; set; } = true;
 
             public Vector2 Position { get; set; }
 
@@ -132,26 +137,25 @@ namespace DeepseaOil.Tests
                 LastImpulse = damage.Impulse;
                 LastDirection = damage.Direction;
             }
+
+            public void ApplySlow(float speedScale, float seconds)
+            {
+                SlowSubmitCount++;
+                LastSpeedScale = speedScale;
+                LastSlowSeconds = seconds;
+            }
         }
 
         /// <summary>
         /// 不碰引擎的移动执行器探针：速度只存在一个字段里。
         /// </summary>
         /// <remarks>
-        /// 逻辑层只认识 <see cref="IMovementMotor"/>，所以这里能塞一个纯 C# 实现 ——
+        /// 底座是共享的 <see cref="MotorProbe"/>：它把 <c>ActorLedger</c>（速度账本 ＋ 控制律）
+        /// 接到一个纯 C# 字段上。逻辑层只认识接口，所以这里能塞一个纯 C# 实现 ——
         /// 这正是"逻辑层零引擎类型"的收益。
         /// </remarks>
-        private sealed class ProbeMotor : IMovementMotor
+        private sealed class ProbeMotor : MotorProbe
         {
-            public Vector2 Velocity { get; set; }
-
-            public Vector2 Position { get; set; }
-
-            public Vector2 Facing { get; set; } = Vector2.right;
-
-            public void Move(Vector2 velocity) => Velocity = velocity;
-
-            public void SetPosition(Vector2 position) => Position = position;
         }
 
         // ================================================================
@@ -361,8 +365,8 @@ namespace DeepseaOil.Tests
         public void G5_水球落地把目标格切成泥浆并结算一次伤害()
         {
             var registry = new EnemyCellRegistry();
-            var slow = new ProbeSlowApplier();
-            GridLogic grid = NewGrid(registry, slow);
+            var slow = new ProbeTarget();
+            GridLogic grid = NewGrid(registry);
 
             var cell = new Vector3Int(2, 2, 0);
             grid.RegisterCell(cell);
@@ -370,17 +374,16 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallDefinition ball = WaterBallDefinition();
+            ProjectileSpec ball = WaterBall();
 
             Assert.IsTrue(grid.OnBallHit(cell, ball.TileState), "落在合法格上必须生效");
 
             Assert.AreEqual(TileStateType.Mud, grid.StateOf(cell), "状态应当切成泥浆");
             Assert.AreEqual(1, target.HitCount, "状态转换应当结算一次伤害");
             Assert.AreEqual(1f, target.LastAmount, 1e-4f);
-            Assert.GreaterOrEqual(slow.SubmitCount, 1, "泥浆格必须提交减速修饰（进入那一刻就续一次）");
-            Assert.AreEqual(cell, slow.LastCell, "修饰必须提交给本格");
-            Assert.AreEqual(0.45f, slow.LastScale, 1e-4f, "乘数来自配置行");
-            Assert.Greater(slow.LastSeconds, 0f, "续命时长必须为正，否则修饰立刻过期");
+            Assert.GreaterOrEqual(target.SlowSubmitCount, 1, "泥浆格必须提交减速修饰（进入那一刻就续一次）");
+            Assert.AreEqual(0.45f, target.LastSpeedScale, 1e-4f, "乘数来自配置行");
+            Assert.Greater(target.LastSlowSeconds, 0f, "续命时长必须为正，否则修饰立刻过期");
         }
 
         [Test]
@@ -394,7 +397,7 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallDefinition ball = WaterBallDefinition();
+            ProjectileSpec ball = WaterBall();
 
             Assert.IsFalse(grid.OnBallHit(cell, ball.TileState));
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(cell));
@@ -413,7 +416,7 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallDefinition ball = EarthBallDefinition();
+            ProjectileSpec ball = EarthBall();
 
             grid.OnBallHit(cell, ball.TileState);
 
@@ -433,7 +436,7 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallDefinition ball = WaterBallDefinition();
+            ProjectileSpec ball = WaterBall();
 
             grid.OnBallHit(cell, ball.TileState);
 
@@ -479,13 +482,16 @@ namespace DeepseaOil.Tests
         public void G5_泥浆到期后落回常规并不再续减速()
         {
             var registry = new EnemyCellRegistry();
-            var slow = new ProbeSlowApplier();
-            GridLogic grid = NewGrid(registry, slow);
+            GridLogic grid = NewGrid(registry);
 
             var cell = new Vector3Int(0, 0, 0);
             grid.RegisterCell(cell);
 
-            BallDefinition ball = WaterBallDefinition();
+            // 减速要有人接：施加对象是<b>站在该格上的目标</b>（归属表里那个）。
+            var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
+            registry.Register(cell, target);
+
+            ProjectileSpec ball = WaterBall();
 
             grid.OnBallHit(cell, ball.TileState);
 
@@ -497,11 +503,11 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0, grid.ActiveStateCount, "落回常规的格不该继续占着状态机");
 
             // 减速是"推"：不再续命就等于离开泥浆（修饰由目标自己过期，格子这边没有"摘"的动作）。
-            int submitsAtExpiry = slow.SubmitCount;
+            int submitsAtExpiry = target.SlowSubmitCount;
 
             for (int i = 8; i < 12; i++) grid.Tick(i, 1f);
 
-            Assert.AreEqual(submitsAtExpiry, slow.SubmitCount, "落回常规之后不得再提交减速修饰");
+            Assert.AreEqual(submitsAtExpiry, target.SlowSubmitCount, "落回常规之后不得再提交减速修饰");
         }
 
         [Test]
@@ -518,7 +524,7 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = center + new Vector2(0.3f, 0f) };
             registry.Register(cell, target);
 
-            BallDefinition ball = WaterBallDefinition();
+            ProjectileSpec ball = WaterBall();
             grid.OnBallHit(cell, ball.TileState);
 
             Assert.AreEqual(1f, target.LastDirection.x, 1e-3f);
@@ -535,10 +541,10 @@ namespace DeepseaOil.Tests
             var cell = new Vector3Int(0, 0, 0);
             grid.RegisterCell(cell);
 
-            var target = new ProbeTarget { IsDead = true, Position = grid.Geometry.CellCenter(cell) };
+            var target = new ProbeTarget { IsAlive = false, Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            BallDefinition ball = WaterBallDefinition();
+            ProjectileSpec ball = WaterBall();
             grid.OnBallHit(cell, ball.TileState);
 
             Assert.AreEqual(0, target.HitCount, "已死目标不该再吃一次伤害");
@@ -556,10 +562,10 @@ namespace DeepseaOil.Tests
             var target = new ProbeTarget { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
 
-            var initials = new List<TileInitialSpec>
+            var initials = new List<TileInitial>
             {
-                new TileInitialSpec(cell.x, cell.y, TileStateType.Mud),
-                new TileInitialSpec(99, 99, TileStateType.Mud),   // 没有地板的格：忽略
+                RowFactory.TileInitialRow(cell.x, cell.y, (int)TileStateType.Mud),
+                RowFactory.TileInitialRow(99, 99, (int)TileStateType.Mud),   // 没有地板的格：忽略
             };
 
             int applied = grid.LoadInitialStates(initials);
@@ -610,11 +616,11 @@ namespace DeepseaOil.Tests
         [Test]
         public void G7_抛物线两端精确贴地且顶点等于弧高()
         {
-            var spec = new ThrowSpec(0.6f, 2f, 5f, 0.4f);
+            var spec = WaterBall();
             var origin = new Vector2(1f, 2f);
             var target = new Vector2(5f, 3.5f);
 
-            var data = new BallData(BallType.Water, origin, target, Vector2.Distance(origin, target), in spec);
+            var data = new ProjectileTrajectory(BallType.Water, origin, target, Vector2.Distance(origin, target), spec);
 
             Assert.AreEqual(0f, data.SampleVisual(0f).y - data.SampleGround(0f).y, 1e-4f, "出手瞬间视觉抬升必须是 0");
             Assert.AreEqual(0f, data.SampleVisual(1f).y - data.SampleGround(1f).y, 1e-4f, "落地瞬间视觉抬升必须是 0");
@@ -633,11 +639,11 @@ namespace DeepseaOil.Tests
         [Test]
         public void G7_时长按距离缩放且最远一投等于配置时长()
         {
-            var spec = new ThrowSpec(0.6f, 2f, 5f, 0.4f);
+            var spec = WaterBall();
             var origin = Vector2.zero;
 
-            var near = new BallData(BallType.Water, origin, new Vector2(2.5f, 0f), 2.5f, in spec);
-            var far = new BallData(BallType.Water, origin, new Vector2(5f, 0f), 5f, in spec);
+            var near = new ProjectileTrajectory(BallType.Water, origin, new Vector2(2.5f, 0f), 2.5f, spec);
+            var far = new ProjectileTrajectory(BallType.Water, origin, new Vector2(5f, 0f), 5f, spec);
 
             Assert.AreEqual(2f, far.Duration / near.Duration, 1e-3f, "距离翻倍 ⇒ 时长翻倍（同一飞行速度）");
             Assert.AreEqual(0.6f, far.Duration, 1e-3f, "最远一投的时长就是配置的飞行时长");
@@ -646,7 +652,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void G7_鼠标压在脚下不得产生非数坐标()
         {
-            var spec = new ThrowSpec(0.6f, 2f, 5f, 0.4f);
+            var spec = WaterBall();
             var origin = new Vector2(-1.5f, 4f);
 
             for (int i = 0; i < 360; i++)
@@ -654,7 +660,7 @@ namespace DeepseaOil.Tests
                 float radians = i * Mathf.Deg2Rad;
                 var target = origin + new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)) * 0.01f;
 
-                var data = new BallData(BallType.Water, origin, target, 0.01f, in spec);
+                var data = new ProjectileTrajectory(BallType.Water, origin, target, 0.01f, spec);
 
                 float distance = Vector2.Distance(data.Start, data.End);
 
@@ -668,7 +674,7 @@ namespace DeepseaOil.Tests
         {
             foreach (float bad in new[] { float.NaN, float.PositiveInfinity, 0f, -1f })
             {
-                var spec = new ThrowSpec(bad, bad, bad, bad);
+                var spec = new ProjectileSpec(RowFactory.WaterRow(), Tuning());
 
                 Assert.IsFalse(float.IsNaN(spec.FlightDuration) || spec.FlightDuration <= 0f,
                     $"非法时长 {bad} 之后仍然是合法值");
@@ -745,21 +751,23 @@ namespace DeepseaOil.Tests
 
         private static EnemySpec EnemySpecFixture()
         {
-            return new EnemySpec(1, "测试敌人", 0.45f, 3.6f, 14f, 10f, 0.6f, 60f, 0.24f, 3, 4f);
+            return new EnemySpec(RowFactory.EnemyRow(), null);
         }
 
-        private static EnemyLogic NewEnemyLogic(ProbeMotor motor, in EnemySpec spec)
+        /// <remarks>
+        /// <b>角色的运动参数由取值边界自带</b>（<c>spec.Config</c>）：收口前测试要多传一个
+        /// <c>EnemyCharacterFactory.Build</c> 的产物，而那条搬运链已经不存在了。
+        /// </remarks>
+        private static EnemyLogic NewEnemyLogic(ProbeMotor motor, EnemySpec spec)
         {
-            CharacterConfig config = EnemyCharacterFactory.Build(in spec);
-
-            return new EnemyLogic(motor, in spec, config);
+            return new EnemyLogic(motor, spec);
         }
 
         [Test]
         public void G10_大脑没有目标时给出不动意图()
         {
             EnemySpec spec = EnemySpecFixture();
-            var brain = new EnemyBrain(in spec);
+            var brain = new EnemyBrain(spec);
 
             EnemyIntent intent = brain.Decide(EnemyBrain.Context.WithoutTarget(Vector2.zero));
 
@@ -770,7 +778,7 @@ namespace DeepseaOil.Tests
         public void G10_大脑在停止距离内不给速度但保留方向()
         {
             EnemySpec spec = EnemySpecFixture();
-            var brain = new EnemyBrain(in spec);
+            var brain = new EnemyBrain(spec);
 
             var target = new Vector2(spec.StopDistance * 0.5f, 0f);
 
@@ -785,15 +793,15 @@ namespace DeepseaOil.Tests
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            EnemyLogic logic = NewEnemyLogic(motor, spec);
 
             logic.SetTarget(new Vector2(5f, 0f));
             logic.Tick(0f, 0.02f);
 
-            Assert.AreEqual(MovementStateTag.Move, logic.CurrentState, "有目标且在追击范围内 ⇒ 移动层进追击态");
-            Assert.Greater(logic.Intent.Speed, 0f, "意图必须真的给出速度");
-            Assert.Greater(logic.Intent.Direction.x, 0f, "意图方向应当指向玩家（＋x）");
-            Assert.Greater(motor.Velocity.x, 0f, "账本必须把意图落到执行器上");
+            Assert.AreEqual(MovementStateTag.Move, logic.MoveGroup.Current, "有目标且在追击范围内 ⇒ 移动层进追击态");
+            Assert.Greater(logic.Brain.Intent.Speed, 0f, "意图必须真的给出速度");
+            Assert.Greater(logic.Brain.Intent.Direction.x, 0f, "意图方向应当指向玩家（＋x）");
+            Assert.Greater(motor.EngineVelocity.x, 0f, "账本必须把意图落到执行器上");
         }
 
         [Test]
@@ -801,12 +809,12 @@ namespace DeepseaOil.Tests
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            EnemyLogic logic = NewEnemyLogic(motor, spec);
 
             logic.SetTarget(new Vector2(5f, 0f));
             logic.Tick(0f, 0.02f);
 
-            Assert.Greater(motor.Velocity.magnitude, 0f, "前提：先把速度跑起来");
+            Assert.Greater(motor.EngineVelocity.magnitude, 0f, "前提：先把速度跑起来");
 
             logic.SetTarget(null);
 
@@ -815,8 +823,8 @@ namespace DeepseaOil.Tests
                 logic.Tick(0.02f + i * 0.02f, 0.02f);
             }
 
-            Assert.AreEqual(0f, motor.Velocity.magnitude, 1e-4f, "没有目标必须滑停到零");
-            Assert.AreEqual(MovementStateTag.Idle, logic.CurrentState, "停住之后应当落在基础态（站立）");
+            Assert.AreEqual(0f, motor.EngineVelocity.magnitude, 1e-4f, "没有目标必须滑停到零");
+            Assert.AreEqual(MovementStateTag.Idle, logic.MoveGroup.Current, "停住之后应当落在基础态（站立）");
         }
 
         [Test]
@@ -824,16 +832,16 @@ namespace DeepseaOil.Tests
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            EnemyLogic logic = NewEnemyLogic(motor, spec);
 
-            CharacterConfig config = EnemyCharacterFactory.Build(in spec);
+            CharacterConfig config = spec.Config;
 
             logic.SetTarget(null);
             logic.ApplyKnockback(5.5f, Vector2.right);
             logic.Tick(0f, 0.02f);
 
             Assert.AreEqual(StatusStateTag.Hurt, logic.Status.Current, "击退必须由状态效果层的受击状态承载");
-            Assert.AreEqual(5.5f, motor.Velocity.magnitude, 1e-3f,
+            Assert.AreEqual(5.5f, motor.EngineVelocity.magnitude, 1e-3f,
                 "受击第一帧必须原样写出冲量（写成纯提前返回会让冲量永远进不了引擎）");
 
             // 之后按 hurtDecay 衰减：5.5 / 10 ≈ 0.55 秒滑到零。
@@ -841,9 +849,9 @@ namespace DeepseaOil.Tests
 
             for (int i = 0; i < 5; i++) logic.Tick(0.02f + i * 0.02f, 0.02f);
 
-            Assert.Less(motor.Velocity.magnitude, 5.5f,
+            Assert.Less(motor.EngineVelocity.magnitude, 5.5f,
                 "受击期间速度必须按 hurtDecay 衰减（旧口径是「零提交、保持不变」）");
-            Assert.Greater(motor.Velocity.magnitude, 0f, "还没到零：不该一帧就停下");
+            Assert.Greater(motor.EngineVelocity.magnitude, 0f, "还没到零：不该一帧就停下");
         }
 
         [Test]
@@ -851,7 +859,7 @@ namespace DeepseaOil.Tests
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            EnemyLogic logic = NewEnemyLogic(motor, spec);
 
             logic.SetTarget(null);
             logic.ApplyKnockback(5.5f, Vector2.right);
@@ -865,7 +873,7 @@ namespace DeepseaOil.Tests
             {
                 logic.Tick(now, dt);
 
-                motor.Position += motor.Velocity * dt;
+                motor.Position += motor.EngineVelocity * dt;
                 now += dt;
             }
 
@@ -880,7 +888,7 @@ namespace DeepseaOil.Tests
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            EnemyLogic logic = NewEnemyLogic(motor, spec);
 
             // 玩家在 2 米外：追击范围内、停止距离外。
             var player = new Vector2(2f, 0f);
@@ -895,7 +903,7 @@ namespace DeepseaOil.Tests
             {
                 logic.Tick(now, dt);
 
-                motor.Position += motor.Velocity * dt;
+                motor.Position += motor.EngineVelocity * dt;
                 now += dt;
             }
 
@@ -910,22 +918,22 @@ namespace DeepseaOil.Tests
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            EnemyLogic logic = NewEnemyLogic(motor, spec);
 
             logic.SetTarget(new Vector2(5f, 0f));
 
             logic.Status.ApplySlow(float.NaN, 1f);
             logic.Tick(0f, 0.02f);
 
-            Assert.IsFalse(float.IsNaN(motor.Velocity.x), "非数减速系数不得传染进速度（否则角色会消失）");
+            Assert.IsFalse(float.IsNaN(motor.EngineVelocity.x), "非数减速系数不得传染进速度（否则角色会消失）");
             Assert.AreEqual(1f, logic.Status.SlowScale, 1e-4f, "非数按「不起作用」处理");
 
-            motor.Velocity = Vector2.zero;
+            motor.EngineVelocity = Vector2.zero;
             logic.Status.ApplySlow(-3f, 1f);
             logic.Tick(0.02f, 0.02f);
 
             Assert.AreEqual(0f, logic.Status.SlowScale, 1e-6f, "负数系数夹到 0（定住），而不是把速度反过来推");
-            Assert.AreEqual(0f, motor.Velocity.magnitude, 1e-6f, "乘数 0 ⇒ 目标速度 0 ⇒ 速度归零");
+            Assert.AreEqual(0f, motor.EngineVelocity.magnitude, 1e-6f, "乘数 0 ⇒ 目标速度 0 ⇒ 速度归零");
         }
 
         [Test]
@@ -933,7 +941,7 @@ namespace DeepseaOil.Tests
         {
             var motor = new ProbeMotor();
             EnemySpec spec = EnemySpecFixture();
-            EnemyLogic logic = NewEnemyLogic(motor, in spec);
+            EnemyLogic logic = NewEnemyLogic(motor, spec);
 
             // 目标放在远处：整个测试都处在"追击中"，不受停止距离影响。
             logic.SetTarget(new Vector2(20f, 0f));
@@ -947,80 +955,107 @@ namespace DeepseaOil.Tests
 
             float expected = spec.MaxSpeed * 0.45f;
 
-            Assert.AreEqual(expected, motor.Velocity.magnitude, 1e-2f,
+            Assert.AreEqual(expected, motor.EngineVelocity.magnitude, 1e-2f,
                 $"减速的稳态速度必须是「配置速度 × 乘数」= {expected}；" +
                 "每帧把整体速度乘一次会与加速度互相拉锯，稳态会远低于这个值（这条用例就是为它立的）");
 
             // 不再续命 ⇒ 修饰过期 ⇒ 速度回到配置速度。
             for (int i = 0; i < 400; i++) logic.Tick(5f + i * dt, dt);
 
-            Assert.AreEqual(spec.MaxSpeed, motor.Velocity.magnitude, 1e-2f,
+            Assert.AreEqual(spec.MaxSpeed, motor.EngineVelocity.magnitude, 1e-2f,
                 "修饰过期后必须回到配置速度（「不再续命」就等于离开泥浆）");
         }
 
         // ================================================================
-        // G11 · 敌人视效决策
+        // G11 · 敌人视效
         // ================================================================
 
-        [Test]
-        public void G11_身体颜色四态两两不同()
+        /// <summary>观感颜色表：一份就够，断的是字段默认值那一套（`ConfigModule` 缺失时也走它）。</summary>
+        private static VisualPalette PaletteFixture()
         {
-            Color normal = EnemyVisual.BodyColor(1f, false);
-            Color slowed = EnemyVisual.BodyColor(0.45f, false);
-            Color flash = EnemyVisual.BodyColor(1f, true);
-            Color flashSlowed = EnemyVisual.BodyColor(0.45f, true);
+            return ScriptableObject.CreateInstance<VisualPalette>();
+        }
 
-            Assert.AreNotEqual(normal, slowed);
-            Assert.AreNotEqual(normal, flash);
-            Assert.AreNotEqual(slowed, flashSlowed);
-            Assert.AreNotEqual(flash, flashSlowed, "踩在减速格里被打中必须同时看得出「深」和「闪」");
+        [Test]
+        public void G11_敌人身体颜色四态两两不同()
+        {
+            VisualPalette palette = PaletteFixture();
 
-            float normalLuma = normal.r + normal.g + normal.b;
-            float slowedLuma = slowed.r + slowed.g + slowed.b;
-            float flashLuma = flash.r + flash.g + flash.b;
+            try
+            {
+                Color normal = palette.EnemyBodyColor(1f, false);
+                Color slowed = palette.EnemyBodyColor(0.45f, false);
+                Color flash = palette.EnemyBodyColor(1f, true);
+                Color flashSlowed = palette.EnemyBodyColor(0.45f, true);
 
-            Assert.Less(slowedLuma, normalLuma, "减速色必须比正常色暗");
-            Assert.Greater(flashLuma, normalLuma, "闪烁色必须比正常色亮");
+                Assert.AreNotEqual(normal, slowed);
+                Assert.AreNotEqual(normal, flash);
+                Assert.AreNotEqual(slowed, flashSlowed);
+                Assert.AreNotEqual(flash, flashSlowed, "踩在减速格里被打中必须同时看得出「深」和「闪」");
+            }
+            finally
+            {
+                Object.DestroyImmediate(palette);
+            }
         }
 
         [Test]
         public void G11_耐久数字与闪烁相位()
         {
-            Assert.AreEqual("3", EnemyVisual.HpText(3));
-            Assert.AreEqual(string.Empty, EnemyVisual.HpText(0), "耐久为 0 时写空串：写「0」会让人以为它还在场上");
+            Assert.AreEqual("3", EnemyActor.HpText(3));
+            Assert.AreEqual(string.Empty, EnemyActor.HpText(0), "耐久为 0 时写空串：写「0」会让人以为它还在场上");
 
-            Assert.IsFalse(EnemyVisual.IsFlashOn(0f, 4f), "频率为 0 时恒不亮（不除零、不崩）");
-            Assert.IsFalse(EnemyVisual.IsFlashOn(1f, float.NaN), "非数频率按不闪处理");
+            Assert.IsFalse(EnemyActor.IsFlashOn(0f, 4f), "频率为 0 时恒不亮（不除零、不崩）");
+            Assert.IsFalse(EnemyActor.IsFlashOn(1f, float.NaN), "非数频率按不闪处理");
 
             // 4 Hz ⇒ 周期 0.25 秒 ⇒ [0, 0.125) 亮。
-            Assert.IsTrue(EnemyVisual.IsFlashOn(0.05f, 4f), "周期的前半段应当是亮的");
-            Assert.IsFalse(EnemyVisual.IsFlashOn(0.2f, 4f), "周期的后半段应当是不亮的");
+            Assert.IsTrue(EnemyActor.IsFlashOn(0.05f, 4f), "周期的前半段应当是亮的");
+            Assert.IsFalse(EnemyActor.IsFlashOn(0.2f, 4f), "周期的后半段应当是不亮的");
         }
 
         // ================================================================
         // G12 · 玩家血量与资源
         // ================================================================
 
-        private static PlayerSpec PlayerSpecFixture(float maxHp = 100f, float invulnerable = 0.8f, float contactRadius = 1f)
+        /// <summary>
+        /// 玩家取值边界：表行 ＋ 移动 SO ＋ 水球那一行。
+        /// </summary>
+        /// <remarks>表行是共享的 <see cref="RowFactory.PlayerRow"/>（血 100 / 无敌 0.8 / 接触半径 1）。</remarks>
+        private static PlayerSpec PlayerSpecFixture()
         {
-            return new PlayerSpec(1, "玩家", maxHp, 10f, invulnerable, 1.2f, 0.5f, 12f, 12f, contactRadius);
+            return new PlayerSpec(
+                RowFactory.PlayerRow(),
+                PlayerConfigFixture(),
+                BallFixture());
+        }
+
+        /// <summary>玩家移动参数（SO）：一份就够，绝大多用例用它的字段默认值。</summary>
+        private static PlayerConfig PlayerConfigFixture()
+        {
+            return ScriptableObject.CreateInstance<PlayerConfig>();
+        }
+
+        /// <summary>水球取值边界（玩家的射程与瞄准平面深度都取自它）。</summary>
+        private static ProjectileSpec BallFixture()
+        {
+            return new ProjectileSpec(RowFactory.WaterRow(), Tuning());
         }
 
         [Test]
         public void G12_无敌帧判据对非数必须落到可以受伤那一侧()
         {
-            Assert.IsTrue(PlayerHealth.CanTakeDamage(1f, float.NaN),
+            Assert.IsTrue(PlayerStats.CanTakeDamage(1f, float.NaN),
                 "NaN 时必须照常结算：写成 now >= until 会让玩家变成永久无敌，而屏幕上什么都不会显示");
-            Assert.IsTrue(PlayerHealth.CanTakeDamage(1f, float.NegativeInfinity));
-            Assert.IsFalse(PlayerHealth.CanTakeDamage(1f, 2f), "无敌期未过时必须挡住");
-            Assert.IsTrue(PlayerHealth.CanTakeDamage(2f, 2f), "无敌到期那一帧必须可以受伤");
+            Assert.IsTrue(PlayerStats.CanTakeDamage(1f, float.NegativeInfinity));
+            Assert.IsFalse(PlayerStats.CanTakeDamage(1f, 2f), "无敌期未过时必须挡住");
+            Assert.IsTrue(PlayerStats.CanTakeDamage(2f, 2f), "无敌到期那一帧必须可以受伤");
         }
 
         [Test]
         public void G12_无敌期内的伤害必须被整条挡掉()
         {
             PlayerSpec spec = PlayerSpecFixture();
-            var health = new PlayerHealth(in spec);
+            var health = new PlayerStats(spec);
 
             Assert.AreEqual(100f, health.Current, 1e-4f);
 
@@ -1038,7 +1073,7 @@ namespace DeepseaOil.Tests
         public void G12_血量不会扣成负数且可以重置()
         {
             PlayerSpec spec = PlayerSpecFixture();
-            var health = new PlayerHealth(in spec);
+            var health = new PlayerStats(spec);
 
             health.ApplyDamage(1000f, 0f);
 
@@ -1056,7 +1091,7 @@ namespace DeepseaOil.Tests
         public void G12_资源不足时不得改动任何状态()
         {
             PlayerSpec spec = PlayerSpecFixture();
-            var stats = new PlayerStats(in spec);
+            var stats = new PlayerStats(spec);
 
             Assert.IsFalse(stats.TryConsumeWater(1), "没有资源时消耗必须失败");
             Assert.AreEqual(0, stats.WaterBallCount);
@@ -1074,12 +1109,12 @@ namespace DeepseaOil.Tests
         public void G12_账本同时持有水球与血量()
         {
             PlayerSpec spec = PlayerSpecFixture();
-            var stats = new PlayerStats(in spec);
+            var stats = new PlayerStats(spec);
 
-            Assert.AreEqual(100f, stats.Health.Current, 1e-4f, "血量由账本自己初始化");
+            Assert.AreEqual(100f, stats.Current, 1e-4f, "血量由账本自己初始化");
             Assert.IsTrue(stats.IsAlive);
 
-            stats.Health.ApplyDamage(1000f, 0f);
+            stats.ApplyDamage(1000f, 0f);
 
             Assert.IsFalse(stats.IsAlive, "打空之后账本必须如实回答");
         }
@@ -1107,14 +1142,14 @@ namespace DeepseaOil.Tests
 
         private static WaveSpec WaveSpecFixture()
         {
-            return new WaveSpec(1, "默认", 4, 0.25f, 1.5f, 2.5f, 5f);
+            return new WaveSpec(RowFactory.WaveRow());
         }
 
         [Test]
         public void G13_开局延时后才出第一只且一只一只出()
         {
             WaveSpec spec = WaveSpecFixture();
-            var logic = new WaveLogic(in spec);
+            var logic = new WaveLogic(spec);
             var output = new List<WaveLogic.SpawnRequest>();
 
             float now = 0f;
@@ -1213,7 +1248,7 @@ namespace DeepseaOil.Tests
         public void G13_每波只出配置的只数()
         {
             WaveSpec spec = WaveSpecFixture();
-            var logic = new WaveLogic(in spec);
+            var logic = new WaveLogic(spec);
             var output = new List<WaveLogic.SpawnRequest>();
 
             float now = 0f;
@@ -1252,7 +1287,7 @@ namespace DeepseaOil.Tests
         public void G13_清场后隔一段再开下一波()
         {
             WaveSpec spec = WaveSpecFixture();
-            var logic = new WaveLogic(in spec);
+            var logic = new WaveLogic(spec);
             var output = new List<WaveLogic.SpawnRequest>();
 
             float now = 0f;
@@ -1344,11 +1379,11 @@ namespace DeepseaOil.Tests
         {
             var context = new CountingEffectContext();
 
-            BallDefinition water = WaterBallDefinition();
-            BallDefinition earth = EarthBallDefinition();
+            ProjectileSpec water = WaterBall();
+            ProjectileSpec earth = EarthBall();
 
-            new TileStateLogicEffect().Apply(new Vector3Int(1, 1, 0), in water, context);
-            new NullLogicEffect().Apply(new Vector3Int(1, 1, 0), in earth, context);
+            new TileStateLogicEffect().Apply(new Vector3Int(1, 1, 0), water, context);
+            new NullLogicEffect().Apply(new Vector3Int(1, 1, 0), earth, context);
 
             Assert.AreEqual(1, context.RequestCount, "水球必须请求一次状态转换");
             Assert.AreEqual(TileStateType.Mud, context.LastState, "请求的状态必须来自球定义（表里的 tile_state）");
@@ -1357,8 +1392,8 @@ namespace DeepseaOil.Tests
         [Test]
         public void G15_球定义暴露落地是否有世界效果()
         {
-            BallDefinition water = WaterBallDefinition();
-            BallDefinition earth = EarthBallDefinition();
+            ProjectileSpec water = WaterBall();
+            ProjectileSpec earth = EarthBall();
 
             Assert.IsTrue(water.HasLandingEffect, "水球的 tile_state 是泥浆 ⇒ 有落地效果");
             Assert.IsFalse(earth.HasLandingEffect,
@@ -1382,22 +1417,6 @@ namespace DeepseaOil.Tests
         // G19 · 掉落物取值
         // ================================================================
 
-        [Test]
-        public void G19_掉落定义在取不到调参资产时仍有可用默认值()
-        {
-            // EditMode 里 AssetModule 从未初始化 ⇒ 这条路必然走兜底分支（会留下一条 Warning，属预期）。
-            // 它保证"忘了建 tuning/DropTuning.asset"不会让掉落物的时长/速度/数量全为 0 ——
-            // 那种情况下水球要么原地不动、要么瞬间到玩家身上，而且一路不报错。
-            DropDefinition water = DropCatalog.Water();
-
-            Assert.AreEqual(DropType.Water, water.Type);
-            Assert.Greater(water.FlightDuration, 0f, "抛物线时长必须为正，否则会除出非数坐标");
-            Assert.Greater(water.ArcHeight, 0f, "弧高为 0 就不是抛物线了");
-            Assert.Greater(water.HomingSpeed, 0f, "追踪速度为 0 会让球永远够不到玩家");
-            Assert.GreaterOrEqual(water.ReachDistance, 0f);
-            Assert.Greater(water.Amount, 0, "领取数量必须为正：0 会让「被领取」变成什么都不发生");
-        }
-
         // ================================================================
         // G16 · 接触判定与玩家受击
         // ================================================================
@@ -1405,9 +1424,9 @@ namespace DeepseaOil.Tests
         /// <summary>推进一个逻辑帧（帧首把执行器速度归零模拟物理结算）。</summary>
         private static void TickPlayer(PlayerLogic logic, ProbeMotor motor, Vector2 move, float now, bool resetVelocity = true)
         {
-            if (resetVelocity) motor.Velocity = Vector2.zero;
+            if (resetVelocity) motor.EngineVelocity = Vector2.zero;
 
-            var snapshot = new InputSnapshot(move, false, false, false);
+            var snapshot = new InputSnapshot(move, false, false);
             var world = new WorldInfo(move, default(BoundsArea));
 
             logic.FixedTick(new LogicContext(now, 0.02f, in world, in snapshot));
@@ -1426,7 +1445,7 @@ namespace DeepseaOil.Tests
             registry.Register(new Vector3Int(1, 0, 0), neighbourCellOnly);
 
             Assert.IsTrue(
-                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out Vector2 first, out float firstDistance),
+                ContactProbe.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out Vector2 first, out float firstDistance),
                 "接触判定必须扫描邻格：玩家站在格里哪个位置都有可能");
 
             Assert.AreEqual(neighbourCellOnly.Position, first);
@@ -1437,7 +1456,7 @@ namespace DeepseaOil.Tests
             registry.Register(new Vector3Int(0, 0, 0), inCell);
 
             Assert.IsTrue(
-                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out Vector2 second, out float secondDistance),
+                ContactProbe.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out Vector2 second, out float secondDistance),
                 "两格都有目标时照样能判定");
 
             Assert.AreEqual(inCell.Position, second, "有多个接触者时必须取最近的那个");
@@ -1457,20 +1476,20 @@ namespace DeepseaOil.Tests
             registry.Register(new Vector3Int(1, 0, 0), tooFar);
 
             Assert.IsFalse(
-                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out _, out _),
+                ContactProbe.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out _, out _),
                 "半径之外不算接触");
 
             registry.Unregister(tooFar);
 
-            var dead = new ProbeTarget { Position = new Vector2(0.6f, 0.5f), IsDead = true };
+            var dead = new ProbeTarget { Position = new Vector2(0.6f, 0.5f), IsAlive = false };
             registry.Register(new Vector3Int(0, 0, 0), dead);
 
             Assert.IsFalse(
-                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out _, out _),
+                ContactProbe.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, registry, buffer, out _, out _),
                 "已死目标不算接触（表里可能还留着尸体）");
 
             Assert.IsFalse(
-                ContactDamage.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, null, buffer, out _, out _),
+                ContactProbe.TryFindAttacker(Vector3Int.zero, playerPosition, 1f, null, buffer, out _, out _),
                 "没有归属表时必须安静地返回 false，不抛");
         }
 
@@ -1482,17 +1501,17 @@ namespace DeepseaOil.Tests
 
             var motor = new ProbeMotor { Position = Vector2.zero };
             var buffer = new InputBuffer(0.12f, 50);
-            var logic = new PlayerLogic(motor, config, buffer, in spec);
+            var logic = new PlayerLogic(motor, spec, buffer);
 
             // 世界侧在玩家那一帧之后递交（与 CombatRoot 的实际顺序一致）
             var damage = new Damage(Vector2.zero, spec.ContactDamage, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
 
             Assert.IsTrue(logic.TakeDamage(in damage, 0f), "第一次接触必须生效");
-            Assert.AreEqual(90f, logic.Stats.Health.Current, 1e-4f);
+            Assert.AreEqual(90f, logic.Stats.Current, 1e-4f);
 
             TickPlayer(logic, motor, Vector2.zero, 0.02f);
 
-            Assert.AreEqual(spec.KnockbackImpulse, motor.Velocity.x, 1e-3f,
+            Assert.AreEqual(spec.KnockbackImpulse, motor.EngineVelocity.x, 1e-3f,
                 "击退必须在下一帧被写进执行器（旧实现把它在帧首清掉了，表现是'被撞了纹丝不动'）");
 
             Object.DestroyImmediate(config);
@@ -1506,7 +1525,7 @@ namespace DeepseaOil.Tests
 
             var motor = new ProbeMotor { Position = Vector2.zero };
             var buffer = new InputBuffer(0.12f, 50);
-            var logic = new PlayerLogic(motor, config, buffer, in spec);
+            var logic = new PlayerLogic(motor, spec, buffer);
 
             var damage = new Damage(Vector2.zero, spec.ContactDamage, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
 
@@ -1516,13 +1535,13 @@ namespace DeepseaOil.Tests
             // 紧接着一帧：击退在这一帧落地（进入受击状态，满冲量、不衰减）
             TickPlayer(logic, motor, Vector2.zero, 0.02f);
 
-            Assert.AreEqual(spec.KnockbackImpulse, motor.Velocity.x, 1e-3f, "第一次的击退必须落地");
+            Assert.AreEqual(spec.KnockbackImpulse, motor.EngineVelocity.x, 1e-3f, "第一次的击退必须落地");
             Assert.AreEqual(StatusStateTag.Hurt, logic.Status.Current, "击退由状态效果层的受击状态承载");
 
             // 第二帧：受击期间按 moveAcceleration 衰减（不是"只接管一帧"，也不是当帧归零）
             TickPlayer(logic, motor, Vector2.zero, 0.04f);
 
-            Assert.AreEqual(spec.KnockbackImpulse - config.moveAcceleration * 0.02f, motor.Velocity.x, 1e-3f,
+            Assert.AreEqual(spec.KnockbackImpulse - config.moveAcceleration * 0.02f, motor.EngineVelocity.x, 1e-3f,
                 "受击期间速度每帧按 moveAcceleration 衰减（12 − 60×0.02 = 10.8）");
 
             // 让受击自然滑停（12 / 60 = 0.2s），回到平常
@@ -1532,16 +1551,16 @@ namespace DeepseaOil.Tests
 
             // ① 无敌期内（0.8s 内）再来一次：不扣血、也不留下任何新的击退
             Assert.IsFalse(logic.TakeDamage(in damage, 0.5f), "无敌期内必须整条挡掉");
-            Assert.AreEqual(90f, logic.Stats.Health.Current, 1e-4f, "被挡住时不该扣血");
+            Assert.AreEqual(90f, logic.Stats.Current, 1e-4f, "被挡住时不该扣血");
 
             TickPlayer(logic, motor, Vector2.zero, 0.52f);
 
-            Assert.AreEqual(0f, motor.Velocity.x, 1e-3f, "被挡住的那一次不许留下击退");
+            Assert.AreEqual(0f, motor.EngineVelocity.x, 1e-3f, "被挡住的那一次不许留下击退");
             Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "被挡住时也不该进入受击状态");
 
             // ② 无敌到期后可以再扣
             Assert.IsTrue(logic.TakeDamage(in damage, 0.8f));
-            Assert.AreEqual(80f, logic.Stats.Health.Current, 1e-4f);
+            Assert.AreEqual(80f, logic.Stats.Current, 1e-4f);
 
             Object.DestroyImmediate(config);
         }
@@ -1554,7 +1573,7 @@ namespace DeepseaOil.Tests
 
             var motor = new ProbeMotor { Position = Vector2.zero };
             var buffer = new InputBuffer(0.12f, 50);
-            var logic = new PlayerLogic(motor, config, buffer, in spec);
+            var logic = new PlayerLogic(motor, spec, buffer);
 
             var lethal = new Damage(Vector2.zero, 1000f, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
 
@@ -1562,21 +1581,21 @@ namespace DeepseaOil.Tests
             Assert.IsFalse(logic.IsAlive);
 
             // 模拟"打空那一帧已经被撞飞的引擎速度"：重生不能带着它继续滑
-            motor.Velocity = new Vector2(spec.KnockbackImpulse, 0f);
+            motor.EngineVelocity = new Vector2(spec.KnockbackImpulse, 0f);
 
             logic.RespawnTo(new Vector2(3f, 4f));
 
             Assert.IsTrue(logic.IsAlive, "重生必须满血复活");
-            Assert.AreEqual(100f, logic.Stats.Health.Current, 1e-4f);
+            Assert.AreEqual(100f, logic.Stats.Current, 1e-4f);
             Assert.AreEqual(new Vector2(3f, 4f), motor.Position, "重生走物理体位置");
 
             // 重生当场就把引擎速度清零：有惯性配置下，"留着上一局的速度慢慢衰减"会变成
             // "复活后自己滑一段"（实测能滑出一点几个单位）—— 那不是重生该有的样子
-            Assert.AreEqual(Vector2.zero, motor.Velocity, "重生必须当场清掉残留在物理体上的速度");
+            Assert.AreEqual(Vector2.zero, motor.EngineVelocity, "重生必须当场清掉残留在物理体上的速度");
 
             TickPlayer(logic, motor, Vector2.zero, 1f, resetVelocity: false);
 
-            Assert.AreEqual(Vector2.zero, motor.Velocity, "重生后也不该带着上一局的击退继续滑");
+            Assert.AreEqual(Vector2.zero, motor.EngineVelocity, "重生后也不该带着上一局的击退继续滑");
 
             Object.DestroyImmediate(config);
         }
@@ -1629,7 +1648,7 @@ namespace DeepseaOil.Tests
         {
             GridGeometry geometry = Geometry();
 
-            var logic = new PlayerLogic(motor, config, buffer, in spec);
+            var logic = new PlayerLogic(motor, spec, buffer);
 
             logic.ConfigureAim(in geometry, 5f, sink);
 
@@ -1782,7 +1801,7 @@ namespace DeepseaOil.Tests
             var buffer = new InputBuffer(0.12f, 50);
             PlayerSpec spec = PlayerSpecFixture();
 
-            var logic = new PlayerLogic(motor, config, buffer, in spec);
+            var logic = new PlayerLogic(motor, spec, buffer);
 
             var damage = new Damage(Vector2.zero, 0f, DamageSource.Contact, Vector2.right, spec.KnockbackImpulse);
 
@@ -1792,12 +1811,12 @@ namespace DeepseaOil.Tests
             TickPlayer(logic, motor, Vector2.zero, 0.02f);
 
             Assert.AreEqual(StatusStateTag.Hurt, logic.Status.Current);
-            Assert.AreEqual(spec.KnockbackImpulse, motor.Velocity.x, 1e-3f);
+            Assert.AreEqual(spec.KnockbackImpulse, motor.EngineVelocity.x, 1e-3f);
 
             // 第二帧：开始按加速度衰减，且输入（向左）不生效
             TickPlayer(logic, motor, Vector2.left, 0.04f);
 
-            Assert.AreEqual(spec.KnockbackImpulse - config.moveAcceleration * 0.02f, motor.Velocity.x, 1e-3f,
+            Assert.AreEqual(spec.KnockbackImpulse - config.moveAcceleration * 0.02f, motor.EngineVelocity.x, 1e-3f,
                 "受击期间速度按 moveAcceleration 衰减；等于 -moveSpeed 说明输入已经抢走了控制权");
 
             // 滑停：12 / 60 = 0.2s ⇒ 再跑 12 帧一定停
@@ -1806,10 +1825,10 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(StatusStateTag.Normal, logic.Status.Current, "速度归零后必须交还控制权");
 
             // 交还之后输入立刻生效（当帧到位：本用例的加速度是 60，但一帧足够走 1.2，故断言"在往左加速"）
-            motor.Velocity = Vector2.zero;
+            motor.EngineVelocity = Vector2.zero;
             TickPlayer(logic, motor, Vector2.left, 0.5f);
 
-            Assert.Less(motor.Velocity.x, 0f, "受击结束后玩家必须能重新控制移动");
+            Assert.Less(motor.EngineVelocity.x, 0f, "受击结束后玩家必须能重新控制移动");
         }
     }
 }

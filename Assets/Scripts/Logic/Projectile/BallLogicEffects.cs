@@ -7,13 +7,13 @@ namespace DeepseaOil.Logic.Projectile
     /// 默认的落地效果：把落点格切成该球种配置的状态（水球 → 泥浆）。
     /// </summary>
     /// <remarks>
-    /// <b>目标状态来自 <see cref="BallDefinition.TileState"/> 而不是代码</b>
+    /// <b>目标状态来自 <see cref="ProjectileSpec.TileState"/> 而不是代码</b>
     /// （<c>projectile.tile_state</c>）：换一种球、换一种状态都只是改表，不需要动这里。
     /// </remarks>
     public sealed class TileStateLogicEffect : IBallLogicEffect
     {
         /// <inheritdoc />
-        public void Apply(Vector3Int landingCell, in BallDefinition ball, IBallLogicEffectContext ctx)
+        public void Apply(Vector3Int landingCell, ProjectileSpec ball, IBallLogicEffectContext ctx)
         {
             if (ctx == null) return;
 
@@ -35,7 +35,7 @@ namespace DeepseaOil.Logic.Projectile
     public sealed class NullLogicEffect : IBallLogicEffect
     {
         /// <inheritdoc />
-        public void Apply(Vector3Int landingCell, in BallDefinition ball, IBallLogicEffectContext ctx)
+        public void Apply(Vector3Int landingCell, ProjectileSpec ball, IBallLogicEffectContext ctx)
         {
         }
     }

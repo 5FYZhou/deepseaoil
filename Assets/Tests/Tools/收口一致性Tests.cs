@@ -8,7 +8,11 @@
 //   1. 全仓 .Instance 只出现在白名单里（GameRoot / Singleton / MonoMgr）
 //   2. Assets/Scripts 下 void Update / FixedUpdate / LateUpdate 只出现在白名单里
 //      （GameRoot / MonoMgr）—— "每帧只有一个驱动发起者"
-//   3. BaseManager 这个"反射自建单例"的基类已删除且零引用
+//   3. Singleton<T> 只由白名单文件继承
+//
+// 【刻意删掉的一条】旧的 `反射单例基类已退场`：BaseManager.cs 早已删除，
+//   而那条用例还有一半是"全仓扫字符串 BaseManager"—— 那是**墓碑断言**，不是行为。
+//   真有人复活它的话，上面第 1、3 条会先红。
 //
 // 扫描口径：读**源码文本**，逐行判断，注释行（// /// /* *）跳过 ——
 // 注释里提旧写法是文档，不是调用点。
@@ -126,24 +130,6 @@ namespace DeepseaOil.EditorTools.Tests
                 + "任何件都不许自驱 Update / FixedUpdate / LateUpdate —— 场景级对象一律由 GameRoot 驱动。"
                 + "要加驱动的件请实现 ISceneRoot ＋ IRenderTicked / IPhysicsTicked 并注册：\n  "
                 + string.Join("\n  ", offenders));
-        }
-
-        [Test]
-        public void 反射单例基类已退场()
-        {
-            Assert.IsFalse(File.Exists(Path.Combine(ScriptsDir, "Foundation", "BaseManager.cs")),
-                "BaseManager.cs 应当已删除：反射自建单例把装配权下放给了任何调用点。");
-
-            var offenders = new List<string>();
-
-            foreach ((string file, int line, string text) in ScanCode())
-            {
-                if (!text.Contains("BaseManager")) continue;
-
-                offenders.Add($"{file}:{line}  {text.Trim()}");
-            }
-
-            Assert.IsEmpty(offenders, "BaseManager 已退场，不该再被引用：\n  " + string.Join("\n  ", offenders));
         }
 
         [Test]

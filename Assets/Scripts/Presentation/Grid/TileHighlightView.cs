@@ -1,3 +1,4 @@
+using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Presentation.Effects;
@@ -10,7 +11,7 @@ namespace DeepseaOil.Presentation.Grid
     /// </summary>
     /// <remarks>
     /// <b>它替代了白模件 <c>TileAimView</c></b>（那个 MonoBehaviour 自己画色块、自己存 SpriteRenderer）。
-    /// 现在"高亮长什么样"归特效系统（<c>EffectId.TileHighlight</c> 的驱动自持资产），
+    /// 现在"高亮长什么样"归特效系统（<c>EffectId.Highlight</c> 的驱动自持资产），
     /// 本类只剩一件职责：<b>把逻辑层的事实翻译成特效调用</b>。
     /// <para><b>订阅时机由组合根收口</b>：它不自己 <c>OnEnable</c> 订阅，而是由 <c>CombatRoot</c>
     /// 在装配期调 <see cref="Attach"/>、销毁期调 <see cref="Detach"/> ——
@@ -20,11 +21,9 @@ namespace DeepseaOil.Presentation.Grid
     /// </remarks>
     public sealed class TileHighlightView : MonoBehaviour
     {
-        /// <summary>可用时的颜色（白，半透明：它是提示不是物体）。</summary>
-        private static readonly Color AvailableColor = new Color(1f, 1f, 1f, 0.32f);
-
-        /// <summary>不可用时的颜色（红）。</summary>
-        private static readonly Color BlockedColor = new Color(1f, 0.25f, 0.2f, 0.42f);
+        /// <summary>兜底的两态色（观感表缺失时用）。</summary>
+        private static readonly Color FallbackAvailable = new(1f, 1f, 1f, 0.32f);
+        private static readonly Color FallbackBlocked = new(1f, 0.25f, 0.2f, 0.42f);
 
         private GridGeometry _geometry;
 
@@ -82,12 +81,28 @@ namespace DeepseaOil.Presentation.Grid
 
             // 半径 = 半格：驱动的契约是"半径"（与落地环一致），画出来正好一格。
             ctx.Radius = _cellSize * 0.5f;
-            ctx.Tint = evt.Available ? AvailableColor : BlockedColor;
+            ctx.Tint = evt.Available ? AvailableColor() : BlockedColor();
 
             // 已经在播就只更新；句柄失效（CleanAll / 驱动换过）时重新创建
             if (_handle.IsValid && EffectModule.Update(_handle, in ctx)) return;
 
-            _handle = EffectModule.Play(EffectId.TileHighlight, in ctx);
+            _handle = EffectModule.Play(EffectId.Highlight, in ctx);
+        }
+
+        /// <summary>可用色（白，半透明：它是提示不是物体）。</summary>
+        private static Color AvailableColor()
+        {
+            VisualPalette visuals = ConfigModule.GetEnemy().Visuals;
+
+            return visuals != null ? visuals.highlightAvailable : FallbackAvailable;
+        }
+
+        /// <summary>不可用色（红）。</summary>
+        private static Color BlockedColor()
+        {
+            VisualPalette visuals = ConfigModule.GetEnemy().Visuals;
+
+            return visuals != null ? visuals.highlightBlocked : FallbackBlocked;
         }
 
         private void Hide()

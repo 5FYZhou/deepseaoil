@@ -47,10 +47,23 @@ namespace DeepseaOil.Logic
 
         private readonly EnemySpec _enemy;
 
-        /// <param name="spec">敌人表值（追击范围 / 停止距离 / 速度）。</param>
-        public EnemyBrain(in EnemySpec spec)
+        /// <summary>本帧意图（<see cref="Decide"/> 的产物）。<b>由大脑自己持有</b>，消费者直接来取。</summary>
+        /// <remarks>
+        /// 收口前它缓存在 <c>EnemyLogic</c> 上再由一个转发属性出去 —— 那是"数据持有者"与"转发者"
+        /// 分居两处的典型形态：加一个消费者就要在逻辑层再开一个同名的口子。
+        /// </remarks>
+        public EnemyIntent Intent { get; private set; }
+
+        /// <summary>本帧的转向产物（方向 ＋ 目标速度）。调试与测试用它看"大脑算出了什么"。</summary>
+        /// <remarks>名字不叫 <c>Steering</c>：那会与类型 <see cref="Logic.Steering"/> 同名，
+        /// 于是类内部所有 <c>Steering.Resolve(...)</c> 都会被解析成这个属性（编译期错误，且不容易一眼看懂）。</remarks>
+        public Steering LastSteering { get; private set; }
+
+        /// <param name="spec">敌人取值边界（追击范围 / 停止距离 / 速度）。</param>
+        public EnemyBrain(EnemySpec spec)
         {
             _enemy = spec;
+            Intent = EnemyIntent.Idle;
         }
 
         /// <summary>算一帧意图。<b>纯函数式</b>：只读参数与自己的表值，不持任何跨帧状态。</summary>
@@ -66,16 +79,24 @@ namespace DeepseaOil.Logic
         /// </remarks>
         public EnemyIntent Decide(in Context ctx)
         {
-            if (!ctx.HasTarget) return EnemyIntent.Idle;
+            if (!ctx.HasTarget)
+            {
+                LastSteering = default;
+                Intent = EnemyIntent.Idle;
 
-            Steering steering = Steering.Resolve(
+                return Intent;
+            }
+
+            LastSteering = Steering.Resolve(
                 ctx.Self,
                 ctx.Target,
                 _enemy.StopDistance,
                 _enemy.ChaseRange,
                 _enemy.MaxSpeed);
 
-            return new EnemyIntent(steering.Direction, steering.Speed);
+            Intent = new EnemyIntent(LastSteering.Direction, LastSteering.Speed);
+
+            return Intent;
         }
     }
 }

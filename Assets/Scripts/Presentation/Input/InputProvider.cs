@@ -32,7 +32,6 @@ namespace DeepseaOil.Presentation
 
         private bool _grabHeld;
 
-        private bool _jumpPressed;
         private bool _dashPressed;
 
         private bool _inputEnabled = true;
@@ -108,7 +107,6 @@ namespace DeepseaOil.Presentation
             _grabHeld = _input.Player.Grab.IsPressed();
 
             // 瞬时输入：累积到物理帧侧被 ConsumeSnapshot 取走
-            _jumpPressed |= _input.Player.Jump.WasPressedThisFrame();
             _dashPressed |= _input.Player.Dash.WasPressedThisFrame();
         }
 
@@ -117,7 +115,7 @@ namespace DeepseaOil.Presentation
         /// </summary>
         /// <remarks>
         /// <b>为什么暂不走 <c>InputSys.inputactions</c>：</b>那个动作表里<b>没有</b>攻击与瞄准动作
-        /// （Player map 只有 Move / Interaction / Pause / Jump / Dash / Grab），
+        /// （Player map 只有 Move / Interaction / Pause / Dash / Grab），
         /// 而动作表是三层共用的资产，改它要重新生成 95KB 的 <c>Generated/Input/InputSys.cs</c> ——
         /// 生成物的 diff 会把真实改动淹没，且会牵动 UI 侧的 EventSystem 接线。
         /// <para>于是战斗输入暂时由<b>唯一的采样点</b>（本类）直读设备：契约"InputProvider 是唯一采样点"
@@ -158,12 +156,10 @@ namespace DeepseaOil.Presentation
         {
             var snapshot = new InputSnapshot(
                 _move,
-                _jumpPressed,
                 _dashPressed,
                 _grabHeld
             );
 
-            _jumpPressed = false;
             _dashPressed = false;
 
             return snapshot;
@@ -173,7 +169,6 @@ namespace DeepseaOil.Presentation
         {
             _move = Vector2.zero;
             _grabHeld = false;
-            _jumpPressed = false;
             _dashPressed = false;
         }
 

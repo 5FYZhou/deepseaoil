@@ -18,9 +18,9 @@ namespace DeepseaOil.Logic.Projectile
     {
         /// <summary>施加一次落地效果。</summary>
         /// <param name="landingCell">落点格（已吸附到格子）。</param>
-        /// <param name="ball">球定义（取值边界）。</param>
+        /// <param name="ball">球种取值边界（表 ＋ 调参）。</param>
         /// <param name="ctx">能请求的世界操作。</param>
-        void Apply(Vector3Int landingCell, in BallDefinition ball, IBallLogicEffectContext ctx);
+        void Apply(Vector3Int landingCell, ProjectileSpec ball, IBallLogicEffectContext ctx);
     }
 
     /// <summary>球效果能用到的世界操作。<b>由世界侧实现</b>（当前是球调度器）。</summary>

@@ -24,17 +24,17 @@ namespace DeepseaOil.Presentation
     /// <see cref="RenderTick"/> 与 <see cref="FixedTick"/>。
     /// 帧内顺序因此是可预测的：渲染帧 = 格子 → 球（飞行 ＋ 落地改格）→ 喷泉；
     /// 物理帧 = 落地冲量 → 敌人 → 玩家受击。
-    /// <para><b>环境事实只在这里组装一次</b>：调参资产、Luban 表值、格子几何、敌人归属表、
+    /// <para><b>环境事实只在这里组装一次</b>：Luban 表值、格子几何、敌人归属表、
     /// 各子系统之间的引用。子系统自己不认识彼此 —— 它们只认识被注入的东西。</para>
     /// <para><b>装配放在 <c>Start</c> 而不是 <c>Awake</c>：</b>它要读 <c>ConfigModule</c>（由
     /// <c>GameRoot.Awake</c> 装配）与场景里其他组件的 <c>Awake</c> 结果（例如 <c>PlayerController</c>
     /// 的逻辑层）。Unity 保证"所有 Awake 先于任何 Start"。</para>
     /// <para><b>没接线时是显式降级</b>：报一条 Error 并停用，而不是静默留一个"按了没反应"的场景。</para>
     /// </remarks>
-    public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink, ITileSlowApplier
+    public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
     {
-        /// <summary>驱动顺序：世界侧排在玩家侧（<c>-100</c>）之后。</summary>
-        public int Order => 0;
+        /// <summary>驱动顺序：世界侧排在玩家侧（<see cref="SceneOrder.Player"/>）之后。</summary>
+        public int Order => SceneOrder.World;
 
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
@@ -177,7 +177,7 @@ namespace DeepseaOil.Presentation
         /// <remarks>
         /// <b>为什么由组合根做：</b>接触判定要同时看"玩家在哪一格"（<c>GridLogic</c>）、
         /// "这一格上站着谁"（<c>EnemyCellRegistry</c>）与玩家表值 —— 这三样都只在这里齐备。
-        /// 判定本身是纯函数（<see cref="ContactDamage.TryFindAttacker"/>），所以它能在 EditMode 里测；
+        /// 判定本身是纯函数（<see cref="ContactProbe.TryFindAttacker"/>），所以它能在 EditMode 里测；
         /// 收口前这条判定住在表现层的 <c>PlayerHealthController</c> 里，靠 <c>Physics2D</c> 才测得了。
         /// <para><b>世界 → 玩家只有"通知"一条路</b>：本方法组装一次 <see cref="Damage"/>，
         /// 经 <c>PlayerLogic.TakeDamage</c> 递交；扣多少血、进入多久无敌、被推多远都由玩家侧自己决定。</para>
@@ -202,12 +202,12 @@ namespace DeepseaOil.Presentation
                 return;
             }
 
-            PlayerSpec spec = logic.Spec;
+            PlayerSpec spec = logic.Stats.Spec;
 
             Vector2 position = player.Position;
             Vector3Int cell = _grid.WorldToCell(position);
 
-            if (!ContactDamage.TryFindAttacker(
+            if (!ContactProbe.TryFindAttacker(
                     cell,
                     position,
                     spec.ContactRadius,
@@ -268,57 +268,15 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>
-        /// 续一次减速修饰（<see cref="ITileSlowApplier"/>）：<b>"谁站在这一格上"是世界侧的信息</b>，
-        /// 格状态只提交一句"这一格续一次减速"。
-        /// </summary>
-        /// <param name="cell">格子。</param>
-        /// <param name="speedScale">速度乘数（<c>1</c> = 不减速）。</param>
-        /// <param name="seconds">这次续命能让修饰再活多久（秒）。</param>
-        /// <remarks>
-        /// <b>玩家不在归属表里</b>（那张表是"敌人站在哪一格"），所以它那一格由本类直接判 ——
-        /// 只有这一处，不构成第二个真源。
-        /// <para><b>不做快照</b>（对比 <c>GridLogic.Deal</c> 的快照）：施加修饰不会让目标死亡或注销自己，
-        /// 所以可以在表上直接遍历。</para>
-        /// </remarks>
-        public void ApplySlow(Vector3Int cell, float speedScale, float seconds)
-        {
-            if (seconds <= 0f) return;
-
-            if (player != null && player.Logic != null && _grid != null &&
-                _grid.WorldToCell(player.Position) == cell)
-            {
-                player.Logic.Status.ApplySlow(speedScale, seconds);
-            }
-
-            if (_registry == null || !_registry.TryGetIn(cell, out List<IDamageable> targets)) return;
-
-            for (int i = 0; i < targets.Count; i++)
-            {
-                if (targets[i] is ISlowEffectTarget target) target.ApplySlow(speedScale, seconds);
-            }
-        }
-
-        /// <summary>
-        /// 投掷射程上限：取<b>水球</b>那一行。
+        /// 组装整个战斗切片。依赖全部来自参数与 Data 层：<b>没有 <c>FindObjectOfType</c>，
+        /// 也没有从 Inspector 拖进来的数值</b>。
         /// </summary>
         /// <remarks>
-        /// 射程是"投掷这一组参数"，与球种无关（表里两行同值）—— 收口前写死在 <c>ThrowController</c> 里，
-        /// 现在它由世界侧交给玩家侧（射程属玩家资格）。
-        /// <para>表里一行都没有时返回 0，而 <c>TileAim</c> 对非法射程的处理是"按不限"（它自己的契约）——
-        /// 于是"表坏了"的表现是"射程变得很远"，而不是"投不出去"。</para>
+        /// 射程（取水球那一行）由 <c>PlayerSpec.MaxThrowDistance</c> 统一给出，不在本类挑球种。
+        /// <para><b>格子效果的执行者不需要注入</b>：<c>GridLogic</c> 自己实现 <c>ITileResolver</c>，
+        /// 而"这一格上站着谁"本来就是它自己的知识（敌人归属表）。玩家不登记进那张表
+        /// （审查已定：玩家只能被怪打，格子作用不到玩家）。</para>
         /// </remarks>
-        private static float MaxThrowDistance(IReadOnlyList<BallDefinition> balls)
-        {
-            if (balls == null) return 0f;
-
-            for (int i = 0; i < balls.Count; i++)
-            {
-                if (balls[i].Type == BallType.Water) return balls[i].Throw.MaxThrowDistance;
-            }
-
-            return 0f;
-        }
-
         private void Assemble()
         {
             if (player == null || gridView == null)
@@ -338,29 +296,30 @@ namespace DeepseaOil.Presentation
             if (player.Logic == null)
             {
                 Debug.LogError(
-                    "CombatRoot 拿不到玩家的逻辑层（PlayerController 的 config / motor 没接好，" +
+                    "CombatRoot 拿不到玩家的逻辑层（PlayerController 的 motor / inputProvider 没接好，" +
                     "或它的装配失败），战斗内容已停用。",
                     this);
                 return;
             }
 
-            ThrowTuning tuning = ThrowTuning.LoadOrDefault();
+            PlayerSpec playerSpec = player.Logic.Stats.Spec;
 
-            IReadOnlyList<BallDefinition> balls = SpecCatalog.AllBalls();
+            IReadOnlyList<ProjectileSpec> balls = ConfigModule.GetAllBalls();
 
             _registry = new EnemyCellRegistry();
 
             GridGeometry geometry = gridView.ReadGeometry();
 
-            // 速度修正的执行者就是本类：只有它同时认识"敌人归属表"与"玩家"。
-            _grid = new GridLogic(geometry, SpecCatalog.AllTileStates(), CreateTileState, _registry, this);
+            // 速度修正与伤害的执行者是本类自己（GridLogic 实现 ITileResolver）：
+            // "谁站在这一格上"是格子系统自己的知识（敌人归属表），不需要注入执行者。
+            _grid = new GridLogic(geometry, ConfigModule.GetAllTileStates(), CreateTileState, _registry);
 
             // 先开始听"格子状态变了"，再灌初始状态：初始状态走的是同一条转换路径
             // （订阅晚了那一批泥浆就不会被画出来 —— 而它们是最不该漏的一批）。
             gridView.Attach();
 
             int cells = gridView.RegisterCells(_grid);
-            int initialStates = _grid.LoadInitialStates(SpecCatalog.TileInitials());
+            int initialStates = _grid.LoadInitialStates(ConfigModule.GetTileInitials());
 
             // 瞄准高亮：它是"逻辑层发布 AimChanged → 表现层转成特效调用"的订阅者，
             // 订阅时机由本类收口（Attach/Detach），不自己 OnEnable
@@ -372,7 +331,7 @@ namespace DeepseaOil.Presentation
             _impulses = new ImpulseExecutor();
 
             _balls = new BallDirector();
-            _balls.Attach(_grid, balls, tuning, _impulses, ballRoot);
+            _balls.Attach(_grid, balls, _impulses, ballRoot);
 
             // 掉落物链路：持有者 ＋ 产出方注入。
             // 产出方（喷泉）拿到的是窄接口 IDropSpawner：它不认识 DropDirector，只认识"产出一颗"。
@@ -385,7 +344,7 @@ namespace DeepseaOil.Presentation
             }
 
             // 玩家侧的瞄准需要三样世界信息：格子几何、射程上限、投掷裁决口（本类）
-            player.Logic.ConfigureAim(in geometry, MaxThrowDistance(balls), this);
+            player.Logic.ConfigureAim(in geometry, playerSpec.MaxThrowDistance, this);
 
             if (enableWaves)
             {
@@ -414,7 +373,7 @@ namespace DeepseaOil.Presentation
             switch (id)
             {
                 case TileStateType.Mud:
-                    return new MudTileState(SpecCatalog.TileState(id));
+                    return new MudTileState(ConfigModule.GetTileState(id));
 
                 default:
                     return null;
@@ -423,7 +382,7 @@ namespace DeepseaOil.Presentation
 
         private TileHighlightView CreateHighlightView(in GridGeometry geometry)
         {
-            var go = new GameObject("瞄准格高亮");
+            var go = new GameObject("AimHighlight");
 
             go.layer = RenderOrder.OverlayLayer;
 
@@ -438,16 +397,16 @@ namespace DeepseaOil.Presentation
 
         private CombatDirector CreateCombatDirector()
         {
-            var go = new GameObject("敌人调度");
+            var go = new GameObject("EnemyDirector");
 
             if (actorRoot != null) go.transform.SetParent(actorRoot, true);
 
             var director = go.AddComponent<CombatDirector>();
 
             director.Initialize(
-                player.transform,
-                SpecCatalog.Wave(),
-                SpecCatalog.Enemy(),
+                player,
+                ConfigModule.GetWave(),
+                ConfigModule.GetEnemy(),
                 _grid,
                 _registry,
                 actorRoot);

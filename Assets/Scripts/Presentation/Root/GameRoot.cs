@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
@@ -65,6 +66,44 @@ namespace DeepseaOil.Presentation
         /// "场景里那份重复的 <c>GameRoot</c> 被销毁时不许把别人正在用的缓存拆掉"。
         /// </remarks>
         private static GameRoot _assembled;
+
+        // ─────────────────────────────────────────────
+        // 驱动顺序表：顺序是数据，不是方法体里的一段注释
+        // ─────────────────────────────────────────────
+
+        /// <summary>
+        /// 渲染帧驱动项：<c>Order</c>（升序执行）＋ <c>Label</c>（诊断用）＋ 一个步骤。
+        /// </summary>
+        /// <remarks>
+        /// <b>为什么把顺序变成数据：</b>收口前它是 <c>Update</c> 方法体里的一段注释
+        /// （ⓐ → ⓑ → ①②③④），加一个阶段就要改方法体，而顺序错了没有任何结构拦得住。
+        /// 变成表之后，"谁在谁之前"是这张表可读的一列。
+        /// <para><b>代价写在这里：</b>步骤签名是 <c>Action&lt;float&gt;</c>，
+        /// 所以 <c>Time.deltaTime</c> / <c>unscaledDeltaTime</c> 的差别只能靠传入值表达 ——
+        /// 每个步骤自己决定传什么（见下面的 lambda）。</para>
+        /// </remarks>
+        private readonly struct DriveStep
+        {
+            public readonly int Order;
+            public readonly string Label;
+            public readonly Action<float> Step;
+
+            public DriveStep(int order, string label, Action<float> step)
+            {
+                Order = order;
+                Label = label;
+                Step = step;
+            }
+        }
+
+        private readonly List<DriveStep> _updateSteps = new();
+        private readonly List<DriveStep> _fixedSteps = new();
+
+        /// <summary>渲染帧顺序表（按 <c>Order</c> 升序执行）。</summary>
+        public IReadOnlyList<(int Order, string Label)> UpdateSteps => Describe(_updateSteps);
+
+        /// <summary>物理帧顺序表（按 <c>Order</c> 升序执行）。</summary>
+        public IReadOnlyList<(int Order, string Label)> FixedSteps => Describe(_fixedSteps);
 
         /// <summary>装配是否完成（失败时 <see cref="Update"/> 整体 no-op）。</summary>
         public bool IsReady { get; private set; }
@@ -169,6 +208,11 @@ namespace DeepseaOil.Presentation
                 _assembled = this;
             }
 
+            // ConfigModule 的第二段：表已就绪（上一段）、AssetModule 也已就绪 —— SO 侧的取值
+            // （PlayerConfig / ThrowTuning / DropTuning）在这里才绑得上。顺序不能反：
+            // ConfigModule.Init → AssetModule.Init → ConfigModule.BindAssets（见 ConfigModule 的类注释）。
+            ConfigModule.BindAssets();
+
             if (!EffectModule.IsInitialized)
             {
                 EffectModule.Init();
@@ -209,77 +253,169 @@ namespace DeepseaOil.Presentation
             _services.Add(saveService);
             _services.Add(Audio);
 
+            BuildDriveSteps();
+
             if (Game.CurState == GameState.None)
             {
                 Game.ChangeState(GameState.Menu);
             }
-            else Debug.LogWarning("第一次切换游戏状态的不是GameRoot");
+            else
+            {
+                // 走到这里说明别的入口先切过一次状态。本类不再覆盖它（那是别人的意图），
+                // 但必须说清后果：本局不会再有任何东西替它回到 Menu / Running。
+                Debug.LogWarning(
+                    "[GameRoot] 第一次切换游戏状态的不是 GameRoot（CurState 已非 None）。" +
+                    "本类不再改它 —— 若那个入口不是有意的，游戏会停在一个没人维护的状态里。");
+            }
         }
 
+        // ─────────────────────────────────────────────
+        // 顺序表的装配与执行
+        // ─────────────────────────────────────────────
+
+        /// <summary>
+        /// 把驱动顺序写成数据。<b>加一个阶段是加一行</b>，不是改 <c>Update</c> 的方法体。
+        /// </summary>
+        /// <remarks>
+        /// 编号沿用类注释里的约定：<c>Order</c> 越小越先跑。ⓐ/ⓑ 与 ①-④ 的差别只在编号的"来源"
+        /// （前者是"面板操作"，不吃 <c>dt</c>），执行上它们是一条线。
+        /// </remarks>
+        private void BuildDriveSteps()
+        {
+            _updateSteps.Clear();
+            _fixedSteps.Clear();
+
+            // ⓪ 场景根装配：只在本帧有新注册者时真的做事（幂等，见 EnsureAttached）
+            _updateSteps.Add(new DriveStep(0, "场景根装配 EnsureAttached", _ => EnsureAttached()));
+
+            // ⓐ 输入采样：全工程唯一采样点，必须在任何消费者之前（按下沿只在动态更新里有效）
+            _updateSteps.Add(new DriveStep(10, "输入采样 InputProvider.Sample", _ => _input?.Sample()));
+
+            // ⓑ UI 输入段：先采样快照再消费，本帧状态取自 UILogicContext（不再有第二个来源）
+            _updateSteps.Add(new DriveStep(20, "UI 输入段", _ =>
+            {
+                _uiInputProvider.Sample();
+                _uiInput.Tick(new UILogicContext(_uiInputProvider.ConsumeSnapshot(), Game.CurState));
+            }));
+
+            // ① 进程级服务：暂停 / 切场景 / 存档 / 音频。用 unscaledDeltaTime（暂停时也要能推进）
+            _updateSteps.Add(new DriveStep(30, "进程级服务 Services.Tick", _ => TickServices(Time.unscaledDeltaTime)));
+
+            // ② Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰
+            _updateSteps.Add(new DriveStep(40, "Data 层 AssetModule.Tick", dt => AssetModule.Tick(dt)));
+
+            // ③ 场景根（渲染帧）：玩家侧（瞄准 / 投掷意图）→ 世界侧（格子 / 球 / 掉落物 / 喷泉）
+            _updateSteps.Add(new DriveStep(50, "场景根 RenderTick", dt => TickSceneRootsRender(dt)));
+
+            // ④ 特效：放在场景根之后 —— 本帧新播的特效当帧就被推进一次
+            _updateSteps.Add(new DriveStep(60, "特效 EffectModule.Tick", dt => EffectModule.Tick(dt)));
+
+            // 物理帧只有一个阶段，编号沿用类注释
+            _fixedSteps.Add(new DriveStep(0, "场景根 FixedTick", dt => TickSceneRootsPhysics(dt)));
+        }
+
+        /// <summary>按 <c>Order</c> 升序跑渲染帧顺序表。</summary>
+        private void RunUpdateSteps()
+        {
+            RunSteps(_updateSteps, Time.deltaTime);
+        }
+
+        /// <summary>按 <c>Order</c> 升序跑物理帧顺序表。</summary>
+        private void RunFixedSteps()
+        {
+            RunSteps(_fixedSteps, Time.fixedDeltaTime);
+        }
+
+        /// <summary>
+        /// 按 <c>Order</c> 升序执行一张顺序表。
+        /// </summary>
+        /// <remarks>每次调用都排一次序（项数个位数、<c>List.Sort</c> 对近乎有序的输入很便宜）：
+        /// 顺序是数据，就不该再依赖"谁先被 <c>Add</c>"。</remarks>
+        private static void RunSteps(List<DriveStep> steps, float deltaTime)
+        {
+            steps.Sort(static (a, b) => a.Order.CompareTo(b.Order));
+
+            for (int i = 0; i < steps.Count; i++)
+            {
+                steps[i].Step(deltaTime);
+            }
+        }
+
+        private void TickServices(float unscaledDeltaTime)
+        {
+            for (int i = 0; i < _services.Count; i++)
+            {
+                _services[i].Tick(unscaledDeltaTime);
+            }
+        }
+
+        private void TickSceneRootsRender(float deltaTime)
+        {
+            for (int i = 0; i < _sceneRoots.Count; i++)
+            {
+                if (_sceneRoots[i] is IRenderTicked ticked) ticked.RenderTick(deltaTime);
+            }
+        }
+
+        private void TickSceneRootsPhysics(float deltaTime)
+        {
+            for (int i = 0; i < _sceneRoots.Count; i++)
+            {
+                if (_sceneRoots[i] is IPhysicsTicked ticked) ticked.FixedTick(deltaTime);
+            }
+        }
+
+        private static IReadOnlyList<(int Order, string Label)> Describe(List<DriveStep> steps)
+        {
+            steps.Sort(static (a, b) => a.Order.CompareTo(b.Order));
+
+            var result = new List<(int Order, string Label)>(steps.Count);
+
+            for (int i = 0; i < steps.Count; i++)
+            {
+                result.Add((steps[i].Order, steps[i].Label));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 渲染帧通道：<b>按 <see cref="UpdateSteps"/> 的 <c>Order</c> 升序跑</b>。
+        /// </summary>
         private void Update()
         {
             if (!IsReady) return;
 
-            // ⓪ 场景根装配（只在本帧有新注册者时才真的做事）
-            EnsureAttached();
-
-            // ⓐ 输入采样：全工程唯一采样点，必须在任何消费者之前（按下沿只在动态更新里有效）
-            if (_input != null) _input.Sample();
-
-            // ⓑ UI 输入段：先采样快照再消费，本帧状态取自 UILogicContext（不再有第二个来源）
-            _uiInputProvider.Sample();
-            _uiInput.Tick(new UILogicContext(_uiInputProvider.ConsumeSnapshot(), Game.CurState));
-
-            // ① 进程级服务：暂停 / 切场景 / 存档 / 音频。用 unscaledDeltaTime（暂停时也要能推进）
-            for (int i = 0; i < _services.Count; i++)
-            {
-                _services[i].Tick(Time.unscaledDeltaTime);
-            }
-
-            // ② Data 层唯一被允许的主动行为：异步队列 / 冷却期 / LRU 淘汰
-            AssetModule.Tick(Time.deltaTime);
-
-            // ③ 场景根（渲染帧）：玩家侧（瞄准 / 投掷意图）→ 世界侧（格子 / 球 / 掉落物 / 喷泉）
-            for (int i = 0; i < _sceneRoots.Count; i++)
-            {
-                if (_sceneRoots[i] is IRenderTicked ticked) ticked.RenderTick(Time.deltaTime);
-            }
-
-            // ④ 特效：放在场景根之后 —— 本帧新播的特效当帧就被推进一次
-            EffectModule.Tick(Time.deltaTime);
+            RunUpdateSteps();
         }
 
         /// <summary>
-        /// 物理帧通道：按 <c>Order</c> 驱动场景根（玩家侧先跑，世界侧后跑）。
+        /// 物理帧通道：<b>按 <see cref="FixedSteps"/> 的 <c>Order</c> 升序跑</b>
+        /// （场景根内部再按各自的 <c>ISceneRoot.Order</c>：玩家侧先跑，世界侧后跑）。
         /// </summary>
         /// <remarks>
         /// <b>顺序在这里才第一次成为"代码里的事实"</b>：收口前
         /// <c>PlayerController.FixedUpdate</c> 与 <c>GameRoot.FixedUpdate</c> 是两个
         /// <c>MonoBehaviour</c>，谁先跑由 Unity 决定，而 <c>CombatRoot.FixedTick</c> 的接触结算
         /// 读的是"玩家这一帧提交后的位置"。暂停时 Unity 不跑本方法，所以不需要额外挡一层。
-        /// <para><b>为什么这里也要装一遍：</b>一帧里 <c>FixedUpdate</c> 可能先于
-        /// <c>Update</c> 跑（甚至跑好几遍），装配必须在那之前完成，而 <see cref="EnsureAttached"/>
-        /// 本身是幂等的。</para>
         /// </remarks>
         private void FixedUpdate()
         {
             if (!IsReady) return;
 
-            EnsureAttached();
-
-            for (int i = 0; i < _sceneRoots.Count; i++)
-            {
-                if (_sceneRoots[i] is IPhysicsTicked ticked) ticked.FixedTick(Time.fixedDeltaTime);
-            }
+            RunFixedSteps();
         }
 
         /// <summary>
-        /// 进程退出：按装配的逆序拆。
+        /// 进程退出：<b>按装配的逆序拆</b>。
         /// </summary>
         /// <remarks>
         /// 顺序不能反：<c>EffectModule</c> 与 <c>UIMgr</c> 释放资源要经 <c>AssetModule</c> 归还引用计数，
         /// 所以 <c>AssetModule.Dispose</c> 必须最后。<c>AudioManager</c> 在服务表里，
-        /// 由服务表统一 <c>Dispose</c>（它在表里的位置就是它的拆除顺序）。
+        /// 由服务表统一 <c>Dispose</c>。
+        /// <para><b>服务表也按反序拆</b>：收口前这里是正序 —— 与类注释"按装配的逆序拆"不一致，
+        /// 而当时能跑只是因为各服务的 <c>Dispose</c> 互不依赖（那是巧合，不是设计）。
+        /// 服务的加入顺序同时是 Init 序与 Tick 序，拆除取它的逆序，三者因此一致。</para>
         /// </remarks>
         private void OnDestroy()
         {
@@ -293,7 +429,7 @@ namespace DeepseaOil.Presentation
             EffectModule.Dispose();
             UI?.Dispose();
 
-            for (int i = 0; i < _services.Count; i++)
+            for (int i = _services.Count - 1; i >= 0; i--)
             {
                 _services[i].Dispose();
             }
@@ -355,7 +491,7 @@ namespace DeepseaOil.Presentation
         {
             if (root == null) return false;
 
-            return root is Object o ? o != null : true;
+            return root is UnityEngine.Object o ? o != null : true;
         }
 
         private static int CompareSceneRoots(ISceneRoot a, ISceneRoot b)
