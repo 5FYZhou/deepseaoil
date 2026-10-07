@@ -3,20 +3,11 @@ using cfg.demo;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 战斗表现件的<b>颜色表</b>。观感参数一律走 SO（审查已定），给程序调、不对策划暴露。
-    /// </summary>
+    /// <summary>战斗表现件的<b>颜色表</b>；观感参数一律走 SO，给程序调、不对策划暴露。</summary>
     /// <remarks>
-    /// <b>为什么球种色必须只有一份：</b>同一个球种的颜色有三个消费者 —— 球本体、落地环、
-    /// （将来的）HUD 图标。三处各写一份十六进制的话，"水球是蓝的"这件事就再也没有唯一答案了。
-    /// <para><b>为什么敌人四态色也在这里：</b>收口前它们在逻辑层的 <c>EnemyVisual</c> 里 ——
-    /// 那是"减速生效了没有"这个<b>判定</b>的邻居，但颜色本身是纯观感。
-    /// 现在数值在 SO、<b>实现方在表现层</b>（"这一帧画什么"由 <c>EnemyBody</c> 决定）。</para>
-    /// <para><b>四态显式写出来，不做乘法或插值</b>：<c>Color.Lerp</c> 或 <c>body * 0.4f</c>
-    /// 会让"这一帧到底该是什么色"变成一个算不出来的数，既没法断言也没法单独调，
-    /// 而"减速时颜色变深"本身就是一个设计决定，它值得有自己的字段。</para>
-    /// <para><b>兜底口径与两份 Tuning 相同</b>：丢了资产时 <c>ConfigModule</c> 会给一份字段默认值的实例
-    /// ＋ 一条 Warning（观感参数不参与判定，不能因为缺资产把游戏卡死）。</para>
+    /// 球种色必须只有一份：同一个球种的颜色有三个消费者 —— 球本体、落地环、（将来的）HUD 图标。
+    /// 敌人四态色显式写出来，不做乘法或插值：<c>Color.Lerp</c> 会让"这一帧到底该是什么色"变成算不出来的数，也没法单独调。
+    /// 兜底口径：丢了资产时给一份字段默认值的实例 ＋ 一条 Warning，颜色退回白模那一套，而不是一堆 alpha 为 0 的透明色（那会让全场看不见，且不报错）。
     /// </remarks>
     [CreateAssetMenu(fileName = "VisualPalette", menuName = "DeepseaOil/Settings/VisualPalette")]
     public sealed class VisualPalette : ScriptableObject
@@ -58,16 +49,8 @@ namespace DeepseaOil.Data
         [Tooltip("球阴影色：贴地件的“存在感”来自它，不走球种色（阴影是光，不是材质）")]
         public Color shadow = new(0f, 0f, 0f, 0.35f);
 
-        /// <summary>
-        /// 取观感颜色表；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。
-        /// </summary>
-        /// <remarks>
-        /// <b>调用方只有 <c>ConfigModule.BindAssets</c> 一处</b>：消费者经
-        /// <c>ConfigModule.Visuals</c> 拿到它 —— 那是观感取值的<b>单一权威入口</b>
-        /// （收口前调色板有三个入口：敌人的、球的、掉落物的取值边界各持一份，外加 <c>ConfigModule</c> 自己）。
-        /// <para>兜底是安全网而不是常态：丢了资产时颜色退回"白模验收过的那一套"，
-        /// 而不是一堆 alpha 为 0 的透明色（那会让全场看不见，且不报错）。</para>
-        /// </remarks>
+        /// <summary>取观感颜色表；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。</summary>
+        /// <remarks>调用方只有 <c>ConfigModule.BindAssets</c> 一处；消费者经 <c>ConfigModule.Visuals</c> 拿到它（观感取值的单一权威入口）。</remarks>
         internal static VisualPalette LoadOrDefault()
         {
             if (Cached != null) return Cached;
@@ -92,10 +75,8 @@ namespace DeepseaOil.Data
             return Cached;
         }
 
-        /// <summary>进程内的那一份（见 <see cref="LoadOrDefault"/>）。</summary>
         private static VisualPalette Cached;
 
-        /// <summary>取球种颜色；未知球种给兜底色。</summary>
         public Color BallColor(BallType type)
         {
             switch (type)
@@ -106,18 +87,8 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <summary>
-        /// 这一帧的敌人身体颜色（四态之一：正常 / 减速 / 闪烁 / 减速+闪烁）。
-        /// </summary>
         /// <param name="slowMultiplier">本帧实际生效的减速系数（<c>&lt; 1</c> 表示被减速）。</param>
-        /// <param name="flashOn">闪烁相位的亮半周。</param>
-        /// <remarks>
-        /// <b>四态而不是"二选一"：</b>减速与受击是两个独立的 debuff，同时发生时两种反馈都要在。
-        /// 写成 <c>if (flash) 亮 else if (slow) 深</c> 的话，站在减速格里被打中的敌人看起来
-        /// "跟没踩进去一样" —— 而那正是玩家会去判断"这减速到底有没有用"的时刻。
-        /// <para>判据用"是否小于 1"而不是"是否等于某个具体系数"：状态将来分等级（更强的减速）时，
-        /// 这里不需要跟着改。</para>
-        /// </remarks>
+        /// <remarks>四态而不是"二选一"：减速与受击是两个独立的 debuff，同时发生时两种反馈都要在 —— 否则站在减速格里被打中的敌人"看起来跟没踩进去一样"。判据用"是否小于 1"，将来减速分等级时这里不用改。</remarks>
         public Color EnemyBodyColor(float slowMultiplier, bool flashOn)
         {
             bool slowed = slowMultiplier < 1f;

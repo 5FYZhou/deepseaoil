@@ -6,49 +6,33 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>
-    /// 敌人碎裂驱动：耐久归零时飞出的几块碎片，沿 <c>ctx.Direction</c> 扇形散开。<b>程序生成，不需要资源</b>。
-    /// </summary>
+    /// <summary>敌人碎裂驱动：耐久归零时飞出的几块碎片，沿 <c>ctx.Direction</c> 扇形散开。<b>程序生成，不需要资源</b>。</summary>
     /// <remarks>
-    /// <b>它不是特效，是读数。</b>"三下打碎"这条规则如果没有可见的表现，就只能在 Console 里靠日志确认。
-    /// 与粒子驱动不同：需求把"音效、粒子、拖尾"列为不做，本类不属于那一类 ——
-    /// 它不表达情绪，只暴露"这个敌人死了"。
-    /// <para><b>碎片的形状是确定性算出来的，不读随机数。</b>均匀扇形 ＋ 一个固定的俯仰系数：
-    /// 三块碎片每次都在同样的相对位置上飞出去。随机数会让"同一个现象能否再出现一次"变成赌博，
-    /// 而排查全靠重现。</para>
-    /// <para>碎片各自走池：一次碎裂占 <see cref="PieceCount"/> 个对象，归还时逐个还回去。</para>
+    /// 碎片形状确定性算出、不读随机数：三块每次都落在同样的相对位置上（随机数会让"同一个现象能否再出现一次"变成赌博，而排查全靠重现）。一次碎裂占 <see cref="PieceCount"/> 个对象，归还时逐个还。
     /// </remarks>
     public sealed class ShatterDriver : IEffectDriver
     {
-        /// <summary>碎片数。</summary>
         private const int PieceCount = 3;
 
-        /// <summary>碎片半径（世界单位）。</summary>
         private const float PieceRadiusMeters = 0.13f;
 
-        /// <summary>碎片飞行速度（单位/秒）。</summary>
         private const float PieceSpeed = 3.5f;
 
-        /// <summary>扇形的总张角（度）。</summary>
         private const float SpreadDegrees = 140f;
 
-        /// <summary>默认时长（秒）；<c>ctx.Duration</c> 未给时用它。</summary>
         private const float DefaultDuration = 0.35f;
 
-        /// <summary>时长上限（秒）。</summary>
         private const float MaxDuration = 5f;
 
         /// <summary>单帧最多回收几个碎裂（防尖峰）。</summary>
         private const int MaxRecyclePerTick = 16;
 
-        /// <summary>一块在飞的碎片。</summary>
         private sealed class Shard
         {
             public GameObject Go;
             public Vector2 Velocity;
         }
 
-        /// <summary>一次碎裂（若干碎片的集合）。</summary>
         private sealed class Burst
         {
             public int Id;
@@ -68,18 +52,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private int _epoch;
         private bool _disposed;
 
-        /// <summary>
-        /// 由装配表构造（<c>EffectDriverFactory</c> 用）。
-        /// </summary>
-        /// <remarks>
-        /// <c>internal</c> 是因为 <c>EffectSpec</c> 本身是 internal —— 公开它会让"装配参数"变成对外 API。
-        /// 需要手工构造时用下面那个公开重载。
-        /// </remarks>
+        /// <summary>由装配表构造（<c>EffectDriverFactory</c> 用）。</summary>
         internal ShatterDriver(in EffectSpec spec, Transform root) : this(root, spec.MaxSize)
         {
         }
 
-        /// <param name="root">特效根（实例都挂在它下面，销毁根即回收）。</param>
         /// <param name="maxSize">同屏碎裂次数上限；<c>&le; 0</c> 视为 1。</param>
         public ShatterDriver(Transform root, int maxSize = 16)
         {
@@ -114,7 +91,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         /// <inheritdoc />
         public void OnAssetLoaded(Object asset)
         {
-            // 不需要资源。
         }
 
         /// <inheritdoc />
@@ -132,7 +108,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             Vector2 forward = ctx.Direction;
 
-            // 受击方向为零时 <c>ctx.Direction</c> 已经归一为 up，这里只需要角度。
+            // 受击方向为零时 <c>ctx.Direction</c> 已在上游归一为 up，这里只需要角度。
             float baseAngle = Mathf.Atan2(forward.y, forward.x);
 
             float spread = SpreadDegrees;
@@ -150,7 +126,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                     break;
                 }
 
-                // 均匀铺在 [-spread/2, +spread/2] 上；count = 1 时正好沿受击方向。
                 float offset = count == 1 ? 0f : -spread * 0.5f + spread * i / (count - 1);
 
                 float radians = baseAngle + offset * Mathf.Deg2Rad;
@@ -254,13 +229,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _piecePool.Dispose();
         }
 
-        /// <summary>
-        /// 碎片直线飞行，恒速、不衰减 —— 碎片是"散出去"，不是"滑出去"。
-        /// </summary>
-        /// <remarks>
-        /// 写 <c>transform.position</c> 而不是给刚体加速度：碎片不需要碰撞、不需要被推，
-        /// 一个刚体只会让它去参与物理解算。
-        /// </remarks>
+        /// <summary>碎片直线飞行，恒速、不衰减 —— 碎片是"散出去"，不是"滑出去"。</summary>
         private static void MoveShards(Burst burst, float dt)
         {
             for (int i = 0; i < burst.Shards.Count; i++)

@@ -4,14 +4,9 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 加载调度器。并发控制 + 等待队列 + 失败重试。
-    /// 调用时机：Enqueue 由 AssetModule.LoadAsync 未命中时调用；Tick 由 GameRoot 每帧驱动。
-    /// 边界：
-    ///   - 主线程独占；用普通 int 计数（不用 SemaphoreSlim：Wait() 会阻塞主线程，且主线程独占时信号量多余）
-    ///   - 重试是「立即重新入队」，不延时（详细见 Docs/框架设计/分层设计/数据层.md §2「子机制」表的 LoadScheduler 行）
-    ///   - 失败策略不在这里：重试耗尽后交回 AssetModule 决定降级
-    /// </summary>
+    /// <summary>加载调度器。并发控制 + 等待队列 + 失败重试。</summary>
+    /// <remarks>Enqueue 由 <c>AssetModule.LoadAsync</c> 未命中时调用；<c>Tick</c> 由 <c>GameRoot</c> 每帧驱动（顺序表 step ③）。主线程独占，用普通 int 计数（不用 <c>SemaphoreSlim</c>：<c>Wait()</c> 会阻塞主线程，且主线程独占时信号量多余）。
+    /// 重试是「立即重新入队」，不延时。失败策略不在这里：重试耗尽后交回 <c>AssetModule</c> 决定降级。</remarks>
     internal sealed class LoadScheduler
     {
         private const int MAX_RETRY = 2;
@@ -39,10 +34,7 @@ namespace DeepseaOil.Data
         /// <summary>入队。调用方：AssetModule.LoadAsync 未命中缓存、AssetModule.Preload。</summary>
         public void Enqueue(LoadRequest req) => _queue.Enqueue(req);
 
-        /// <summary>
-        /// 每帧推进。调用方：GameRoot 顺序表 step ③。
-        /// 边界：单帧最多启动到并发上限为止，不在一帧内爆发。
-        /// </summary>
+        /// <summary>每帧推进。调用方：GameRoot 顺序表 step ③；边界：单帧最多启动到并发上限为止，不在一帧内爆发。</summary>
         public void Tick(float dt)
         {
             while (_queue.Count > 0 && _loadingCount < _maxConcurrent)
@@ -88,7 +80,6 @@ namespace DeepseaOil.Data
 
             if (req.retryCount <= MAX_RETRY)
             {
-                // 立即重试（排在队尾）。若将来要精确延时，加 nextRetryTime 字段并在 Tick 中过滤。
                 _queue.Enqueue(req);
                 return;
             }
@@ -101,7 +92,6 @@ namespace DeepseaOil.Data
         public void Clear() => _queue.Clear();
     }
 
-    /// <summary>加载请求。LoadScheduler 内部数据结构。</summary>
     internal sealed class LoadRequest
     {
         public string key;

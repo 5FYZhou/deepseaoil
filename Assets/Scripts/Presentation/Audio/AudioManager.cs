@@ -13,7 +13,6 @@ namespace DeepseaOil.Presentation
         public AudioSource source;
         public float remaining;
 
-        // 复用前重置
         public void Reset()
         {
             go = null;
@@ -24,27 +23,12 @@ namespace DeepseaOil.Presentation
 
     /// <summary>
     /// 音频：<c>PlaySfx</c> 从池里取一个 <c>AudioSource</c> 播一次、<c>PlayBgm</c> 用固定一个循环播。
-    /// <b>普通类，由 <c>GameRoot</c> 持有</b>，作为 <c>IService</c> 每帧被驱动（回收播完的音效）。
+    /// 普通类、由 <c>GameRoot</c> 持有，作为 <c>IService</c> 每帧被驱动（回收播完的音效）。
     /// </summary>
-    /// <remarks>
-    /// 播放器都挂在一个跨场景不销毁的音频根下 —— 那个根现在是 <c>GameRoot</c> 的子物体
-    /// （<c>GameRoot</c> 本身常驻，所以子物体自然跨场景）。
-    /// <para><b>收口前它的问题（本次一并清掉）：</b></para>
-    /// <list type="number">
-    /// <item>它是 <c>BaseManager&lt;AudioManager&gt;</c>（反射取私有构造的伪单例）；</item>
-    /// <item><b>私有构造里直接读配置</b>（<c>AssetModule.Load</c>）——"new 一个对象"不该产生资源 IO；</item>
-    /// <item>音频根有<b>两条创建路径</b>（<c>AudioRoot.Awake</c> 自建 / <c>Init</c> 里找不到就 new 一个）；
-    /// 现在唯一入口是 <see cref="Init"/>，宿主由构造参数给出；</item>
-    /// <item><c>Dispose</c> 里留着一行注释掉的 <c>EventBus</c> 退订、<c>SetBgmVolume</c> 里绕了一层
-    /// <c>GetComponent</c>、若干无用 <c>using</c>。</item>
-    /// </list>
-    /// <para><c>Dispose</c> 必须幂等（它经服务表被调，也可能在编辑器里被重复触发）。</para>
-    /// </remarks>
     public sealed class AudioManager : IService
     {
         private const string CONFIGKEY = "Config/AudioConfig";
 
-        /// <summary>音频根的宿主（<c>GameRoot</c> 的 <c>Transform</c>）。</summary>
         private readonly Transform _host;
 
         private bool _initialized;
@@ -73,7 +57,6 @@ namespace DeepseaOil.Presentation
         /// <param name="host">音频根的宿主；传场景根之外的对象会让音频随它一起消失。</param>
         public AudioManager(Transform host)
         {
-            // 构造**不做事**：只记宿主，资源 IO 全在 Init 里
             _host = host;
         }
 
@@ -88,12 +71,11 @@ namespace DeepseaOil.Presentation
 
             LoadConfig(CONFIGKEY);
 
-            // 音频根：GameRoot 的子物体（GameRoot 常驻 ⇒ 音频根常驻）
+            // 音频根：GameRoot 的子物体（GameRoot 常驻 ⇒ 音频根跨场景常驻）
             _rootGo = new GameObject("AudioRoot");
             _rootGo.transform.SetParent(_host, false);
             _audioRootT = _rootGo.transform;
 
-            // 初始化音效池
             _audioPool = new PoolInClass<GameObject>(
                 factory: () =>
                 {
@@ -110,7 +92,6 @@ namespace DeepseaOil.Presentation
                 factory: () => new PlayingEntry()
             );
 
-            // 初始化音乐播放器
             _bgmGameObject = new GameObject("MusicAudioSource", typeof(AudioSource));
             _bgmGameObject.transform.SetParent(_audioRootT, false);
 
@@ -135,7 +116,6 @@ namespace DeepseaOil.Presentation
                 {
                     e.source.clip = null;
 
-                    // 两个池各还各的
                     _audioPool.Release(e.go);
                     _playing.RemoveAt(i);
 
@@ -153,7 +133,6 @@ namespace DeepseaOil.Presentation
 
             _initialized = false;
 
-            // 把还在播的回收掉
             foreach (var e in _playing)
             {
                 e.source.clip = null;
@@ -163,7 +142,6 @@ namespace DeepseaOil.Presentation
             }
             _playing.Clear();
 
-            // 把加载过的音频还给 AssetModule
             foreach (KeyValuePair<AudioId, AudioClip> kv in _cache)
             {
                 if (_idToFileName.TryGetValue(kv.Key, out string fileName) && !string.IsNullOrEmpty(fileName))
@@ -201,7 +179,6 @@ namespace DeepseaOil.Presentation
 
             _idToFileName.Clear();
 
-            // 把配置中的映射挪到字典中
             foreach (var m in config.AudioMaps)
             {
                 if (m.id == AudioId.None)
@@ -219,15 +196,7 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>
-        /// 音频资源 Key：<c>&lt;配置里的目录&gt;/&lt;文件名&gt;</c>。
-        /// </summary>
-        /// <remarks>
-        /// 配置里 <c>path = "audio"</c>、映射里是 <c>Jump.wav</c>，拼出来是
-        /// <c>audio/Jump.wav</c> —— <c>AssetRegistry.ResolvePath</c> 会去掉扩展名。
-        /// （收口前这里写的是硬编码反斜杠：<c>ResolvePath</c> 第一步就把 <c>\</c> 换成 <c>/</c>，
-        /// 所以它能工作，但"能工作"与"该这么写"是两件事。）
-        /// </remarks>
+        /// <summary>音频资源 Key：<c>&lt;配置里的目录&gt;/&lt;文件名&gt;</c>（<c>AssetRegistry.ResolvePath</c> 会去掉扩展名）。</summary>
         private static string ClipKey(string fileName) => "audio/" + fileName;
 
         private AudioClip GetClip(AudioId id)

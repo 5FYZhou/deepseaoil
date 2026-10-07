@@ -2,21 +2,9 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 角色共用运动参数：速度、斜向规则、外力强度、冲刺。
-    /// </summary>
     /// <remarks>
-    /// 字段按"谁在用"分三组：
-    /// ① 正在被消费：<c>moveSpeed</c> / <c>snapToEightDirections</c> / <c>dashSpeed</c> / <c>dashDuration</c>；
-    /// ② 通用控制律：<c>moveAcceleration</c> / <c>turnDecayRate</c> —— 俯视角玩家用不上（零惯性），敌人追击与击退滑行要用，
-    ///    由 <c>ActorLogic.ApproachX</c> 消费；<c>hurtDecay</c> 是受击滑停的减速度（填 0 落回 <c>moveAcceleration</c>），
-    ///    玩家与敌人因此可以各填一份"被撞多远"；
-    /// ③ 外力强度缩放：<c>extraForceScale</c> —— 由 <c>ActorLogic.ApplyExtraForce</c> 消费，玩家填 0（不施加外力），
-    ///    结冰打滑、水流推挤、被吸附等按需填正数。
-    /// 重力与跳跃曲线（<c>jumpSpeed</c> / <c>riseGravity</c> / <c>fallGravity</c> / <c>jumpCutMultiplier</c> /
-    /// <c>maxFallSpeed</c> / <c>maxRiseSpeed</c>）已随平台跳跃品类一起删除：俯视角没有"上"这个方向，
-    /// 其只属于玩家的那部分字段也没有任何消费者。外力取代了它们原来的位置。
-    /// 删字段前先确认没有敌人侧消费者。
+    /// 运动参数是装配期 <c>Configure</c> 一次性折算的快照：事后改 SO 不生效
+    /// （M19/M20 测试断言"改 SO 即时生效"，因此被删）。删字段前先确认没有敌人侧消费者。
     /// </remarks>
     public class CharacterConfig : BaseConfig
     {

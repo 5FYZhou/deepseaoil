@@ -1,22 +1,12 @@
-// ---------------------------------------------------------------------------
 // 配表工作流 · 运行期消费示例（可选，删掉不影响导表）
-//
 // 用法：SampleScene / TestConfig 里挂着本脚本，进 Play 看 Console。
-// 目的只有一个：证明「表 → 生成代码 → StreamingAssets JSON → ConfigModule」这条链路通。
-//
-// 本脚本**不是**配置的唯一入口：真正的入口是 Data 层的 ConfigModule
-// （见 Docs/框架设计/分层设计/数据层.md）。它只做两件事：
+// 本脚本不是配置的唯一入口，真正的入口是 Data 层的 ConfigModule。它只做两件事：
 //   ① 兜底初始化 —— TestConfig 场景没有 GameRoot，没人 Init
-//   ② 把查询结果打到 Console，作为链路自检
-//
-// 时序：GameRoot 在自己的 Awake 里 Init（Unity 保证所有 Awake 先于任何 Start），
-// 所以本脚本的 Start 里 IsReady 通常已经是 true，兜底分支不会走到。
-// ConfigModule.Init 重复调用会抛异常，因此必须先问 IsReady —— 不要直接再 Init 一次。
-//
-// 注意：本文件落默认程序集 Assembly-CSharp，而生成的配置类（命名空间 cfg）也在
-// Assembly-CSharp —— 所以能直接引用，不需要额外 asmdef。
+//   ② 把查询结果打到 Console，作为「表 → 生成代码 → StreamingAssets JSON → ConfigModule」链路自检
+// 时序：GameRoot 在自己的 Awake 里 Init（Unity 保证所有 Awake 先于任何 Start），所以本脚本的 Start 里 IsReady 通常已是 true。
+// ConfigModule.Init 重复调用会抛异常，必须先问 IsReady —— 不要直接再 Init 一次。
+// 注意：本文件与生成的配置类（命名空间 cfg）都落默认程序集 Assembly-CSharp，所以能直接引用，不需要额外 asmdef。
 // 将来需要热更时再给生成物划 asmdef，Jam 期不做。
-// ---------------------------------------------------------------------------
 
 using DeepseaOil.Data;
 using UnityEngine;
@@ -31,9 +21,8 @@ namespace DeepseaOil.Presentation.Diagnostics
             if (!ConfigModule.IsReady)
                 ConfigModule.InitFromStreamingAssets();
 
-            // 逃生舱：直接读原始 cfg.Tables。**全库唯一登记在案的破例**（见 ConfigModule.Tables 的注释）。
-            // 注意它读的是**表的行数**，不是某一列：一旦有人拿它读列，就绕过了包装件、
-            // 也绕过了"表列迁到 SO"的全部收益 —— 那种用法属于新增破例，必须先登记。
+            // 逃生舱：直接读原始 cfg.Tables，全库唯一登记在案的破例（见 ConfigModule.Tables 的注释）。
+            // 注意它读的是表的行数，不是某一列：拿它读列就绕过了包装件与"表列迁到 SO"的全部收益 —— 那种用法属于新增破例，必须先登记。
             var tables = ConfigModule.Tables;
 
             var weapon = ConfigModule.GetWeapon(1);
@@ -58,7 +47,7 @@ namespace DeepseaOil.Presentation.Diagnostics
             Append(sb, tables.TbFish);
             Debug.Log(sb.ToString());
 
-            // 观测面：拉模型，不推送事件（见 Docs/框架设计/分层设计/数据层.md §1「DataMetrics 可观测性表面（拉模型）」）
+            // 观测面：拉模型，不推送事件
             var snap = DataMetrics.GetSnapshot();
             Debug.Log(string.Format("[Config] DataMetrics：ConfigReady={0}  TableCount={1}  CachedAssetCount={2}",
                 snap.ConfigReady, snap.TableCount, snap.CachedAssetCount));

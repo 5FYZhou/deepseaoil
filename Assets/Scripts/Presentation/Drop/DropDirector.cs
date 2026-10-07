@@ -5,41 +5,23 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Drop
 {
-    /// <summary>
-    /// 掉落物的调度器：<b>造 ＋ 持 ＋ 驱 ＋ 清</b>。
-    /// </summary>
-    /// <remarks>
-    /// <b>它不判断掉落规则</b>（产什么 / 怎么产 / 何时产由产出方自己判定，见审查的口径）：
-    /// 产出方（喷泉，将来的敌人死亡）拿到的是窄接口 <see cref="IDropSpawner"/>，
-    /// 于是"谁能产出掉落物"这件事只写在装配期那一处。
-    /// <para><b>为什么要有它：</b>产出方不止一处（现在一处、将来怪也会掉），
-    /// 而"实例化 ＋ 注入玩家引用 ＋ 每帧驱动 ＋ 回收"这四件事只该有一份实现 ——
-    /// 收口前这四件事全在 <c>Fountain</c> 里，于是"第二种掉落物"必须抄一遍喷泉。</para>
-    /// <para><b>它不是 MonoBehaviour：</b>没有生命周期需求，由组合根显式造、显式驱动 ——
-    /// 与 <c>BallDirector</c> 同一条纪律。</para>
-    /// </remarks>
+    /// <summary>掉落物的调度器：造 ＋ 持 ＋ 驱 ＋ 清；它不判断掉落规则（产什么 / 怎么产 / 何时产由产出方自己判定）。</summary>
+    /// <remarks>产出方只拿到窄接口 <see cref="IDropSpawner"/>，"谁能产出掉落物"这件事只写在装配期那一处；本类不是 MonoBehaviour，由组合根显式造、显式驱动。</remarks>
     public sealed class DropDirector : IDropSpawner
     {
-        /// <summary>场上的掉落物（领取即回收，这里只做推进与清理）。</summary>
         private readonly List<DropActor> _drops = new List<DropActor>();
 
-        /// <summary>种类 → 取值边界。</summary>
         private readonly Dictionary<DropType, DropSpec> _definitions = new Dictionary<DropType, DropSpec>();
 
         private Transform _root;
         private Transform _player;
 
-        /// <summary>场上掉落物数量（诊断读数）。</summary>
         public int AliveCount => _drops.Count;
 
-        /// <summary>装配是否完成（没接线时不产出，而不是产出追不到玩家的掉落物）。</summary>
+        /// <summary>装配是否完成；没接线时不产出，而不是产出追不到玩家的掉落物。</summary>
         public bool IsReady => _player != null;
 
-        /// <summary>
-        /// 装配：注入父物体与玩家引用。
-        /// </summary>
-        /// <param name="root">掉落物的父物体；<c>null</c> 时建在场景根下。</param>
-        /// <param name="player">玩家（"掉落物找玩家"用）；为 <c>null</c> 时本件停用。</param>
+        // root 为 null 时掉落物建在场景根下；player 为 null 时本件停用（不产出）。
         public void Attach(Transform root, Transform player)
         {
             _root = root;
@@ -54,10 +36,7 @@ namespace DeepseaOil.Presentation.Drop
         }
 
         /// <inheritdoc />
-        /// <remarks>
-        /// 三个"拒绝"的理由各不相同，所以都<b>不静默</b>（除了"没接线"——那是装配错误，
-        /// 组合根已经在装配日志里说过一次了）。
-        /// </remarks>
+        /// <remarks>三个拒绝里只有"没接线"是静默的（装配错误，组合根已在装配日志里说过一次），其余都记日志。</remarks>
         public bool TrySpawn(in DropSpawnRequest request)
         {
             if (_player == null) return false;
@@ -81,8 +60,6 @@ namespace DeepseaOil.Presentation.Drop
             return true;
         }
 
-        /// <summary>推进一个渲染帧：驱动全部掉落物，把已领取的回收掉。</summary>
-        /// <param name="deltaTime">本帧时长（<c>Time.deltaTime</c>）；暂停时为 0。</param>
         public void Tick(float deltaTime)
         {
             // 倒序：正序删除会跳过紧挨着的下一个元素，而那种漏删不报错、只表现为"列表越来越长"。
@@ -105,7 +82,6 @@ namespace DeepseaOil.Presentation.Drop
             }
         }
 
-        /// <summary>清空场上掉落物（打空重来 / 切场景）。</summary>
         public void ClearAll()
         {
             for (int i = 0; i < _drops.Count; i++)
@@ -116,11 +92,7 @@ namespace DeepseaOil.Presentation.Drop
             _drops.Clear();
         }
 
-        /// <summary>
-        /// 组件工厂：种类 → 实体实现。
-        /// </summary>
-        /// <remarks>加一种掉落物在这里加一行（与特效的 <c>EffectDriverFactory</c> 同一条纪律）。
-        /// 漏了实现时显式报错并丢掉这次产出，而不是留一个空物体在场上。</remarks>
+        /// <remarks>加一种掉落物在这里加一行；漏了实现时显式报错并丢掉这次产出，而不是留一个空物体在场上。</remarks>
         private static DropActor CreateActor(DropType type)
         {
             var go = new GameObject($"Drop_{type}");

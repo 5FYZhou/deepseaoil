@@ -8,43 +8,12 @@ using cfg.demo;
 
 namespace DeepseaOil.Presentation.Adapters
 {
-    /// <summary>
-    /// 格子系统与 Unity Tilemap 之间的适配器：把地板的格子与几何灌进逻辑层，把状态变化画出来。
-    /// </summary>
-    /// <remarks>
-    /// <b>它是唯一认识 <c>Tilemap</c> 的地方</b>（逻辑层零引擎类型），也是"逻辑层零引擎类型"的代价与收益：
-    /// 折算（<c>cellSize</c> / 角点 / 格子集合）只在这一处发生，逻辑层拿到的永远是纯数据，
-    /// 于是整套格子行为可以在 EditMode 里喂 dt 复现。
-    /// <para><b>它一半是数据源、一半是表现</b>：几何与合法格灌进逻辑层（数据源），
-    /// 状态 → 贴图（表现）。<c>Adapter</c> 覆盖这两个方向，所以不叫 <c>GridPresenter</c>。</para>
-    /// <para><b>订阅事实事件而不是被逻辑层直调：</b>跨层只走 <c>EventBus</c>。
-    /// 逻辑层发布"某格状态变了"，本类决定那对应哪张贴图 —— 于是"状态 → 美术"的映射只有一份，
-    /// 而且逻辑层不需要知道 Tilemap 的存在。</para>
-    /// <para><b>订阅时机由组合根收口</b>：它不自己 <c>OnEnable</c> 订阅，而是由 <c>CombatRoot</c>
-    /// 在装配期调 <see cref="Attach"/>、销毁期调 <see cref="Detach"/> —— 与瞄准高亮的订阅同一套纪律，
-    /// 于是"什么时候开始听、什么时候停止听"只有一个答案。</para>
-    /// <para><b>两张 Tilemap 的分工：</b>地板层（提供格集合与几何，也是"这里能不能站"的依据）
-    /// 与效果层（叠在地板上的状态贴图）。效果贴图<b>不改地板</b>：改了地板就分不清
-    /// "这一格本来是泥"还是"被打成泥"。</para>
-    /// <para><b>状态 → 贴图是一张表，不是一个 switch</b>（<c>stateTiles</c>）：新增一种格子状态
-    /// 只需要在 Inspector 里加一行，不用回来改这个文件 —— 收口前是 <c>TileFor</c> 里的一串 case
-    /// 加一个 <c>mudTile</c> 字段，加状态必然要动代码。</para>
-    /// <para><b>格视觉的第二层（占位物：树 / 石头这类有体积的贴图）暂未落地</b>：
-    /// 它要等到表里出现第一个"阻挡 / 占位"的格子状态才有生产者；届时由本类按状态 ID
-    /// 增删该格的立体图与静态碰撞体（"阻挡＝甲方案"：真源在格状态、执行在物理）。</para>
-    /// <para><b><c>using cfg.demo;</c> 在这里吃的是枚举</b>（<see cref="TileStateType"/> 作字典键
-    /// 与 <c>evt.State</c> 的比较），不是生成行 —— 判据见 <c>ConfigModule</c> 底部那段注释。</para>
-    /// </remarks>
+    /// <summary>格子系统与 Unity Tilemap 之间的适配器：把地板的格子与几何灌进逻辑层，把状态变化画出来。</summary>
+    /// <remarks><b>它是唯一认识 <c>Tilemap</c> 的地方</b>（逻辑层零引擎类型）：几何折算只在这一处发生，于是整套格子行为可以在 EditMode 里喂 dt 复现。它一半是数据源（几何与合法格灌进逻辑层）、一半是表现（状态 → 贴图）。
+    /// 订阅时机由组合根收口：装配期 <see cref="Attach"/>、销毁期 <see cref="Detach"/>，不自己 <c>OnEnable</c> 订阅。两张 Tilemap 的分工：地板层（格集合与几何，也是"这里能不能站"的依据）与效果层（叠在地板上的状态贴图）。
+    /// 效果贴图<b>不改地板</b>：改了地板就分不清"这一格本来是泥"还是"被打成泥"。状态 → 贴图是一张表（<c>stateTiles</c>）：新增一种格子状态只需在 Inspector 里加一行，不用改这个文件。</remarks>
     public sealed class TilemapAdapter : MonoBehaviour
     {
-        /// <summary>
-        /// 状态 → 贴图的一行。
-        /// </summary>
-        /// <remarks>
-        /// <b>公开</b>（而不是 private 嵌套）：字段由 Unity 的序列化器填，编译器看不见那些赋值 ——
-        /// private 字段会被 CS0649 当成"从未赋值"而刷警告。公开字段没有这个问题
-        /// （与 <c>WaveLogic.SpawnRequest</c> 同一个先例）。
-        /// </remarks>
         [Serializable]
         public struct StateTileBinding
         {
@@ -64,34 +33,14 @@ namespace DeepseaOil.Presentation.Adapters
         [Tooltip("状态 → 贴图。新增状态在这里加一行，不用改代码。")]
         [SerializeField] private StateTileBinding[] stateTiles = new StateTileBinding[0];
 
-        /// <summary>
-        /// 效果层上被覆盖过的格 → <b>被覆盖之前的那张图</b>。
-        /// </summary>
-        /// <remarks>
-        /// <b>为什么名字是 <c>_previousTiles</c> 而不是 <c>_originalTiles</c>：</b>它存的是"覆盖前那一张"，
-        /// 而不是"永远最初的那一张" —— 后者在"同格直接转换"（泥 → 冰）时会误导人。
-        /// <para><b>为什么原值取自 <c>effectTilemap</c> 而<b>不是</b> <c>groundTilemap</c>：</b>
-        /// 两层是两个独立的格子空间。效果层自己原本画着什么（可能是 <c>null</c>，也可能是血迹 / 装饰）
-        /// 只有它自己知道 —— 拿地板图去还原会把效果层的装饰抹掉，并永久留下一张地板副本。</para>
-        /// <para><b>为什么"只记第一次"</b>（见 <c>Show</c> 里的 <c>if (!ContainsKey)</c>）：
-        /// 否则第二次覆盖会把"泥浆"当成原值，这一格永远回不到原样，而且不报错。</para>
-        /// <para><b>两条已知局限</b>（依赖不变量"效果层只有 <c>Show</c> / <c>Restore</c> 两个写者"）：
-        /// 别处改动会被还原盖掉；<c>effectTilemap</c> 对象被换掉时旧记录会贴到新层上。</para>
-        /// </remarks>
+        /// <summary>效果层上被覆盖过的格 → <b>被覆盖之前的那张图</b>；原值取自 <c>effectTilemap</c>（两层是两个独立的格子空间，拿地板图还原会抹掉效果层的装饰、并永久留下一张地板副本）。</summary>
+        /// <remarks><b>只记第一次</b>（见 <c>Show</c> 里的 <c>if (!ContainsKey)</c>）：否则第二次覆盖会把"泥浆"当成原值，这一格永远回不到原样，而且不报错。依赖不变量"效果层只有 <c>Show</c> / <c>Restore</c> 两个写者"——别处改动会被还原盖掉，<c>effectTilemap</c> 被换掉时旧记录会贴到新层上。</remarks>
         private readonly Dictionary<Vector3Int, TileBase> _previousTiles = new();
 
         /// <summary>是否已接线（未接线时所有操作是 no-op，不报错刷屏）。</summary>
         public bool IsWired => groundTilemap != null;
 
-        /// <summary>
-        /// 开始听"格子状态变了"。<b>由组合根在装配期调一次</b>（在灌入初始状态之前）。
-        /// </summary>
-        /// <remarks>
-        /// <b>为什么要在灌入初始状态之前调：</b>关卡初始状态（<c>LoadInitialStates</c>）走的是同一条
-        /// 状态转换路径，订阅晚了那一批泥浆就不会被画出来 —— 而它们是最不该漏的一批。
-        /// <para>为什么不用 <c>OnEnable</c>：自动订阅让"何时开始听"由 Unity 的生命周期决定，
-        /// 而不是由组合根的装配顺序决定；表现件不该有第二个驱动入口。</para>
-        /// </remarks>
+        /// <summary>开始听"格子状态变了"；<b>由组合根在装配期调一次</b>，必须在灌入初始状态之前 —— 否则那批初始泥浆不会被画出来。</summary>
         public void Attach()
         {
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
@@ -103,14 +52,8 @@ namespace DeepseaOil.Presentation.Adapters
             EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
         }
 
-        /// <summary>
-        /// 读一次格子几何。
-        /// </summary>
-        /// <remarks>
-        /// <b>角点语义必须与 <c>GridGeometry</c> 对齐</b>：<c>CellToWorld(zero)</c> 是格 (0,0) 的左下角，
-        /// 而 <c>GetCellCenterWorld(zero)</c> 是它的中心。两者差半个格 —— 用错会让全场落点整体偏半格，
-        /// 而那种偏差看起来"只是有点歪"，很难倒推。所以这里对齐之后会自检一次并报错。
-        /// </remarks>
+        /// <summary>读一次格子几何。</summary>
+        /// <remarks><b>角点语义必须与 <c>GridGeometry</c> 对齐</b>：<c>CellToWorld(zero)</c> 是格 (0,0) 的左下角、<c>GetCellCenterWorld(zero)</c> 是它的中心，差半个格 —— 用错会让全场落点整体偏半格，而那种偏差看起来"只是有点歪"、很难倒推；所以这里对齐之后会自检一次并报错。</remarks>
         public GridGeometry ReadGeometry()
         {
             if (groundTilemap == null) return default;
@@ -133,9 +76,7 @@ namespace DeepseaOil.Presentation.Adapters
             return geometry;
         }
 
-        /// <summary>
-        /// 把地板层的全部格子登记进逻辑层。<b>只有登记过的格才能被砸出状态、被减速。</b>
-        /// </summary>
+        /// <summary>把地板层的全部格子登记进逻辑层。<b>只有登记过的格才能被砸出状态、被减速。</b></summary>
         /// <returns>登记的格数；未接线时为 0。</returns>
         public int RegisterCells(GridLogic grid)
         {
@@ -165,8 +106,7 @@ namespace DeepseaOil.Presentation.Adapters
 
         private void Awake()
         {
-            // 接线自检：这三条错误的共同点是**不报错也能跑**，只是"什么都没发生"，
-            // 而空场景接线时它们最容易发生（拖错层、忘拖贴图）。
+            // 接线自检：这三条错误的共同点是**不报错也能跑**，只是"什么都没发生"（拖错层、忘拖贴图最容易发生）。
             if (groundTilemap == null)
             {
                 Debug.LogError(
@@ -206,11 +146,7 @@ namespace DeepseaOil.Presentation.Adapters
             Show(evt.Cell, TileFor(evt.State));
         }
 
-        /// <summary>
-        /// 状态 → 贴图。<b>数据来自 Inspector 的 <c>stateTiles</c>，新状态不改这里。</b>
-        /// </summary>
-        /// <returns>返回 <c>null</c> 表示"这个状态没有美术"：逻辑照常生效，只是看不见。
-        /// 不报错 —— 状态是逻辑概念，先有逻辑后有美术是常态。</returns>
+        /// <returns>返回 <c>null</c> 表示"这个状态没有美术"：逻辑照常生效、只是看不见，<b>不报错</b>（状态是逻辑概念，先有逻辑后有美术是常态）。</returns>
         private TileBase TileFor(TileStateType state)
         {
             if (stateTiles == null) return null;
@@ -244,13 +180,7 @@ namespace DeepseaOil.Presentation.Adapters
             effectTilemap.SetTile(cell, original);
         }
 
-        /// <summary>
-        /// 自检：角点 + 半格必须等于"格心"。
-        /// </summary>
-        /// <remarks>
-        /// 只在开发期发现，不抛异常也不停用：几何错了会让落点整体偏半个格，
-        /// 而这件事在屏幕上看起来只是"有点歪"，没有报错就永远查不出来。
-        /// </remarks>
+        /// <remarks>自检：角点 + 半格必须等于"格心"。只在开发期发现，不抛异常也不停用：几何错了会让落点整体偏半个格，而这件事在屏幕上看起来只是"有点歪"，没有报错就永远查不出来。</remarks>
         private void VerifyGeometry(in GridGeometry geometry)
         {
             Vector3 center = groundTilemap.GetCellCenterWorld(Vector3Int.zero);

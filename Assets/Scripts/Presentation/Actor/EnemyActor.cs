@@ -11,39 +11,18 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Actor
 {
-    /// <summary>
-    /// 一只敌人：建出刚体与视效、推进逻辑层、结算伤害与死亡。<b>它是这只敌人的组合根</b>。
-    /// </summary>
-    /// <remarks>
-    /// 环境事实（刚体、半径、配置、格子归属）只在这里组装一次，逻辑层（<see cref="EnemyLogic"/>）不碰引擎类型。
-    /// <para><b>不自己驱动逻辑</b>：由 <c>CombatDirector</c> 统一逐只 <see cref="FixedTick"/>。
-    /// "每个实例自己 Tick"会引出执行顺序问题（谁先读位置、谁后写速度），而顺序必须可预测。</para>
-    /// <para><b>受伤只有一条路</b>：<see cref="TakeDamage"/>。它实现了 <see cref="IDamageable"/>，
-    /// 于是格子系统不需要认识"敌人"这个类型 —— 它只知道"这一格上有个可结算的目标"。</para>
-    /// <para><b>它把自己的脚底中心登记进 <see cref="EnemyCellRegistry"/></b>：格子按"人站在哪一格"结算，
-    /// 而这件事只有敌人自己每帧知道（位置是它自己的）。</para>
-    /// </remarks>
+    /// <summary>一只敌人：建出刚体与视效、推进逻辑层、结算伤害与死亡；它是这只敌人的组合根。</summary>
+    /// <remarks><b>受伤只有一条路</b>：<see cref="TakeDamage"/>；脚底中心每帧登记进 <see cref="EnemyCellRegistry"/>（格子按"人站在哪一格"结算）。
+    /// <b>不自己驱动</b>：由 <c>CombatDirector</c> 统一逐只 <see cref="FixedTick"/>，自驱会让帧内顺序不可预测。</remarks>
     [DisallowMultipleComponent]
     public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowEffectTarget, IAlivable, IManagedActor
     {
-        /// <summary>头顶耐久数字的字号（<c>TextMesh.characterSize</c>，世界单位量级）。</summary>
-        /// <remarks>
-        /// 它和 <c>TextMesh.fontSize</c> 是两件事：<c>fontSize = 64</c> 是<b>烘焙进图集的字号</b>
-        /// （越大越清晰，不改显示大小），<c>characterSize</c> 才是显示大小。
-        /// </remarks>
         private const float HpTextCharacterSize = 0.13f;
 
         /// <summary>头顶数字的垂直偏移；<c>0</c> = 压在圆心（锚点用 <c>MiddleCenter</c>）。</summary>
         private const float HpTextOffsetY = 0f;
 
-        /// <summary>
-        /// 内置字体的候选名，按"新版 → 旧版"排。
-        /// </summary>
-        /// <remarks>
-        /// <c>LegacyRuntime.ttf</c> 在前：2022.3 里 <c>Resources.GetBuiltinResource&lt;Font&gt;("Arial.ttf")</c>
-        /// <b>会抛 <c>ArgumentException</c></b>（而不是返回 null），所以逐个 <c>try</c> 着试；
-        /// 直接命中第一个名字就不必先吃一次异常。
-        /// </remarks>
+        /// <summary>内置字体候选名，按"新版 → 旧版"排；旧名在 2022.3 <b>会抛 <c>ArgumentException</c></b> 而不是返回 <c>null</c>，所以逐个 <c>try</c>。</summary>
         private static readonly string[] BuiltinFontNames = { "LegacyRuntime.ttf", "Arial.ttf" };
 
         private EnemySpec _spec;
@@ -58,57 +37,25 @@ namespace DeepseaOil.Presentation.Actor
         private bool _registered;
         private Vector3Int _currentCell;
 
-        /// <summary>
-        /// 本帧实际生效的减速乘数（<b>视效读数</b>；速度那边由门禁经账本落地）。
-        /// </summary>
-        /// <remarks>
-        /// <b>刻意留一份，而不是"视效自己去查一次格子"。</b>两处独立实现同一条判据时，
-        /// 颜色与速度迟早会在某一帧不一致（比如泥浆刚好在那一帧消失），
-        /// 现象是"颜色变回来了但人还是慢的"—— 而两者看起来都"没错"。一份数据、一个来源、两个消费者。
-        /// <para>值的来源是状态效果层的减速修饰（格状态提交、执行者施加），
-        /// 在物理帧刷 —— 与移动层读的是同一份修饰。</para>
-        /// </remarks>
+        /// <summary>本帧实际生效的减速乘数（视效读数）；速度那边由门禁经账本落地。<b>一份数据两个消费者</b>：各写一遍会让颜色与速度在某帧不一致，而两者看起来都"没错"。</summary>
         private float _slowMultiplier = 1f;
 
-        /// <inheritdoc />
-        /// <remarks><b>它回答"还活着吗"</b>（<see cref="IAlivable"/> 的口径）；耐久值与存活态都在
-        /// <see cref="Stats"/> 上，本类不再自己存一份 —— 同一个问题只有一个答案。</remarks>
         public bool IsAlive => Stats != null && Stats.IsAlive;
 
         /// <inheritdoc />
-        /// <remarks>
-        /// <b>取执行器的物理体位置，不取 <c>transform.position</c>：</b>后者会被刚体的位置积分覆盖，
-        /// 而本属性同时喂给"伤害方向从哪算"与"我站在哪一格"两件事 ——
-        /// 留着两个位置真值，它们迟早会在某一帧对不上（而那一帧没有任何报错）。
-        /// </remarks>
+        /// <remarks>取执行器的物理体位置，不取 <c>transform.position</c>（会被位置积分覆盖）：两个位置真值迟早有一帧对不上，且那一帧没有任何报错。</remarks>
         public Vector2 Position => _motor != null ? _motor.Position : (Vector2)transform.position;
 
-        /// <summary>账本：耐久 ＋ 存活态 ＋ 取值边界。</summary>
         public EnemyStats Stats { get; private set; }
 
-        /// <summary>剩余耐久（只读，供调试读数）。</summary>
         public int Hp => Stats != null ? Stats.Hp : 0;
 
-        /// <summary>当前是否处于受击（速度被外力接管的那一段）。<b>视效用它决定闪不闪</b>。</summary>
         public bool IsHurt => Stats != null && Stats.IsAlive && _logic != null && _logic.IsHurt;
-        /// <summary>引擎当前速度（单位/秒）。<b>只给调试读数用</b>，不参与任何判定。</summary>
-        /// <remarks>
-        /// 读的是执行器的回读口（= <c>Rigidbody2D.velocity</c>），所以它回答的是
-        /// "物理体这一帧真的在动吗"，而不是"账本以为它该动多少"。两者不一致时（撞墙、被顶住）
-        /// 只有这个数看得出来。
-        /// </remarks>
         public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
-        /// <summary>
-        /// 组装一只敌人。依赖全部由参数给出（不留 inspector 字段），所以"忘了接线"这种失败模式不存在。
-        /// </summary>
-        /// <param name="position">出生位置。</param>
-        /// <param name="spec">表值。</param>
-        /// <param name="target">追击目标（玩家）；可为 <c>null</c>（敌人随即滑停）。</param>
-        /// <param name="facing">初始朝向，用于镜像。</param>
-        /// <param name="grid">格子门面（查减速 + 世界 → 格）。</param>
-        /// <param name="registry">敌人归属表；<c>null</c> 时不登记（敌人不会被格子结算）。</param>
-        /// <param name="parent">层级父物体；<c>null</c> 时留在根下。</param>
+        /// <summary>组装一只敌人；依赖全部由参数给出（不留 inspector 字段）。</summary>
+        /// <param name="target">追击目标；<c>null</c> 时敌人随即滑停。</param>
+        /// <param name="registry"><c>null</c> 时不登记（敌人不会被格子结算）。</param>
         public void Initialize(
             Vector2 position,
             in EnemySpec spec,
@@ -133,32 +80,18 @@ namespace DeepseaOil.Presentation.Actor
 
             _motor = gameObject.AddComponent<EnemyMotor>();
 
-            // 建完刚体立刻固化物理参数：否则"造出来到第一次读位置"之间的那个物理步
-            // 会用默认重力跑（偏差极小，但那是隐式答案）
+            // 建完刚体立刻固化物理参数：否则到第一次读位置之间的那个物理步会用默认重力跑。
             _motor.EnsureInitialized();
 
             _logic = new EnemyLogic(_motor, spec);
 
-            // 朝向先立起来：否则第一个朝向的左/右是"上一个物体留下的"。
             _motor.Facing = facing;
 
             BuildVisuals();
             UpdateCell(force: true);
         }
 
-        /// <summary>
-        /// 结算一次命中。<b>唯一受伤入口</b>（格子状态转换、将来的近战与陷阱都走这里）。
-        /// </summary>
-        /// <param name="damage">命中事实。</param>
-        /// <remarks>
-        /// <b>扣血与击退是两件可选的事</b>（见 <see cref="Damage"/>）：
-        /// <see cref="Damage.HasDamage"/> 为假时只推不扣，<see cref="Damage.HasKnockback"/> 为假时只扣不推。
-        /// 白模里那两条路（<c>TakeDamage</c> 与 <c>TakeDirectDamage</c>）合并成了这一条。
-        /// <para><b>死亡那一帧也照常应用状态</b>：反正它马上被销毁，但"死亡路径也要把状态写完整"
-        /// 这件事将来会用上（比如死亡动画期间尸体会被继续推）。</para>
-        /// <para><b>不需要"同一颗球只算一次"那道锁了</b>：球不再直接伤害敌人，
-        /// 而格子系统按归属表结算，一个目标在一格里只出现一次。</para>
-        /// </remarks>
+        /// <summary>结算一次命中：<b>唯一受伤入口</b>（格子状态转换、近战与陷阱都走这里）。</summary>
         public void TakeDamage(in Damage damage)
         {
             if (Stats == null || !Stats.IsAlive) return;
@@ -171,8 +104,7 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasKnockback && _logic != null)
             {
-                // 只递交：冲量在下一次逻辑帧由状态效果层变成一次"进入受击"（见 EnemyLogic 的注释）。
-                // "被撞多远 / 滑多久"因此归角色配置（hurtDecay），不归这里。
+                // 只递交：冲量到下一次逻辑帧才由状态效果层变成一次"进入受击"；"被撞多远 / 滑多久"归角色配置（hurtDecay）。
                 _logic.ApplyKnockback(damage.Impulse, damage.Direction);
             }
 
@@ -182,21 +114,11 @@ namespace DeepseaOil.Presentation.Actor
                 return;
             }
 
-            // 数字当场刷新，不等下一次 Tick：受击与刷新之间隔着半个物理帧，
-            // 那一帧里玩家看到的还是旧数字 —— 而"打中"这件事必须当帧可见。
             UpdateHpText();
         }
 
-        /// <summary>
-        /// 推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。
-        /// </summary>
-        /// <remarks>
-        /// 由 <c>CombatDirector</c> 调用，<b>不</b>用 <c>Update</c> ——
-        /// 速度必须在一个物理帧里被提交一次，而不是每个渲染帧提交多次。
-        /// <para>视效在物理帧刷而不是渲染帧刷：<b>颜色要跟逻辑层用的是同一份减速系数</b>
-        /// （见 <see cref="_slowMultiplier"/> 的注释）。两者用不同频率更新就会出现一帧的不同步，
-        /// 而那一帧正好是"泥浆刚消失"的时候。</para>
-        /// </remarks>
+        /// <summary>推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。</summary>
+        /// <remarks>由 <c>CombatDirector</c> 调用，<b>不</b>用 <c>Update</c>：速度必须一个物理帧只提交一次。视效同频刷新 —— 颜色与逻辑层用同一份减速系数，分两个频率会有一帧不同步。</remarks>
         public void FixedTick(float now, float deltaTime)
         {
             if (!Stats.IsAlive) return;
@@ -204,8 +126,6 @@ namespace DeepseaOil.Presentation.Actor
             _logic.SetTarget(_target == null ? (Vector2?)null : TargetPosition());
             _logic.Tick(now, deltaTime);
 
-            // 视效读数取"逻辑层这一帧真正生效的修饰"：收口前是每帧去问一次格子
-            // （拉的路径已随减速改成"推"一起删除）。
             _slowMultiplier = _logic.Status.SlowScale;
 
             UpdateCell(force: false);
@@ -214,16 +134,11 @@ namespace DeepseaOil.Presentation.Actor
         }
 
         /// <inheritdoc />
-        /// <remarks>
-        /// <b>转发给状态效果层</b>：修饰的存活与门禁输出都在那里（本类只做一次转发，
-        /// 于是"谁会被减速"这件事仍然只有一个答案）。
-        /// </remarks>
         public void ApplySlow(float speedScale, float seconds)
         {
             _logic?.Status.ApplySlow(speedScale, seconds);
         }
 
-        /// <summary>选中时把接触判定半径之外的追击参数画出来，便于对照配置。</summary>
         private void OnDrawGizmosSelected()
         {
             Gizmos.color = Color.red;
@@ -238,16 +153,6 @@ namespace DeepseaOil.Presentation.Actor
             if (_registry != null && _registered) _registry.Unregister(this);
         }
 
-        // ─────────────────────────────────────────────
-        // 组装
-        // ─────────────────────────────────────────────
-
-        /// <summary>建物理体：只建"形状"（刚体 ＋ 圆形碰撞体）。</summary>
-        /// <remarks>
-        /// <b>物理参数不在这里</b>：重力缩放 / 冻结旋转 / 连续碰撞检测是"敌人执行器"的事
-        /// （<c>EnemyMotor.ApplyPhysics</c>）。收口前它们写在建物体的地方，
-        /// 于是"敌人的物理长什么样"有两个可能的答案（这里 ＋ 执行器）。
-        /// </remarks>
         private void BuildBody()
         {
             gameObject.AddComponent<Rigidbody2D>();
@@ -258,7 +163,6 @@ namespace DeepseaOil.Presentation.Actor
 
         private void BuildVisuals()
         {
-            // 身体渲染器要留成字段：每物理帧按"闪不闪、踩不踩减速格"改它的颜色。
             _body = gameObject.AddComponent<SpriteRenderer>();
 
             PrimitiveSprites.Configure(
@@ -273,16 +177,7 @@ namespace DeepseaOil.Presentation.Actor
             UpdateBodyColor();
         }
 
-        /// <summary>
-        /// 建敌人圆心的剩余耐久数字。
-        /// </summary>
-        /// <remarks>
-        /// <b>为什么是 <c>TextMesh</c>：</b>需求是"直接写数字"，而数字只有三条路 —— 导入字体资产、
-        /// 引 TextMeshPro、或自己拼笔画。<c>TextMesh</c> 是引擎自带的，三行代码。
-        /// <para>字体取不到时<b>干脆不建数字</b>：<c>TextMesh</c> 没有字体会画成一堆方块，
-        /// 宁可"没有数字"，也不要"看起来像数字其实是豆腐块"。但"拿不到"本身也不报错 ——
-        /// 数字只是读数，判定不依赖它。</para>
-        /// </remarks>
+        /// <summary>建敌人圆心的剩余耐久数字；字体取不到时<b>干脆不建数字</b>（<c>TextMesh</c> 没字体会画成方块），而"拿不到"本身也不报错。</summary>
         private void BuildHpText()
         {
             Font font = BuiltinFont();
@@ -300,8 +195,7 @@ namespace DeepseaOil.Presentation.Actor
             _hpText.fontSize = 64;
             _hpText.characterSize = HpTextCharacterSize;
 
-            // 锚点居中是**配合偏移为 0** 用的：LowerCenter 会让数字从"给定位置"往上长，
-            // 于是要把位置抬高一个偏移才落得回身体上；MiddleCenter 才是"给定的位置就是数字的中心"。
+            // 锚点居中是**配合偏移为 0** 用的：LowerCenter 会让数字从"给定位置"往上长。
             _hpText.anchor = TextAnchor.MiddleCenter;
             _hpText.alignment = TextAlignment.Center;
             _hpText.color = Color.white;
@@ -311,9 +205,7 @@ namespace DeepseaOil.Presentation.Actor
 
             textRenderer.sharedMaterial = font.material;
 
-            // **sortingOrder 必须显式设。** TextMesh 走 MeshRenderer，而 MeshRenderer 和
-            // SpriteRenderer 一样继承 Renderer、一样有 sortingOrder。全部是 z=0 的正交俯视，
-            // 深度分不出先后 —— 不设这一句，数字就会和自己的身体抢先后。
+            // sortingOrder 必须显式设：全部是 z=0 的正交俯视，不设这句数字会和自己的身体抢先后。
             textRenderer.sortingOrder = RenderOrder.ActorOverlay;
         }
 
@@ -330,43 +222,22 @@ namespace DeepseaOil.Presentation.Actor
                 }
                 catch (System.ArgumentException)
                 {
-                    // 这个版本不认这个名字：试下一个。
+                    // 这个版本不认这个名字：静默试下一个。
                 }
             }
 
             return null;
         }
 
-        // ─────────────────────────────────────────────
-        // 每帧刷新
-        // ─────────────────────────────────────────────
-
-        /// <summary>
-        /// 头顶的剩余耐久数字。
-        /// </summary>
-        /// <param name="hp">剩余耐久。</param>
-        /// <returns>要写进 <c>TextMesh</c> 的字符串；<b>耐久为 0 时是空串</b>。</returns>
-        /// <remarks>
-        /// 耐久为 0 时不写 <c>"0"</c>：那一帧敌人正在碎裂，显示一个 0 只会让人以为
-        /// "它还有 0 点血所以在场上" —— 空串至少不撒谎。
-        /// </remarks>
+        /// <summary>头顶的剩余耐久数字；<b>耐久为 0 时是空串</b>（显示一个 <c>"0"</c> 会让人以为它还有 0 点血）。</summary>
         public static string HpText(int hp)
         {
             return hp > 0 ? hp.ToString() : string.Empty;
         }
 
-        /// <summary>
-        /// 这一帧该不该亮。闪烁是<b>相位</b>而不是状态。
-        /// </summary>
-        /// <param name="time">当前时间（秒，用 <c>Time.time</c>，不累加）。</param>
+        /// <summary>这一帧该不该亮；闪烁是<b>相位</b>而不是状态（布尔字段会在暂停 / 掉帧时偷偷不同步）。</summary>
         /// <param name="hz">闪烁频率（Hz）；非法值按不闪处理。</param>
-        /// <returns>亮半周为 <c>true</c>。</returns>
-        /// <remarks>
-        /// 用相位而不是一个布尔字段：布尔字段会在暂停、掉帧、以及"受击滑停时长改了但闪烁频率没改"
-        /// 三种情况下偷偷不同步。
-        /// <para>用 <c>Sin</c> 而不是 <c>(time * hz) % 1</c> 取整：取整在 <c>hz</c> 为 0 时会除零，
-        /// 而 <c>Sin</c> 在频率为 0 时恒为 0（整段受击都保持亮色），是"能看出不对但不崩"的行为。</para>
-        /// </remarks>
+        /// <remarks>用 <c>Sin</c> 而不是 <c>(time * hz) % 1</c>：取整在 <c>hz</c> 为 0 时会除零；<c>Sin</c> 在频率 0 时恒为 0（整段受击保持亮色，能看出不对但不崩）。</remarks>
         public static bool IsFlashOn(float time, float hz)
         {
             if (float.IsNaN(hz) || hz <= 0f) return false;
@@ -374,7 +245,6 @@ namespace DeepseaOil.Presentation.Actor
             return Mathf.Sin(time * 2f * Mathf.PI * hz) > 0f;
         }
 
-        /// <summary>刷新头顶数字。<b>只在真的变了才写</b>：给 <c>TextMesh.text</c> 赋值会重建网格。</summary>
         private void UpdateHpText()
         {
             if (_hpText == null) return;
@@ -386,26 +256,9 @@ namespace DeepseaOil.Presentation.Actor
             _hpText.text = text;
         }
 
-        /// <summary>
-        /// 刷新身体颜色：减速变深、受击闪烁，两者可叠加。
-        /// </summary>
-        /// <remarks>
-        /// 闪烁相位用 <c>Time.time</c> 而不是自己累加：累加出来的相位会随帧率漂，
-        /// 而"闪了几下"是玩家会数的东西。
-        /// <para>判"该不该闪"用受击状态（<c>IsHurt</c>）：闪烁与"被撞飞的那一段"是同一件事的两面
-        /// （速度滑停到零，闪也结束），另立一个计时器只会让两者悄悄不同步。</para>
-        /// <para><b>颜色来自观感表</b>（<c>ConfigModule.Visuals</c>）：收口前这是一条逻辑层的纯函数
-        /// （<c>EnemyVisual</c>）—— 而"这一帧画什么"是表现层的事，数值才是配置的事。
-        /// 颜色的<b>数值</b>现在在 <c>VisualPalette</c> SO 里，"四态怎么选"留在本类。
-        /// 收口前这里读的是 <c>spec.Visuals</c>（敌人的取值边界上另开的一个调色板入口），
-        /// 现在观感只有一个入口 —— 与格子高亮取的是同一个。</para>
-        ///
-        /// <para><b>它是 <c>EffectId.Flash</c> 的当前实现方</b>（审查已定：<c>EnemyVisual</c> 只是数值表，
-        /// 实现方在特效系统）：本类只说"我在减速 / 我在受击"，由观感层决定画成什么颜色。
-        /// 现在这条"说"落在本方法里而不是走一次 <c>EffectModule.Play</c> —— 因为闪白走的是
-        /// "每帧刷一个 color"，而 <c>EffectId.Flash</c> 的驱动（材质 / 颜色动画）尚未实现
-        /// （见 <c>EffectCatalog</c> 的注释）。驱动补上之后，这里换成一次 <c>Play</c> 即可。</para>
-        /// </remarks>
+        /// <summary>刷新身体颜色：减速变深、受击闪烁，两者可叠加。</summary>
+        /// <remarks>闪白相位用 <c>Time.time</c>，不自己累加（累加出来的相位会随帧率漂）；颜色来自观感表 <c>ConfigModule.Visuals</c>，与格子高亮同一个入口。
+        /// <c>EffectId.Flash</c> 的驱动尚未实现，所以这里每帧刷一次 color。</remarks>
         private void UpdateBodyColor()
         {
             if (_body == null) return;
@@ -415,14 +268,6 @@ namespace DeepseaOil.Presentation.Actor
             _body.color = ConfigModule.Visuals.EnemyBodyColor(_slowMultiplier, flashOn);
         }
 
-        /// <summary>
-        /// 按 y 刷新本体的渲染档位（Y-Sort）。
-        /// </summary>
-        /// <remarks>
-        /// 与颜色一起在物理帧刷：两者都是"这一帧它在场上的哪里 / 什么状态"的读数，
-        /// 分成两个频率就会在某一帧对不上（而那一帧恰好是"刚挪到别人前面"的时候）。
-        /// <para>档位换算在地基（<c>YSort</c>），频带在 <c>RenderOrder</c> —— 本类只说"按我的 y 取档"。</para>
-        /// </remarks>
         private void UpdateSortingOrder()
         {
             if (_body == null) return;
@@ -430,7 +275,6 @@ namespace DeepseaOil.Presentation.Actor
             _body.sortingOrder = RenderOrder.ActorOrder(Position.y);
         }
 
-        /// <summary>把脚底中心上报给归属表；格没变时什么都不做。</summary>
         private void UpdateCell(bool force)
         {
             if (_registry == null || _grid == null) return;
@@ -458,7 +302,6 @@ namespace DeepseaOil.Presentation.Actor
 
         private void Die(Vector2 hitDirection)
         {
-            // 速度交给碎片：尸体自己不该继续滑（它这一帧还在被物理推动，看起来像"死掉的敌人还在走"）。
             if (_motor != null) _motor.Move(Vector2.zero);
 
             // 死亡即刻摘掉归属：留着它会让这一格继续"有目标"，而结算方拿到的是一个正在销毁的对象。
@@ -468,7 +311,6 @@ namespace DeepseaOil.Presentation.Actor
                 _registered = false;
             }
 
-            // 碎裂走 EffectModule：表现层的统一出口（暂停会一起冻结、切场景会一起清）。
             EffectContext ctx = EffectContext.At(Position, hitDirection);
             ctx.Tint = ConfigModule.Visuals.enemyBodyNormal;
 

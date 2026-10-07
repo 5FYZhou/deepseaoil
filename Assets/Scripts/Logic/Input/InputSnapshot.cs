@@ -6,9 +6,8 @@ namespace DeepseaOil.Logic.Input
     /// 单个采样帧的输入快照（不可变）。
     /// </summary>
     /// <remarks>
-    /// <b>跳跃残留已清</b>（审查已定）：平台跳跃品类删掉之后 <c>JumpPressed</c> 一路没有消费者，
-    /// 却仍在快照、缓冲、采样器与玩家组合根四处传递。键位映射仍留在
-    /// <c>InputSys.inputactions</c> 里（改资产要重新生成 <c>InputSys.cs</c>，不在本轮范围）。
+    /// 平台跳跃品类删掉后 <c>JumpPressed</c> 一路没有消费者，已清除；
+    /// 键位映射仍留在 <c>InputSys.inputactions</c>（改资产要重新生成 <c>InputSys.cs</c>）。
     /// </remarks>
     public readonly struct InputSnapshot
     {

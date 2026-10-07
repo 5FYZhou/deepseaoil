@@ -6,13 +6,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Drop
 {
-    /// <summary>
-    /// 水球掉落物（原 <c>WaterBall</c>）：抛物线飞向落点 → 等玩家碰到 → 飞向玩家 → 发一条领取事实。
-    /// </summary>
-    /// <remarks>
-    /// 数值全部来自取值边界（<see cref="DropSpec"/>）；本类只管<b>行为与观感</b>：
-    /// 怎么飞、长什么样、碰撞体多大。
-    /// </remarks>
+    /// <summary>水球掉落物：抛物线飞向落点 → 等玩家碰到 → 飞向玩家 → 发一条领取事实。</summary>
     public sealed class WaterBallDrop : DropActor
     {
         /// <inheritdoc />
@@ -22,8 +16,7 @@ namespace DeepseaOil.Presentation.Drop
 
             var renderer = gameObject.AddComponent<SpriteRenderer>();
 
-            // 档位按**落点**的 y 取一次：掉落物参与 Y-Sort（与球同一频带），而飞行途中改档
-            // 会让它在半空里穿来穿去 —— 落点就是它最终待在的地方。
+            // Y-Sort 档位按**落点**的 y 取一次：飞行途中改档会让它在半空里穿来穿去，而落点才是它最终待的地方。
             PrimitiveSprites.Configure(
                 renderer,
                 PrimitiveSprites.Circle,
@@ -31,7 +24,7 @@ namespace DeepseaOil.Presentation.Drop
                 RenderOrder.BallOrder(Landing.y),
                 Definition.BodyDiameter);
 
-            // 触发体只需要挂在一边（玩家有刚体），所以掉落物自己不需要 Rigidbody2D。
+            // 触发体只挂在一边即可（玩家侧有刚体）：掉落物自己不需要 Rigidbody2D。
             var collider = gameObject.AddComponent<CircleCollider2D>();
 
             collider.isTrigger = true;
@@ -45,9 +38,8 @@ namespace DeepseaOil.Presentation.Drop
 
             Vector2 position = Vector2.Lerp(Origin, Landing, t);
 
-            // 0 → 1 → 0：两端恰好为 0，所以"落地"那一刻高度精确归零。
-            // 式子在地基（Ballistics）：球的飞行用的是同一个 —— 两份实现漂了就会出现
-            // "掉落物陷进地面"这类只有肉眼能发现的偏差。
+            // 弧高 0 → 1 → 0：两端恰好为 0，落地那一刻高度精确归零。
+            // 必须复用 Ballistics.ArcHeight01（球的飞行用同一个式子）：两份实现漂了会出"陷进地面"这类只有肉眼能发现的偏差。
             position.y += Definition.ArcHeight * Ballistics.ArcHeight01(t);
 
             transform.position = position;
@@ -64,7 +56,6 @@ namespace DeepseaOil.Presentation.Drop
         {
             if (Player == null)
             {
-                // 玩家不见了（切场景 / 被销毁）：回到"等触发"状态，不销毁自己。
                 EnterPhase(Phase.Waiting);
                 return;
             }
