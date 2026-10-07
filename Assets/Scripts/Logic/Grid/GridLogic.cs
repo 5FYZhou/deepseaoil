@@ -89,9 +89,32 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        public void RegisterCell(Vector3Int cell)
+        /// <summary>登记一个合法格；<b>同时按该格"原本是什么地"从表里灌一次元素</b>。</summary>
+        /// <remarks>
+        /// 这是 D9 的另一半：D9 只说"切进某状态时把状态的元素刷到格子上"，于是<b>常规格从来没人刷过</b> —— 它的元素恒为空（全零）。
+        /// 后果不是"少一点味道"，而是<b>整条反应链判据不同</b>：水球（<c>tags=无</c>）砸空地（<c>tags=无</c>）合成出来仍是"无标签"，
+        /// 命中的是"基础水地块"那条规则而不是"湿土 → 泥浆"那条 —— 而基础水地块没绑贴图，表现就是"投了球，地上什么都没变"。
+        /// 把地面认成土（表里 <c>空地</c> 与 <c>基础土地块</c> 本来就都是"地"，只是后者的 <c>tags</c> 有值）才是表的本意。
+        /// <para>初值来自 <c>tile_state</c> 的行，所以改表就能改"这片地是什么脾性"，代码里没有写死的标签。</para>
+        /// <para>默认状态由关卡初始数据给（<see cref="LoadInitialStates"/>）：先登记后灌初始是正常顺序，所以登记时先只记下"这片地原本是什么"。<b>两个入口都登记时后到者优先</b>。</para>
+        /// </remarks>
+        public void RegisterCell(Vector3Int cell, TileStateType initial = TileStateType.Normal)
         {
-            _cells.Add(cell);
+            if (!_cells.Add(cell)) return;
+
+            SeedElement(cell, initial);
+        }
+
+        /// <summary>灌一次"这一格原本的元素"。<b>只在这一格还没有状态机时做</b>（有状态机说明它已经有状态，元素由那次切换刷过了）。</summary>
+        private void SeedElement(Vector3Int cell, TileStateType initial)
+        {
+            if (_element == null) return;
+
+            if (_machines.ContainsKey(cell)) return;
+
+            if (!_specs.TryGetValue(initial, out TileStateSpec spec)) return;
+
+            _element.FlushStateElement(cell, in spec);
         }
 
         /// <summary>本格是否合法（存在地板）。不合法时落地不产生任何效果。</summary>
@@ -124,11 +147,14 @@ namespace DeepseaOil.Logic.Grid
             {
                 TileInitial state = states[i];
 
-                if (state.StateId == TileStateType.Normal) continue;
-
                 var cell = new Vector3Int(state.CellX, state.CellY, 0);
 
                 if (!_cells.Contains(cell)) continue;
+
+                // 这一格"原本是什么地"由关卡数据说了算：先登记默认状态，元素初值才会从这一行取（先登记后灌的格会在这里补种）。
+                RegisterCell(cell, state.StateId);
+
+                if (state.StateId == TileStateType.Normal) continue;
 
                 if (SwitchState(cell, state.StateId, applyEnterImpact: false)) applied++;
             }

@@ -90,19 +90,15 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <inheritdoc />
+        /// <remarks>
+        /// <b>判据只看"元素是不是空的"，不看"状态是不是 Normal"</b>：早先的写法把普通格一律当成"摘掉记录"，
+        /// 于是<b>常规格表自己的元素永远刷不上去</b>（<c>RegisterCell</c> 想按表给地面一个"含土"的底也被吞了），
+        /// 而那片地是什么脾性恰恰写在 <c>tile_state</c> 的 <c>Normal</c> 那一行里。
+        /// 空元素才摘记录：留着全零的条目与"没有条目"提供的信息完全一样，只会让常驻内存悄悄长大。
+        /// </remarks>
         public void FlushStateElement(Vector3Int cell, in TileStateSpec spec)
         {
-            ElementValue initial = spec.Element;
-
-            if (spec.Id == TileStateType.Normal || initial.IsEmpty)
-            {
-                // 落回常规（或该状态的元素四件是全零）：摘掉记录。留着全零的条目会让"永久格"在字典里积少成多，
-                // 而它提供的信息与"没有条目"完全一样。
-                _elements.Remove(cell);
-                return;
-            }
-
-            _elements[cell] = initial;
+            SetElement(cell, spec.Element);
         }
 
         /// <inheritdoc />
