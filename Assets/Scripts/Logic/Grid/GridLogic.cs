@@ -122,7 +122,7 @@ namespace DeepseaOil.Logic.Grid
         {
             return _machines.TryGetValue(cell, out TileStateMachine machine)
                 ? machine.CurrentId
-                : TileStateType.BasicEarth;
+                : TileStateType.Normal;
         }
 
         /// <summary>清空全部格子与状态（切场景）。</summary>

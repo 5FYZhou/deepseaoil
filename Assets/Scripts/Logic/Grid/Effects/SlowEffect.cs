@@ -22,7 +22,6 @@ namespace DeepseaOil.Logic.Grid.Effects
             {
                 if (targets[i] is ISlowable slowable)
                 {
-                    Debug.Log("SlowApply");
                     slowable.SetSlowMultiplier(multiplier);
                 }
             }
