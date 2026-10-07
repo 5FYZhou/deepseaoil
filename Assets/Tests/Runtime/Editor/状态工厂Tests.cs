@@ -12,11 +12,21 @@
 //   2. 切到一个"没有实现"的状态必须失败，且不留下空状态机
 //      （判据：SwitchState 返回 false；随后再切一个真有实现的状态仍能成功）。
 //
-// 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
+//   3. 常规格也要有元素初值
+//      元素层的 FlushStateElement 曾经把"状态是 Normal"当成"摘掉记录"，于是常规格表
+//      （tile_state id=1 空地）自己的元素永远刷不上去 —— 水球砸空地于是算成"基础水地块"
+//      而不是泥浆。判据：RegisterCell 之后该格元素 == 表里 Normal 那一行的元素四件。
+//
+// 【跑法】Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
+// 【为什么要在 SetUp 里自己 Init】本目录没有 asmdef、也不进 PlayMode，Init 链的调用方
+//   GameRoot 在 EditMode 里根本不跑；不自己初始化就会撞 ConfigModule 的 EnsureAssets 守卫
+//   （"玩法数值在 BindAssets 之前被读取"）。口径与 Data层Tests 的 OneTimeSetUp 一致。
 // ---------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using DeepseaOil.Data;
+using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
 using NUnit.Framework;
@@ -27,6 +37,26 @@ namespace DeepseaOil.Tests
 {
     public class 状态工厂Tests
     {
+        /// <summary>走完 Init 链的第二段：没有它，任何 <c>ConfigModule.GetXxx()</c> 都会抛。</summary>
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            // 与 Data层Tests 同一口径（可重复执行：AssetModule.Dispose 是幂等的，ConfigModule 靠 IsReady 守卫跳过）。
+            AssetModule.Dispose();
+
+            if (!ConfigModule.IsReady)
+                ConfigModule.InitFromStreamingAssets();
+
+            AssetModule.Init();
+            ConfigModule.BindAssets();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            AssetModule.Dispose();
+        }
+
         /// <summary>造一份"生产同款"的格子：geometry + 表里的状态清单 + 表驱动的状态工厂。</summary>
         private static GridLogic NewGrid()
         {
@@ -67,6 +97,51 @@ namespace DeepseaOil.Tests
 
             Assert.IsEmpty(missing,
                 "这些状态在 tile_state 里有行、却造不出实例（规则命中它们时格子会空着）：\n  " + string.Join("\n  ", missing));
+        }
+
+        [Test]
+        public void 常规格也有表里的元素初值()
+        {
+            TileStateSpec normal = ConfigModule.GetTileState(TileStateType.Normal);
+
+            // 元素层的初值必须真的刷上去（曾经 "状态是 Normal ⇒ 摘掉记录" 把这条吞了）
+            var reactor = new TileElementReactor(ConfigModule.GetElementRules());
+            var grid = new GridLogic(new GridGeometry(Vector2.zero, 1f), ConfigModule.GetAllTileStates(), CreateState, reactor);
+
+            var cell = new Vector3Int(3, 3, 0);
+            grid.RegisterCell(cell);
+
+            ElementValue seeded = reactor.GetElement(cell);
+
+            Assert.AreEqual(normal.Element.Tags, seeded.Tags, "常规格的标签位没有按表刷上去");
+            Assert.AreEqual(normal.Element.Temperature, seeded.Temperature);
+            Assert.AreEqual(normal.Element.Wet, seeded.Wet);
+            Assert.AreEqual(normal.Element.Conductivity, seeded.Conductivity);
+        }
+
+        [Test]
+        public void 水球砸常规格落到有贴图的状态()
+        {
+            // 判据不写死"Mud"：只要求结果状态**有实现**，且不是 Normal（Normal 会被适配器当成擦除）。
+            // 这样表里调整地面脾性时这条用例不会假红，而"反应算出个空状态"仍会被抓住。
+            var rules = ConfigModule.GetElementRules();
+            var reactor = new TileElementReactor(rules);
+            var grid = new GridLogic(new GridGeometry(Vector2.zero, 1f), ConfigModule.GetAllTileStates(), CreateState, reactor);
+
+            var cell = new Vector3Int(0, 0, 0);
+            grid.RegisterCell(cell);
+
+            ProjectileSpec water = ConfigModule.GetBall(BallType.Water);
+
+            Assert.IsNotNull(water, "projectile 表里没有水球");
+
+            bool changed = grid.OnBallHit(cell, water.Element);
+
+            TileStateType landed = grid.StateOf(cell);
+
+            Assert.IsTrue(changed, "水球落地没有产生状态转换");
+            Assert.AreNotEqual(TileStateType.Normal, landed, "落地后仍是常规格：反应算了但没落地");
+            Assert.IsNotNull(CreateState(landed), $"{landed} 没有实现：格子会空着");
         }
 
         [Test]
