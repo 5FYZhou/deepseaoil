@@ -401,7 +401,7 @@ namespace DeepseaOil.Logic.Grid
         {
             if (!_cells.Contains(cell)) return false;
 
-            // 没有实现的状态（配置里没有这一行）不算一次转换：否则"转换"会凭空发生一次（一条事件 + 一次冲击），而场上什么都没变。
+            // 配置里没有这一行：不算一次转换。否则"转换"会凭空发生一次（一条事件 + 一次冲击），而场上什么都没变。
             if (next != TileStateType.Normal && !_specs.ContainsKey(next)) return false;
 
             if (!_machines.TryGetValue(cell, out TileStateMachine machine))
@@ -416,7 +416,14 @@ namespace DeepseaOil.Logic.Grid
 
             bool changed = machine.SwitchTo(next, BuildContext(cell));
 
-            if (!changed) return false;
+            if (!changed)
+            {
+                // 空状态机要摘掉：它要么是刚建出来、要么是切换途中失败的产物，留着只会让 StateOf 读作常规、
+                // 而 _machines 里多一份查不出用途的条目（诊断时的"这格到底有没有状态"就再也说不准了）。
+                if (machine.Current == null) _machines.Remove(cell);
+
+                return false;
+            }
 
             // 落回常规的格不再保留状态机：常规格零常驻。
             if (machine.CurrentId == TileStateType.Normal) _machines.Remove(cell);

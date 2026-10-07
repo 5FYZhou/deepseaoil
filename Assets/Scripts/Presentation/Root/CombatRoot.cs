@@ -308,17 +308,15 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>状态工厂：给 ID 造一个新实例。返回 <c>null</c> 表示"这个 ID 没有实现"。</summary>
-        /// <remarks>每次进入状态都造新实例（而不是共享一个原型）：状态把"已经持续了多久"放在自己的字段里 —— 共享会让全场格子共用一个计时器，现象是"两片泥浆一起消失"，不报错。</remarks>
+        /// <remarks>每次进入状态都造新实例（而不是共享一个原型）：状态把"已经持续了多久"放在自己的字段里 —— 共享会让全场格子共用一个计时器，现象是"两片泥浆一起消失"，不报错。
+        /// <para><b>所有状态共用一个表驱动实现</b>（<see cref="TableTileState"/>）：它只读 <c>TileStateSpec</c>，所以"规则表命中的状态"与"有实现的状态"是同一集合 ——
+        /// 表里有一行就能跑（配策划新写一行状态、改了 <c>effects</c>，这里一行代码都不用动）。<b>只有配置里没有那一行时才返回 <c>null</c></b>：
+        /// 那是真的"没有实现"，由 <c>GridLogic</c> 判成"不算一次转换"（不再留下空状态机）。</para></remarks>
         private static ITileState CreateTileState(TileStateType id)
         {
-            switch (id)
-            {
-                case TileStateType.Mud:
-                    return new MudTileState(ConfigModule.GetTileState(id));
+            TileStateSpec spec = ConfigModule.TryGetTileState(id);
 
-                default:
-                    return null;
-            }
+            return spec != null ? new TableTileState(spec) : null;
         }
 
         private TileHighlightView CreateHighlightView(in GridGeometry geometry)
