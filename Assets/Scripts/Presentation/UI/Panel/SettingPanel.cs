@@ -1,4 +1,4 @@
-using DeepseaOil.Logic.Events;
+﻿using DeepseaOil.Logic.Events;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -24,8 +24,8 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
-            ShowBgmValue((int)(GameRoot.Instance.Audio.BgmVolume * 100));
-            ShowSfxValue((int)(GameRoot.Instance.Audio.SfxVolume * 100));
+            ShowBgmValue((int)(AudioManager.Instance.BgmVolume * 100));
+            ShowSfxValue((int)(AudioManager.Instance.SfxVolume * 100));
         }
 
         public override void HideMe()
@@ -36,8 +36,8 @@ namespace DeepseaOil.Presentation.UI
         {
             switch (name)
             {
-                case "ReturnBtn":
-                    GameRoot.Instance.UI.HidePanel<SettingPanel>();
+                case "BtnClose":
+                    UIMgr.Instance.HidePanel<SettingPanel>();
                     break;
             }
         }
@@ -58,13 +58,13 @@ namespace DeepseaOil.Presentation.UI
         public void ShowSfxValue(int vol)
         {
             txtSfxNum.text = vol.ToString() + " " + "%";
-            GameRoot.Instance.Audio.SetSfxVolume(vol * 0.01f);
+            AudioManager.Instance.SetSfxVolume(vol * 0.01f);
         }
 
         public void ShowBgmValue(int vol)
         {
             txtBgmNum.text = vol.ToString() + " " + "%";
-            GameRoot.Instance.Audio.SetBgmVolume(vol * 0.01f);
+            AudioManager.Instance.SetBgmVolume(vol * 0.01f);
         }
 
     }

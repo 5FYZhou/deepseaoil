@@ -1,4 +1,4 @@
-using cfg.demo;
+﻿using cfg.demo;
 
 namespace DeepseaOil.Logic.Grid
 {
@@ -13,6 +13,10 @@ namespace DeepseaOil.Logic.Grid
     {
         TileStateType Id { get; }
 
+<<<<<<< HEAD
+=======
+        /// <summary>进入本格状态时调用一次。初次转换与"从别的状态切过来"走同一条路。</summary>
+>>>>>>> main
         void OnEnter(in TileContext ctx);
 
         void OnTick(in TileContext ctx);

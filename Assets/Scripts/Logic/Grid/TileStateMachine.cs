@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using cfg.demo;
 
 namespace DeepseaOil.Logic.Grid
@@ -17,6 +17,10 @@ namespace DeepseaOil.Logic.Grid
 
         public ITileState Current => _current;
 
+<<<<<<< HEAD
+=======
+        /// <summary>注册一个状态的工厂。<see cref="TileStateType.Normal"/> 不需要注册。</summary>
+>>>>>>> main
         public void Register(TileStateType id, System.Func<ITileState> factory)
         {
             if (factory == null) return;

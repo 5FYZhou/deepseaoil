@@ -26,7 +26,11 @@ public sealed partial class Projectile : Luban.BeanBase
         { if(!_buf["max_height"].IsNumber) { throw new SerializationException(); }  MaxHeight = _buf["max_height"]; }
         { if(!_buf["max_throw_distance"].IsNumber) { throw new SerializationException(); }  MaxThrowDistance = _buf["max_throw_distance"]; }
         { if(!_buf["min_throw_distance"].IsNumber) { throw new SerializationException(); }  MinThrowDistance = _buf["min_throw_distance"]; }
-        { if(!_buf["tile_state"].IsNumber) { throw new SerializationException(); }  TileState = (demo.TileStateType)_buf["tile_state"].AsInt; }
+        { if(!_buf["type"].IsNumber) { throw new SerializationException(); }  Type = (demo.ElementType)_buf["type"].AsInt; }
+        { if(!_buf["temp"].IsNumber) { throw new SerializationException(); }  Temp = _buf["temp"]; }
+        { if(!_buf["wet"].IsNumber) { throw new SerializationException(); }  Wet = _buf["wet"]; }
+        { if(!_buf["conductive"].IsNumber) { throw new SerializationException(); }  Conductive = _buf["conductive"]; }
+        { if(!_buf["tags"].IsNumber) { throw new SerializationException(); }  Tags = (demo.ElementTag)_buf["tags"].AsInt; }
     }
 
     public static Projectile DeserializeProjectile(JSONNode _buf)
@@ -59,9 +63,25 @@ public sealed partial class Projectile : Luban.BeanBase
     /// </summary>
     public readonly float MinThrowDistance;
     /// <summary>
-    /// 落地后目标格转成的状态（Normal=不改）
+    /// 类型
     /// </summary>
-    public readonly demo.TileStateType TileState;
+    public readonly demo.ElementType Type;
+    /// <summary>
+    /// 温度(-6~6)
+    /// </summary>
+    public readonly int Temp;
+    /// <summary>
+    /// 湿度(0~6)
+    /// </summary>
+    public readonly int Wet;
+    /// <summary>
+    /// 导电(0无,1中,2强)
+    /// </summary>
+    public readonly int Conductive;
+    /// <summary>
+    /// 标签(含土,含沙,含植物)
+    /// </summary>
+    public readonly demo.ElementTag Tags;
    
     public const int __ID__ = -595244300;
     public override int GetTypeId() => __ID__;
@@ -79,7 +99,11 @@ public sealed partial class Projectile : Luban.BeanBase
         + "maxHeight:" + MaxHeight + ","
         + "maxThrowDistance:" + MaxThrowDistance + ","
         + "minThrowDistance:" + MinThrowDistance + ","
-        + "tileState:" + TileState + ","
+        + "type:" + Type + ","
+        + "temp:" + Temp + ","
+        + "wet:" + Wet + ","
+        + "conductive:" + Conductive + ","
+        + "tags:" + Tags + ","
         + "}";
     }
 }

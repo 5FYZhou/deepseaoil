@@ -14,13 +14,49 @@ namespace cfg.demo
     public enum BallType
     {
         /// <summary>
-        /// 水
+        /// 纯水
         /// </summary>
         Water = 0,
         /// <summary>
-        /// 土
+        /// 热水
         /// </summary>
-        Earth = 1,
+        WaterHot = 1,
+        /// <summary>
+        /// 冷水
+        /// </summary>
+        WaterCold = 2,
+        /// <summary>
+        /// 干土
+        /// </summary>
+        Earth = 3,
+        /// <summary>
+        /// 湿土
+        /// </summary>
+        EarthWet = 4,
+        /// <summary>
+        /// 沙
+        /// </summary>
+        Sand = 5,
+        /// <summary>
+        /// 粘土
+        /// </summary>
+        Clay = 6,
+        /// <summary>
+        /// 冰种子
+        /// </summary>
+        SeedIce = 7,
+        /// <summary>
+        /// 火种子
+        /// </summary>
+        SeedFire = 8,
+        /// <summary>
+        /// 植物种子
+        /// </summary>
+        SeedPlant = 9,
+        /// <summary>
+        /// 电种子
+        /// </summary>
+        SeedElec = 10,
     }
 
 } 

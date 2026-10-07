@@ -51,10 +51,9 @@ namespace DeepseaOil.Presentation.Ball
 
                 _balls[ball.Type] = ball;
 
-                // 落地改格还是什么都不做由表里的 tile_state 决定：Normal = 不改 ⇒ 土球没有世界效果是配置事实，而不是代码里的一个 if。
-                _effects[ball.Type] = ball.HasLandingEffect
-                    ? (IBallLogicEffect)new TileStateLogicEffect()
-                    : new NullLogicEffect();
+                // 每个球种都走同一条落地链（元素反应）：旧版"按 projectile.tile_state 决定改不改格"已随上游表改版作废 ——
+                // 那一列不存在了，而"这颗球落地之后世界变成什么"改由 element_rule 算出来。
+                _effects[ball.Type] = new TileStateLogicEffect();
             }
         }
 
@@ -115,12 +114,12 @@ namespace DeepseaOil.Presentation.Ball
         }
 
         /// <inheritdoc />
-        /// <remarks>球效果唯一被允许的世界操作：把格子切到该状态（冲击由格子自己按配置结算）。</remarks>
-        public void RequestTileState(Vector3Int cell, TileStateType next)
+        /// <remarks>球效果唯一被允许的世界操作：把"落点格 ＋ 球元素"交给世界侧结算元素反应（新状态与效果清单都由格子自己按配置算）。</remarks>
+        public void RequestTileState(Vector3Int cell, in ElementValue element)
         {
             if (_grid == null) return;
 
-            _grid.OnBallHit(cell, next);
+            _grid.OnBallHit(cell, in element);
         }
 
         /// <summary>一次落地的完整结算：先改世界状态，再排冲量。</summary>

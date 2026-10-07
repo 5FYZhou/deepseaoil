@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: f89c558a7a8d9124ea633ead4640b27a
+guid: a3401e76cc7dbac4b90ea267b8273ea1
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -105,20 +105,41 @@ TextureImporter:
         width: 128
         height: 128
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 51a715114e0f86b4a82803d97ff583cb
-      internalID: 2086916552
+      spriteID: 8bf3a75cca032154096bf1984711768d
+      internalID: -809572592
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: tileset_wasteland_binshahuijin_7
+      name: tileset_wasteland_binshahuijin_2
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 440
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ac22f74d4fb033541bd269592c87fe53
+      internalID: 1570375681
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tileset_wasteland_binshahuijin_8
       rect:
         serializedVersion: 2
         x: 1408
@@ -126,20 +147,20 @@ TextureImporter:
         width: 128
         height: 128
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: fd4a9eb72e21ca249becf193f8544a92
-      internalID: -1505747717
+      spriteID: 0288bfa3391f6e242ab2f52dfb9b299d
+      internalID: -825778930
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: tileset_wasteland_binshahuijin_11
+      name: tileset_wasteland_binshahuijin_12
       rect:
         serializedVersion: 2
         x: 1152
@@ -147,20 +168,20 @@ TextureImporter:
         width: 128
         height: 128
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 55890873975d47246b7de85478ca6161
-      internalID: -2046499423
+      spriteID: ccfffb47ae5823b4790feae6996b33e3
+      internalID: -2079468404
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: tileset_wasteland_binshahuijin_15
+      name: tileset_wasteland_binshahuijin_16
       rect:
         serializedVersion: 2
         x: 1408
@@ -168,14 +189,14 @@ TextureImporter:
         width: 128
         height: 128
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 5a6d6e532585a6f4c9bb5366e981d717
-      internalID: -1729330543
+      spriteID: 2b27a8fcf4ea02b479bf45ade4e0aa0b
+      internalID: 1270040272
       vertices: []
       indices: 
       edges: []
@@ -191,22 +212,23 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     nameFileIdTable:
-      tileset_wasteland_binshahuijin_0: -254034578
-      tileset_wasteland_binshahuijin_1: 2086916552
-      tileset_wasteland_binshahuijin_10: -70614061
-      tileset_wasteland_binshahuijin_11: -2046499423
-      tileset_wasteland_binshahuijin_12: -1798791221
-      tileset_wasteland_binshahuijin_13: 2102663397
-      tileset_wasteland_binshahuijin_14: -1497418448
-      tileset_wasteland_binshahuijin_15: -1729330543
-      tileset_wasteland_binshahuijin_2: -1006383339
-      tileset_wasteland_binshahuijin_3: 1834113740
-      tileset_wasteland_binshahuijin_4: 1489491635
-      tileset_wasteland_binshahuijin_5: -730311860
-      tileset_wasteland_binshahuijin_6: -1306517465
-      tileset_wasteland_binshahuijin_7: -1505747717
-      tileset_wasteland_binshahuijin_8: 508181234
-      tileset_wasteland_binshahuijin_9: -1781791885
+      tileset_wasteland_binshahuijin_1: -809572592
+      tileset_wasteland_binshahuijin_12: -2079468404
+      tileset_wasteland_binshahuijin_16: 1270040272
+      tileset_wasteland_binshahuijin_2: 1570375681
+      tileset_wasteland_binshahuijin_8: -825778930
+      tileset_wasteland_binshahuijin_v2_0: -864348826
+      tileset_wasteland_binshahuijin_v2_10: 1117963328
+      tileset_wasteland_binshahuijin_v2_11: -1030807369
+      tileset_wasteland_binshahuijin_v2_13: -1409419640
+      tileset_wasteland_binshahuijin_v2_14: -191300909
+      tileset_wasteland_binshahuijin_v2_15: 519516844
+      tileset_wasteland_binshahuijin_v2_3: 1312926149
+      tileset_wasteland_binshahuijin_v2_4: -1456427262
+      tileset_wasteland_binshahuijin_v2_5: 256056884
+      tileset_wasteland_binshahuijin_v2_6: -1653051706
+      tileset_wasteland_binshahuijin_v2_7: 283977160
+      tileset_wasteland_binshahuijin_v2_9: -708180841
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
