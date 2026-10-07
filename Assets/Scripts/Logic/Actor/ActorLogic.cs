@@ -32,7 +32,7 @@ namespace DeepseaOil.Logic
 
         /// <param name="motor">移动执行器（账本 ＋ 控制律 ＋ 物理体读写）。</param>
         /// <param name="config">
-        /// 角色共用运动参数。<b>由子类显式给出</b>：本类的 <see cref="Config"/> 是虚属性，
+        /// 角色共用运动参数。<b>由子类显式给出</b>：本类的配置读法（<see cref="Config"/>）是虚属性，
         /// 构造函数里读它就是读一个尚未初始化的派生对象（C# 的经典陷阱）。
         /// </param>
         protected ActorLogic(IActorMotor motor, CharacterConfig config)
@@ -42,11 +42,11 @@ namespace DeepseaOil.Logic
         }
 
         /// <summary>
-        /// 角色共用运动参数 —— 执行器持有的那一份（<see cref="IActorMotor.Config"/> 的同源读法）。
+        /// 角色共用运动参数 —— 执行器持有的那一份（<see cref="IActorMotor.Configure"/> 的同源读法）。
         /// </summary>
         /// <remarks>
-        /// 它<b>不是</b>无意义转发：<see cref="Foundation.IStateHost"/> 是地基认识的窄接口，
-        /// 而配置的持有者是执行器 —— 本属性只是把同一份引用摆到骨架看得见的地方。
+        /// <b>它的读者只有装配链</b>：状态机读的是 <see cref="Foundation.IStateHost.Motion"/>
+        /// （六个标量），本类不再把它摆给骨架看。保留它是因为子类的构造函数要吃它。
         /// <para>惰性读取而不是构造时缓存：配置由 <see cref="ActorLogic"/> 的构造函数写入执行器，
         /// 缓存一份等于同一件事有两个真值。</para>
         /// </remarks>
@@ -74,6 +74,13 @@ namespace DeepseaOil.Logic
         // ─────────────────────────────────────────────
         // IStateHost：状态机骨架看得见的窄口，全部转发给执行器
         // ─────────────────────────────────────────────
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// <b>只有这一个标量口，没有配置口。</b>骨架要 <c>moveSpeed</c> 这类数时经它取 ——
+        /// 于是 <c>Foundation</c> 不认识 <c>CharacterConfig</c>（那曾是全工程唯一的逆向层依赖）。
+        /// </remarks>
+        Foundation.MotionParams Foundation.IStateHost.Motion => Motor.Motion;
 
         /// <inheritdoc />
         void Foundation.IStateHost.MoveTowards(Vector2 direction, float speed)

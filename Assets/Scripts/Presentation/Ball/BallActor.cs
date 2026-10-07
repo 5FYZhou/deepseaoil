@@ -2,6 +2,7 @@ using System;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Projectile;
 using DeepseaOil.Presentation.Projectile;
+using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 using cfg.demo;
 
@@ -25,11 +26,6 @@ namespace DeepseaOil.Presentation.Ball
     /// </remarks>
     public sealed class BallActor : IDrivenEntity
     {
-        /// <summary>
-        /// 阴影色的兜底值（观感表缺失时用）：贴地件的"存在感"来自它，不走球种色（阴影是光，不是材质）。
-        /// </summary>
-        private static readonly Color FallbackShadowColor = new(0f, 0f, 0f, 0.35f);
-
         private readonly GameObject _root;
         private readonly BallDriver _driver;
         private readonly Action<BallActor, Vector2> _onLanded;
@@ -61,11 +57,9 @@ namespace DeepseaOil.Presentation.Ball
             IsAlive = true;
 
             ThrowTuning tuning = definition.Tuning;
-            VisualPalette visuals = definition.Visuals;
 
             float originHeight = tuning != null ? tuning.originHeight : 0f;
             float shadowRadius = tuning != null ? tuning.shadowRadiusMeters : 0.20f;
-            Color shadowColor = visuals != null ? visuals.shadow : FallbackShadowColor;
 
             _root = new GameObject($"Ball_{data.Type}");
 
@@ -77,9 +71,10 @@ namespace DeepseaOil.Presentation.Ball
             _root.transform.position = new Vector3(data.Start.x, data.Start.y + originHeight, 0f);
 
             var view = _root.AddComponent<BallView>();
-            view.Initialize(
-                definition.BallRadius * 2f,
-                visuals != null ? visuals.BallColor(data.Type) : Color.white);
+
+            // 颜色问取值边界要语义（"这颗球是什么颜色"），不自己去翻调色板：
+            // 观感表的权威入口只有 ConfigModule.Visuals 一处，见 ProjectileSpec.BallColor。
+            view.Initialize(definition.BallRadius * 2f, definition.BallColor);
 
             // 先 view 再 shadow：AddComponent 会立刻跑子物体的 Awake，顺序写死才不会让两帧的顺序飘。
             var shadowGo = new GameObject("Shadow");
@@ -87,7 +82,7 @@ namespace DeepseaOil.Presentation.Ball
 
             // 阴影贴地、不进 Y-Sort 频带（跟着 y 取档会让它随高度越过自己的主人）。
             var shadow = shadowGo.AddComponent<BallShadow>();
-            shadow.Initialize(tuning, RenderOrder.GroundShadow, shadowRadius * 2f, shadowColor);
+            shadow.Initialize(tuning, RenderOrder.GroundShadow, shadowRadius * 2f, definition.ShadowColor);
 
             _driver = _root.AddComponent<BallDriver>();
             _driver.Initialize(in data, view, shadow, originHeight, OnLandedInternal);

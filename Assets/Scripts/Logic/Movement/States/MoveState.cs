@@ -31,7 +31,7 @@ namespace DeepseaOil.Logic.Movement.States
 
         public override void Tick(LogicContext ctx)
         {
-            Host.MoveTowards(ctx.inputSnapshot.Move, Config.moveSpeed);
+            Host.MoveTowards(ctx.inputSnapshot.Move, Motion.MoveSpeed);
         }
 
         public override bool IsDone(LogicContext ctx)

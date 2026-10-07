@@ -1,3 +1,5 @@
+using DeepseaOil.Presentation.Primitive;
+using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Projectile

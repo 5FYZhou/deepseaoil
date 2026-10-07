@@ -51,7 +51,7 @@ namespace DeepseaOil.Logic.Player
 
             _status = new StatusGroup(this);
             _combat = new CombatGroup(this);
-            _moveGroup = new MoveGroup(this, motor, buffer);
+            _moveGroup = new MoveGroup(this, spec, motor, buffer);
         }
 
         /// <summary>账本：血量 ＋ 水球。<b>世界侧经它拿读数、经本类入口改数据</b>。</summary>

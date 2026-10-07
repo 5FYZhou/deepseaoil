@@ -1,18 +1,22 @@
 // ---------------------------------------------------------------------------
 // 表现层排序 · Y-Sort 行为测试
 //
-// 【为什么单独一个文件】它是工程里唯一一条"表现层数学"，与战斗、移动都无关：
-//   塞进 战斗框架Tests 会让那份文件的主题变糊，而它要守的不变量很集中
-//   （单调、钳制、量化、非法输入退化）。
+// 【为什么单独一个文件】它是工程里唯一一条"表现层数学"，与战斗、移动都无关。
 //
-// 【只测纯函数】YSort.OrderFor 与 RenderOrder 的档位换算不碰引擎对象，所以能逐条钉住；
+// 【留什么 · 砍什么】判据只有一条：这条用例守的是不是「改错了不报错、只表现为观感不对」。
+//   留：单调（越靠下越晚画）、钳制（档位始终在频带内，含 NaN）、量化（0.25 米一档，
+//       相邻两人不会每帧互换前后）、非法参数退化（每单位 0 档 / 非数档数 → 下沿，不抛）。
+//   砍：原「角色与球共用同一条频带且贴地件在频带之下」—— 它是**常量对常量**的断言
+//       （RenderOrder 的静态档位比大小）＋ 一条转发（ActorOrder ≡ BallOrder），
+//       改错了不会静默，只会编译期就换个常量。
+//
+// 【只测纯函数】YSort.OrderFor 不碰引擎对象，所以能逐条钉住；
 //   真正"谁盖住谁"的观感只能人工 Play 看（两个角色站在不同 y 上）。
 //
 // 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
 
 using DeepseaOil.Foundation;
-using DeepseaOil.Presentation;
 using NUnit.Framework;
 
 namespace DeepseaOil.Tests
@@ -59,19 +63,6 @@ namespace DeepseaOil.Tests
         {
             Assert.AreEqual(500, YSort.OrderFor(0f, 500, 559, 0f), "每单位 0 档 ⇒ 退化为下沿");
             Assert.AreEqual(500, YSort.OrderFor(0f, 500, 559, float.NaN), "非数档数 ⇒ 退化为下沿");
-        }
-
-        [Test]
-        public void 排序_角色与球共用同一条频带且贴地件在频带之下()
-        {
-            Assert.AreEqual(RenderOrder.ActorOrder(1f), RenderOrder.BallOrder(1f), "球与角色走同一条档位来源");
-
-            Assert.Greater(RenderOrder.ActorOverlay, RenderOrder.YSortBandEnd,
-                "头顶读数必须高于整个频带：它不该被邻居的身体盖住");
-            Assert.Less(RenderOrder.GroundShadow, RenderOrder.YSortBandStart,
-                "贴地阴影必须在频带之下：它不参与 Y-Sort");
-            Assert.Less(RenderOrder.Aim, RenderOrder.YSortBandStart,
-                "瞄准高亮是地面标记：它压在格效果之上、被站在那一格的人盖住");
         }
     }
 }

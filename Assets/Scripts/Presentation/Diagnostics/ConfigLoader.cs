@@ -21,7 +21,7 @@
 using DeepseaOil.Data;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Diagnostics
 {
     public class ConfigLoader : MonoBehaviour
     {
@@ -31,7 +31,9 @@ namespace DeepseaOil.Presentation
             if (!ConfigModule.IsReady)
                 ConfigModule.InitFromStreamingAssets();
 
-            // 逃生舱：直接读原始 cfg.Tables。只读，且不得跨帧持有该引用。
+            // 逃生舱：直接读原始 cfg.Tables。**全库唯一登记在案的破例**（见 ConfigModule.Tables 的注释）。
+            // 注意它读的是**表的行数**，不是某一列：一旦有人拿它读列，就绕过了包装件、
+            // 也绕过了"表列迁到 SO"的全部收益 —— 那种用法属于新增破例，必须先登记。
             var tables = ConfigModule.Tables;
 
             var weapon = ConfigModule.GetWeapon(1);

@@ -1,6 +1,6 @@
 using DeepseaOil.Foundation;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Visual
 {
     /// <summary>
     /// 场上可渲染件的排序层。<b>渲染约定，留在代码里</b>（不进 Luban，也不进 SO）。

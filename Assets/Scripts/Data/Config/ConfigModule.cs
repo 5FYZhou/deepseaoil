@@ -176,7 +176,7 @@ namespace DeepseaOil.Data
 
             if (!_holder.Tables.TbProjectile.DataMap.TryGetValue(type, out Projectile row)) return null;
 
-            return new ProjectileSpec(row, _throwTuning, _visuals);
+            return new ProjectileSpec(row, _throwTuning);
         }
 
         /// <summary>全部球种（按表顺序）。</summary>
@@ -191,7 +191,7 @@ namespace DeepseaOil.Data
 
             for (int i = 0; i < rows.Count; i++)
             {
-                result.Add(new ProjectileSpec(rows[i], _throwTuning, _visuals));
+                result.Add(new ProjectileSpec(rows[i], _throwTuning));
             }
 
             return result;
@@ -227,7 +227,27 @@ namespace DeepseaOil.Data
         {
             EnsureAssets();
 
-            return new EnemySpec(_holder.Tables.TbEnemy.Get(id), _visuals);
+            return new EnemySpec(_holder.Tables.TbEnemy.Get(id));
+        }
+
+        /// <summary>
+        /// 观感颜色表（SO）。<b>观感取值的单一权威入口</b>。
+        /// </summary>
+        /// <remarks>
+        /// 球种色 / 敌人四态色 / 瞄准高亮两态色 / 贴地阴影色全部从这一处出去
+        /// （要哪条语义就问包装件要，别把调色板本身传下去 —— 那正是它曾经有四个入口的成因）。
+        /// <para><b>永不返回 <c>null</c></b>：<see cref="VisualPalette.LoadOrDefault"/> 丢资产时给一份
+        /// 字段默认值的实例 ＋ 一条 Warning。观感参数不参与判定，不能因为缺资产把游戏卡死
+        /// —— 这也是消费者不需要再写 <c>!= null</c> 兜底的原因。</para>
+        /// </remarks>
+        public static VisualPalette Visuals
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _visuals;
+            }
         }
 
         /// <summary>读玩家数值。</summary>
@@ -256,7 +276,9 @@ namespace DeepseaOil.Data
         /// <remarks>
         /// <b>返回生成行而不是包装件</b>：它是"每格一行"的批量数据，消费者
         /// （<c>GridLogic.LoadInitialStates</c>）只做一次遍历，包装一层没有语义收益。
-        /// 当前表里 0 行数据、也没有"关卡"维度（见缺陷登记 N5）。
+        /// <para><b>表里现在是 0 行</b>（<c>demo_tbtileinitial.json</c> 是 <c>[]</c>，已核实），
+        /// 也没有"关卡"维度（见缺陷登记 N5）。本方法因此是<b>待填充的基础设施</b>而不是零消费者残留：
+        /// 关卡数据一进来，消费端已经就位。<b>不要因为"表是空的"就删掉这一条链。</b></para>
         /// </remarks>
         public static IReadOnlyList<TileInitial> GetTileInitials()
         {
@@ -270,7 +292,7 @@ namespace DeepseaOil.Data
         {
             EnsureAssets();
 
-            return new DropSpec(_dropTuning, _visuals);
+            return new DropSpec(_dropTuning);
         }
 
         // ─────────────────────────────────────────────
@@ -307,9 +329,20 @@ namespace DeepseaOil.Data
 
         // ─────────────────────────────────────────────
         // 逃生舱：特殊情况直接访问原始 Tables
-        // 边界：只读；调用方不得跨帧持有该引用
+        // 边界：只读；调用方不得跨帧持有该引用；**新增消费必须登记在本注释里**
         // ─────────────────────────────────────────────
 
+        /// <summary>
+        /// 原始生成表（<c>cfg.Tables</c>）。<b>只给诊断用</b>：正常取值一律走上面的 <c>GetXxx</c>。
+        /// </summary>
+        /// <remarks>
+        /// <b>登记在案的破例只有一个</b>：<c>Presentation/Debug/ConfigLoader.cs</c> 用它数三张示范表
+        /// （<c>TbWeapon</c> / <c>TbItem</c> / <c>TbFish</c>）的行数，作为"导表链路通不通"的自检输出。
+        /// 那是白模时代的教学链，也是本属性存在的全部理由。
+        /// <para><b>为什么它不是"生成行出关"</b>：它给出的是<b>表对象</b>而不是行，调用方拿到之后
+        /// 只能数数；一旦有人拿它读某一列，就绕过了包装件、也绕过了"表列迁到 SO"的全部收益。
+        /// 那种用法属于新增破例，必须先登记在这里。</para>
+        /// </remarks>
         public static cfg.Tables Tables
         {
             get
@@ -319,6 +352,23 @@ namespace DeepseaOil.Data
                 return _holder.Tables;
             }
         }
+
+        // ─────────────────────────────────────────────
+        // 「生成行不出 Data 层」的判据（可判定，替代过去的口头约定）
+        //
+        // ① 放行：生成**枚举**。`BallType` / `TileStateType` 是配置词汇本身
+        //    （球种、格状态），包一层只会造出两个同义的平行类型。Data 层之外
+        //    允许 `using cfg.demo;`，前提是该文件只吃这两个枚举类型。
+        // ② 禁止：生成**行**（`cfg.demo.Projectile` / `Enemy` / `Player` / `Wave` /
+        //    `TileState` / `TileInitial` …）。这类引用只准出现在 `Data/Config/**`。
+        // ③ 例外：必须在此登记并说明理由。**当前例外为零** ——
+        //    全库 `using cfg.demo;` 的 17 个非 Data 文件（含两处测试夹具）里只有一个
+        //    真实用法形态：吃枚举做 switch / 字典键。一行都不碰生成行。
+        //    `MudTileState` 看起来像例外，其实拿的是 `TileStateSpec`（包装件），不是 `TileState`。
+        //
+        // 判据怎么用：翻一个文件，问"它 `using cfg.demo;` 之后碰了什么类型"。
+        // 只碰枚举 ⇒ ①；碰了行 ⇒ 必须先在这里登记；都不是 ⇒ 违纪。
+        // ─────────────────────────────────────────────
 
         private static void EnsureReady()
         {

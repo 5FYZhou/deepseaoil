@@ -43,6 +43,8 @@ namespace DeepseaOil.Logic.Combat
     /// 逻辑层定义端口、表现层的组合根实现它，于是玩家逻辑不需要认识格子、球、场景里的任何东西。
     /// <para><b>为什么是"裁决"而不是"直接投"：</b>落点合法性是世界信息（有没有地板、将来有没有阻挡）。
     /// 玩家只表达意图；被拒绝时<b>不消耗弹药、不进冷却</b> —— 那正是"没被采纳"的含义。</para>
+    /// <para><b><c>using cfg.demo;</c> 在这里吃的是枚举</b>（<c>ThrowIntent.Ball</c> 的类型），
+    /// 不是生成行 —— 判据见 <c>ConfigModule</c> 底部那段注释。</para>
     /// </remarks>
     public interface IThrowSink
     {

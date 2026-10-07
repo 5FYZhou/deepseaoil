@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace DeepseaOil.Data
 {
     /// <summary>
@@ -17,15 +19,17 @@ namespace DeepseaOil.Data
         private readonly DropTuning _tuning;
 
         /// <param name="tuning">掉落物调参（SO）。</param>
-        /// <param name="visuals">观感颜色表；为 <c>null</c> 时表现层走自己的兜底。</param>
-        public DropSpec(DropTuning tuning, VisualPalette visuals = null)
+        public DropSpec(DropTuning tuning)
         {
             _tuning = tuning;
-            Visuals = visuals;
         }
 
-        /// <summary>观感颜色表（掉落物本体色）。表现层从它取色，逻辑层不认识它。</summary>
-        public VisualPalette Visuals { get; }
+        /// <summary>本体颜色。</summary>
+        /// <remarks>
+        /// <b>调色板自己不出去</b>（同 <see cref="ProjectileSpec.BallColor"/> 的理由）：
+        /// 唯一权威来源是 <c>ConfigModule.Visuals</c>，本属性只是按掉落物的语义解析一次。
+        /// </remarks>
+        public Color Color => ConfigModule.Visuals.waterBall;
 
         /// <summary>从生成点抛到落点的时长（秒）。</summary>
         public float FlightDuration => _tuning.flightDuration;

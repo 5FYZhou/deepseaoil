@@ -4,12 +4,15 @@ using UnityEngine;
 namespace DeepseaOil.Data
 {
     /// <summary>
-    /// 一个敌人种类的取值边界：合并「<c>enemy</c> 表行」与「<c>CharacterConfig</c> SO」。
+    /// 一个敌人种类的取值边界：合并「<c>enemy</c> 表行」与「按表值造出的 <c>CharacterConfig</c>」。
     /// </summary>
     /// <remarks>
     /// <b>它取代了旧的 <c>EnemySpec</c>（纯结构体）与 <c>EnemyCharacterFactory</c>（折算器）两件。</b>
     /// 旧链是"表行 → EnemySpec → EnemyCharacterFactory → CharacterConfig"，三个类型、
     /// 两处搬运；现在"表 → 角色配置"的翻译只发生在本构造里一处，搬运链不再需要。
+    /// <para><b>它不含观感。</b>收口前本类另持一份 <c>VisualPalette</c> 并对外暴露，
+    /// 于是调色板多出一个入口、格子高亮还借它取色。现在观感取值的唯一权威入口是
+    /// <c>ConfigModule.Visuals</c>，本类只装战斗与运动数值。</para>
     /// <para><b>与敌人无关的项显式清零</b>（冲刺、8 向吸附、外力）：<c>CharacterConfig</c> 的字段带默认值，
     /// 不写就是"继承了玩家那份默认值"，而那种错不会报错，只会在将来某处被读到 ——
     /// 比如某天有人给敌人加了"冲刺"。</para>
@@ -23,14 +26,12 @@ namespace DeepseaOil.Data
         private readonly Enemy _row;
 
         /// <param name="row">表行（<c>enemy</c>）。</param>
-        /// <param name="visuals">观感颜色表（SO）；为 <c>null</c> 时由表现层走自己的兜底。</param>
-        public EnemySpec(Enemy row, VisualPalette visuals)
+        public EnemySpec(Enemy row)
         {
             _row = row;
-            Visuals = visuals;
 
             // 运行期按种类造一份：表里没有 SO 这一列，而为每只敌人拖一个资产是无意义的劳动。
-            // 消费者（ActorLogic）只读它，耦合面为零；每只敌人各持一份 ⇒ 改一只不影响另一只。
+            // 消费者只有装配链（EnemyLogic → 执行器）；每只敌人各持一份 ⇒ 改一只不影响另一只。
             var config = ScriptableObject.CreateInstance<CharacterConfig>();
 
             config.name = $"EnemyConfig_{row.Id}";
@@ -75,13 +76,10 @@ namespace DeepseaOil.Data
         /// 角色运动配置（由本类在构造时按表值造出）。
         /// </summary>
         /// <remarks>
-        /// 消费者（<c>ActorLogic</c> 与状态层）从它读共用运动参数 ——
-        /// 于是"角色参数从哪来"对它们只有一个答案，不需要知道 <c>enemy</c> 表存在。
+        /// 消费者是<b>装配链</b>（<c>EnemyLogic</c> 把它交给执行器）—— 状态机读的是执行器折算出的
+        /// 六个标量（<c>Foundation.MotionParams</c>），不是本属性。所以它是"配置从哪来"的答案，
+        /// 不是状态层的取数口。
         /// </remarks>
         public CharacterConfig Config { get; }
-
-        /// <summary>观感颜色表（SO）：敌人四态色与球种色的唯一来源。</summary>
-        /// <remarks>表现层从 <c>EnemySpec.Visuals</c> 取色 —— 逻辑层不认识它，也不该认识。</remarks>
-        public VisualPalette Visuals { get; }
     }
 }

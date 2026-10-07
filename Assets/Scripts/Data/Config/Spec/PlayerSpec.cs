@@ -19,6 +19,7 @@ namespace DeepseaOil.Data
     public sealed class PlayerSpec
     {
         private readonly Player _row;
+        private readonly PlayerConfig _config;
 
         /// <param name="row">表行（<c>player</c>）。</param>
         /// <param name="config">移动与冲刺参数（SO）。</param>
@@ -26,7 +27,7 @@ namespace DeepseaOil.Data
         public PlayerSpec(Player row, PlayerConfig config, ProjectileSpec ball)
         {
             _row = row;
-            Config = config;
+            _config = config;
             Ball = ball;
         }
 
@@ -65,11 +66,31 @@ namespace DeepseaOil.Data
         /// </remarks>
         public float ContactRadius => _row.ContactRadius;
 
-        /// <summary>移动与冲刺参数（SO）。</summary>
-        public PlayerConfig Config { get; }
+        /// <summary>
+        /// 移动与冲刺参数（SO）。<b>只有一个读者</b>：装配链把玩家执行器配起来的那一行
+        /// （<c>PlayerLogic</c> → <c>ActorLogic(motor, spec.Config)</c>）。
+        /// </summary>
+        /// <remarks>
+        /// <b>消费者要哪条数就问本类要哪条语义</b>（见下面几个 <c>*Seconds</c> /
+        /// <c>SnapToEightDirections</c>），不要再往下取配置对象 —— 那样等于把"玩家参数从哪来"
+        /// 的好几个答案又还回去，而 <c>MoveGroup</c> 曾经正是这么做的。
+        /// </remarks>
+        public PlayerConfig Config => _config;
 
         /// <summary>水球那一行：射程上限与瞄准平面深度的来源。</summary>
         public ProjectileSpec Ball { get; }
+
+        /// <summary>输入方向是否吸附到 8 向（消费方：<c>PlayerController</c> 的输入处理）。</summary>
+        public bool SnapToEightDirections => _config.snapToEightDirections;
+
+        /// <summary>输入缓冲容量（秒）：历史窗口时长，必须 ≥ 下面所有输入各自的窗口。</summary>
+        public float InputBufferSeconds => _config.inputBufferTime;
+
+        /// <summary>冲刺冷却（秒）。</summary>
+        public float DashCooldownSeconds => _config.dashCooldown;
+
+        /// <summary>冲刺输入缓冲窗口（秒）。</summary>
+        public float DashBufferSeconds => _config.dashBufferTime;
 
         /// <summary>屏幕点投到世界平面时给的相机深度（世界单位）。</summary>
         public float CameraPlaneDepth

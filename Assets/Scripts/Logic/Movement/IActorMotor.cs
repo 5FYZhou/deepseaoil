@@ -63,16 +63,8 @@ namespace DeepseaOil.Logic.Movement
         /// <summary>把速度硬钳到上限（按<b>当帧速度</b>整体覆盖）；上限 ≤ 0 表示不限制。</summary>
         void ClampSpeed(float maxSpeed);
 
-        /// <summary>只对<b>本帧</b>生效的速度上限：帧末写出时统一钳一次，帧首自动失效。</summary>
-        void SetSpeedLimit(float maxSpeed);
-
         /// <summary>缩放外力累加强度。俯视角角色填 0；需要被击退 / 被水流推 / 被吸附的角色按需打开。</summary>
         void SetExtraForceScale(float scale);
-
-        /// <summary>启动移动锁：在 <paramref name="now"/> 之后的 <paramref name="duration"/> 秒内不响应移动提交。</summary>
-        /// <param name="now">当前的逻辑时刻（秒），由驱动方给出。</param>
-        /// <param name="duration">锁定时长（秒）。</param>
-        void StartMoveLock(float now, float duration);
     }
 
     /// <summary>
@@ -89,20 +81,33 @@ namespace DeepseaOil.Logic.Movement
     /// <item><see cref="IActorLedger"/> 是"这一帧的速度账本"，只有驱动状态机的那个地方需要。</item>
     /// </list>
     /// 合成的 <c>IActorMotor</c> 只是"三者都齐了"的记号，供注入点使用；分开的部分各自保持最小。</para>
+    /// <para><b>它不暴露角色配置，只接受配置</b>：<see cref="Configure"/> 是写口，
+    /// 读口是 <see cref="Foundation.IStateHost.Motion"/> 的六个标量。配置的具体类型
+    /// （<c>CharacterConfig</c>）因此停在装配链上，不进状态机。</para>
     /// <para><b>控制律的归属：</b><see cref="Foundation.IStateHost.MoveTowards"/> / <c>BrakeTowards</c> /
     /// <c>SnapVelocity</c> 的实现（渐进逼近、零惯性直达、反向衰减）住在执行器上 ——
     /// 于是它们可以在 EditMode 里用一个不碰引擎的探针直接测，而不是必须先造一个 ActorLogic。</para>
     /// </remarks>
     public interface IActorMotor : IMovementMotor, Foundation.IStateHost, IActorLedger
     {
-        /// <summary>角色共用运动参数（与 <see cref="Foundation.IStateHost.Config"/> 同一份）。</summary>
-        new CharacterConfig Config { get; }
+        /// <summary>
+        /// 角色共用运动参数（<b>只写不读</b>：状态机读的是 <see cref="Foundation.IStateHost.Motion"/>）。
+        /// </summary>
+        /// <remarks>
+        /// 它对外的唯一理由是装配链：<c>ActorLogic</c> 要把它交给子类，子类要把它交给组合件。
+        /// 状态层读不到它 —— 于是"地基不认识角色"这条纪律不靠自觉，而是接口层面没有那个口子。
+        /// </remarks>
+        CharacterConfig Config { get; }
 
         /// <summary>
         /// 装配期注入角色运动参数（由角色的组合件调一次）。
         /// </summary>
         /// <param name="config">角色配置（玩家给 SO；敌人由 <c>EnemySpec</c> 按表值造一份）。</param>
-        /// <remarks>配置是只读参数而不是每帧状态，所以它<b>不</b>参与 <c>BeginStep</c> 的复位。</remarks>
+        /// <remarks>
+        /// 配置是只读参数而不是每帧状态，所以它<b>不</b>参与 <c>BeginStep</c> 的复位。
+        /// <para>它与 <see cref="Config"/> 是一对：注入期写、装配链读。每帧读数是
+        /// <see cref="Foundation.IStateHost.Motion"/>，两者刻意分开 —— 配置对象不进状态机。</para>
+        /// </remarks>
         void Configure(CharacterConfig config);
 
         /// <summary>移动层的"走"：有惯性按加速度逼近，零惯性当帧直达。</summary>

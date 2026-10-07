@@ -2,7 +2,7 @@ using System;
 using DeepseaOil.Logic.Events;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Diagnostics
 {
     /// <summary>
     /// EventBus 可视调试面板：在屏幕上显示最近收到的<b>格子状态事件</b>。

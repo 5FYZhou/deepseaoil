@@ -22,10 +22,8 @@ namespace DeepseaOil.Logic.Movement
         private Vector2 _frameStart;
         private Vector2 _delta;
         private Vector2 _accel;
-        private float _speedLimit = float.PositiveInfinity;
         private float _speedScale = 1f;
         private float _extraForceScale = 1f;
-        private float _moveLockUntil = float.NegativeInfinity;
         private float _now;
         private float _dt = 0.02f;
 
@@ -37,8 +35,15 @@ namespace DeepseaOil.Logic.Movement
             _writeVelocity = writeVelocity;
         }
 
-        /// <summary>角色共用运动参数。</summary>
+        /// <summary>角色共用运动参数（<b>装配期注入的那一份</b>，只写不读）。</summary>
+        /// <remarks>
+        /// 本类对外不再有第二个配置读口：控制律要的两条数在 <see cref="Motion"/> 里。
+        /// 保留本属性是因为 <see cref="Configure"/> 的签名要它，而它是"配置从哪来"的唯一答案；
+        /// 但<b>没有任何生产消费者读它</b>（查过全库）。</remarks>
         public CharacterConfig Config { get; private set; }
+
+        /// <summary>运动标量（由 <see cref="Configure"/> 从角色配置折算一次）。</summary>
+        public Foundation.MotionParams Motion { get; private set; }
 
         /// <summary>本步的逻辑时刻（秒）。</summary>
         public float Now => _now;
@@ -46,10 +51,25 @@ namespace DeepseaOil.Logic.Movement
         /// <summary>本步时长（秒）。</summary>
         public float DeltaTime => _dt;
 
-        /// <inheritdoc cref="IActorMotor.Configure" />
+        /// <summary>
+        /// 装配期注入角色配置：<b>同时把它折算成 <see cref="Motion"/></b>。
+        /// </summary>
+        /// <remarks>
+        /// 折算只发生在这里一处：控制律、状态机、<c>IStateHost</c> 读到的都是同一份标量，
+        /// 于是"某个值从哪来"不会有两个答案。</remarks>
         public void Configure(CharacterConfig config)
         {
             Config = config;
+
+            Motion = config == null
+                ? Foundation.MotionParams.None
+                : new Foundation.MotionParams(
+                    config.moveSpeed,
+                    config.moveAcceleration,
+                    config.turnDecayRate,
+                    config.dashSpeed,
+                    config.dashDuration,
+                    config.hurtDecay);
         }
 
         // ─────────────────────────────────────────────
@@ -81,9 +101,6 @@ namespace DeepseaOil.Logic.Movement
             }
         }
 
-        /// <summary>本帧速度上限是否被设过（诊断用）。</summary>
-        public bool HasSpeedLimit => !float.IsInfinity(_speedLimit);
-
         // ─────────────────────────────────────────────
         // IActorLedger：帧
         // ─────────────────────────────────────────────
@@ -98,9 +115,7 @@ namespace DeepseaOil.Logic.Movement
             _delta = Vector2.zero;
             _accel = Vector2.zero;
 
-            // 上限与乘数都是**一次性**的：上一帧声明的到这一帧开头就失效。不这样做的话
-            // "这一帧被推了一下"会变成"从此一直被限速"——玩家永久失去一部分速度，而没有任何东西会报错。
-            _speedLimit = float.PositiveInfinity;
+            // 乘数是**一次性**的：上一帧声明的到这一帧开头就失效，门禁必须每帧重新提交。
             _speedScale = 1f;
         }
 
@@ -110,7 +125,7 @@ namespace DeepseaOil.Logic.Movement
             // 零提交帧不写速度：没有变更就不必覆盖引擎，第二个写者因此不会被清掉。
             if (!HasSubmission) return;
 
-            _writeVelocity(Clamped(_frameStart + SubmittedDelta));
+            _writeVelocity(_frameStart + SubmittedDelta);
         }
 
         // ─────────────────────────────────────────────
@@ -152,24 +167,7 @@ namespace DeepseaOil.Logic.Movement
         }
 
         /// <inheritdoc />
-        public void SetSpeedLimit(float maxSpeed)
-        {
-            if (float.IsNaN(maxSpeed) || float.IsInfinity(maxSpeed) || maxSpeed <= 0f) return;
-
-            _speedLimit = maxSpeed;
-        }
-
-        /// <inheritdoc />
         public void SetExtraForceScale(float scale) => _extraForceScale = scale;
-
-        /// <inheritdoc />
-        public void StartMoveLock(float now, float duration)
-        {
-            _moveLockUntil = now + duration;
-        }
-
-        /// <summary>移动锁定期内不响应移动提交（朝向照更新）。</summary>
-        public bool IsMoveLocked => _now < _moveLockUntil;
 
         /// <summary>
         /// 提交一帧外力：把 <paramref name="force"/>（单位/秒²）按 Δt 与强度缩放累进账本。
@@ -178,9 +176,10 @@ namespace DeepseaOil.Logic.Movement
         /// <remarks>
         /// <b>参数由调用方给出，本类不持有任何具体力的语义</b>——重力、浮力、水流、风、吸附、击退滑行
         /// 都只是 <paramref name="force"/> 的一种取值。
-        /// <para><see cref="SetExtraForceScale"/> / <see cref="StartMoveLock"/> 与它目前<b>都没有生产消费者</b>
-        /// （首推者预计是结冰打滑 / 水流推挤 / 特殊状态）。刻意保留：它们是控制律的组成部分，
-        /// 且已有测试钉住语义（同帧两者并用必须先累加外力、后钳制）。</para>
+        /// <para><see cref="SetExtraForceScale"/> 与它<b>没有生产消费者</b>（首推者预计是结冰打滑 /
+        /// 水流推挤 / 特殊状态，届时把 <c>extraForceScale</c> 填成非零即可）。刻意保留：它们是控制律的
+        /// 组成部分，且测试里有语义钉子 —— 与 <c>SetSpeedLimit</c> / <c>StartMoveLock</c> 的区别正是
+        /// "那两条零消费者也零测试，所以已删除"。</para>
         /// </remarks>
         public void ApplyExtraForce(Vector2 force)
         {
@@ -198,25 +197,15 @@ namespace DeepseaOil.Logic.Movement
         /// </summary>
         /// <param name="direction">目标方向。<b>可以是未归一化向量</b>（内部归一化）。</param>
         /// <param name="speed">目标速度（单位/秒）。</param>
-        /// <returns>是否真的提交了速度（移动锁定期内不提交）。</returns>
-        public bool MoveDirection(Vector2 direction, float speed)
+        public void MoveDirection(Vector2 direction, float speed)
         {
-            if (IsMoveLocked) return false;
-
             SetVelocity(direction.normalized * speed);
-
-            return true;
         }
 
-        /// <summary>急停：速度当帧归零；移动锁定期内不响应。</summary>
-        /// <returns>是否真的提交了速度。</returns>
-        public bool StopMove()
+        /// <summary>急停：速度当帧归零。</summary>
+        public void StopMove()
         {
-            if (IsMoveLocked) return false;
-
             SetVelocity(Vector2.zero);
-
-            return true;
         }
 
         /// <summary>
@@ -225,7 +214,7 @@ namespace DeepseaOil.Logic.Movement
         /// <param name="direction">目标方向（可未归一化；零向量表示没有期望方向）。</param>
         /// <param name="speed">该方向上的目标速度（<b>会乘上本帧的速度乘数</b>）。</param>
         /// <remarks>
-        /// 判据是 <see cref="CharacterConfig.moveAcceleration"/>（<c>≤ 0</c> = 零惯性配置）：
+        /// 判据是 <see cref="Foundation.MotionParams.MoveAcceleration"/>（<c>≤ 0</c> = 零惯性配置）：
         /// 于是"要不要惯性"是一个配置问题而不是一次代码改动。
         /// <para><b>速度乘数在这里落地</b>：乘的是<b>目标速度</b>，于是"泥浆里走得慢"对零惯性角色当帧生效，
         /// 对有惯性角色的稳态也精确等于"配置速度 × 乘数"。</para>
@@ -234,25 +223,25 @@ namespace DeepseaOil.Logic.Movement
         {
             float scaled = speed * _speedScale;
 
-            if (Config == null || Config.moveAcceleration <= 0f)
+            if (Motion.MoveAcceleration <= 0f)
             {
                 MoveDirection(direction, scaled);
                 return;
             }
 
-            SteerTowards(direction, scaled, Config.moveAcceleration, Config.turnDecayRate);
+            SteerTowards(direction, scaled, Motion.MoveAcceleration, Motion.TurnDecayRate);
         }
 
         /// <summary>移动层的"停"：<b>有惯性滑停，零惯性当帧停</b>。</summary>
         public void BrakeTowards()
         {
-            if (Config == null || Config.moveAcceleration <= 0f)
+            if (Motion.MoveAcceleration <= 0f)
             {
                 StopMove();
                 return;
             }
 
-            SteerTowards(Vector2.zero, 0f, Config.moveAcceleration, Config.turnDecayRate);
+            SteerTowards(Vector2.zero, 0f, Motion.MoveAcceleration, Motion.TurnDecayRate);
         }
 
         /// <summary>
@@ -313,15 +302,9 @@ namespace DeepseaOil.Logic.Movement
         private void SetVelocityX(float vx)
         {
             _accel.x = 0f;
-            _delta.x = Clamped(new Vector2(vx, 0f)).x - _frameStart.x;
+            _delta.x = vx - _frameStart.x;
         }
 
         private bool HasSubmission => _delta.x != 0f || _delta.y != 0f || _accel.x != 0f || _accel.y != 0f;
-
-        /// <summary>本帧上限只在这里被用一次：<see cref="SetSpeedLimit"/> 不动速度，只压写出。</summary>
-        private Vector2 Clamped(Vector2 velocity)
-        {
-            return float.IsInfinity(_speedLimit) ? velocity : Vector2.ClampMagnitude(velocity, _speedLimit);
-        }
     }
 }

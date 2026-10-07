@@ -63,7 +63,8 @@ namespace DeepseaOil.Data
         /// </summary>
         /// <remarks>
         /// <b>调用方只有 <c>ConfigModule.BindAssets</c> 一处</b>：消费者经
-        /// <c>ConfigModule.GetEnemy().Visuals</c> 拿到它。
+        /// <c>ConfigModule.Visuals</c> 拿到它 —— 那是观感取值的<b>单一权威入口</b>
+        /// （收口前调色板有三个入口：敌人的、球的、掉落物的取值边界各持一份，外加 <c>ConfigModule</c> 自己）。
         /// <para>兜底是安全网而不是常态：丢了资产时颜色退回"白模验收过的那一套"，
         /// 而不是一堆 alpha 为 0 的透明色（那会让全场看不见，且不报错）。</para>
         /// </remarks>
