@@ -18,6 +18,8 @@ namespace DeepseaOil.Data
             "TbPlayer",
             "TbWave",
             "TbTileInitial",
+            "TbElementRule",
+            "TbTileEffect",
         };
 
         public static int Count => Names.Length;
