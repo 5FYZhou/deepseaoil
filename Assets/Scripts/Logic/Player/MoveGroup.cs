@@ -1,84 +1,94 @@
+using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Movement.States;
 using UnityEngine;
 
 namespace DeepseaOil.Logic.Player
 {
-    /// <summary>
-    /// 移动状态组：持有状态实例与状态机，并逐帧按优先级链仲裁转移。
-    /// </summary>
-    /// <remarks>
-    /// 状态机只做"叫我切谁就切谁"，本类负责全部"该不该切、按什么顺序"。
-    /// 仲裁分两段：当前状态结束 → 基础态；否则只有更高级别的条件才能抢占。
-    /// 抢占**先判后消费**：判定是纯查询，目标等于当前状态时不消费任何缓冲与余额。
-    /// 状态类本身是通用件（只依赖 <see cref="ActorLogic"/>），本类因查询玩家资格而属玩家专属。
-    /// 俯视角下抢占链只剩冲刺一条；加新状态时在 <c>AddState</c> 注册、在 <c>TryDecidePreempt</c> 排优先级。
-    /// </remarks>
-    public sealed class MoveGroup
+    /// <summary>移动状态组：持有移动层的状态实例与状态机，<b>并且是唯一写速度的地方</b>。</summary>
+    /// <remarks>帧序见 <c>ActorLogic</c>；门禁由骨架仲裁，本类只负责把上层门禁落到速度上。</remarks>
+    public sealed class MoveGroup : StateGroup<MovementStateTag, LogicContext>
     {
         private readonly PlayerLogic _logic;
-        private readonly StateMachine<MovementStateTag> _machine = new();
+        private readonly IActorMotor _motor;
 
+        private readonly PlayerSpec _spec;
+
+        private readonly InputBuffer _buffer;
         private readonly DashState _dash;
 
-        public MoveGroup(PlayerLogic logic)
+        /// <summary>冲刺冷却：存绝对时刻（不受暂停影响，也不需要每帧累减）。</summary>
+        private readonly Cooldown _dashCooldown = new Cooldown();
+
+        /// <summary>最近一次非零输入方向（<b>已归一化</b>）；零输入时保持不变，供冲刺取向用。</summary>
+        private Vector2 _direction = Vector2.right;
+
+        public MoveGroup(PlayerLogic logic, PlayerSpec spec, IActorMotor motor, InputBuffer buffer)
         {
             _logic = logic;
+            _spec = spec;
+            _motor = motor;
+            _buffer = buffer;
 
-            _dash = new DashState(logic, logic.Config);
+            _dash = new DashState(logic);
 
-            _machine.AddState(new IdleState(logic, logic.Config));
-            _machine.AddState(new MoveState(logic, logic.Config));
-            _machine.AddState(_dash);
+            AddState(new IdleState(logic));
+            AddState(new MoveState(logic));
+            AddState(_dash);
 
-            _machine.OnStateChanged += OnStateChanged;
+            StateChanged += OnStateChanged;
         }
 
-        /// <summary>当前状态标签。</summary>
-        public MovementStateTag Current
+        protected override MovementStateTag EmptyTag => MovementStateTag.Empty;
+
+        protected override MovementStateTag Fallback(in LogicContext ctx)
         {
-            get
-            {
-                var state = _machine.CurrentState;
-                return state == null ? MovementStateTag.Idle : state.StateTag;
-            }
+            return ctx.inputSnapshot.Move.sqrMagnitude > 0f
+                ? MovementStateTag.Move
+                : MovementStateTag.Idle;
         }
 
-        /// <summary>推进一个物理帧：先仲裁，再用（可能已切换的）当前状态跑一次。</summary>
-        public void Tick(in LogicContext ctx)
-        {
-            _machine.ChangeState(CheckTransitions(in ctx), ctx);
-            _machine.CurrentState.Tick(ctx);
-        }
-
-        /// <summary>冲刺状态实例，供调试与测试读取其入场方向。</summary>
-        /// <remarks>只读用途。状态类本身不该被外部配置，入场参数一律经 <see cref="TryCommitPreempt"/> 喂入。</remarks>
+        /// <summary>冲刺状态实例（调试与测试读入场方向）；入场参数一律经 <see cref="TryCommitPreempt"/> 喂入。</summary>
         public DashState Dash => _dash;
 
-        private MovementStateTag CheckTransitions(in LogicContext ctx)
+        /// <summary>冲刺资格：冷却已过，且缓冲里有窗口内的按下。<b>纯查询</b>，不消费。</summary>
+        public bool CanDash(float now)
         {
-            var current = _machine.CurrentState;
-
-            // 首帧没有当前状态：抢占照常判定，判不中才落到基础态。
-            // 不能让首帧直接 return 基础态——那会让第一个物理帧成为"无抢占"特权帧，
-            // 玩家的第一次按下（冷却与缓冲都成立）会被吞掉，要到第二帧才生效。
-            if (TryDecidePreempt(in ctx, out MovementStateTag target)
-                && (current == null || target != current.StateTag)
-                && TryCommitPreempt(target, in ctx))
-            {
-                return target;
-            }
-
-            if (current == null) return GetFallBackState(in ctx);
-
-            return current.IsDone(ctx) ? GetFallBackState(in ctx) : current.StateTag;
+            return _dashCooldown.CanUse(now)
+                && _buffer.CanConsume(InputType.Dash, now, _spec.DashBufferSeconds);
         }
 
-        /// <summary>抢占判定：纯查询，不消费任何缓冲与余额。</summary>
-        private bool TryDecidePreempt(in LogicContext ctx, out MovementStateTag target)
+        public bool TryConsumeDash(float now)
         {
-            if (_logic.CanDash(ctx.now))
+            if (!_dashCooldown.CanUse(now)) return false;
+            if (!_buffer.TryConsume(InputType.Dash, now, _spec.DashBufferSeconds)) return false;
+
+            _dashCooldown.MarkUsed(now, _spec.DashCooldownSeconds);
+
+            return true;
+        }
+
+        /// <summary>推进一个物理帧：<b>速度乘数先交给账本、状态再按输入写速度、强制速度最后整条接管</b>。</summary>
+        public void Tick(in LogicContext ctx, in MoveGates gates)
+        {
+            // 乘数落在"目标速度"上，必须赶在状态算速度之前交给账本（见 IActorMotor.SpeedScale）。
+            _motor.SpeedScale = gates.SpeedScale;
+
+            Vector2 move = ctx.inputSnapshot.Move;
+
+            if (move.sqrMagnitude > 0f) _direction = move.normalized;
+
+            TickStates(in ctx);
+
+            ApplyGates(in gates);
+        }
+
+        protected override bool TryDecidePreempt(in LogicContext ctx, out MovementStateTag target)
+        {
+            if (CanDash(ctx.now))
             {
                 target = MovementStateTag.Dash;
                 return true;
@@ -88,36 +98,27 @@ namespace DeepseaOil.Logic.Player
             return false;
         }
 
-        /// <summary>抢占提交：消费余额并喂入场参数；判定已通过，失败即本帧不切换。</summary>
-        /// <remarks>
-        /// <b>喂方向必须在消费成功之后</b>：<c>Configure</c> 会改写状态对象的字段，若放在消费之前，
-        /// 提交失败（缓冲窗口已过）时状态已被改过，留下一个与"上次真正冲刺过的方向"不符的脏值。
-        /// </remarks>
-        private bool TryCommitPreempt(MovementStateTag target, in LogicContext ctx)
+        /// <summary>抢占提交：喂方向必须在消费成功之后，否则提交失败时会留下与上次冲刺不符的脏方向。</summary>
+        protected override bool TryCommitPreempt(MovementStateTag target, in LogicContext ctx)
         {
-            switch (target)
-            {
-                case MovementStateTag.Dash:
-                    if (!_logic.TryConsumeDash(ctx.now)) return false;
+            if (target != MovementStateTag.Dash) return false;
 
-                    _dash.Configure(Direction(in ctx, _logic.Direction));
-                    return true;
+            if (!TryConsumeDash(ctx.now)) return false;
 
-                default:
-                    return false;
-            }
+            _dash.Configure(ResolveDashDirection(in ctx, _direction));
+
+            return true;
         }
 
-        /// <summary>基础态：当前状态结束后该回到的"无事可做"状态。俯视角只有走/站两档。</summary>
-        private static MovementStateTag GetFallBackState(in LogicContext ctx)
+        /// <summary>把门禁落到速度上 —— <b>全工程唯一"按上层要求改速度"的地方</b>。</summary>
+        /// <remarks>必须放在状态跑完之后：状态（<c>MoveState</c> / <c>IdleState</c>）会整体接管速度，门禁写在它们前面等于没写 —— 现象是"挨打了却纹丝不动"，不报错。
+        /// 强制速度不叠加速度乘数：受击滑停是外力，叠上地面减速会把它拖短。</remarks>
+        private void ApplyGates(in MoveGates gates)
         {
-            return ctx.inputSnapshot.Move.sqrMagnitude > 0f
-                ? MovementStateTag.Move
-                : MovementStateTag.Idle;
+            if (gates.HasForcedVelocity) _motor.SetVelocity(gates.ForcedVelocity);
         }
 
-        /// <summary>冲刺取向：优先用本帧输入方向，无输入则用最近朝向。</summary>
-        private static Vector2 Direction(in LogicContext ctx, Vector2 fallback)
+        private static Vector2 ResolveDashDirection(in LogicContext ctx, Vector2 fallback)
         {
             Vector2 move = ctx.inputSnapshot.Move;
 

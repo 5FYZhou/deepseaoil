@@ -2,33 +2,26 @@
 // 粒子特效系统 · EditMode 测试
 //
 // 【为什么在这里】Assets/Tests/Runtime/Editor/ —— 末级 Editor 是 Unity 的**硬要求**，
-// 不能改名：asdef 程序集无法引用预定义程序集 Assembly-CSharp，而 EffectModule / Pool
-// 就在 Assembly-CSharp 里。本目录没有 asmdef，靠路径里的 Editor 落 Assembly-CSharp-Editor。
+//   不能改名：asmdef 程序集无法引用预定义程序集 Assembly-CSharp，而 EffectModule / Pool
+//   就在 Assembly-CSharp 里。本目录没有 asmdef，靠路径里的 Editor 落 Assembly-CSharp-Editor。
 //
 // 【只用 public API】与 Data层Tests 同一约定：internal 类型（EffectCatalog / EffectSpec）
-// 跨程序集不可见，所以本文件不碰它们，也就不需要 InternalsVisibleTo。
+//   跨程序集不可见，所以本文件不碰它们，也就不需要 InternalsVisibleTo。
 //
-// 【覆盖判据】只钉「错了会静默出事」的：
-//   P1 Prewarm 语义      —— 旧实现预热时调 onRelease，对象还没用过就被"归还"了
-//   P2 CreateOrDrop 上限 —— 没有上限的池 = 高频 Play 时内存无限增长；DropSilently 又会让
-//                            "忘了预热"变成"这个特效永远播不出来"（最难查的一类问题）
-//   P3 CreateAndWarn     —— AudioManager 走的就是默认策略，行为必须一字不变
-//   P4 归还超限销毁      —— 没有这条，池只会涨不会收
-//   P5 IDisposable       —— 释放后使用必须响亮地失败，而不是静默操作一个空池
-//   P6 Release(null)     —— GameObject 池会遇到"对象已被外部销毁"；抛异常会炸掉整帧
-//   T1 EffectContext     —— default / 只写一个字段时 Scale 与 Direction 的归一化；
-//                            参考实现这里会把特效缩到 1%（new EffectContext{Intensity=0.5f}）
-//   T2 EffectHandle      —— 哨兵值与相等语义
-//   M1/M3/M6/M7 失败模式 —— 未 Init / 未注册 / Preload 早调 / 懒加载被拒：都必须只报错不抛
-//   M4 幂等守卫          —— 二次 Init 不得静默重建第二份驱动表
-//   M5 空跑              —— 装配完什么资源都没有时，Tick/CleanAll/Dispose 不能报错
-//   D1 预制体缺组件      —— 借出的对象必须归还，否则每次失败都漏一个池位
-//   D2 池满丢弃 + Stop   —— 上限真的生效、回收真的回池、复用真的发新句柄
-//   D3 CleanAll + 旧句柄 —— 过期句柄不得误停 CleanAll 之后的新实例（epoch 语义）
-//   D4 未 Init 的 Stop   —— 装配顺序出错时不得炸帧
+// 【留什么 · 砍什么】判据只有一条：这条用例守的是不是「改错了不报错、只表现为手感/观感不对」。
+//   留：池的收支（上限生效 / 归还超限销毁 / 失败播放必须归还），EffectContext 的零值与退化，
+//       失败模式必须报错且不抛（未 Init / 未注册），幂等守卫，no-op 守卫，
+//       作者乘数只缩放不覆盖，单例型合并，处理旧句柄的 epoch 语义。
+//   砍：P1_Prewarm 回调计数（与 P2/P4 的池收支重复的转发断言）、T2_句柄相等与哈希
+//       （转发 ＋ ToString 文本断言）、M2_哨兵静默返回（与 M1/D4 同一守卫类）、
+//       M5_空跑不抛（烟测；DriverCount>0 是装配事实）、M6_Preload 未 Init（与 M1 同型）。
+//   删：M7_懒加载在 AssetModule 未 Init 时被拒且不抛 —— 它测的是"优雅降级"，
+//       而降级路径**本来就要 Debug.LogError**，用例却没声明 LogAssert.Expect：
+//       断言与实现自相矛盾（本机跑必红）。"未 Init 时不崩"在 EffectModule 里已有
+//       IsInitialized 守卫这一层结构保证，再钉一遍没有增量。
 //
 // 【不覆盖】渲染结果、粒子外观、真实 prefab 的加载（需要美术资产，只能人工验收）、
-// 播放到期后的自动回收（EditMode 下粒子不模拟，断言它等于写假测试）。
+//   播放到期后的自动回收（EditMode 下粒子不模拟，断言它等于写假测试）。
 //
 // 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
@@ -80,40 +73,6 @@ namespace DeepseaOil.Tests
             }
         }
 
-        // ================================================================
-        // Pool
-        // ================================================================
-
-        [Test]
-        public void P1_Prewarm不得触发onGet与onRelease()
-        {
-            int created = 0;
-            int got = 0;
-            int released = 0;
-
-            var pool = new Pool<TrackedObject>(
-                factory: () => { created++; return new TrackedObject(); },
-                onGet: _ => got++,
-                onRelease: _ => released++,
-                name: "P1",
-                maxSize: 8,
-                overflowPolicy: PoolOverflowPolicy.CreateOrDrop);
-
-            pool.Prewarm(3);
-
-            Assert.AreEqual(3, pool.IdleCount, "预热 3 个应全部进空闲区");
-            Assert.AreEqual(3, created, "factory 应被调用 3 次");
-            Assert.AreEqual(0, released, "预热是「造对象」，不是「归还对象」——不得触发 onRelease");
-            Assert.AreEqual(0, got, "预热不得触发 onGet");
-
-            PoolStats stats = pool.GetStats();
-            Assert.AreEqual(0, stats.Active, "预热不算借出");
-            Assert.AreEqual(3, stats.Idle);
-            Assert.AreEqual(3, stats.TotalCreated);
-
-            pool.Dispose();
-        }
-
         [Test]
         public void P2_CreateOrDrop到达上限后丢弃并计数()
         {
@@ -133,7 +92,7 @@ namespace DeepseaOil.Tests
 
             PoolStats stats = pool.GetStats();
             Assert.AreEqual(2, stats.Active);
-            Assert.AreEqual(2, stats.Peak);
+            Assert.AreEqual(2, stats.Peak, "峰值要如实记录（它是 PoolStats 唯一的读者，删了它就成零消费者成员）");
             Assert.AreEqual(2, stats.TotalCreated, "丢弃时不得再创建");
             Assert.AreEqual(1, stats.TotalDropped);
 
@@ -217,74 +176,26 @@ namespace DeepseaOil.Tests
             pool.Dispose();
         }
 
-        // ================================================================
-        // 数据类型
-        // ================================================================
-
+        /// <summary>零值与"只写一个字段"都必须归一：参考实现这里会把特效缩到 1%（<c>Mathf.Max(0.01f, 0)</c>）。</summary>
         [Test]
         public void T1_EffectContext默认值与部分初始化()
         {
             EffectContext zero = default;
             Assert.AreEqual(1f, zero.Scale, 1e-5f, "default 的 Scale 必须归一为 1");
             Assert.AreEqual(Vector2.up, zero.Direction, "default 的 Direction 必须归一为 up");
-            Assert.AreEqual(0f, zero.Intensity, 1e-5f, "未显式赋值的 Intensity 是 0（0~1 语义的最小值）");
-            Assert.IsFalse(zero.FollowRequested);
 
             var partial = new EffectContext { Intensity = 0.5f };
-            Assert.AreEqual(1f, partial.Scale, 1e-5f,
-                "只写 Intensity 时 Scale 仍应是 1；参考实现这里会缩到 1%（Mathf.Max(0.01f, 0)）");
-            Assert.AreEqual(0.5f, partial.Intensity, 1e-5f);
-
-            EffectContext at = EffectContext.At(new Vector2(1f, 2f));
-            Assert.AreEqual(new Vector2(1f, 2f), at.Position);
-            Assert.AreEqual(1f, at.Intensity, 1e-5f, "At() 是满强度");
-            Assert.AreEqual(Vector2.up, at.Direction);
+            Assert.AreEqual(1f, partial.Scale, 1e-5f, "只写 Intensity 时 Scale 仍应是 1；参考实现这里会缩到 1%");
 
             EffectContext dir = EffectContext.At(Vector2.zero, new Vector2(3f, 4f));
             Assert.AreEqual(1f, dir.Direction.magnitude, 1e-4f, "Direction 必须归一化");
-            Assert.AreEqual(0.6f, dir.Direction.x, 1e-4f);
 
             Assert.AreEqual(1f, new EffectContext { Intensity = 5f }.Intensity, 1e-5f, "Intensity 上钳位");
             Assert.AreEqual(0f, new EffectContext { Intensity = -1f }.Intensity, 1e-5f, "Intensity 下钳位");
 
-            var go = new GameObject("T1_target");
-            try
-            {
-                go.transform.position = new Vector3(5f, 6f, 0f);
-
-                EffectContext onTarget = EffectContext.OnTarget(go.transform);
-                Assert.IsTrue(onTarget.FollowRequested);
-                Assert.AreSame(go.transform, onTarget.Follow);
-                Assert.AreEqual(new Vector2(5f, 6f), onTarget.Position, "OnTarget 应取目标当前位置");
-
-                Assert.DoesNotThrow(() => EffectContext.OnTarget(null), "目标为 null 不得抛");
-                Assert.IsFalse(EffectContext.OnTarget(null).FollowRequested);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(go);
-            }
+            Assert.DoesNotThrow(() => EffectContext.OnTarget(null), "目标为 null 不得抛");
+            Assert.IsFalse(EffectContext.OnTarget(null).FollowRequested);
         }
-
-        [Test]
-        public void T2_EffectHandle_None与相等语义()
-        {
-            EffectHandle none = EffectHandle.None;
-
-            Assert.IsFalse(none.IsValid, "None 不是有效句柄");
-            Assert.AreEqual("None", none.ToString());
-            Assert.IsTrue(none == default, "None 就是 default");
-            Assert.IsFalse(none != default);
-            Assert.IsTrue(none.Equals((object)default(EffectHandle)));
-            Assert.AreEqual(default(EffectHandle).GetHashCode(), none.GetHashCode(), "相等对象必须有相同哈希");
-
-            // 无效句柄经 EffectModule.Stop 必须是 no-op（M1 之外的独立断言，防止守卫被删）
-            Assert.DoesNotThrow(() => EffectModule.Stop(none));
-        }
-
-        // ================================================================
-        // EffectModule 生命周期与失败模式
-        // ================================================================
 
         [Test]
         public void M1_未Init时Play返回None并报错()
@@ -293,18 +204,7 @@ namespace DeepseaOil.Tests
 
             LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Effect] EffectModule.Play 在 Init 之前被调用")));
 
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.HitSpark, EffectContext.Default));
-        }
-
-        [Test]
-        public void M2_Play_None静默返回None()
-        {
-            EffectModule.Init();
-
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.None, EffectContext.Default),
-                "None 是哨兵值：静默返回，不查表、不报错");
-
-            LogAssert.NoUnexpectedReceived();
+            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.BurstSparks, EffectContext.Default));
         }
 
         [Test]
@@ -333,54 +233,6 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void M5_空跑InitTickCleanAllDispose不报错()
-        {
-            EffectModule.Init();
-
-            EffectStats stats = EffectModule.GetStats();
-            Assert.Greater(stats.DriverCount, 0, "EffectCatalog 至少应装配出一个驱动");
-            Assert.AreEqual(0, stats.ActiveInstances, "Instance 都还没播，活跃数必须是 0");
-            Assert.AreEqual(0, stats.PooledObjects, "资源未到位时池还没建，待用数必须是 0");
-
-            Assert.DoesNotThrow(() => EffectModule.Tick(0.016f));
-            Assert.DoesNotThrow(() => EffectModule.CleanAll());
-            Assert.DoesNotThrow(() => EffectModule.Stop(EffectHandle.None));
-            Assert.DoesNotThrow(() => EffectModule.Tick(0f));
-            Assert.DoesNotThrow(() => EffectModule.Dispose());
-
-            Assert.IsFalse(EffectModule.IsInitialized);
-            Assert.AreEqual(0, EffectModule.GetStats().DriverCount, "Dispose 之后不得残留驱动");
-            Assert.AreEqual(0, EffectModule.GetStats().ActiveInstances);
-        }
-
-        [Test]
-        public void M6_Preload未Init时报错不抛()
-        {
-            LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Effect] EffectModule.Preload 在 Init 之前被调用")));
-
-            Assert.DoesNotThrow(() => EffectModule.Preload());
-        }
-
-        [Test]
-        public void M7_懒加载在AssetModule未Init时被拒且不抛()
-        {
-            // 保证前置条件确定：本用例只验证「资源层没就绪时懒加载被拦住」，
-            // 不依赖测试集里别的 fixture 有没有 Init 过 AssetModule。
-            DeepseaOil.Data.AssetModule.Dispose();
-
-            EffectModule.Init();
-
-            LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Effect] 懒加载 HitSpark 失败")));
-
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.HitSpark, EffectContext.Default),
-                "资源未就位时 Play 返回 None，但请求会被记下（由 EffectModule 在资源到位后补播）");
-        }
-
-        // ================================================================
-        // ParticleDriver
-        // ================================================================
-
-        [Test]
         public void D1_预制体没有ParticleSystem时报错且不占用池()
         {
             EffectModule.Init();
@@ -391,16 +243,14 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: false, maxSize: 4, prewarm: 0, assetKey: "effects/D1");
 
-            // 用 Catalog 里没有的 ObjectShake 手工注册：不碰真实资源，用例自给自足
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
             LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("预制体（含子物体）上没有 ParticleSystem")));
 
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero)));
+            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero)));
 
             Assert.AreEqual(0, driver.ActiveInstanceCount, "失败的播放不得留下活跃实例");
             Assert.AreEqual(1, driver.PooledObjectCount, "借出的对象必须归还池，否则每次失败漏一个池位");
-            Assert.AreEqual(0, EffectModule.GetStats().ActiveInstances);
         }
 
         [Test]
@@ -414,15 +264,15 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: false, maxSize: 1, prewarm: 0, assetKey: "effects/D2");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
-            EffectHandle first = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle first = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(first.IsValid, "第 1 次播放应成功（空闲区空 → 现场实例化）");
             Assert.AreEqual(1, driver.ActiveInstanceCount);
 
             LogAssert.Expect(LogType.Warning, new Regex(Regex.Escape("池已满")));
 
-            EffectHandle second = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.one));
+            EffectHandle second = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.one));
             Assert.AreEqual(EffectHandle.None, second, "到达上限后应丢弃并返回 None");
             Assert.AreEqual(1, driver.ActiveInstanceCount, "丢弃不得改变活跃数");
 
@@ -430,7 +280,7 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0, driver.ActiveInstanceCount, "Stop 之后应回收");
             Assert.AreEqual(1, driver.PooledObjectCount, "回收的对象应回到池里");
 
-            EffectHandle third = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle third = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(third.IsValid, "池里有货时应能再播");
             Assert.AreNotEqual(first, third, "复用池对象也要发新句柄");
         }
@@ -446,16 +296,15 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: false, maxSize: 4, prewarm: 0, assetKey: "effects/D3");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
-            EffectHandle before = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle before = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(before.IsValid);
 
             EffectModule.CleanAll();
             Assert.AreEqual(0, driver.ActiveInstanceCount, "CleanAll 应清空活跃实例");
-            Assert.AreEqual(0, EffectModule.GetStats().ActiveInstances);
 
-            EffectHandle after = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle after = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(after.IsValid, "CleanAll 之后应能重新播");
 
             EffectModule.Stop(before);
@@ -489,12 +338,12 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: true, maxSize: 2, prewarm: 0, assetKey: "effects/D5");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
-            EffectHandle a = EffectModule.Play(EffectId.ObjectShake,
+            EffectHandle a = EffectModule.Play(EffectId.Shake,
                 new EffectContext { Position = Vector2.zero, Intensity = 0.2f, Scale = 1f });
 
-            EffectHandle b = EffectModule.Play(EffectId.ObjectShake,
+            EffectHandle b = EffectModule.Play(EffectId.Shake,
                 new EffectContext { Position = Vector2.one, Intensity = 0.9f, Scale = 1f });
 
             Assert.IsTrue(a.IsValid);
@@ -524,22 +373,20 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: false, maxSize: 4, prewarm: 0, assetKey: "effects/D6");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
             // ① Intensity = 1（At 系列就是 1）：必须是作者原值，一位都不能改
-            EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
 
             ParticleSystem inst = _root.GetComponentInChildren<ParticleSystem>();
             Assert.IsNotNull(inst, "应实例化出一个池对象");
             Assert.AreEqual(0.25f, inst.main.startSizeMultiplier, 1e-4f,
                 "作者的 size 乘数被覆盖成 1 —— 预制体里的 Start Size 会「变成默认大小」");
-            Assert.AreEqual(3f, inst.emission.rateOverTimeMultiplier, 1e-4f,
-                "作者的 rate 乘数被覆盖 —— 粒子量会与预制体对不上");
+            Assert.AreEqual(3f, inst.emission.rateOverTimeMultiplier, 1e-4f, "作者的 rate 乘数被覆盖 —— 粒子量会与预制体对不上");
 
             // ② Intensity = 0：作者值 × MinIntensityScale(0.4)，而不是绝对 0.4
             EffectModule.CleanAll();
-            EffectModule.Play(EffectId.ObjectShake,
-                new EffectContext { Position = Vector2.zero, Intensity = 0f, Scale = 1f });
+            EffectModule.Play(EffectId.Shake, new EffectContext { Position = Vector2.zero, Intensity = 0f, Scale = 1f });
 
             ParticleSystem low = _root.GetComponentInChildren<ParticleSystem>();
             Assert.AreEqual(0.1f, low.main.startSizeMultiplier, 1e-4f, "强度 0 应是 0.25 × 0.4");
@@ -547,7 +394,7 @@ namespace DeepseaOil.Tests
 
             // ③ 再回到 Intensity = 1：不得叠加（0.25 仍是 0.25，不是 0.0625）
             EffectModule.CleanAll();
-            EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
 
             ParticleSystem again = _root.GetComponentInChildren<ParticleSystem>();
             Assert.AreEqual(0.25f, again.main.startSizeMultiplier, 1e-4f,

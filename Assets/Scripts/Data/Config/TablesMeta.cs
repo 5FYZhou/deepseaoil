@@ -1,30 +1,25 @@
 namespace DeepseaOil.Data
 {
     /// <summary>
-    /// 手写的表元信息清单。**非生成物**，物理位置在 <c>Assets/Scripts/Data/Config/</c> 下
-    /// （<c>Assets/Scripts/Generated/Config/</c> 是生成物专用目录，导表时整目录镜像覆盖）。
-    ///
-    /// 为什么需要它：cfg.Tables 没有「表数量」之类的属性，生成物又不允许手改。
-    /// 用它换来两件事：
-    ///   1. DataMetrics.TableCount 有数可报
-    ///   2. StartupValidator 的「关键表抽样」成为显式决策，而不是反射遍历全部
-    /// 代价：加表后要同步加一行（见 ConfigWorkspace/AGENTS.md：新表必须登记进 __tables__.xlsx）。
+    /// 手写的表元信息清单，**非生成物**（不进 Generated 目录：导表时整目录镜像覆盖）；判据来自这里，不来自生成行。
+    /// cfg.Tables 没有「表数量」属性、生成物不许手改：用它换来 DataMetrics.TableCount 与显式「关键表抽样」（非反射遍历全表）。
+    /// 代价：加表后必须同步加一行（见 ConfigWorkspace/AGENTS.md：新表必须登记进 __tables__.xlsx），漏一行不报错。
     /// </summary>
     public static class TablesMeta
     {
-        /// <summary>cfg.Tables 的属性名清单。加表时同步。</summary>
         public static readonly string[] Names =
         {
             "TbWeapon",
             "TbItem",
             "TbFish",
-            // 白模迁移新增（战斗切片）：投掷物 / 敌人 / 格子状态 / 玩家 / 波次 / 关卡初始格子
             "TbProjectile",
             "TbEnemy",
             "TbTileState",
             "TbPlayer",
             "TbWave",
             "TbTileInitial",
+            "TbElementRule",
+            "TbTileEffect",
         };
 
         public static int Count => Names.Length;

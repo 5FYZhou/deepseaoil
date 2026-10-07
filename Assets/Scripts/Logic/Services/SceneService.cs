@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Logic.Service;
+using DeepseaOil.Logic.Service;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Data;
 
@@ -18,7 +18,8 @@ namespace DeepseaOil.Logic.Service
             EventBus<RequestChangeScene>.Subscribe(Load);
         }
 
-        public void Tick(float unscaledDeltaTime)
+        /// <remarks>它没有每帧要做的事：切场景由事件驱动（<see cref="Load"/>），本方法只是把接口补齐。</remarks>
+        public void Tick(float deltaTime, float unscaledDeltaTime)
         {
         }
 

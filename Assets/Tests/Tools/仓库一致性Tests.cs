@@ -55,21 +55,28 @@ namespace DeepseaOil.EditorTools.Tests
                 "Config/vector3.cs",
                 "Config/vector4.cs",
                 "Config/demo/BallType.cs",
+                "Config/demo/ElementRule.cs",
+                "Config/demo/ElementTag.cs",
+                "Config/demo/ElementType.cs",
                 "Config/demo/Enemy.cs",
                 "Config/demo/Fish.cs",
                 "Config/demo/Item.cs",
                 "Config/demo/Player.cs",
                 "Config/demo/Projectile.cs",
                 "Config/demo/Quality.cs",
+                "Config/demo/TbElementRule.cs",
                 "Config/demo/TbEnemy.cs",
                 "Config/demo/TbFish.cs",
                 "Config/demo/TbItem.cs",
                 "Config/demo/TbPlayer.cs",
                 "Config/demo/TbProjectile.cs",
+                "Config/demo/TbTileEffect.cs",
                 "Config/demo/TbTileInitial.cs",
                 "Config/demo/TbTileState.cs",
                 "Config/demo/TbWave.cs",
                 "Config/demo/TbWeapon.cs",
+                "Config/demo/TileEffect.cs",
+                "Config/demo/TileEffectType.cs",
                 "Config/demo/TileInitial.cs",
                 "Config/demo/TileState.cs",
                 "Config/demo/TileStateType.cs",
@@ -150,11 +157,8 @@ namespace DeepseaOil.EditorTools.Tests
                 paths.Add(here);
             }
 
-            Assert.GreaterOrEqual(paths.Count, 40,
-                "《目录说明.md》的目录树只解析出 " + paths.Count + " 条路径，"
-                + "少于预期的 40 条：检查代码块格式是否变了"
-                + "（缩进单位必须是 4 字符，目录名结尾必须带 /，名字与注解之间至少 2 个空格）");
-
+            // 只断"文档声明的路径都真实存在"（跨产物一致性）。
+            // 刻意**不**断"这份文档能解析出多少条路径"——那是文档格式，改一次目录树就会红。
             var missing = new List<string>();
             foreach (var p in paths)
             {

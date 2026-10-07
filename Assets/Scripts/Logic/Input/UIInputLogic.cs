@@ -1,6 +1,4 @@
-﻿using DeepseaOil.Presentation.UI;
-using System.Collections;
-using System.Collections.Generic;
+using DeepseaOil.Logic;
 using UnityEngine;
 
 namespace DeepseaOil.Logic.Input
@@ -12,48 +10,46 @@ namespace DeepseaOil.Logic.Input
         void OpenExitConfirmPanel();
     }
 
+    public interface IUIStateRequest
+    {
+        /// <summary>请求切到某个状态；是否真的切由实现方判定（同状态是 no-op）。</summary>
+        void RequestState(GameState state);
+    }
+
     /// <summary>
-    /// 由GameRoot驱动
+    /// UI 输入逻辑：输入由表现层采样进 <c>UILogicContext</c>，本类由 <c>GameRoot</c> 每渲染帧驱动一次、消费该快照。
+    /// 帧内"当前状态"的唯一来源是本帧上下文；Esc 优先级链：先关最上层面板，关不掉才请求切状态。
     /// </summary>
     public sealed class UIInputLogic : ITickable
     {
-        private IUIOperation _uiMgr;
+        private readonly IUIOperation _uiMgr;
+        private readonly IUIStateRequest _states;
 
-        public UIInputLogic(IUIOperation uiMgr)
+        public UIInputLogic(IUIOperation uiMgr, IUIStateRequest states)
         {
             _uiMgr = uiMgr;
+            _states = states;
         }
 
         public void Tick(UILogicContext ctx)
         {
-            // 如果按Esc
-            if (ctx.inputSnapshot.EscPressed)
+            if (!ctx.inputSnapshot.EscPressed) return;
+
+            if (_uiMgr.TryCloseTopmostPanel()) return;
+
+            switch (ctx.gameState)
             {
-                // 1. 尝试关闭最上层的面板（除开始面板）
-                if (_uiMgr.TryCloseTopmostPanel())
-                {
+                case GameState.Running:
+                    _states.RequestState(GameState.Paused);
                     return;
-                }
-                var curState = GameManager.Instance.CurState;
-                // 2. 游戏状态切换
-                // 游戏进行时，切换到暂停
-                if(curState == GameState.Running)
-                {
-                    GameManager.Instance.ChangeState(GameState.Paused);
+
+                case GameState.Menu:
+                    _states.RequestState(GameState.BeforeExit);
                     return;
-                }
-                // 在开始菜单时，确认是否关闭游戏
-                if(curState == Logic.GameState.Menu)
-                {
-                    GameManager.Instance.ChangeState(GameState.BeforeExit);
+
+                case GameState.Paused:
+                    _states.RequestState(GameState.Running);
                     return;
-                }
-                // 游戏暂停时，切换到进行
-                if(curState == GameState.Paused)
-                {
-                    GameManager.Instance.ChangeState(GameState.Running);
-                    return;
-                }
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Presentation.UI;
+using DeepseaOil.Presentation.UI;
 using DeepseaOil.Logic;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,7 +18,7 @@ namespace DeepseaOil.Presentation
 
         public override void HideMe()
         {
-            GameManager.Instance.ChangeState(GameState.Menu);
+            GameRoot.Instance.Game.ChangeState(GameState.Menu);
         }
 
         protected override void OnButtonClicked(string name)
@@ -26,10 +26,10 @@ namespace DeepseaOil.Presentation
             switch(name)
             {
                 case "BtnReturnMenu":
-                    UIMgr.Instance.HidePanel<ExitConfirmPanel>();
+                    GameRoot.Instance.UI.HidePanel<ExitConfirmPanel>();
                     break;
                 case "BtnExit":
-                    GameManager.Instance.ChangeState(GameState.Exit);
+                    GameRoot.Instance.Game.ChangeState(GameState.Exit);
                     break;
             }
         }

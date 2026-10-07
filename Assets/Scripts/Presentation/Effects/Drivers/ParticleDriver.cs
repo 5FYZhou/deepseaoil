@@ -4,41 +4,17 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>
-    /// 粒子驱动：管理一个 <see cref="EffectId"/> 对应粒子预制体的播放、回收与池化。
-    /// </summary>
+    /// <summary>粒子驱动：管理一个 <see cref="EffectId"/> 对应粒子预制体的播放、回收与池化。</summary>
     /// <remarks>
-    /// <para><b>语义</b>：单例型（<see cref="IsSingleton"/>）重复 <c>Play</c> 时合并到当前实例
-    /// （取最大强度，<b>不</b>重置计时）；多实例型每次都新建一个。</para>
-    ///
-    /// <para><b>支持复合预制体</b>：一次 <c>Play</c> 会驱动实例<b>全部</b>
-    /// <c>ParticleSystem</c>（含未激活的子物体）。Unity 里"一个特效 = 父物体 + 几个子粒子系统"
-    /// 是最常见的搭法，只认根上的那一个会让这类预制体直接报"没有 ParticleSystem"。</para>
-    ///
-    /// <para><b>池满策略</b>：<c>CreateOrDrop</c>——空闲区空了就现场实例化（不超过 <c>maxSize</c>），
-    /// 到上限就丢弃本次请求 + 节流 LogWarning。<b>不</b>用 <c>DropSilently</c>：
-    /// 那个策略在"没预热"时会把第一次 Play 也丢掉（一个永远播不出来的特效最难查）。</para>
-    ///
-    /// <para><b>回收判定</b>：估算时长（各自 <c>duration + startLifetime</c> 的最大值）到点后，
-    /// 才向引擎问一次 <c>IsAlive(false)</c>；还活着就继续留，直到超过 <c>+5s</c> 强制回收并警告一次。
-    /// 之所以不是每帧问 <c>IsAlive</c>：它会遍历粒子，是文档点名过的性能坑。
-    /// 之所以不是纯计时：<c>startLifetime.constantMax</c> 只在 Constant / TwoConstants 模式下有效，
-    /// Curve 模式下取不到峰值，纯计时会提前掐断特效。</para>
-    ///
-    /// <para><b>位置与缩放</b>：写世界坐标（特效根在原点，两者等价），<b>保留</b>预制体自带的 z；
-    /// 缩放按 <c>预制体缩放 × ctx.Scale</c>，不会把作者调的缩放抹掉。
-    /// <b>朝向</b>：本驱动<b>不</b>按 <c>ctx.Direction</c> 旋转——粒子是不是有向的由作者决定，
-    /// 强加一个旋转约定会把径向火花也转歪。需要时可在这里加一行
-    /// <c>Quaternion.FromToRotation(Vector3.right, dir)</c>。</para>
-    ///
-    /// <para><b>池对象不逐个 Destroy</b>：实例都是特效根的子物体，销毁根即回收；
-    /// 逐对象 <c>Object.Destroy</c> 在编辑模式下会打警告，也会和根销毁重复。</para>
+    /// <b>语义</b>：单例型（<see cref="IsSingleton"/>）重复 <c>Play</c> 时合并到当前实例（取最大强度，<b>不</b>重置计时）；多实例型每次都新建。一次 <c>Play</c> 会驱动实例<b>全部</b> <c>ParticleSystem</c>（含未激活的子物体）。
+    /// <b>池满策略</b>：<c>CreateOrDrop</c> —— 空闲区空了就现场实例化（不超过 <c>maxSize</c>），到上限就丢弃本次请求 + 节流 LogWarning。<b>不</b>用 <c>DropSilently</c>：那个策略在"没预热"时会把第一次 Play 也丢掉（一个永远播不出来的特效最难查）。
+    /// <b>回收判定</b>：估算时长（各自 <c>duration + startLifetime</c> 的最大值）到点后才向引擎问一次 <c>IsAlive(false)</c>；还活着就继续留，直到超过 <c>+5s</c> 强制回收并警告一次。不是每帧问（<c>IsAlive</c> 会遍历粒子，是文档点名过的性能坑），也不是纯计时（<c>startLifetime.constantMax</c> 只在 Constant / TwoConstants 模式下有效，Curve 模式下取不到峰值、纯计时会提前掐断特效）。
+    /// <b>位置与缩放</b>：写世界坐标并<b>保留</b>预制体自带的 z；缩放按 <c>预制体缩放 × ctx.Scale</c>，不会把作者调的缩放抹掉。<b>朝向</b>：<b>不</b>按 <c>ctx.Direction</c> 旋转 —— 粒子是不是有向的由作者决定，强加一个旋转约定会把径向火花也转歪。
+    /// <b>池对象不逐个 Destroy</b>：实例都是特效根的子物体，销毁根即回收（逐对象 <c>Object.Destroy</c> 在编辑模式下会打警告，也会和根销毁重复）。
     /// </remarks>
     public sealed class ParticleDriver : IEffectDriver
     {
-        /// <summary>
-        /// Intensity = 0 时粒子量与大小的缩放，<b>相对预制体作者值</b>（Intensity = 1 时 = 原样播）。
-        /// </summary>
+        /// <summary>Intensity = 0 时粒子量与大小的缩放，<b>相对预制体作者值</b>（Intensity = 1 时 = 原样播）。</summary>
         private const float MinIntensityScale = 0.4f;
 
         /// <summary>估算时长之后最多再等多久就强制回收（防"粒子寿命无限"把池位占死）。</summary>
@@ -47,7 +23,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         /// <summary>池满警告的最小间隔（秒），避免刷屏。</summary>
         private const float DropWarnInterval = 1f;
 
-        // ── 装配参数（构造后不变）──
+        // 装配参数（构造后不变）
         private readonly string _assetKey;
         private readonly string _tag;
         private readonly bool _isSingleton;
@@ -55,23 +31,15 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private readonly int _maxSize;
         private readonly int _prewarm;
 
-        // ── 运行期状态 ──
+        // 运行期状态
         private readonly Dictionary<int, ParticleInstance> _active = new Dictionary<int, ParticleInstance>();
         private readonly List<int> _recycleScratch = new List<int>();
 
         private GameObject _prefab;
         private Vector3 _prefabScale = Vector3.one;
 
-        /// <summary>
-        /// 预制体上<b>作者授权</b>的乘数，按 <c>GetComponentsInChildren</c> 的顺序与实例一一对应。
-        /// </summary>
-        /// <remarks>
-        /// <b>为什么必须存下来</b>：<c>startSizeMultiplier</c> / <c>rateOverTimeMultiplier</c> 是
-        /// <b>作者的值</b>，不是"驱动自己的旋钮"。直接写 <c>= k</c> 会把作者在
-        /// Curve / Random Between Two Curves 模式下填的 "Multiplier" 抹成 1 ——
-        /// 表现为"预制体里 Start Size 明明设好了，进游戏却是默认大小"（作者值住在乘数里时）。
-        /// 正确做法是<b>只做相对缩放</b>：<c>作者值 × k</c>。
-        /// </remarks>
+        /// <summary>预制体上<b>作者授权</b>的乘数，按 <c>GetComponentsInChildren</c> 的顺序与实例一一对应。</summary>
+        /// <remarks><b>必须存下来</b>：<c>startSizeMultiplier</c> / <c>rateOverTimeMultiplier</c> 是<b>作者的值</b>，直接写 <c>= k</c> 会把作者在 Curve / Random Between Two Curves 模式下填的 "Multiplier" 抹成 1（表现为"预制体里 Start Size 明明设好了，进游戏却是默认大小"）。正确做法是只做相对缩放：<c>作者值 × k</c>。</remarks>
         private float[] _authoredSizeMul;
         private float[] _authoredRateMul;
         private bool _warnedAuthoredMismatch;
@@ -86,12 +54,10 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private bool _warnedLifeOverrun;
         private bool _disposed;
 
-        /// <param name="prefab">粒子预制体。懒加载路径下先传 null，等 <see cref="OnAssetLoaded"/>。</param>
-        /// <param name="root">实例的父物体（特效根）。</param>
+        /// <param name="prefab">粒子预制体；懒加载路径下先传 null，等 <see cref="OnAssetLoaded"/>。</param>
         /// <param name="isSingleton">是否单例型。</param>
-        /// <param name="maxSize">池上限（同时存在的实例数上限）。</param>
-        /// <param name="prewarm">预热数。</param>
-        /// <param name="assetKey">资源 Key，只用于日志。</param>
+        /// <param name="maxSize">池上限（同时存在的实例数上限）；<c>≤ 0</c> 夹成 1。</param>
+        /// <param name="prewarm">预热数；负数按 0 处理。</param>
         public ParticleDriver(
             GameObject prefab,
             Transform root,
@@ -117,10 +83,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             : this(null, root, spec.IsSingleton, spec.MaxSize, spec.Prewarm, spec.Key)
         {
         }
-
-        // ─────────────────────────────────────────────
-        // IEffectDriver
-        // ─────────────────────────────────────────────
 
         public bool IsSingleton => _isSingleton;
 
@@ -159,7 +121,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 return EffectHandle.None;
             }
 
-            // 单例：已在播 → 合并（取最大强度，不重置计时）
+            // 单例：已在播 → 合并到当前实例
             if (_isSingleton && _singleton != null)
             {
                 if (ctx.Intensity > _singleton.Intensity) _singleton.Intensity = ctx.Intensity;
@@ -298,17 +260,12 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _prefab = null;
         }
 
-        // ─────────────────────────────────────────────
-        // 内部：装配
-        // ─────────────────────────────────────────────
-
         private void BuildPool(GameObject prefab)
         {
             _prefab = prefab;
             _prefabScale = prefab.transform.localScale;
 
-            // 作者授权的乘数：趁"没有任何东西改过它"的时刻，从预制体资源上抓一次。
-            // 之后每次播放都写回 作者值 × 强度 —— 于是"预制体即基准"这条契约为恒真。
+            // 趁"没有任何东西改过它"的时刻从预制体资源上抓一次作者乘数：之后每次播放都写回 作者值 × 强度。
             ParticleSystem[] authored = prefab.GetComponentsInChildren<ParticleSystem>(true);
             _authoredSizeMul = new float[authored.Length];
             _authoredRateMul = new float[authored.Length];
@@ -353,18 +310,10 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             t.position = new Vector3(f.x, f.y, t.position.z);
         }
 
-        /// <summary>
-        /// 强度映射：<b>在作者值的基础上</b>做相对缩放（<c>intensity = 1</c> 时 = 原样播）。
-        /// </summary>
+        /// <summary>强度映射：<b>在作者值的基础上</b>做相对缩放（<c>intensity = 1</c> 时 = 原样播）。</summary>
         /// <remarks>
-        /// <para>乘数属性对<b>所有</b> <c>MinMaxCurve</c> 模式都合法，但它<b>属于作者</b>：
-        /// Curve / Random Between Two Curves 模式下，Inspector 曲线下方的 "Multiplier" 就是它
-        /// （作者的整个幅度可能都住在里面）。直接写 <c>= k</c> 会把它抹成 1 ——
-        /// 预制体里 Start Size 设得再小，进游戏也会"变成默认大小"。所以一律写 <c>作者值 × k</c>。</para>
-        /// <para><c>startSize.curveMultiplier</c>（曲线自带的乘数）<b>刻意不碰</b>：它与本乘数相乘，
-        /// 两个都乘 k 会变成 k²，强度越小缩得越狠。只缩放其中一个，总量恒等于"作者值 × k"。</para>
-        /// <para>实例的系统数与预制体不一致时（理论上不该发生）：<b>宁可不缩放</b>也不写坏作者值，
-        /// 只报一次警告。</para>
+        /// 乘数属性对<b>所有</b> <c>MinMaxCurve</c> 模式都合法，但它<b>属于作者</b>：Curve / Random Between Two Curves 模式下 Inspector 曲线下方的 "Multiplier" 就是它，直接写 <c>= k</c> 会把它抹成 1（预制体里 Start Size 设得再小，进游戏也会"变成默认大小"）。<c>startSize.curveMultiplier</c>（曲线自带的乘数）<b>刻意不碰</b>：它与本乘数相乘，两个都乘 k 会变成 k²。
+        /// 实例的系统数与预制体不一致时（理论上不该发生）：<b>宁可不缩放</b>也不写坏作者值，只报一次警告。
         /// </remarks>
         private void ApplyIntensity(ParticleSystem[] systems, float intensity)
         {
@@ -393,10 +342,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             }
         }
 
-        /// <summary>
-        /// 估算一次播放的总时长（秒）：各粒子系统 <c>duration + startLifetime</c> 的最大值。
-        /// 任一系统是循环型就返回 +∞（靠 Stop / CleanAll / 跟随丢失回收）。
-        /// </summary>
+        /// <summary>估算一次播放的总时长（秒）：各粒子系统 <c>duration + startLifetime</c> 的最大值。</summary>
+        /// <returns>任一系统是循环型就返回 +∞（靠 Stop / CleanAll / 跟随丢失回收）。</returns>
         private static float EstimateDuration(ParticleSystem[] systems)
         {
             float max = 0f;
@@ -419,8 +366,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                         break;
 
                     default:
-                        // Curve / TwoCurves：curveMultiplier 是"乘数"而非曲线峰值，可能偏小。
-                        // 偏小不要紧——到期后还会问一次 IsAlive（见 IsFinished），不会提前掐断。
+                        // Curve / TwoCurves：curveMultiplier 是"乘数"而非曲线峰值，可能偏小 —— 不要紧，
+                        // 到期后还会问一次 IsAlive（见 IsFinished），不会提前掐断。
                         lifetime = main.startLifetime.curveMultiplier;
                         break;
                 }
@@ -431,10 +378,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             return max;
         }
-
-        // ─────────────────────────────────────────────
-        // 内部：回收
-        // ─────────────────────────────────────────────
 
         private bool IsFinished(ParticleInstance inst)
         {
