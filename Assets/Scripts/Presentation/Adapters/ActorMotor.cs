@@ -1,23 +1,27 @@
+using DeepseaOil.Data;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
     /// <summary>
-    /// 移动执行器基类：<b>把逻辑层算出的速度写进物理体，并把朝向落成视觉镜像</b>。
+    /// 移动执行器基类：<b>把逻辑层算出的速度写进物理体，并把朝向落成视觉镜像</b>；
+    /// 同时承载<b>速度账本与角色控制律</b>（<see cref="IActorMotor"/>）。
     /// </summary>
     /// <remarks>
-    /// 玩家与敌人共用这一份实现（<see cref="PlayerMotor"/> / <see cref="EnemyMotor"/>），
-    /// 差异只有"各自额外的物理参数"。
-    /// <para><b>为什么当初是两份、后来合成一份：</b>最早玩家一个 <c>MovementMotor</c>、敌人一个
-    /// <c>EnemyMotor</c>，理由是"抽基类要先动一个正在工作的文件"。改成统一结构（敌人与玩家同构）之后，
-    /// 那个理由消失了，而重复的代价出现了：两份 <c>Facing</c> 的镜像契约会各自漂
-    /// —— 注释里早就写着"契约要一致，否则将来换精灵时会冒缺陷"，而注释拦不住漂移。
-    /// 现在镜像、惰性初始化、速度读写各只有一份。</para>
+    /// <para><b>账本为什么在这里：</b>审查已定"把 <c>Motor</c> 开放出来、让 Logic 退化为组合件"。
+    /// 账本（一帧的速度累加区 ＋ 帧末一次写出）与控制律（渐进逼近 / 零惯性直达 / 反向衰减）
+    /// 只服务"这一帧怎么驱动物理体"这一个问题，留在 <c>ActorLogic</c> 里等于让每个角色各继承一份同样的字段。
+    /// 搬出来之后，状态层与移动层注入的是执行器，而控制律可以用一个不碰引擎的探针在 EditMode 里直接测。</para>
+    /// <para><b>玩家与敌人共用这一份实现</b>（<see cref="PlayerMotor"/> / <see cref="EnemyMotor"/>），
+    /// 差异只有"各自额外的物理参数"。最早两份实现（玩家一个 <c>MovementMotor</c>、敌人一个
+    /// <c>EnemyMotor</c>）的理由是"抽基类要先动一个正在工作的文件"；改成统一结构之后，
+    /// 重复的代价出现了：两份 <c>Facing</c> 的镜像契约会各自漂。</para>
     /// <para><b>重力由逻辑层施加</b>（俯视角把重力缩放设为 0），本类永不设阻尼。</para>
-    /// <para><see cref="Velocity"/> 是引擎真值回读口：逻辑层帧首读它作本帧基准
-    /// （读到的是上一物理步结束时的值）。<see cref="Position"/> / <see cref="SetPosition"/>
-    /// 走物理体位置而非 <c>transform</c>（后者会被刚体的位置积分覆盖）。</para>
+    /// <para><see cref="Velocity"/> 分两层：<see cref="EngineVelocity"/> 是<b>引擎真值回读口</b>，
+    /// 而 <c>IActorLedger.Velocity</c> 是<b>本帧工作速度</b>（帧首真值 ＋ 本帧提交）。
+    /// 两者不一致时（撞墙、被顶住）正是"引擎是否否决了提交"的可见形态 ——
+    /// 调试面板把两者并排显示就是为了这个。</para>
     /// <para><b>本类不做任何环境检测</b>：俯视角的阻挡全部由刚体碰撞解算。需要"是否站地 / 是否贴墙"
     /// 的角色（悬崖巡逻、贴墙判定）届时在自己的子类上实现，不要往这里加射线。</para>
     /// <para><b>初始化与生命周期无关</b>：物理体引用惰性自取（见 <see cref="Body"/>），
@@ -26,10 +30,11 @@ namespace DeepseaOil.Presentation
     /// "忘了接线 / 生命周期没跑"导致的 <c>NullReferenceException</c>。</para>
     /// </remarks>
     [RequireComponent(typeof(Rigidbody2D))]
-    public abstract class ActorMotor : MonoBehaviour, IMovementMotor
+    public abstract class ActorMotor : MonoBehaviour, IActorMotor
     {
         [SerializeField] private Rigidbody2D body = default;
 
+        private ActorLedger _ledger;
         private Vector2 _facing = Vector2.right;
         private bool _initialized;
 
@@ -46,11 +51,16 @@ namespace DeepseaOil.Presentation
         /// <summary>初始化是否已跑过；测试据此断言初始化链路真的执行了。</summary>
         public bool IsInitialized => _initialized;
 
+        /// <summary>速度账本（控制律与一帧的提交都住在它里面，见 <see cref="ActorLedger"/>）。</summary>
+        private ActorLedger Ledger => _ledger ??= new ActorLedger(
+            readVelocity: () => Body.velocity,
+            writeVelocity: v => Body.velocity = v);
+
         /// <summary>
         /// 立即固化物理参数（幂等）。
         /// </summary>
         /// <remarks>
-        /// 惰性初始化要等到第一次读 <see cref="Position"/> / <see cref="Velocity"/> 才跑，
+        /// 惰性初始化要等到第一次读 <see cref="Position"/> / <see cref="EngineVelocity"/> 才跑，
         /// 而"建完刚体到第一次读位置之间"隔着的那一个物理步会用<b>默认重力</b>跑 —— 例如敌人在
         /// <c>FixedUpdate</c> 里被造出来，它第一次读位置在下一个物理帧。偏差极小（约 0.002 单位），
         /// 但它是"物理参数什么时候生效"这个问题的隐式答案，所以建完刚体就显式调一次，
@@ -61,11 +71,29 @@ namespace DeepseaOil.Presentation
             Initialize();
         }
 
-        /// <summary>引擎当前速度（单位/秒）。</summary>
-        public Vector2 Velocity => Body.velocity;
+        // ─────────────────────────────────────────────
+        // IMovementMotor：引擎侧的读写
+        // ─────────────────────────────────────────────
+
+        /// <summary>引擎当前速度（单位/秒）。<b>这是回读口</b>，不是本帧工作速度。</summary>
+        public Vector2 EngineVelocity => Body.velocity;
 
         /// <summary>物理体位置；边界钳位用 <c>Rigidbody2D.position</c> 而非 <c>transform.position</c>。</summary>
         public Vector2 Position => Body.position;
+
+        /// <summary>以给定速度驱动一次移动（不经账本）。<b>只有账本的 Commit 与重生该调它。</b></summary>
+        /// <remarks>绕过账本直接调它会让本帧帧末的 <c>Commit</c> 覆盖掉这次写入，
+        /// 表现为"被推了一下又弹回去"—— 要改速度请用账本入口。</remarks>
+        public void Move(Vector2 velocity)
+        {
+            Body.velocity = velocity;
+        }
+
+        /// <summary>瞬移物理体（边界钳位 / 重生用）；会打断插值，只在必要时调用。</summary>
+        public void SetPosition(Vector2 position)
+        {
+            Body.position = position;
+        }
 
         /// <summary>
         /// 朝向：内部保存完整世界方向（俯视角 8 向），只把<b>水平分量</b>落成 <c>localScale.x</c> 的符号。
@@ -92,17 +120,127 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>以给定速度驱动一次移动；<see cref="Vector2.zero"/> 即当帧停住。</summary>
-        public void Move(Vector2 velocity)
+        /// <summary>引擎速度（<c>IMovementMotor.Velocity</c>：回读口）。</summary>
+        Vector2 IMovementMotor.Velocity => EngineVelocity;
+
+        // ─────────────────────────────────────────────
+        // IActorLedger：全部转发给账本
+        // ─────────────────────────────────────────────
+
+        /// <inheritdoc />
+        public CharacterConfig Config => Ledger.Config;
+
+        /// <inheritdoc />
+        public Vector2 FrameStartVelocity => Ledger.FrameStartVelocity;
+
+        /// <inheritdoc />
+        public Vector2 SubmittedDelta => Ledger.SubmittedDelta;
+
+        /// <inheritdoc />
+        Vector2 IActorLedger.Velocity => Ledger.Velocity;
+
+        /// <inheritdoc />
+        public float SpeedScale
         {
-            Body.velocity = velocity;
+            get => Ledger.SpeedScale;
+            set => Ledger.SpeedScale = value;
         }
 
-        /// <summary>瞬移物理体（边界钳位 / 重生用）；会打断插值，只在必要时调用。</summary>
-        public void SetPosition(Vector2 position)
+        /// <inheritdoc />
+        public void Configure(CharacterConfig config)
         {
-            Body.position = position;
+            Ledger.Configure(config);
         }
+
+        /// <inheritdoc />
+        public void BeginStep(float now, float deltaTime)
+        {
+            Ledger.BeginStep(now, deltaTime);
+        }
+
+        /// <inheritdoc />
+        public void Commit()
+        {
+            Ledger.Commit();
+        }
+
+        /// <inheritdoc />
+        public void AddImpulse(Vector2 deltaVelocity) => Ledger.AddImpulse(deltaVelocity);
+
+        /// <inheritdoc />
+        public void AddForce(Vector2 acceleration) => Ledger.AddForce(acceleration);
+
+        /// <inheritdoc />
+        public void SetVelocity(Vector2 velocity) => Ledger.SetVelocity(velocity);
+
+        /// <inheritdoc />
+        public void ClampSpeed(float maxSpeed) => Ledger.ClampSpeed(maxSpeed);
+
+        /// <inheritdoc />
+        public void SetSpeedLimit(float maxSpeed) => Ledger.SetSpeedLimit(maxSpeed);
+
+        /// <inheritdoc />
+        public void SetExtraForceScale(float scale) => Ledger.SetExtraForceScale(scale);
+
+        /// <inheritdoc />
+        public void StartMoveLock(float now, float duration) => Ledger.StartMoveLock(now, duration);
+
+        // ─────────────────────────────────────────────
+        // 控制律（IStateHost 的入口）
+        // ─────────────────────────────────────────────
+
+        /// <summary>接管两个分量，并按水平分量更新朝向。</summary>
+        public void SnapVelocity(Vector2 velocity)
+        {
+            Ledger.SnapVelocity(velocity, v => FaceTowards(new Vector2(v.x, 0f)));
+        }
+
+        /// <inheritdoc />
+        public void MoveTowards(Vector2 direction, float speed)
+        {
+            FaceTowards(direction);
+
+            if (Ledger.IsMoveLocked) return;
+
+            Ledger.MoveTowards(direction, speed);
+        }
+
+        /// <inheritdoc />
+        public void BrakeTowards()
+        {
+            Ledger.BrakeTowards();
+        }
+
+        /// <summary>急停：速度当帧归零（朝向不变）；移动锁定期内不响应。</summary>
+        /// <remarks><b>它的语义是"硬停"</b>（重生、禁用、速度被外力完全接管时用）。
+        /// 手感上的"松手滑停"走 <see cref="BrakeTowards"/> —— 两者刻意分开。</remarks>
+        public void StopMove()
+        {
+            Ledger.StopMove();
+        }
+
+        /// <summary>俯视角移动：把速度整体接管为 <paramref name="direction"/> × <paramref name="speed"/>。</summary>
+        public void MoveDirection(Vector2 direction, float speed)
+        {
+            FaceTowards(direction);
+
+            Ledger.MoveDirection(direction, speed);
+        }
+
+        /// <summary>面向给定方向；零向量表示"不改朝向"（站住时精灵不会自己翻面）。</summary>
+        public void FaceTowards(Vector2 direction)
+        {
+            if (direction.sqrMagnitude <= 0f) return;
+
+            Facing = direction;
+        }
+
+        /// <summary>
+        /// 提交一帧外力（转发给账本）。
+        /// </summary>
+        /// <remarks>参数由调用方给出，本类不持有任何具体力的语义。
+        /// 它与 <see cref="SetSpeedLimit"/> 目前没有生产消费者（见 <see cref="ActorLedger.ApplyExtraForce"/>）。</remarks>
+        public void ApplyExtraForce(Vector2 force) => Ledger.ApplyExtraForce(force);
 
         protected virtual void Awake()
         {

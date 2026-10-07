@@ -8,8 +8,8 @@ namespace DeepseaOil.Logic.Grid.States
     /// </summary>
     /// <remarks>
     /// <b>减速是"推"而不是"被查询"的：</b>本状态在 <see cref="OnEnter"/> 与每次
-    /// <see cref="OnTick"/> 里只<b>提交</b>一句"这一格续一次减速"，找人与施加由执行者完成
-    /// （见 <c>ITileSlowApplier</c>）。收口前它是"被查询的系数"（<c>SlowMultiplier</c>），
+    /// <see cref="OnTick"/> 里只<b>提交</b>一句"这一格续一次减速"，找人与施加由结算口完成
+    /// （见 <see cref="ITileResolver"/>）。收口前它是"被查询的系数"（<c>SlowMultiplier</c>），
     /// 于是每个踩在格上的角色都要自己去问一次格子 —— 那是"谁先跑"的顺序问题的温床，
     /// 也把"目标在不在这一格"的知识复制到了每个角色身上。
     /// <para><b>Tick 只用来数时长与续命：</b>本状态没有周期结算，但<b>必须每帧被调度到</b> ——
@@ -36,8 +36,8 @@ namespace DeepseaOil.Logic.Grid.States
         /// <summary>已经持续了多久（秒）。每格一份实例，所以这个字段是每格独立的。</summary>
         private float _elapsed;
 
-        /// <param name="spec">本状态的配置行（由 <c>SpecCatalog.TileState</c> 折算而来）。</param>
-        public MudTileState(in TileStateSpec spec)
+        /// <param name="spec">本状态的取值边界（由 <c>ConfigModule.GetTileState</c> 给出）。</param>
+        public MudTileState(TileStateSpec spec)
         {
             _spec = spec;
         }
@@ -89,11 +89,11 @@ namespace DeepseaOil.Logic.Grid.States
         /// <summary>
         /// 提交一次减速修饰。
         /// </summary>
-        /// <remarks><b>没有执行者时静默跳过</b>（<c>ctx.Slow</c> 为 <c>null</c>）：那是"逻辑层单独跑测试"
+        /// <remarks><b>没有执行者时静默跳过</b>（<c>ctx.Resolver</c> 为 <c>null</c>）：那是"逻辑层单独跑测试"
         /// 的场合，格子状态不该为此报错，也不该自己去 new 一个执行者。</remarks>
         private void SubmitSlow(in TileContext ctx)
         {
-            ctx.Slow?.ApplySlow(ctx.Cell, _spec.SlowFactor, SlowRefreshSeconds);
+            ctx.Resolver?.Apply(ctx.Cell, TileEffect.Slow(_spec.SlowFactor, SlowRefreshSeconds));
         }
     }
 }

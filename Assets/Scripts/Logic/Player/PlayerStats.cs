@@ -1,36 +1,123 @@
-using DeepseaOil.Data;
+using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Data;
+using UnityEngine;
 
 namespace DeepseaOil.Logic.Player
 {
     /// <summary>
-    /// 玩家的账本：<b>水球计数 ＋ 血量</b>。由 <see cref="PlayerLogic"/> 内部组合持有，不单独外流。
+    /// 玩家的运行时账本：<b>血量 ＋ 无敌帧 ＋ 水球计数</b>。由 <see cref="PlayerLogic"/> 持有。
     /// </summary>
     /// <remarks>
-    /// <b>它由 <c>PlayerResources</c> 改名而来（收口决策：命名要覆盖内容）。</b>
-    /// 改名前它只管水球，而血量住在表现层的 <c>PlayerHealthController</c> 里 ——
-    /// 同一个玩家的两份状态分散在两个层、两个构造点，于是"玩家被打空了谁负责"没有唯一答案。
-    /// 现在两者都是本类的字段：玩家的数据全在一处。
-    /// <para><b>它自己发布事实事件</b>（<see cref="WaterBallCountChanged"/>、
-    /// <c>PlayerHealthChanged</c> 由 <see cref="PlayerHealth"/> 发）：数据的持有者最清楚"什么时候变了"，
-    /// 让表现层记得发等于把"忘了发 ⇒ HUD 静默不更新"埋进调用点。
-    /// <b>事件名与载荷都没变</b>：HUD 对本次改造无感。</para>
-    /// <para><b>上限当前是"无上限"</b>：需求里没有消耗以外的口径，凭空加一个会因为没有人验证而失真。</para>
+    /// <b>它取代了"三份"：</b>收口前玩家的值分散在 <c>PlayerSpec</c>（表值结构与折算）、
+    /// <c>PlayerHealth</c>（血量 ＋ 无敌帧）、<c>PlayerStats</c>（水球）三处，
+    /// "这个值我要去哪里找"因此要逐个判断、还容易问错人。现在只认本类一处。
+    /// <para><b>只读配置（<see cref="Spec"/>）与可变状态（本类的字段）刻意分开：</b>
+    /// <c>Spec</c> 是 <c>ConfigModule</c> 给出的取值边界（表 ＋ SO），本类的字段才是"这一局跑出来的东西"。</para>
+    /// <para><b>它自己发布事实事件</b>：数据的持有者最清楚"什么时候变了"，
+    /// 让表现层记得发等于把"忘了发 ⇒ HUD 静默不更新"埋进调用点。</para>
+    /// <para><b>无物理查询、无视觉、无输入</b>：接触检测、<c>Time.fixedTime</c>、刚体位置都在表现层，
+    /// 本类只被喂进"扣多少、现在几点"。</para>
     /// </remarks>
-    public sealed class PlayerStats
+    public sealed class PlayerStats : IAlivable
     {
-        /// <summary>血量 ＋ 无敌帧。</summary>
-        public PlayerHealth Health { get; }
+        private readonly PlayerSpec _spec;
+
+        private float _current;
+
+        private float _invulnerableUntil = float.NegativeInfinity;
+
+        /// <param name="spec">玩家取值边界（表行 ＋ 移动 SO ＋ 投掷调参）。</param>
+        public PlayerStats(PlayerSpec spec)
+        {
+            _spec = spec;
+            _current = spec.MaxHp;
+        }
+
+        /// <summary>本局的配置取值边界（只读）：血量 / 无敌 / 受击 / 接触半径。</summary>
+        public PlayerSpec Spec => _spec;
+
+        /// <summary>血量上限。</summary>
+        public float Maximum => _spec.MaxHp;
+
+        /// <summary>当前血量。</summary>
+        public float Current => _current;
 
         /// <summary>水球数量。</summary>
         public int WaterBallCount { get; private set; }
 
-        /// <summary>是否还有血。</summary>
-        public bool IsAlive => Health.IsAlive;
+        /// <inheritdoc />
+        public bool IsAlive => _current > 0f;
 
-        public PlayerStats(in PlayerSpec spec)
+        /// <summary>是否处于无敌期。</summary>
+        public bool IsInvulnerable(float now)
         {
-            Health = new PlayerHealth(in spec);
+            return !CanTakeDamage(now, _invulnerableUntil);
+        }
+
+        /// <summary>无敌剩余时长（秒）；不在无敌期时为 0。</summary>
+        public float InvulnerableRemaining(float now)
+        {
+            return Mathf.Max(0f, _invulnerableUntil - now);
+        }
+
+        /// <summary>
+        /// 无敌帧判据。<b>静态纯函数</b>，所以 EditMode 测试能直接喂时间戳。
+        /// </summary>
+        /// <param name="now">当前时间。</param>
+        /// <param name="invulnerableUntil">无敌结束时间；从未受击时可以是负无穷或 <c>NaN</c>。</param>
+        /// <returns>可以承受伤害为 <c>true</c>。</returns>
+        /// <remarks>
+        /// <b>写成 <c>!(now &lt; invulnerableUntil)</c> 而不是 <c>now &gt;= invulnerableUntil</c>，</b>
+        /// 是为了让非法时间戳落到"可以受伤"这一侧：两个操作数里有 <c>NaN</c> 时前者为 <c>true</c>
+        /// （照常结算），后者为 <c>false</c>（玩家变成<b>永久无敌</b>，而屏幕上什么都不会显示）。
+        /// "看起来在受伤却永远不死"比"挨了一下不该挨的打"糟得多 —— 前者查不出来。
+        /// </remarks>
+        public static bool CanTakeDamage(float now, float invulnerableUntil)
+        {
+            return !(now < invulnerableUntil);
+        }
+
+        /// <summary>
+        /// 扣血。<b>唯一入口</b>（接触、将来的陷阱与技能都走这里）。
+        /// </summary>
+        /// <param name="amount">伤害值；非正数直接忽略。</param>
+        /// <param name="now">当前时间。</param>
+        /// <returns>真的扣掉了血为 <c>true</c>（被无敌帧挡掉时为 <c>false</c>）。</returns>
+        /// <remarks>
+        /// <b>被挡掉时不扣血、不写无敌时间</b>：两件事必须一起发生或一起不发生。
+        /// 只扣血不写无敌，下一帧立刻再扣一次；只写无敌不扣血，玩家会白白进入无敌期。
+        /// <para>接触伤害是"贴住就重复结算"的，靠无敌帧挡：没有它，玩家贴在敌人身上时
+        /// 每帧都会扣一次、十帧内打空 —— 那不是"被打了十下"，是一瞬间死。</para>
+        /// </remarks>
+        public bool ApplyDamage(float amount, float now)
+        {
+            if (amount <= 0f) return false;
+
+            if (!CanTakeDamage(now, _invulnerableUntil)) return false;
+
+            _current = Mathf.Max(0f, _current - amount);
+
+            _invulnerableUntil = now + _spec.InvulnerableDuration;
+
+            EventBus<PlayerHealthChanged>.Publish(new PlayerHealthChanged(_current, _spec.MaxHp));
+
+            return true;
+        }
+
+        /// <summary>
+        /// 回到满血并清掉无敌期。
+        /// </summary>
+        /// <remarks>
+        /// 清掉无敌是刻意的：重置之后玩家已经不在敌人身边（清场），不需要靠无敌撑过重开的那一帧；
+        /// 而留着它会让"下一次真的被打到"晚 0.8 秒才掉血。
+        /// </remarks>
+        public void ResetToFull()
+        {
+            _current = _spec.MaxHp;
+            _invulnerableUntil = float.NegativeInfinity;
+
+            EventBus<PlayerHealthChanged>.Publish(new PlayerHealthChanged(_current, _spec.MaxHp));
         }
 
         /// <summary>加水球。<paramref name="amount"/> 非正数时是 no-op。</summary>
@@ -58,7 +145,11 @@ namespace DeepseaOil.Logic.Player
             return true;
         }
 
-        /// <summary>水球清零（重开 / 切场景）。血量不在这里重置 —— 那是 <see cref="PlayerHealth.ResetToFull"/> 的事。</summary>
+        /// <summary>水球清零（重开 / 切场景）。血量不在这里重置 —— 那是 <see cref="ResetToFull"/> 的事。</summary>
+        /// <remarks>
+        /// <b>当前零生产消费者</b>（打空重来走 <c>PlayerLogic.RespawnTo</c>，它不扣不清水球）。
+        /// 刻意保留：它是"重开一局"这条语义的另一半，删掉之后重开的实现会缺一个口。
+        /// </remarks>
         public void ResetWater()
         {
             WaterBallCount = 0;
@@ -71,7 +162,7 @@ namespace DeepseaOil.Logic.Player
         {
             EventBus<WaterBallCountChanged>.Publish(new WaterBallCountChanged(WaterBallCount));
 
-            Health.Announce();
+            EventBus<PlayerHealthChanged>.Publish(new PlayerHealthChanged(_current, _spec.MaxHp));
         }
     }
 }

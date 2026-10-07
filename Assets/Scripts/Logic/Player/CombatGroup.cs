@@ -132,7 +132,7 @@ namespace DeepseaOil.Logic.Player
             // 采纳之后才扣弹药、才进冷却
             if (ball == BallType.Water) _logic.Stats.TryConsumeWater(1);
 
-            _throwCooldown.MarkUsed(now, _logic.Spec.AttackInterval);
+            _throwCooldown.MarkUsed(now, _logic.Stats.Spec.AttackInterval);
 
             return true;
         }

@@ -28,14 +28,13 @@ namespace DeepseaOil.Presentation.Ball
         /// <summary>在飞的球（落地即回收，这里只做推进与清理）。</summary>
         private readonly List<BallActor> _flying = new List<BallActor>();
 
-        /// <summary>球种 → 定义。</summary>
-        private readonly Dictionary<BallType, BallDefinition> _balls = new Dictionary<BallType, BallDefinition>();
+        /// <summary>球种 → 取值边界。每个球种一份实例（造的时候共享，因为它是只读的）。</summary>
+        private readonly Dictionary<BallType, ProjectileSpec> _balls = new Dictionary<BallType, ProjectileSpec>();
 
         /// <summary>球种 → 落地逻辑效果（"什么都不做"也有一个具名实现）。</summary>
         private readonly Dictionary<BallType, IBallLogicEffect> _effects = new Dictionary<BallType, IBallLogicEffect>();
 
         private GridLogic _grid;
-        private ThrowTuning _tuning;
         private ImpulseExecutor _impulses;
         private Transform _ballRoot;
 
@@ -49,19 +48,16 @@ namespace DeepseaOil.Presentation.Ball
         /// 装配。<b>依赖全部由参数给出</b>（本类没有 inspector 字段），所以"忘了接线"这种失败模式不存在。
         /// </summary>
         /// <param name="grid">格子门面（落点 → 格）。</param>
-        /// <param name="balls">全部球定义（取值边界）。</param>
-        /// <param name="tuning">观感与冲量调参（球的实体默认吃这一份）。</param>
+        /// <param name="balls">全部球种取值边界；观感与冲量调参已经合并在里面。</param>
         /// <param name="impulses">冲量的物理帧执行者。</param>
         /// <param name="ballRoot">球的父物体；为 <c>null</c> 时建在场景根下。</param>
         public void Attach(
             GridLogic grid,
-            IReadOnlyList<BallDefinition> balls,
-            ThrowTuning tuning,
+            IReadOnlyList<ProjectileSpec> balls,
             ImpulseExecutor impulses,
             Transform ballRoot)
         {
             _grid = grid;
-            _tuning = tuning;
             _impulses = impulses;
             _ballRoot = ballRoot;
 
@@ -72,7 +68,7 @@ namespace DeepseaOil.Presentation.Ball
 
             for (int i = 0; i < balls.Count; i++)
             {
-                BallDefinition ball = balls[i];
+                ProjectileSpec ball = balls[i];
 
                 _balls[ball.Type] = ball;
 
@@ -120,7 +116,7 @@ namespace DeepseaOil.Presentation.Ball
         /// 本类不重复判断。距离与落点取自<b>同一份</b>意图：两处各算一次必然会漂。</remarks>
         public bool Throw(in ThrowIntent intent)
         {
-            if (!_balls.TryGetValue(intent.Ball, out BallDefinition definition))
+            if (!_balls.TryGetValue(intent.Ball, out ProjectileSpec definition))
             {
                 Debug.LogError($"[Ball] projectile 表里没有球种 {intent.Ball}，这次投掷被丢弃。");
                 return false;
@@ -128,9 +124,9 @@ namespace DeepseaOil.Presentation.Ball
 
             float distance = Vector2.Distance(intent.Origin, intent.Target);
 
-            var data = new BallData(intent.Ball, intent.Origin, intent.Target, distance, in definition.Throw);
+            var data = new ProjectileTrajectory(intent.Ball, intent.Origin, intent.Target, distance, definition);
 
-            _flying.Add(new BallActor(in data, in definition, _tuning, _ballRoot, OnLanded));
+            _flying.Add(new BallActor(in data, definition, _ballRoot, OnLanded));
 
             return true;
         }
@@ -175,14 +171,13 @@ namespace DeepseaOil.Presentation.Ball
 
                 if (_effects.TryGetValue(ball.Type, out IBallLogicEffect effect) && effect != null)
                 {
-                    // 局部复制才能按 in 传递（属性不能直接按 in 传参）。
-                    BallDefinition definition = ball.Definition;
+                    ProjectileSpec definition = ball.Definition;
 
-                    effect.Apply(cell, in definition, this);
+                    effect.Apply(cell, definition, this);
                 }
             }
 
-            _impulses?.Enqueue(point, ball.Tuning);
+            _impulses?.Enqueue(point, ball.Definition.Tuning);
         }
     }
 }

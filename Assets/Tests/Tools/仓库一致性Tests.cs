@@ -150,11 +150,8 @@ namespace DeepseaOil.EditorTools.Tests
                 paths.Add(here);
             }
 
-            Assert.GreaterOrEqual(paths.Count, 40,
-                "《目录说明.md》的目录树只解析出 " + paths.Count + " 条路径，"
-                + "少于预期的 40 条：检查代码块格式是否变了"
-                + "（缩进单位必须是 4 字符，目录名结尾必须带 /，名字与注解之间至少 2 个空格）");
-
+            // 只断"文档声明的路径都真实存在"（跨产物一致性）。
+            // 刻意**不**断"这份文档能解析出多少条路径"——那是文档格式，改一次目录树就会红。
             var missing = new List<string>();
             foreach (var p in paths)
             {

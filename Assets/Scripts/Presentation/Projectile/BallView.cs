@@ -64,7 +64,7 @@ namespace DeepseaOil.Presentation.Projectile
         /// </remarks>
         private SpriteRenderer CreateSprite()
         {
-            var go = new GameObject("球 sprite");
+            var go = new GameObject("BallSprite");
 
             go.layer = RenderOrder.OverlayLayer;
             go.transform.SetParent(transform, false);

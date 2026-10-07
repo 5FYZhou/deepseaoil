@@ -42,14 +42,23 @@ namespace DeepseaOil.Data
         [Tooltip("领取一次给几个")]
         public int amount = 1;
 
+        [Header("本体")]
+        [Tooltip("本体视觉直径（世界单位）")]
+        public float bodyDiameter = 0.3f;
+
+        [Tooltip("触发半径（世界单位）")]
+        public float triggerRadius = 0.15f;
+
         /// <summary>
         /// 取调参资产；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。
         /// </summary>
         /// <remarks>
-        /// <b>重复调用返回同一份</b>：兜底分支会创建一个不进资源系统的 <c>ScriptableObject</c>，
-        /// 每次新建会攒垃圾，更糟的是"某一处改了字段、另一处看不见"。
+        /// <b>调用方只有 <c>ConfigModule.BindAssets</c> 一处</b>：取值口径收口之后，
+        /// 消费者不再直接读 SO，而是经 <c>ConfigModule.GetDrop</c> 拿到 <c>DropSpec</c>。
+        /// <para><b>重复调用返回同一份</b>：兜底分支会创建一个不进资源系统的 <c>ScriptableObject</c>，
+        /// 每次新建会攒垃圾，更糟的是"某一处改了字段、另一处看不见"。</para>
         /// </remarks>
-        public static DropTuning LoadOrDefault()
+        internal static DropTuning LoadOrDefault()
         {
             if (Cached != null) return Cached;
 

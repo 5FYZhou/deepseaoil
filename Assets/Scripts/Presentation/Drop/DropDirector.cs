@@ -23,8 +23,8 @@ namespace DeepseaOil.Presentation.Drop
         /// <summary>场上的掉落物（领取即回收，这里只做推进与清理）。</summary>
         private readonly List<DropActor> _drops = new List<DropActor>();
 
-        /// <summary>种类 → 取值定义。</summary>
-        private readonly Dictionary<DropType, DropDefinition> _definitions = new Dictionary<DropType, DropDefinition>();
+        /// <summary>种类 → 取值边界。</summary>
+        private readonly Dictionary<DropType, DropSpec> _definitions = new Dictionary<DropType, DropSpec>();
 
         private Transform _root;
         private Transform _player;
@@ -48,9 +48,9 @@ namespace DeepseaOil.Presentation.Drop
             _definitions.Clear();
 
             // 加一种掉落物 ＝ 加一个 DropType 成员 ＋ 这一行 ＋ CreateActor 里一行
-            DropDefinition water = DropCatalog.Water();
+            DropSpec water = ConfigModule.GetDrop();
 
-            _definitions[water.Type] = water;
+            _definitions[DropType.Water] = water;
         }
 
         /// <inheritdoc />
@@ -62,7 +62,7 @@ namespace DeepseaOil.Presentation.Drop
         {
             if (_player == null) return false;
 
-            if (!_definitions.TryGetValue(request.Type, out DropDefinition definition))
+            if (!_definitions.TryGetValue(request.Type, out DropSpec definition))
             {
                 Debug.LogError($"[Drop] 没有 {request.Type} 的取值定义，这次产出被丢弃。");
                 return false;
@@ -74,7 +74,7 @@ namespace DeepseaOil.Presentation.Drop
 
             if (_root != null) actor.transform.SetParent(_root, true);
 
-            actor.Initialize(in request, in definition, _player);
+            actor.Initialize(in request, request.Type, definition, _player);
 
             _drops.Add(actor);
 
@@ -98,9 +98,9 @@ namespace DeepseaOil.Presentation.Drop
 
                 drop.Tick(deltaTime);
 
-                if (!drop.IsCollected) continue;
+                if (drop.IsAlive) continue;
 
-                Object.Destroy(drop.gameObject);
+                drop.Dispose();
                 _drops.RemoveAt(i);
             }
         }
@@ -110,7 +110,7 @@ namespace DeepseaOil.Presentation.Drop
         {
             for (int i = 0; i < _drops.Count; i++)
             {
-                if (_drops[i] != null) Object.Destroy(_drops[i].gameObject);
+                if (_drops[i] != null) _drops[i].Dispose();
             }
 
             _drops.Clear();
@@ -123,7 +123,7 @@ namespace DeepseaOil.Presentation.Drop
         /// 漏了实现时显式报错并丢掉这次产出，而不是留一个空物体在场上。</remarks>
         private static DropActor CreateActor(DropType type)
         {
-            var go = new GameObject($"掉落物_{type}");
+            var go = new GameObject($"Drop_{type}");
 
             switch (type)
             {
@@ -132,7 +132,7 @@ namespace DeepseaOil.Presentation.Drop
 
                 default:
                     Debug.LogError($"[Drop] {type} 没有对应的掉落物实体，请在 CreateActor 里补一行。");
-                    Object.Destroy(go);
+                    UnityEngine.Object.Destroy(go);
                     return null;
             }
         }

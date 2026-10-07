@@ -17,14 +17,18 @@ namespace DeepseaOil.Logic
     /// <para><b>共用的部分：</b><see cref="StateGroup{TStateTag}"/> 的两段式仲裁、
     /// <c>IdleState</c>（松手滑停）、<c>MoveGates</c> 门禁落地。门的语义与玩家完全一致：
     /// <b>状态先写速度、门禁最后统一施加</b> —— 否则"挨打了却纹丝不动"会以另一种形式回来。</para>
+    /// <para><b>它直接拿执行器</b>（<see cref="IActorMotor"/>），不经 <c>EnemyLogic</c> 转发 ——
+    /// 与玩家侧同一条口径。</para>
     /// </remarks>
     public sealed class EnemyMoveGroup : StateGroup<MovementStateTag, LogicContext>
     {
-        private readonly EnemyLogic _logic;
+        private readonly IActorMotor _motor;
 
-        public EnemyMoveGroup(EnemyLogic logic)
+        /// <param name="logic">宿主（组合件：把 Config 与状态机入口摆给骨架）。</param>
+        /// <param name="motor">移动执行器（速度提交与速度乘数的唯一出口）。</param>
+        public EnemyMoveGroup(EnemyLogic logic, IActorMotor motor)
         {
-            _logic = logic;
+            _motor = motor;
 
             AddState(new IdleState(logic));
             AddState(new EnemyChaseState(logic));
@@ -44,8 +48,8 @@ namespace DeepseaOil.Logic
         /// <param name="gates">上层（状态效果层）提交的门禁；空门禁时本层完全按自己的状态走。</param>
         public void Tick(in LogicContext ctx, in MoveGates gates)
         {
-            // 乘数落在"目标速度"上，所以必须赶在状态算速度之前交给账本（见 ActorLogic.SetSpeedScale）。
-            _logic.SetSpeedScale(gates.SpeedScale);
+            // 乘数落在"目标速度"上，所以必须赶在状态算速度之前交给账本（见 IActorMotor.SpeedScale）。
+            _motor.SpeedScale = gates.SpeedScale;
 
             TickStates(in ctx);
 
@@ -58,7 +62,7 @@ namespace DeepseaOil.Logic
         /// <remarks><b>强制速度不叠加速度乘数</b>：受击滑停是外力，叠上地面减速会把它拖短。</remarks>
         private void ApplyGates(in MoveGates gates)
         {
-            if (gates.HasForcedVelocity) _logic.SetVelocity(gates.ForcedVelocity);
+            if (gates.HasForcedVelocity) _motor.SetVelocity(gates.ForcedVelocity);
         }
     }
 }

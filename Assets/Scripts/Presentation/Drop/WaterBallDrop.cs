@@ -8,17 +8,11 @@ namespace DeepseaOil.Presentation.Drop
     /// 水球掉落物（原 <c>WaterBall</c>）：抛物线飞向落点 → 等玩家碰到 → 飞向玩家 → 发一条领取事实。
     /// </summary>
     /// <remarks>
-    /// 数值全部来自取值定义（<see cref="DropDefinition"/>）；本类只管<b>行为与观感</b>：
+    /// 数值全部来自取值边界（<see cref="DropSpec"/>）；本类只管<b>行为与观感</b>：
     /// 怎么飞、长什么样、碰撞体多大。
     /// </remarks>
     public sealed class WaterBallDrop : DropActor
     {
-        /// <summary>视觉直径（世界单位）。白模件：正式美术接入时随图元一起换掉。</summary>
-        private const float BodyDiameter = 0.3f;
-
-        /// <summary>触发半径（世界单位）。只回答"碰没碰到玩家"，不参与任何判定。</summary>
-        private const float TriggerRadius = 0.15f;
-
         /// <inheritdoc />
         protected override void BuildBody()
         {
@@ -31,15 +25,15 @@ namespace DeepseaOil.Presentation.Drop
             PrimitiveSprites.Configure(
                 renderer,
                 PrimitiveSprites.Circle,
-                CombatPalette.WaterBall,
+                Definition.Visuals != null ? Definition.Visuals.waterBall : Color.white,
                 RenderOrder.BallOrder(Landing.y),
-                BodyDiameter);
+                Definition.BodyDiameter);
 
             // 触发体只需要挂在一边（玩家有刚体），所以掉落物自己不需要 Rigidbody2D。
             var collider = gameObject.AddComponent<CircleCollider2D>();
 
             collider.isTrigger = true;
-            collider.radius = TriggerRadius;
+            collider.radius = Definition.TriggerRadius;
         }
 
         /// <inheritdoc />

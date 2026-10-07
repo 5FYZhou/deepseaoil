@@ -62,12 +62,21 @@ namespace DeepseaOil.Presentation
         [Tooltip("状态 → 贴图。新增状态在这里加一行，不用改代码。")]
         [SerializeField] private StateTileBinding[] stateTiles = new StateTileBinding[0];
 
-        /// <summary>效果层上被替换过的格 → 原贴图。</summary>
+        /// <summary>
+        /// 效果层上被覆盖过的格 → <b>被覆盖之前的那张图</b>。
+        /// </summary>
         /// <remarks>
-        /// 记录原贴图而不是"清空该格"：效果层上可能本来就画着别的东西
-        /// （血迹、装饰），状态结束时应该还原成它，而不是留一个洞。
+        /// <b>为什么名字是 <c>_previousTiles</c> 而不是 <c>_originalTiles</c>：</b>它存的是"覆盖前那一张"，
+        /// 而不是"永远最初的那一张" —— 后者在"同格直接转换"（泥 → 冰）时会误导人。
+        /// <para><b>为什么原值取自 <c>effectTilemap</c> 而<b>不是</b> <c>groundTilemap</c>：</b>
+        /// 两层是两个独立的格子空间。效果层自己原本画着什么（可能是 <c>null</c>，也可能是血迹 / 装饰）
+        /// 只有它自己知道 —— 拿地板图去还原会把效果层的装饰抹掉，并永久留下一张地板副本。</para>
+        /// <para><b>为什么"只记第一次"</b>（见 <c>Show</c> 里的 <c>if (!ContainsKey)</c>）：
+        /// 否则第二次覆盖会把"泥浆"当成原值，这一格永远回不到原样，而且不报错。</para>
+        /// <para><b>两条已知局限</b>（依赖不变量"效果层只有 <c>Show</c> / <c>Restore</c> 两个写者"）：
+        /// 别处改动会被还原盖掉；<c>effectTilemap</c> 对象被换掉时旧记录会贴到新层上。</para>
         /// </remarks>
-        private readonly Dictionary<Vector3Int, TileBase> _originalTiles = new();
+        private readonly Dictionary<Vector3Int, TileBase> _previousTiles = new();
 
         /// <summary>是否已接线（未接线时所有操作是 no-op，不报错刷屏）。</summary>
         public bool IsWired => groundTilemap != null;
@@ -216,9 +225,9 @@ namespace DeepseaOil.Presentation
         {
             if (tile == null) return;
 
-            if (!_originalTiles.ContainsKey(cell))
+            if (!_previousTiles.ContainsKey(cell))
             {
-                _originalTiles[cell] = effectTilemap.GetTile(cell);
+                _previousTiles[cell] = effectTilemap.GetTile(cell);
             }
 
             effectTilemap.SetTile(cell, tile);
@@ -226,9 +235,9 @@ namespace DeepseaOil.Presentation
 
         private void Restore(Vector3Int cell)
         {
-            if (!_originalTiles.TryGetValue(cell, out TileBase original)) return;
+            if (!_previousTiles.TryGetValue(cell, out TileBase original)) return;
 
-            _originalTiles.Remove(cell);
+            _previousTiles.Remove(cell);
 
             effectTilemap.SetTile(cell, original);
         }

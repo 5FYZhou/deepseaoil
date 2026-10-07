@@ -6,7 +6,6 @@ namespace DeepseaOil.Logic.Input
 {
     public enum InputType
     {
-        Jump,
         Dash,
         Attack, // M2
     }
@@ -19,7 +18,7 @@ namespace DeepseaOil.Logic.Input
     /// 同一次按下只能消费一次；按下仅受窗口时长约束，不随样本被挤出历史而作废。
     /// <b>输入按下沿一律由本类提供</b>（<see cref="CanConsume"/> / <see cref="TryConsume"/>），
     /// 宿主不得自行保存"上一帧输入"，且 <see cref="Push"/> 必须先于逻辑层的 <c>Tick</c>。
-    /// 当前被消费的只有 <see cref="InputType.Dash"/>；<see cref="InputType.Jump"/> 等按下沿的入账见 <see cref="Push"/>。
+    /// 当前被消费的只有 <see cref="InputType.Dash"/>；<see cref="InputType.Attack"/> 的入账见 <see cref="Push"/>。
     /// 契约与设计理由见 <c>Docs/框架设计/分层设计/逻辑层.md</c> §5。
     /// </remarks>
     public sealed class InputBuffer
@@ -106,7 +105,6 @@ namespace DeepseaOil.Logic.Input
             _snapshots[_writeIndex++] = snapshot;
             _writeIndex %= Capacity;
 
-            if (snapshot.JumpPressed) _pendingTimes[InputType.Jump] = now;
             if (snapshot.DashPressed) _pendingTimes[InputType.Dash] = now;
         }
 

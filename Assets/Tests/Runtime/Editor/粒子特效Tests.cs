@@ -293,7 +293,7 @@ namespace DeepseaOil.Tests
 
             LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Effect] EffectModule.Play 在 Init 之前被调用")));
 
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.HitSpark, EffectContext.Default));
+            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.BurstSparks, EffectContext.Default));
         }
 
         [Test]
@@ -372,7 +372,7 @@ namespace DeepseaOil.Tests
 
             LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Effect] 懒加载 HitSpark 失败")));
 
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.HitSpark, EffectContext.Default),
+            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.BurstSparks, EffectContext.Default),
                 "资源未就位时 Play 返回 None，但请求会被记下（由 EffectModule 在资源到位后补播）");
         }
 
@@ -392,11 +392,11 @@ namespace DeepseaOil.Tests
                 isSingleton: false, maxSize: 4, prewarm: 0, assetKey: "effects/D1");
 
             // 用 Catalog 里没有的 ObjectShake 手工注册：不碰真实资源，用例自给自足
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
             LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("预制体（含子物体）上没有 ParticleSystem")));
 
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero)));
+            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero)));
 
             Assert.AreEqual(0, driver.ActiveInstanceCount, "失败的播放不得留下活跃实例");
             Assert.AreEqual(1, driver.PooledObjectCount, "借出的对象必须归还池，否则每次失败漏一个池位");
@@ -414,15 +414,15 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: false, maxSize: 1, prewarm: 0, assetKey: "effects/D2");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
-            EffectHandle first = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle first = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(first.IsValid, "第 1 次播放应成功（空闲区空 → 现场实例化）");
             Assert.AreEqual(1, driver.ActiveInstanceCount);
 
             LogAssert.Expect(LogType.Warning, new Regex(Regex.Escape("池已满")));
 
-            EffectHandle second = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.one));
+            EffectHandle second = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.one));
             Assert.AreEqual(EffectHandle.None, second, "到达上限后应丢弃并返回 None");
             Assert.AreEqual(1, driver.ActiveInstanceCount, "丢弃不得改变活跃数");
 
@@ -430,7 +430,7 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0, driver.ActiveInstanceCount, "Stop 之后应回收");
             Assert.AreEqual(1, driver.PooledObjectCount, "回收的对象应回到池里");
 
-            EffectHandle third = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle third = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(third.IsValid, "池里有货时应能再播");
             Assert.AreNotEqual(first, third, "复用池对象也要发新句柄");
         }
@@ -446,16 +446,16 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: false, maxSize: 4, prewarm: 0, assetKey: "effects/D3");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
-            EffectHandle before = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle before = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(before.IsValid);
 
             EffectModule.CleanAll();
             Assert.AreEqual(0, driver.ActiveInstanceCount, "CleanAll 应清空活跃实例");
             Assert.AreEqual(0, EffectModule.GetStats().ActiveInstances);
 
-            EffectHandle after = EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectHandle after = EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
             Assert.IsTrue(after.IsValid, "CleanAll 之后应能重新播");
 
             EffectModule.Stop(before);
@@ -489,12 +489,12 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: true, maxSize: 2, prewarm: 0, assetKey: "effects/D5");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
-            EffectHandle a = EffectModule.Play(EffectId.ObjectShake,
+            EffectHandle a = EffectModule.Play(EffectId.Shake,
                 new EffectContext { Position = Vector2.zero, Intensity = 0.2f, Scale = 1f });
 
-            EffectHandle b = EffectModule.Play(EffectId.ObjectShake,
+            EffectHandle b = EffectModule.Play(EffectId.Shake,
                 new EffectContext { Position = Vector2.one, Intensity = 0.9f, Scale = 1f });
 
             Assert.IsTrue(a.IsValid);
@@ -524,10 +524,10 @@ namespace DeepseaOil.Tests
             var driver = new ParticleDriver(_prefab, _root.transform,
                 isSingleton: false, maxSize: 4, prewarm: 0, assetKey: "effects/D6");
 
-            EffectModule.Register(EffectId.ObjectShake, driver);
+            EffectModule.Register(EffectId.Shake, driver);
 
             // ① Intensity = 1（At 系列就是 1）：必须是作者原值，一位都不能改
-            EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
 
             ParticleSystem inst = _root.GetComponentInChildren<ParticleSystem>();
             Assert.IsNotNull(inst, "应实例化出一个池对象");
@@ -538,7 +538,7 @@ namespace DeepseaOil.Tests
 
             // ② Intensity = 0：作者值 × MinIntensityScale(0.4)，而不是绝对 0.4
             EffectModule.CleanAll();
-            EffectModule.Play(EffectId.ObjectShake,
+            EffectModule.Play(EffectId.Shake,
                 new EffectContext { Position = Vector2.zero, Intensity = 0f, Scale = 1f });
 
             ParticleSystem low = _root.GetComponentInChildren<ParticleSystem>();
@@ -547,7 +547,7 @@ namespace DeepseaOil.Tests
 
             // ③ 再回到 Intensity = 1：不得叠加（0.25 仍是 0.25，不是 0.0625）
             EffectModule.CleanAll();
-            EffectModule.Play(EffectId.ObjectShake, EffectContext.At(Vector2.zero));
+            EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
 
             ParticleSystem again = _root.GetComponentInChildren<ParticleSystem>();
             Assert.AreEqual(0.25f, again.main.startSizeMultiplier, 1e-4f,

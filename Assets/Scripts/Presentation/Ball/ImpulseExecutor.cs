@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
-using DeepseaOil.Presentation.Actor;
+using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Ball
@@ -14,10 +14,11 @@ namespace DeepseaOil.Presentation.Ball
     /// 多个渲染帧之后的一个大固定步里被一次性消费，表现是"推得莫名其妙地远"。
     /// <para><b>为什么是队列而不是一个字段：</b>一个固定步里可能结算多颗球，用单字段会静默丢掉
     /// 其中一颗的冲量。</para>
-    /// <para><b>跳过角色（玩家 / 敌人）：</b>它们的速度由各自的账本写。不跳的话，
-    /// <c>AddForce</c> 会在账本写出速度之后<b>又写一次</b>速度 —— 每帧两个速度写者，
-    /// 正是白模阶段还掉的那笔技术债。</para>
-    /// <para><b>冲量参数取"哪一份调参"由入队方给出</b>（球的实体自持自己的调参，默认是全局 SO）：
+    /// <para><b>跳过自持速度账本的角色（<see cref="IManagedActor"/>）：</b>它们的速度由各自的账本写。
+    /// 不跳的话，<c>AddForce</c> 会在账本写出速度之后<b>又写一次</b>速度 —— 每帧两个速度写者，
+    /// 正是白模阶段还掉的那笔技术债。<b>名单由标记接口回答</b>，不是硬编码类型 ——
+    /// 将来加一个自带账本的角色时，漏改的表现本来是"被推了两次速度"且完全静默。</para>
+    /// <para><b>冲量参数取"哪一份调参"由入队方给出</b>（球的取值边界自持自己的调参）：
     /// 于是"哪种球推得更狠"是球的事，不是这个执行者的事。</para>
     /// </remarks>
     public sealed class ImpulseExecutor
@@ -97,9 +98,8 @@ namespace DeepseaOil.Presentation.Ball
 
                 if (body == null || body.isKinematic) continue;
 
-                // 角色有自己的速度账本，这不归物理引擎管。
-                if (hit.GetComponentInParent<EnemyActor>() != null) continue;
-                if (hit.GetComponentInParent<PlayerController>() != null) continue;
+                // 自持速度账本的角色不归物理引擎推（见类注释）。
+                if (hit.GetComponentInParent<IManagedActor>() != null) continue;
 
                 // 精确判定：取碰撞体上离落点最近的点，它到落点的距离必须落在作用半径内。
                 Vector2 nearest = hit.ClosestPoint(point);

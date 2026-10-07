@@ -1,6 +1,28 @@
 namespace DeepseaOil.Presentation
 {
     /// <summary>
+    /// 场景根的驱动顺序档位。<b>顺序是契约，不是魔法数字</b>。
+    /// </summary>
+    /// <remarks>
+    /// 收口前 <c>-100</c> / <c>0</c> 是两个字面量，约定只写在一句注释里 ——
+    /// 于是一个新场景根本无从知道"我该排第几"，而排错的表现是"这一帧的接触判定读到了旧位置"。
+    /// 抽成常量之后，档位是有名字的、可搜索的，也顺带说明了每一档的理由。
+    /// <para>档位之间的空隙是刻意的：要插一个新的场景根时，取相邻两档的中点即可
+    /// （或在中间新增一档并把理由写在这里）。</para>
+    /// </remarks>
+    public static class SceneOrder
+    {
+        /// <summary>
+        /// 玩家侧：<b>必须早于世界侧</b>（先提交速度、先读输入）。
+        /// </summary>
+        /// <remarks>世界侧的接触判定读的是"玩家这一帧提交后的位置"，顺序反了就会用到上一帧的站位。</remarks>
+        public const int Player = -100;
+
+        /// <summary>世界侧：格子 / 球 / 掉落物 / 敌人 / 喷泉。</summary>
+        public const int World = 0;
+    }
+
+    /// <summary>
     /// 场景级组合根的注册契约：<b>它自己向 <c>GameRoot</c> 报到，而不是被 Inspector 拖进去</b>。
     /// </summary>
     /// <remarks>
@@ -18,7 +40,7 @@ namespace DeepseaOil.Presentation
     /// </remarks>
     public interface ISceneRoot
     {
-        /// <summary>驱动顺序，小者先。约定：玩家侧 <c>-100</c>、世界侧 <c>0</c>。</summary>
+        /// <summary>驱动顺序，小者先。档位见 <see cref="SceneOrder"/>。</summary>
         int Order { get; }
 
         /// <summary>

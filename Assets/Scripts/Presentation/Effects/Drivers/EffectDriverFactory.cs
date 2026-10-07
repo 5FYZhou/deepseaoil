@@ -20,11 +20,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         {
             switch (spec.DriverKind)
             {
-                case EffectDriverKind.EnemyShatter:
-                    return new EnemyShatterDriver(spec, root);
+                case EffectDriverKind.Shatter:
+                    return new ShatterDriver(spec, root);
 
-                case EffectDriverKind.TileHighlight:
-                    return new TileHighlightDriver(spec, root);
+                case EffectDriverKind.Highlight:
+                    return new HighlightDriver(spec, root);
 
                 default:
                     return new ParticleDriver(spec, root);

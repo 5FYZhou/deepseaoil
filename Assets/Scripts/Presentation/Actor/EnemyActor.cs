@@ -2,6 +2,7 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
+using DeepseaOil.Logic.Movement;
 using DeepseaOil.Presentation.Effects;
 using UnityEngine;
 
@@ -20,7 +21,7 @@ namespace DeepseaOil.Presentation.Actor
     /// 而这件事只有敌人自己每帧知道（位置是它自己的）。</para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowEffectTarget
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowEffectTarget, IAlivable, IManagedActor
     {
         /// <summary>头顶耐久数字的字号（<c>TextMesh.characterSize</c>，世界单位量级）。</summary>
         /// <remarks>
@@ -51,8 +52,6 @@ namespace DeepseaOil.Presentation.Actor
         private GridLogic _grid;
         private EnemyCellRegistry _registry;
 
-        private int _hp;
-        private bool _dead;
         private bool _registered;
         private Vector3Int _currentCell;
 
@@ -69,7 +68,9 @@ namespace DeepseaOil.Presentation.Actor
         private float _slowMultiplier = 1f;
 
         /// <inheritdoc />
-        public bool IsDead => _dead;
+        /// <remarks><b>它回答"还活着吗"</b>（<see cref="IAlivable"/> 的口径）；耐久值与存活态都在
+        /// <see cref="Stats"/> 上，本类不再自己存一份 —— 同一个问题只有一个答案。</remarks>
+        public bool IsAlive => Stats != null && Stats.IsAlive;
 
         /// <inheritdoc />
         /// <remarks>
@@ -79,19 +80,21 @@ namespace DeepseaOil.Presentation.Actor
         /// </remarks>
         public Vector2 Position => _motor != null ? _motor.Position : (Vector2)transform.position;
 
+        /// <summary>账本：耐久 ＋ 存活态 ＋ 取值边界。</summary>
+        public EnemyStats Stats { get; private set; }
+
         /// <summary>剩余耐久（只读，供调试读数）。</summary>
-        public int Hp => _hp;
+        public int Hp => Stats != null ? Stats.Hp : 0;
 
-        /// <summary>当前是否处于受击（速度被外力接管的那一段）。</summary>
-        public bool IsHurt => _logic != null && _logic.IsHurt;
-
+        /// <summary>当前是否处于受击（速度被外力接管的那一段）。<b>视效用它决定闪不闪</b>。</summary>
+        public bool IsHurt => Stats != null && Stats.IsAlive && _logic != null && _logic.IsHurt;
         /// <summary>引擎当前速度（单位/秒）。<b>只给调试读数用</b>，不参与任何判定。</summary>
         /// <remarks>
         /// 读的是执行器的回读口（= <c>Rigidbody2D.velocity</c>），所以它回答的是
         /// "物理体这一帧真的在动吗"，而不是"账本以为它该动多少"。两者不一致时（撞墙、被顶住）
         /// 只有这个数看得出来。
         /// </remarks>
-        public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.Velocity;
+        public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
         /// <summary>
         /// 组装一只敌人。依赖全部由参数给出（不留 inspector 字段），所以"忘了接线"这种失败模式不存在。
@@ -116,7 +119,8 @@ namespace DeepseaOil.Presentation.Actor
             _target = target;
             _grid = grid;
             _registry = registry;
-            _hp = spec.Hp;
+
+            Stats = new EnemyStats(spec);
 
             transform.position = new Vector3(position.x, position.y, 0f);
 
@@ -130,7 +134,7 @@ namespace DeepseaOil.Presentation.Actor
             // 会用默认重力跑（偏差极小，但那是隐式答案）
             _motor.EnsureInitialized();
 
-            _logic = new EnemyLogic(_motor, in spec, EnemyCharacterFactory.Build(in spec));
+            _logic = new EnemyLogic(_motor, spec);
 
             // 朝向先立起来：否则第一个朝向的左/右是"上一个物体留下的"。
             _motor.Facing = facing;
@@ -154,13 +158,12 @@ namespace DeepseaOil.Presentation.Actor
         /// </remarks>
         public void TakeDamage(in Damage damage)
         {
-            if (_dead) return;
+            if (Stats == null || !Stats.IsAlive) return;
 
             if (damage.HasDamage)
             {
-                // 耐久是整数，伤害是配置里的浮点数：四舍五入到整数。
-                // 取整而不是"只要有伤害就扣 1"：将来出现 0.5 点伤害时行为才有意义。
-                _hp = Mathf.Max(0, _hp - Mathf.RoundToInt(damage.Amount));
+                // 耐久是整数，伤害是配置里的浮点数：四舍五入到整数（见 EnemyStats.ApplyDamage）。
+                Stats.ApplyDamage(damage.Amount);
             }
 
             if (damage.HasKnockback && _logic != null)
@@ -170,7 +173,7 @@ namespace DeepseaOil.Presentation.Actor
                 _logic.ApplyKnockback(damage.Impulse, damage.Direction);
             }
 
-            if (_hp <= 0)
+            if (!Stats.IsAlive)
             {
                 Die(damage.Direction);
                 return;
@@ -193,7 +196,7 @@ namespace DeepseaOil.Presentation.Actor
         /// </remarks>
         public void FixedTick(float now, float deltaTime)
         {
-            if (_dead) return;
+            if (!Stats.IsAlive) return;
 
             _logic.SetTarget(_target == null ? (Vector2?)null : TargetPosition());
             _logic.Tick(now, deltaTime);
@@ -258,7 +261,7 @@ namespace DeepseaOil.Presentation.Actor
             PrimitiveSprites.Configure(
                 _body,
                 PrimitiveSprites.Circle,
-                EnemyVisual.BodyColorNormal,
+                _spec.Visuals.enemyBodyNormal,
                 RenderOrder.ActorOrder(Position.y),
                 _spec.Radius * 2f);
 
@@ -283,7 +286,7 @@ namespace DeepseaOil.Presentation.Actor
 
             if (font == null) return;
 
-            var go = new GameObject("耐久数字");
+            var go = new GameObject("HpText");
 
             go.transform.SetParent(transform, false);
             go.transform.localPosition = new Vector3(0f, HpTextOffsetY, 0f);
@@ -335,12 +338,45 @@ namespace DeepseaOil.Presentation.Actor
         // 每帧刷新
         // ─────────────────────────────────────────────
 
+        /// <summary>
+        /// 头顶的剩余耐久数字。
+        /// </summary>
+        /// <param name="hp">剩余耐久。</param>
+        /// <returns>要写进 <c>TextMesh</c> 的字符串；<b>耐久为 0 时是空串</b>。</returns>
+        /// <remarks>
+        /// 耐久为 0 时不写 <c>"0"</c>：那一帧敌人正在碎裂，显示一个 0 只会让人以为
+        /// "它还有 0 点血所以在场上" —— 空串至少不撒谎。
+        /// </remarks>
+        public static string HpText(int hp)
+        {
+            return hp > 0 ? hp.ToString() : string.Empty;
+        }
+
+        /// <summary>
+        /// 这一帧该不该亮。闪烁是<b>相位</b>而不是状态。
+        /// </summary>
+        /// <param name="time">当前时间（秒，用 <c>Time.time</c>，不累加）。</param>
+        /// <param name="hz">闪烁频率（Hz）；非法值按不闪处理。</param>
+        /// <returns>亮半周为 <c>true</c>。</returns>
+        /// <remarks>
+        /// 用相位而不是一个布尔字段：布尔字段会在暂停、掉帧、以及"受击滑停时长改了但闪烁频率没改"
+        /// 三种情况下偷偷不同步。
+        /// <para>用 <c>Sin</c> 而不是 <c>(time * hz) % 1</c> 取整：取整在 <c>hz</c> 为 0 时会除零，
+        /// 而 <c>Sin</c> 在频率为 0 时恒为 0（整段受击都保持亮色），是"能看出不对但不崩"的行为。</para>
+        /// </remarks>
+        public static bool IsFlashOn(float time, float hz)
+        {
+            if (float.IsNaN(hz) || hz <= 0f) return false;
+
+            return Mathf.Sin(time * 2f * Mathf.PI * hz) > 0f;
+        }
+
         /// <summary>刷新头顶数字。<b>只在真的变了才写</b>：给 <c>TextMesh.text</c> 赋值会重建网格。</summary>
         private void UpdateHpText()
         {
             if (_hpText == null) return;
 
-            string text = EnemyVisual.HpText(_hp);
+            string text = HpText(Hp);
 
             if (_hpText.text == text) return;
 
@@ -355,14 +391,23 @@ namespace DeepseaOil.Presentation.Actor
         /// 而"闪了几下"是玩家会数的东西。
         /// <para>判"该不该闪"用受击状态（<c>IsHurt</c>）：闪烁与"被撞飞的那一段"是同一件事的两面
         /// （速度滑停到零，闪也结束），另立一个计时器只会让两者悄悄不同步。</para>
+        /// <para><b>颜色来自取值边界的观感表</b>（<c>spec.Visuals</c>）：收口前这是一条逻辑层的纯函数
+        /// （<c>EnemyVisual</c>）—— 而"这一帧画什么"是表现层的事，数值才是配置的事。
+        /// 颜色的<b>数值</b>现在在 <c>VisualPalette</c> SO 里，"四态怎么选"留在本类。</para>
+        ///
+        /// <para><b>它是 <c>EffectId.Flash</c> 的当前实现方</b>（审查已定：<c>EnemyVisual</c> 只是数值表，
+        /// 实现方在特效系统）：本类只说"我在减速 / 我在受击"，由观感层决定画成什么颜色。
+        /// 现在这条"说"落在本方法里而不是走一次 <c>EffectModule.Play</c> —— 因为闪白走的是
+        /// "每帧刷一个 color"，而 <c>EffectId.Flash</c> 的驱动（材质 / 颜色动画）尚未实现
+        /// （见 <c>EffectCatalog</c> 的注释）。驱动补上之后，这里换成一次 <c>Play</c> 即可。</para>
         /// </remarks>
         private void UpdateBodyColor()
         {
-            if (_body == null) return;
+            if (_body == null || _spec.Visuals == null) return;
 
-            bool flashOn = IsHurt && EnemyVisual.IsFlashOn(Time.time, _spec.FlashHz);
+            bool flashOn = IsHurt && IsFlashOn(Time.time, _spec.FlashHz);
 
-            _body.color = EnemyVisual.BodyColor(_slowMultiplier, flashOn);
+            _body.color = _spec.Visuals.EnemyBodyColor(_slowMultiplier, flashOn);
         }
 
         /// <summary>
@@ -408,8 +453,6 @@ namespace DeepseaOil.Presentation.Actor
 
         private void Die(Vector2 hitDirection)
         {
-            _dead = true;
-
             // 速度交给碎片：尸体自己不该继续滑（它这一帧还在被物理推动，看起来像"死掉的敌人还在走"）。
             if (_motor != null) _motor.Move(Vector2.zero);
 
@@ -422,9 +465,9 @@ namespace DeepseaOil.Presentation.Actor
 
             // 碎裂走 EffectModule：表现层的统一出口（暂停会一起冻结、切场景会一起清）。
             EffectContext ctx = EffectContext.At(Position, hitDirection);
-            ctx.Tint = EnemyVisual.BodyColorNormal;
+            ctx.Tint = _spec.Visuals.enemyBodyNormal;
 
-            EffectModule.Play(EffectId.EnemyShatter, in ctx);
+            EffectModule.Play(EffectId.Shatter, in ctx);
 
             Destroy(gameObject);
         }

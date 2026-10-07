@@ -40,43 +40,52 @@ namespace DeepseaOil.Presentation.Actor
         /// <summary>场上存活敌人数。</summary>
         public int AliveCount { get; private set; }
 
-        /// <summary>第一只存活敌人离玩家多远；没有敌人时 <c>-1</c>。</summary>
+        /// <summary>
+        /// 列表里<b>第一只存活敌人</b>离玩家多远；没有敌人时 <c>-1</c>。
+        /// </summary>
         /// <remarks>
-        /// <b>这是"敌人在动吗"这个问题的直接读数。</b>连续看几帧：一直在变小 = 在追；不动 = 卡住了；
-        /// 在变大 = 刚被击退。俯视角下几米外的小圆盘是看不出慢速位移的。
+        /// <b>名字说的是它真的做的事</b>（收口前叫 <c>NearestEnemyDistance</c>，但它<b>不比较距离</b> ——
+        /// 它取的是列表中第一只存活的）。要回答"是不是最近的那只"必须遍历全部，
+        /// 而那个问题当前的读者（调试面板）不需要。
+        /// <para><b>它是"敌人在动吗"这个问题的直接读数：</b>连续看几帧：一直在变小 = 在追；
+        /// 不动 = 卡住了；在变大 = 刚被击退。俯视角下几米外的小圆盘是看不出慢速位移的。</para>
         /// </remarks>
-        public float NearestEnemyDistance { get; private set; } = -1f;
+        public float FirstAliveEnemyDistance { get; private set; } = -1f;
 
-        /// <summary>第一只存活敌人的引擎速度（单位/秒）。</summary>
-        /// <remarks>与 <see cref="NearestEnemyDistance"/> 一起看才能分开两种"不动"：
+        /// <summary>列表里第一只存活敌人的引擎速度（单位/秒）。</summary>
+        /// <remarks>与 <see cref="FirstAliveEnemyDistance"/> 一起看才能分开两种"不动"：
         /// 速度非零但距离不变 ⇒ 它撞在墙或别的敌人上；速度为零 ⇒ 逻辑层真的没在驱动它。</remarks>
-        public Vector2 NearestEnemyVelocity { get; private set; }
+        public Vector2 FirstAliveEnemyVelocity { get; private set; }
 
         /// <summary>
         /// 组装调度器。
         /// </summary>
-        /// <param name="player">玩家。为 <c>null</c> 时本组件停用（不刷出不追人的敌人）。</param>
+        /// <param name="player">玩家组合根。为 <c>null</c>（或它的逻辑层没装配好）时本组件停用。</param>
         /// <param name="waveSpec">波次数值。</param>
-        /// <param name="enemySpec">敌人种类数值。</param>
+        /// <param name="enemySpec">敌人取值边界。</param>
         /// <param name="grid">格子门面。</param>
         /// <param name="registry">敌人归属表。</param>
         /// <param name="actorRoot">敌人的父物体；<c>null</c> 时建在场景根下（只为层级整洁，不影响行为）。</param>
+        /// <remarks>
+        /// <b>玩家的表值由本类自己向它取</b>（<c>player.Logic.Stats.Spec</c>）：
+        /// 组合根不必替它读一遍再传进来 —— 那会让"玩家数值从哪来"多一个经手人。
+        /// </remarks>
         public void Initialize(
-            Transform player,
+            PlayerController player,
             in WaveSpec waveSpec,
-            in EnemySpec enemySpec,
+            EnemySpec enemySpec,
             GridLogic grid,
             EnemyCellRegistry registry,
             Transform actorRoot)
         {
-            if (player == null)
+            if (player == null || player.Logic == null)
             {
-                Debug.LogError("CombatDirector 没有玩家引用，敌人不会生成，已停用。", this);
+                Debug.LogError("CombatDirector 没有玩家引用（或玩家逻辑层没装配好），敌人不会生成，已停用。", this);
                 enabled = false;
                 return;
             }
 
-            _player = player;
+            _player = player.transform;
             _enemySpec = enemySpec;
             _grid = grid;
             _registry = registry;
@@ -106,8 +115,8 @@ namespace DeepseaOil.Presentation.Actor
             _logic?.Reset();
 
             AliveCount = 0;
-            NearestEnemyDistance = -1f;
-            NearestEnemyVelocity = Vector2.zero;
+            FirstAliveEnemyDistance = -1f;
+            FirstAliveEnemyVelocity = Vector2.zero;
 
             PublishIfChanged();
 
@@ -132,7 +141,7 @@ namespace DeepseaOil.Presentation.Actor
             {
                 EnemyActor enemy = _enemies[i];
 
-                if (enemy == null || enemy.IsDead) continue;
+                if (enemy == null || !enemy.IsAlive) continue;
 
                 enemy.FixedTick(now, deltaTime);
             }
@@ -152,7 +161,7 @@ namespace DeepseaOil.Presentation.Actor
 
         private void SpawnOne(in WaveLogic.SpawnRequest request)
         {
-            var go = new GameObject($"敌人_{request.WaveIndex}_{request.Remaining}");
+            var go = new GameObject($"Enemy_{request.WaveIndex}_{request.Remaining}");
 
             if (_actorRoot != null) go.transform.SetParent(_actorRoot, false);
 
@@ -191,7 +200,7 @@ namespace DeepseaOil.Presentation.Actor
                 EnemyActor enemy = _enemies[i];
 
                 // 已销毁的对象在列表里还是非空引用，Unity 的 null 判定会挡住它们。
-                if (enemy != null && !enemy.IsDead) alive++;
+                if (enemy != null && enemy.IsAlive) alive++;
             }
 
             return alive;
@@ -199,17 +208,17 @@ namespace DeepseaOil.Presentation.Actor
 
         private void UpdateReadouts()
         {
-            NearestEnemyDistance = -1f;
-            NearestEnemyVelocity = Vector2.zero;
+            FirstAliveEnemyDistance = -1f;
+            FirstAliveEnemyVelocity = Vector2.zero;
 
             for (int i = 0; i < _enemies.Count; i++)
             {
                 EnemyActor enemy = _enemies[i];
 
-                if (enemy == null || enemy.IsDead) continue;
+                if (enemy == null || !enemy.IsAlive) continue;
 
-                NearestEnemyDistance = Vector2.Distance(enemy.Position, PlayerPosition());
-                NearestEnemyVelocity = enemy.EngineVelocity;
+                FirstAliveEnemyDistance = Vector2.Distance(enemy.Position, PlayerPosition());
+                FirstAliveEnemyVelocity = enemy.EngineVelocity;
 
                 return;
             }

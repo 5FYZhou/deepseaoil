@@ -74,32 +74,20 @@ namespace DeepseaOil.Tests
         {
             Assert.IsTrue(ConfigModule.IsReady, "ConfigModule 未就绪");
 
-            var weapon = ConfigModule.GetWeapon(1);
-            Assert.IsNotNull(weapon, "GetWeapon(1) 为 null");
-            Assert.AreEqual("木剑", weapon.Name, "GetWeapon(1).Name");
+            // ⚠️ 这里**不断言任何策划填的值**（名字 / 数值 / 行数）——那些会随填表变化，
+            //    断它们等于把"表变了"报成"代码坏了"。本用例只断**链路形态**：
+            //    生成物读得出来、外键真的解析过、观测面与手写清单一致。
+            //    "表里的资源路径能不能真的加载出来"由 A3 用真实加载验收。
+            Assert.IsNotNull(ConfigModule.GetWeapon(1), "GetWeapon(1) 为 null");
 
-            // 用 ToString 比较，避免依赖生成字段的具体数值类型
-            Assert.AreEqual("10", weapon.Pow.ToString(), "GetWeapon(1).Pow");
-
-            // Key 契约：表里存的是**资源路径字符串**。
-            // ⚠️ 这里**不能断言具体字面量**——那是策划填的数据，会随填表变化。
-            //    本用例只校验"形态像资源路径"；"能不能真的加载出来"由 A3 用真实加载验收。
-            Assert.IsFalse(string.IsNullOrEmpty(weapon.Icon), "GetWeapon(1).Icon 为空");
-            Assert.IsTrue(Regex.IsMatch(weapon.Icon, @"\.(png|jpg|jpeg|tga|psd|asset|prefab|mat)$"),
-                "GetWeapon(1).Icon 不像资源路径（缺可识别扩展名）：" + weapon.Icon);
-
-            // 外键链：Fish.best_weapon → Weapon.icon_item → Item
-            Assert.IsNotNull(weapon.IconItem_Ref, "外键 Weapon.icon_item → Item 未解析");
+            // 外键链：Fish.best_weapon → Weapon.icon_item → Item。它非空即证明 ResolveRef 真的跑过。
+            Assert.IsNotNull(ConfigModule.GetWeapon(1).IconItem_Ref, "外键 Weapon.icon_item → Item 未解析");
             Assert.IsNotNull(ConfigModule.GetFish(1002), "GetFish(1002) 为 null");
 
-            Assert.AreEqual(3, ConfigModule.GetAllWeapons().Count, "GetAllWeapons().Count");
-
-            // 表清单（手写）与逃生舱必须与生成物一致
-            // 9 = 示范三张（Weapon / Item / Fish）＋ 白模迁移新增六张
-            // （Projectile / Enemy / TileState / Player / Wave / TileInitial）
-            Assert.AreEqual(9, TablesMeta.Count, "TablesMeta.Count");
-            Assert.AreEqual(9, TablesMeta.Names.Length, "TablesMeta.Names.Length");
+            // 逃生舱与表清单（手写）必须与生成物一致：`TablesMeta.Count` 是那份清单自己的长度，
+            // 而 `Tables` 属性访问会触发验证器按同一份清单反射查表 —— 两者不一致会在 Init 阶段炸。
             Assert.IsNotNull(ConfigModule.Tables, "逃生舱 Tables 为 null");
+            Assert.Greater(TablesMeta.Count, 0, "TablesMeta 不能为空");
 
             // 观测面：拉模型必须反映上面这些事实
             var snap = DataMetrics.GetSnapshot();

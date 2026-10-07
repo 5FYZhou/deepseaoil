@@ -20,23 +20,22 @@ namespace DeepseaOil.Presentation.Ball
     /// <para><b>它不销毁 GameObject：</b><see cref="BallDriver"/> 落地时只回调，由
     /// <c>BallDirector</c> 统一 <see cref="Dispose"/>。两个地方都能销毁，就会出现"谁先谁后"的竞态 ——
     /// 收口前那条链上正是两条销毁路径（球驱动器自毁 ＋ 控制器兜底销毁）同时存在。</para>
-    /// <para><b>调参可被覆盖：</b><see cref="Tuning"/> 默认取全局 SO（由组合根注入）；
-    /// 将来某种球要自定义手感，是在"球实体"这一层覆盖它，而不是给全局 SO 加一身字段。</para>
+    /// <para><b>调参跟着球种走：</b>观感与冲量参数由 <see cref="ProjectileSpec.Tuning"/> 给出
+    /// （组合根注入的那一份）。将来某种球要自定义手感，是换它那一行的调参，而不是给全局 SO 加一身字段。</para>
     /// </remarks>
-    public sealed class BallActor
+    public sealed class BallActor : IDrivenEntity
     {
-        /// <summary>阴影色：贴地件的"存在感"来自它，不走球种色（阴影是光，不是材质）。</summary>
-        private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.35f);
+        /// <summary>
+        /// 阴影色的兜底值（观感表缺失时用）：贴地件的"存在感"来自它，不走球种色（阴影是光，不是材质）。
+        /// </summary>
+        private static readonly Color FallbackShadowColor = new(0f, 0f, 0f, 0.35f);
 
         private readonly GameObject _root;
         private readonly BallDriver _driver;
         private readonly Action<BallActor, Vector2> _onLanded;
 
-        /// <summary>本球出生时的定义（取值边界）。</summary>
-        public BallDefinition Definition { get; }
-
-        /// <summary>本球使用的观感 / 冲量调参。</summary>
-        public ThrowTuning Tuning { get; }
+        /// <summary>本球出生时的取值边界（球种 ＋ 表值 ＋ 调参 ＋ 观感表）。</summary>
+        public ProjectileSpec Definition { get; }
 
         /// <summary>球种。</summary>
         public BallType Type => Definition.Type;
@@ -48,27 +47,27 @@ namespace DeepseaOil.Presentation.Ball
         /// 建出球根物体与其三件套（本体 / 阴影 / 驱动器）。
         /// </summary>
         /// <param name="data">飞行数据（起点、落点、时长、弧高）。</param>
-        /// <param name="definition">球定义。</param>
-        /// <param name="tuning">观感与冲量调参；为 <c>null</c> 时全部走代码兜底值。</param>
+        /// <param name="definition">球种取值边界（含观感颜色表）。</param>
         /// <param name="ballRoot">球的父物体；为 <c>null</c> 时建在场景根下。</param>
         /// <param name="onLanded">落地回调：<c>(本球, 落点)</c>。回调发生在球被回收之前。</param>
         public BallActor(
-            in BallData data,
-            in BallDefinition definition,
-            ThrowTuning tuning,
+            in ProjectileTrajectory data,
+            ProjectileSpec definition,
             Transform ballRoot,
             Action<BallActor, Vector2> onLanded)
         {
             Definition = definition;
-            Tuning = tuning;
             _onLanded = onLanded;
             IsAlive = true;
 
-            float originHeight = tuning != null ? tuning.originHeight : 0f;
-            float ballRadius = tuning != null ? tuning.ballRadiusMeters : 0.22f;
-            float shadowRadius = tuning != null ? tuning.shadowRadiusMeters : 0.20f;
+            ThrowTuning tuning = definition.Tuning;
+            VisualPalette visuals = definition.Visuals;
 
-            _root = new GameObject($"球_{data.Type}");
+            float originHeight = tuning != null ? tuning.originHeight : 0f;
+            float shadowRadius = tuning != null ? tuning.shadowRadiusMeters : 0.20f;
+            Color shadowColor = visuals != null ? visuals.shadow : FallbackShadowColor;
+
+            _root = new GameObject($"Ball_{data.Type}");
 
             // 保持世界坐标：即使 ballRoot 带着位移，球也不会跟着偏。
             _root.transform.SetParent(ballRoot, true);
@@ -78,15 +77,17 @@ namespace DeepseaOil.Presentation.Ball
             _root.transform.position = new Vector3(data.Start.x, data.Start.y + originHeight, 0f);
 
             var view = _root.AddComponent<BallView>();
-            view.Initialize(ballRadius * 2f, CombatPalette.BallColor(data.Type));
+            view.Initialize(
+                definition.BallRadius * 2f,
+                visuals != null ? visuals.BallColor(data.Type) : Color.white);
 
             // 先 view 再 shadow：AddComponent 会立刻跑子物体的 Awake，顺序写死才不会让两帧的顺序飘。
-            var shadowGo = new GameObject("阴影");
+            var shadowGo = new GameObject("Shadow");
             shadowGo.transform.SetParent(_root.transform, false);
 
             // 阴影贴地、不进 Y-Sort 频带（跟着 y 取档会让它随高度越过自己的主人）。
             var shadow = shadowGo.AddComponent<BallShadow>();
-            shadow.Initialize(tuning, RenderOrder.GroundShadow, shadowRadius * 2f, ShadowColor);
+            shadow.Initialize(tuning, RenderOrder.GroundShadow, shadowRadius * 2f, shadowColor);
 
             _driver = _root.AddComponent<BallDriver>();
             _driver.Initialize(in data, view, shadow, originHeight, OnLandedInternal);

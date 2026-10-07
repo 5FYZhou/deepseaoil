@@ -5,14 +5,15 @@ namespace DeepseaOil.Logic.Input
     /// <summary>
     /// 单个采样帧的输入快照（不可变）。
     /// </summary>
+    /// <remarks>
+    /// <b>跳跃残留已清</b>（审查已定）：平台跳跃品类删掉之后 <c>JumpPressed</c> 一路没有消费者，
+    /// 却仍在快照、缓冲、采样器与玩家组合根四处传递。键位映射仍留在
+    /// <c>InputSys.inputactions</c> 里（改资产要重新生成 <c>InputSys.cs</c>，不在本轮范围）。
+    /// </remarks>
     public readonly struct InputSnapshot
     {
         /// <summary>移动输入，约定范围 -1..1。</summary>
         public readonly Vector2 Move;
-
-        /// <summary>本采样帧是否按下跳跃（按下沿，仅采样当帧为真）。</summary>
-        /// <remarks>当前没有跳跃状态消费者；键位（空格）保留在 action map 里，等策划定稿后的新用途。</remarks>
-        public readonly bool JumpPressed;
 
         /// <summary>本采样帧是否按下冲刺。</summary>
         public readonly bool DashPressed;
@@ -22,19 +23,17 @@ namespace DeepseaOil.Logic.Input
 
         public InputSnapshot(
             Vector2 move,
-            bool jumpPressed,
             bool dashPressed,
             bool grabHeld
             )
         {
             Move = move;
-            JumpPressed = jumpPressed;
             DashPressed = dashPressed;
             GrabHeld = grabHeld;
         }
 
         /// <summary>全零快照（无输入）。</summary>
-        public static InputSnapshot Empty => new InputSnapshot(Vector2.zero, false, false, false);
+        public static InputSnapshot Empty => new InputSnapshot(Vector2.zero, false, false);
     }
 
     public readonly struct UIInputSnapshot

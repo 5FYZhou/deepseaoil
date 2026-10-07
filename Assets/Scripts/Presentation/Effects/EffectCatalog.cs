@@ -15,11 +15,11 @@ namespace DeepseaOil.Presentation.Effects
         /// <summary>粒子驱动：需要 <c>Assets/Resources/effects/&lt;枚举名&gt;.prefab</c>。</summary>
         Particle = 0,
 
-        /// <summary>敌人碎裂：程序生成扇形碎片，不需要资源。</summary>
-        EnemyShatter = 1,
+        /// <summary>碎裂：程序生成扇形碎片，不需要资源。</summary>
+        Shatter = 1,
 
-        /// <summary>瞄准格高亮：程序生成整格色块，<b>持续型</b>（创建一次、之后只更新），不需要资源。</summary>
-        TileHighlight = 2,
+        /// <summary>持续性高亮：程序生成整格色块，<b>持续型</b>（创建一次、之后只更新），不需要资源。</summary>
+        Highlight = 2,
     }
 
     /// <summary>
@@ -101,19 +101,19 @@ namespace DeepseaOil.Presentation.Effects
         private static readonly EffectSpec[] Specs =
         {
             // Id                       驱动种类                          单例   池上限  预热
-            new EffectSpec(EffectId.HitSpark,  EffectDriverKind.Particle, isSingleton: false, maxSize: 32, prewarm: 8),
+            new EffectSpec(EffectId.BurstSparks,  EffectDriverKind.Particle, isSingleton: false, maxSize: 32, prewarm: 8),
             new EffectSpec(EffectId.MudSplash, EffectDriverKind.Particle, isSingleton: false, maxSize: 16, prewarm: 4),
 
             // 程序生成的（不需要预制体）：池上限按"同屏可能同时存在几个"给。
-            new EffectSpec(EffectId.EnemyShatter,  EffectDriverKind.EnemyShatter,  maxSize: 16, prewarm: 0),
+            new EffectSpec(EffectId.Shatter,  EffectDriverKind.Shatter,  maxSize: 16, prewarm: 0),
 
             // 瞄准高亮（持续型）：同时只会有一个实例（创建一次、之后走 Update），
             // 所以池上限 1、不预热 —— 预热一个开局用不到的对象没有收益。
-            new EffectSpec(EffectId.TileHighlight, EffectDriverKind.TileHighlight, isSingleton: true, maxSize: 1, prewarm: 0),
+            new EffectSpec(EffectId.Highlight, EffectDriverKind.Highlight, isSingleton: true, maxSize: 1, prewarm: 0),
 
             // 待实现驱动的三种（加行即接入，EffectModule 不用改）：
-            // new EffectSpec(EffectId.EnemyFlashWhite, maxSize: 16, prewarm: 4),
-            // new EffectSpec(EffectId.ObjectShake, isSingleton: true, maxSize: 1, prewarm: 1),
+            // new EffectSpec(EffectId.Flash, maxSize: 16, prewarm: 4),
+            // new EffectSpec(EffectId.Shake, isSingleton: true, maxSize: 1, prewarm: 1),
             // new EffectSpec(EffectId.ScreenShake, isSingleton: true, maxSize: 1, prewarm: 1),
         };
 
