@@ -109,7 +109,7 @@ namespace DeepseaOil.Logic.Grid.States
 
             for (int i = 0; i < _spec.EnterEffects.Count; i++)
             {
-                TileEffect effect = _spec.EnterEffects[i];
+                TileEffectValue effect = _spec.EnterEffects[i];
 
                 if (effect.Kind == TileEffectKind.DamageOverTime)
                 {
@@ -127,7 +127,7 @@ namespace DeepseaOil.Logic.Grid.States
         /// <param name="effect">连续伤害效果。</param>
         /// <param name="deltaTime">本帧时长。</param>
         /// <param name="accumulator">该效果的累加器（按效果分开持有，暂停时 <c>deltaTime</c> 为 0 ⇒ 不推进）。</param>
-        private static bool ShouldFire(in TileEffect effect, float deltaTime, ref float accumulator)
+        private static bool ShouldFire(in TileEffectValue effect, float deltaTime, ref float accumulator)
         {
             if (deltaTime <= 0f) return false;
 

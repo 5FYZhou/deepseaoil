@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using cfg.demo;
-using DeepseaOil.Logic.Grid;
 
 namespace DeepseaOil.Data
 {
     /// <summary>
-    /// 一条元素反应规则：<b>匹配条件 ＋ 结果状态 ＋ 效果清单</b>。持有 <c>element_rule</c> 表行，构造期就把"效果号 ＋ 档位"解析成已定值的 <see cref="DeepseaOil.Logic.Grid.TileEffect"/>。
+    /// 一条元素反应规则：<b>匹配条件 ＋ 结果状态 ＋ 效果清单</b>。持有 <c>element_rule</c> 表行，构造期就把"效果号 ＋ 档位"解析成已定值的 <see cref="TileEffectValue"/>。
     /// </summary>
     /// <remarks>
     /// <b>顺序即优先级</b>：表里 <c>priority</c> 是主键，但<u>匹配</u>按传入列表的先后顺序进行（上游就是这么写的：第一个命中的规则胜出，<c>priority</c> 列本身不参与判定）。出规则清单的人负责按优先级排好。
@@ -15,12 +14,12 @@ namespace DeepseaOil.Data
     public sealed class ElementRuleSpec
     {
         /// <summary>取"某效果的第 pos 档"的解析器：由 <c>ConfigModule</c> 提供（效果号 → 效果包装件）。可为 <c>null</c>（表里没有 effect 表时：效果清单退化成"全是 None"）。</summary>
-        public delegate DeepseaOil.Logic.Grid.TileEffect EffectResolver(TileEffectType effect, int pos);
+        public delegate TileEffectValue EffectResolver(TileEffectType effect, int pos);
 
         private readonly ElementRule _row;
 
         /// <summary>已解析的效果清单（与表里的 <c>effects</c> 逐条对应，越界的那条已兜底成第 1 档）。</summary>
-        public readonly IReadOnlyList<DeepseaOil.Logic.Grid.TileEffect> Effects;
+        public readonly IReadOnlyList<TileEffectValue> Effects;
 
         public ElementRuleSpec(ElementRule row, EffectResolver resolve)
         {
@@ -31,14 +30,14 @@ namespace DeepseaOil.Data
 
             int count = effects?.Count ?? 0;
 
-            var resolved = new List<DeepseaOil.Logic.Grid.TileEffect>(count);
+            var resolved = new List<TileEffectValue>(count);
 
             for (int i = 0; i < count; i++)
             {
                 // 档位列比效果列短时按第 1 档取：缺列是配置事故，报在 TileEffectSpec 那边（它会看到 pos=1 是合法的，故这里静默补 1）。
                 int pos = positions != null && i < positions.Count ? positions[i] : 1;
 
-                DeepseaOil.Logic.Grid.TileEffect effect = resolve != null
+                TileEffectValue effect = resolve != null
                     ? resolve(effects[i], pos)
                     : default;
 

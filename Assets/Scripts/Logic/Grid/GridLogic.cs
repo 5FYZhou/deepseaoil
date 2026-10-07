@@ -57,14 +57,14 @@ namespace DeepseaOil.Logic.Grid
         /// <param name="stateSpecs">全部地块状态（<c>tile_state</c> 表的包装件）。</param>
         /// <param name="stateFactory">按 ID 造状态实例；返回 <c>null</c> = "这个 ID 没有实现"。</param>
         /// <param name="element">元素层（合成 ＋ 规则匹配 ＋ 每格元素）；为 <c>null</c> 时落地不产生任何反应。</param>
-        /// <param name="tileEffects">地块效果表（<c>tile_effect</c> 的包装件）。用途只有一处：连续伤害的<b>扣血节奏</b>与伤害值以本表为准，让"调 DoT 数值"不必重导状态表。</param>
+        /// <param name="TileEffectValues">地块效果表（<c>tile_effect</c> 的包装件）。用途只有一处：连续伤害的<b>扣血节奏</b>与伤害值以本表为准，让"调 DoT 数值"不必重导状态表。</param>
         /// <param name="registry">格上目标归属表；为 <c>null</c> 时自建一份（单测直接读 <see cref="Registry"/>）。</param>
         public GridLogic(
             in GridGeometry geometry,
             IReadOnlyList<TileStateSpec> stateSpecs,
             Func<TileStateType, ITileState> stateFactory,
             IElementReactor element = null,
-            IReadOnlyList<TileEffectSpec> tileEffects = null,
+            IReadOnlyList<TileEffectSpec> TileEffectValues = null,
             EnemyCellRegistry registry = null)
         {
             _geometry = geometry;
@@ -80,11 +80,11 @@ namespace DeepseaOil.Logic.Grid
                 }
             }
 
-            if (tileEffects != null)
+            if (TileEffectValues != null)
             {
-                for (int i = 0; i < tileEffects.Count; i++)
+                for (int i = 0; i < TileEffectValues.Count; i++)
                 {
-                    _effectSpecs[tileEffects[i].Id] = tileEffects[i];
+                    _effectSpecs[TileEffectValues[i].Id] = TileEffectValues[i];
                 }
             }
         }
@@ -233,7 +233,7 @@ namespace DeepseaOil.Logic.Grid
         /// <inheritdoc />
         /// <remarks>按目标的能力分流：能受伤的吃伤害、能减速的吃减速、能击退的吃击退、能被麻痹的吃麻痹。
         /// <b>玩家不在归属表里</b>，所以"泥浆会减速玩家"这条行为不存在（D7）。</remarks>
-        public void Apply(Vector3Int cell, in TileEffect effect)
+        public void Apply(Vector3Int cell, in TileEffectValue effect)
         {
             switch (effect.Kind)
             {
@@ -245,7 +245,7 @@ namespace DeepseaOil.Logic.Grid
                     // 数值与节奏以 tile_effect 表为准（表是权威）；取不到就退回效果的定值。
                     if (_effectSpecs.TryGetValue(TileEffectType.DamageOverTime, out TileEffectSpec dot))
                     {
-                        TileEffect table = dot.GetEffect(1);
+                        TileEffectValue table = dot.GetEffect(1);
 
                         if (table.Kind == TileEffectKind.DamageOverTime)
                         {
@@ -278,7 +278,7 @@ namespace DeepseaOil.Logic.Grid
 
         /// <inheritdoc />
         /// <remarks>只改 <paramref name="cell"/> 自身（D4：状态实现不许碰别的格，跨格由执行者做）。温湿度继承与清除植物都走这里。</remarks>
-        public void ApplyToCell(Vector3Int cell, in TileEffect effect)
+        public void ApplyToCell(Vector3Int cell, in TileEffectValue effect)
         {
             if (_element == null) return;
 
@@ -423,7 +423,7 @@ namespace DeepseaOil.Logic.Grid
             Vector3Int cell,
             TileStateType next,
             bool applyEnterImpact,
-            IReadOnlyList<TileEffect> enterEffects = null)
+            IReadOnlyList<TileEffectValue> enterEffects = null)
         {
             if (!_cells.Contains(cell)) return false;
 
@@ -469,9 +469,9 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>提交"进格效果"：默认取状态自带的清单；反应命中时传入的是<b>规则行</b>的清单。</summary>
-        private void ApplyEnterImpact(Vector3Int cell, TileStateType state, IReadOnlyList<TileEffect> enterEffects)
+        private void ApplyEnterImpact(Vector3Int cell, TileStateType state, IReadOnlyList<TileEffectValue> enterEffects)
         {
-            IReadOnlyList<TileEffect> effects = enterEffects;
+            IReadOnlyList<TileEffectValue> effects = enterEffects;
 
             if (effects == null && _specs.TryGetValue(state, out TileStateSpec spec)) effects = spec.EnterEffects;
 
@@ -479,7 +479,7 @@ namespace DeepseaOil.Logic.Grid
 
             for (int i = 0; i < effects.Count; i++)
             {
-                TileEffect effect = effects[i];
+                TileEffectValue effect = effects[i];
 
                 if (effect.Kind == TileEffectKind.None) continue;
 

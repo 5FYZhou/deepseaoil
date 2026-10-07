@@ -45,18 +45,18 @@ namespace DeepseaOil.Logic.Grid
     }
 
     /// <summary><b>唯一的效果出口</b>：对站在该格上的目标施加一次效果；找人与击退方向（按"格心 → 受害者"逐个算，可能不止一个目标）由实现负责。</summary>
-    /// <remarks>签名只收一个<b>已定值</b>的 <see cref="TileEffect"/>：档位 / 级别在数据层就消解掉了，所以本接口不会随效果数量增长。</remarks>
+    /// <remarks>签名只收一个<b>已定值</b>的 <see cref="TileEffectValue"/>：档位 / 级别在数据层就消解掉了，所以本接口不会随效果数量增长。</remarks>
     public interface ITileResolver
     {
         /// <summary>对站在该格上的目标施加一次效果（伤害 / 减速 / 击退 / 麻痹 / 持续伤害）。</summary>
-        void Apply(Vector3Int cell, in TileEffect effect);
+        void Apply(Vector3Int cell, in TileEffectValue effect);
 
         /// <summary>
         /// <b>地形改写通道</b>（D11）：改的是格子<b>自身</b>，不是格上的目标 —— 温湿度继承、清除植物、状态转换都走这里。
         /// </summary>
         /// <remarks>与 <see cref="Apply"/> 分成两个方法而不是一个：一个动"格上的东西"，一个动"格子本身"，混成一个会让"这条效果改了谁"无法从签名上看出来（D10 的出口原则是"靠 Kind 区分种类"，不是"靠 Kind 区分作用对象"）。
         /// 状态实现<b>仍然不许直接碰别的格</b>（D4）：跨格由执行者做，本方法只作用于 <paramref name="cell"/>。</remarks>
-        void ApplyToCell(Vector3Int cell, in TileEffect effect);
+        void ApplyToCell(Vector3Int cell, in TileEffectValue effect);
 
         /// <summary>直接改写某格的元素四件（温湿度继承 / 清除植物 / 将来的地形脚本用）。端口面比 <see cref="ApplyToCell"/> 更窄：它不谈"效果"，只写值。</summary>
         void SetCellElement(Vector3Int cell, in ElementValue element);
