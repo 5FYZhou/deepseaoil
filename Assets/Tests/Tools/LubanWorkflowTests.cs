@@ -7,9 +7,11 @@
 //   · 仅校验模式缺 -f / outputSaver=null → 校验模式也会写盘
 //   · 工作目录不是 workspace   → conf 里全是相对路径，基准一错全错
 //   · 暂存区落进 Assets        → Luban 校验失败也写盘，一次失败导入当场毁掉生成目录
-//   · 引号转义错               → 路径带空格 / 结尾反斜杠时命令行破损
+//   · 引号转义错               → 路径带空格 / 结尾反斜杠时命令行破损（只测 Windows 分支：
+//                                Quote.cs 的 Posix 分支在 Windows 上不是生产路径，那两条已删）
 //   · 日志解析错               → 不知道哪些文件被写
 //   · 预检失效                 → 坏工具链不被拦下，报的是原生英文错
+//                               （"有锁文件则 pre.Ok 必须为 false"那条分支不可达，一并删）
 //
 // 【刻意删掉的一类断言】读 .cs 源码 grep 中文提示 / 注释文本
 // （旧 B1/B2/B3/D1/D2/D3/E1/E2/E3/F1/H1/M1，共 11 项）。
@@ -148,12 +150,9 @@ namespace DeepseaOil.EditorTools.Tests
                 Quote.QuoteForWindows(new[] { "dotnet", "/p/a b/Luban.dll", "--strict" }));
         }
 
-        [Test]
-        public void 引号_Posix单引号()
-        {
-            Assert.AreEqual("'a'\\''b'", Quote.QuoteOneForPosix("a'b"));
-            Assert.AreEqual("'/opt/My Games/x'", Quote.QuoteOneForPosix("/opt/My Games/x"));
-        }
+        // 已删：引号_Posix单引号 —— Assets/Editor/Quote.cs 的 Posix 分支在 Windows 上
+        // 根本不是生产路径（导表工具链只走 QuoteForWindows / QuoteOneForWindows），
+        // 测它只会在改 Windows 分支时替 Posix 分支保持"绿"，没有任何运行时静默失效面。
 
         // ================================================================
         // 4 · Luban 日志解析
@@ -192,19 +191,13 @@ namespace DeepseaOil.EditorTools.Tests
 
             Assert.IsNotNull(LubanProject.FindExcelLockFiles(), "FindExcelLockFiles 不应返回 null");
 
-            // 真实环境闸门：工具链、conf、workspace 三者齐备
+            // 真实环境闸门：工具链、conf、workspace 三者齐备。
+            // 刻意**不**在这里再断"有锁文件时 pre.Ok 必须为 false"：那条分支永远不可达
+            // （有锁文件时下面的断言先红），是断言与实现自相矛盾 —— 已删。
             var pre = LubanProject.Precheck();
             Assert.IsTrue(pre.Ok,
                 "预检应当通过，实际：" + pre.Message
                 + "\n（若这里失败是因为有 ~$Excel 锁文件，请先保存并关闭被占用的表格再跑测试）");
-
-            // 有锁文件时预检必须失败，且消息里点名是 Excel 占用
-            if (LubanProject.FindExcelLockFiles().Count > 0)
-            {
-                Assert.IsFalse(pre.Ok,
-                    "有 ~$ 锁文件时预检必须失败（拦下，避免静默使用未保存的旧数据）");
-                Assert.IsTrue(pre.Message.Contains("Excel"), "提示里要说明是 Excel 占用");
-            }
         }
 
         // ================================================================

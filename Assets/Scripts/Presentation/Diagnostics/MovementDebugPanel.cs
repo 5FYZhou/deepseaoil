@@ -4,7 +4,7 @@ using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Diagnostics
 {
     /// <summary>
     /// 移动调试面板：显示当前移动状态、帧首真值与本帧提交量、引擎回读速度与边界接线情况。

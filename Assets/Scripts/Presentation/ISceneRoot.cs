@@ -1,5 +1,26 @@
 namespace DeepseaOil.Presentation
 {
+    // ─────────────────────────────────────────────────────────────────────────
+    // 本层的命名空间约定（此文件是它的落点，因为它是本层的根契约）
+    //
+    // **一个子目录一个命名空间**：`Presentation/Actor` → `DeepseaOil.Presentation.Actor`，
+    // 依此类推。理由不是审美：本工程**没有 asmdef**，编译器眼里只有程序集，
+    // 于是命名空间是层与层、组与组之间唯一的边界表达。有一半文件用父级、一半用子级的话，
+    // "谁能看见谁"在代码里就分不出来（那正是本约定被补写下来的原因）。
+    //
+    // 三处**平坦**（刻意留在 `DeepseaOil.Presentation`，不是漏改）：
+    //   · `Presentation/Root/`   —— 组合根们（GameRoot / PlayerController / CombatRoot / GameManager）
+    //     与 `ISceneRoot` / `IDrivenEntity` 同属"本层的入口"，加一层名字只会让注入点变啰嗦；
+    //   · `Presentation/UI/Panel/` —— 面板全是 `Presentation.UI` 的实现细节，UI 已是子级；
+    //   · `Presentation/` 根下两个接口文件。
+    // 除这三处，**新增目录必须带自己的命名空间**。
+    //
+    // 反例留档：`Presentation/Debug/` 曾按目录取名为 `DeepseaOil.Presentation.Debug` ——
+    // 那会让本层所有 `Debug.LogError(...)` 被解析成"该命名空间下没有 LogError"（CS0234），
+    // 一次改动引发 61 处编译错误。目录因此改名 `Diagnostics`（命名空间同理），
+    // 而不是给 `Debug` 开一条"可以用父级"的例外。
+    // ─────────────────────────────────────────────────────────────────────────
+
     /// <summary>
     /// 场景根的驱动顺序档位。<b>顺序是契约，不是魔法数字</b>。
     /// </summary>

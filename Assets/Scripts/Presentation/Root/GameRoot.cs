@@ -6,7 +6,9 @@ using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Service;
+using DeepseaOil.Presentation.Adapters;
 using DeepseaOil.Presentation.Effects;
+using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.UI;
 using UnityEngine;
 

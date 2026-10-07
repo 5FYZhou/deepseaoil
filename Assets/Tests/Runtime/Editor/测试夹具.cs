@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------------
 
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using Luban.SimpleJSON;
 using UnityEngine;
@@ -38,12 +39,6 @@ namespace DeepseaOil.Tests
             => new Projectile(JSON.Parse(
                 "{\"id\":0,\"name\":\"水球\",\"flight_duration\":0.6,\"max_height\":2," +
                 "\"max_throw_distance\":5,\"min_throw_distance\":0.4,\"tile_state\":1}"));
-
-        /// <summary>一行土球：落地不改格（<c>tile_state = Normal</c>）。</summary>
-        public static Projectile EarthRow()
-            => new Projectile(JSON.Parse(
-                "{\"id\":1,\"name\":\"土球\",\"flight_duration\":0.6,\"max_height\":2," +
-                "\"max_throw_distance\":5,\"min_throw_distance\":0.4,\"tile_state\":0}"));
 
         /// <summary>一行敌人：半径 0.45、满速 3.6、加速 14、击退衰减 10、停止 0.6、追击 60、耐久 3、闪 4Hz。</summary>
         public static Enemy EnemyRow()
@@ -135,7 +130,11 @@ namespace DeepseaOil.Tests
 
         // ── IActorLedger：全部转发给真账本 ──
 
+        /// <summary>角色共用运动参数（只写不读：状态机读的是 <see cref="Motion"/>）。</summary>
         public CharacterConfig Config => _ledger.Config;
+
+        /// <summary>运动标量（<c>IStateHost</c> 的取数口；执行器折算的那一份）。</summary>
+        public MotionParams Motion => _ledger.Motion;
 
         public Vector2 FrameStartVelocity => _ledger.FrameStartVelocity;
 
@@ -163,11 +162,7 @@ namespace DeepseaOil.Tests
 
         public void ClampSpeed(float maxSpeed) => _ledger.ClampSpeed(maxSpeed);
 
-        public void SetSpeedLimit(float maxSpeed) => _ledger.SetSpeedLimit(maxSpeed);
-
         public void SetExtraForceScale(float scale) => _ledger.SetExtraForceScale(scale);
-
-        public void StartMoveLock(float now, float duration) => _ledger.StartMoveLock(now, duration);
 
         public void ApplyExtraForce(Vector2 force) => _ledger.ApplyExtraForce(force);
 

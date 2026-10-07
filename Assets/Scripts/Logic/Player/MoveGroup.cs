@@ -29,9 +29,13 @@ namespace DeepseaOil.Logic.Player
         private readonly PlayerLogic _logic;
         private readonly IActorMotor _motor;
 
-        /// <summary>玩家侧配置（冲刺冷却与缓冲窗口住在这里）。</summary>
-        /// <remarks>取一次并缓存：它是装配期注入的只读 SO，不是每帧状态。</remarks>
-        private readonly PlayerConfig _player;
+        /// <summary>玩家取值边界：冲刺冷却与缓冲窗口从它读语义（<b>不持有 <c>PlayerConfig</c></b>）。</summary>
+        /// <remarks>
+        /// 收口前这里缓存的是 <c>motor.Config as PlayerConfig</c>，再由两个 private 属性转发
+        /// <c>dashCooldown</c> / <c>dashBufferTime</c>。那两跳都是多余的：本组要的是"冲刺冷却几秒"
+        /// 这条<b>语义</b>，而语义点在 <see cref="PlayerSpec"/> 上。于是配置对象不再往逻辑层里走。
+        /// </remarks>
+        private readonly PlayerSpec _spec;
 
         private readonly InputBuffer _buffer;
         private readonly DashState _dash;
@@ -48,13 +52,14 @@ namespace DeepseaOil.Logic.Player
         private Vector2 _direction = Vector2.right;
 
         /// <param name="logic">宿主（组合件：状态机骨架认识的窄口在这里）。</param>
+        /// <param name="spec">玩家取值边界（冲刺冷却与缓冲窗口的语义来源）。</param>
         /// <param name="motor">移动执行器（速度提交与速度乘数的唯一出口）。</param>
         /// <param name="buffer">按键沿缓冲（冲刺窗口）。</param>
-        public MoveGroup(PlayerLogic logic, IActorMotor motor, InputBuffer buffer)
+        public MoveGroup(PlayerLogic logic, PlayerSpec spec, IActorMotor motor, InputBuffer buffer)
         {
             _logic = logic;
+            _spec = spec;
             _motor = motor;
-            _player = motor.Config as PlayerConfig;
             _buffer = buffer;
 
             _dash = new DashState(logic);
@@ -80,22 +85,20 @@ namespace DeepseaOil.Logic.Player
         /// <remarks>只读用途。状态类本身不该被外部配置，入场参数一律经 <see cref="TryCommitPreempt"/> 喂入。</remarks>
         public DashState Dash => _dash;
 
-        /// <summary>最近一次非零输入方向（已归一化）。</summary>
-        public Vector2 Direction => _direction;
-
         /// <summary>冲刺资格：冷却已过，且缓冲里有窗口内的按下。<b>纯查询</b>，不消费。</summary>
         public bool CanDash(float now)
         {
-            return _dashCooldown.CanUse(now) && _buffer.CanConsume(InputType.Dash, now, DashBufferSeconds);
+            return _dashCooldown.CanUse(now)
+                && _buffer.CanConsume(InputType.Dash, now, _spec.DashBufferSeconds);
         }
 
         /// <summary>消费冲刺资格；冷却不足、或缓冲里没有窗口内的按下时拒绝。</summary>
         public bool TryConsumeDash(float now)
         {
             if (!_dashCooldown.CanUse(now)) return false;
-            if (!_buffer.TryConsume(InputType.Dash, now, DashBufferSeconds)) return false;
+            if (!_buffer.TryConsume(InputType.Dash, now, _spec.DashBufferSeconds)) return false;
 
-            _dashCooldown.MarkUsed(now, DashCooldownSeconds);
+            _dashCooldown.MarkUsed(now, _spec.DashCooldownSeconds);
 
             return true;
         }
@@ -175,11 +178,5 @@ namespace DeepseaOil.Logic.Player
         {
             EventBus<MovementStateChanged>.Publish(new MovementStateChanged(current, previous));
         }
-
-        /// <summary>冲刺冷却时长（秒）；来自玩家配置（SO）。</summary>
-        private float DashCooldownSeconds => _player != null ? _player.dashCooldown : 0f;
-
-        /// <summary>冲刺输入缓冲窗口（秒）；来自玩家配置（SO）。</summary>
-        private float DashBufferSeconds => _player != null ? _player.dashBufferTime : 0f;
     }
 }

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Primitive
 {
     /// <summary>
     /// 运行期生成的两张纯色 sprite：圆点与贴地圆环/圆盘。<b>缺美术资源时的 fallback</b>。

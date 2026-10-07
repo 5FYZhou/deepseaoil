@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Adapters
 {
     /// <summary>
     /// 玩家移动执行器：<b>除了基类的三条共同物理参数之外，玩家侧没有额外要求</b>。

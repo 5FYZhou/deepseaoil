@@ -22,6 +22,10 @@
 
 退出码：0 = 0 error；1 = 有 error 或前置检查失败。
 基线（2026-10-05，批 0）：0 error / 1 warning（SaveService.cs CS0649，既有）。
+警告计数口径（2026-10-07 修正）：数的是**去重后的逐条诊断**（`路径(行,列): warning CSxxxx: 消息`）。
+  两个坑各踩过一次：① 汇总行 `    1 个警告` 的缩进里含 `: `，被旧写法算成了诊断；
+  ② `dotnet build` 把同一条诊断打印两遍（编译阶段一次、末尾汇总段一次）。
+  症状都是"代码没动、门的数字变了"，而那种数字不可用于验收。见脚本末尾的计数函数。
 #>
 [CmdletBinding()]
 param(
@@ -114,11 +118,34 @@ Write-Host '编译：' -ForegroundColor Cyan
 $log = & dotnet build $gateEditorPath -v minimal -nologo 2>&1
 $log | ForEach-Object { Write-Host $_ }
 
-$errors   = @($log | Select-String -Pattern ': error [A-Z]+\d+')
-$warnings = @($log | Select-String -Pattern ': warning [A-Z]+\d+')
+# 计数口径：**去重后的逐条诊断**。
+# 两个坑各踩过一次：
+#   ① 汇总行 `    1 个警告` 的缩进里含 `: `，被旧的 `: warning [A-Z]+\d+` 数成了诊断；
+#   ② `dotnet build` 把同一条诊断**打印两遍**（编译阶段一次、末尾汇总段一次），
+#      所以"匹配到几行"不等于"有几条警告"。
+# 于是这里先按「路径(行,列) ＋ 级别 ＋ 编号」去重，再数。
+function Get-DiagnosticCount {
+    param(
+        [object[]]$Log,
+        [string]$Level
+    )
+
+    $seen = @{}
+
+    foreach ($line in $Log) {
+        $m = [regex]::Match([string]$line, '^(.*?\(\d+,\d+\)): ' + $Level + ' ([A-Z]+\d+):')
+
+        if ($m.Success) { $seen[$m.Groups[1].Value + '|' + $m.Groups[2].Value] = $true }
+    }
+
+    return $seen.Count
+}
+
+$errors   = Get-DiagnosticCount -Log $log -Level 'error'
+$warnings = Get-DiagnosticCount -Log $log -Level 'warning'
 
 Write-Host ''
-Write-Host ("错误 {0} 条 / 警告 {1} 条" -f $errors.Count, $warnings.Count) -ForegroundColor $(if ($errors.Count -eq 0) { 'Green' } else { 'Red' })
+Write-Host ("错误 {0} 条 / 警告 {1} 条" -f $errors, $warnings) -ForegroundColor $(if ($errors -eq 0) { 'Green' } else { 'Red' })
 
-if ($errors.Count -gt 0) { exit 1 }
+if ($errors -gt 0) { exit 1 }
 exit 0

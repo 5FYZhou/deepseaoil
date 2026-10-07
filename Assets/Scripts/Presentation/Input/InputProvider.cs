@@ -3,7 +3,7 @@ using DeepseaOil.Logic.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Input
 {
     /// <summary>
     /// 输入采样器。

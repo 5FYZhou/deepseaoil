@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Adapters
 {
     /// <summary>
     /// 敌人移动执行器：共用 <see cref="ActorMotor"/> 的读写与镜像，只补"敌人特有的物理参数"。

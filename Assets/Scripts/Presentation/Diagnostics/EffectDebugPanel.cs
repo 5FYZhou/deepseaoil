@@ -2,7 +2,7 @@ using DeepseaOil.Presentation.Effects;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Diagnostics
 {
     /// <summary>
     /// 特效调试面板：一行统计 + 每个已装配特效一个"播放"按钮 + 全部清空。

@@ -5,6 +5,9 @@ using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
+using DeepseaOil.Presentation.Adapters;
+using DeepseaOil.Presentation.Input;
+using DeepseaOil.Presentation.Visual;
 using cfg.demo;
 using UnityEngine;
 
@@ -60,8 +63,12 @@ namespace DeepseaOil.Presentation
         private WorldInfo _world;
         private BoundsArea _bounds;
 
-        /// <summary>移动参数（SO）；由 <c>ConfigModule.GetPlayer().Config</c> 给，<c>Attach</c> 时取一次。</summary>
-        private PlayerConfig _config;
+        /// <summary>玩家取值边界（<c>Attach</c> 时取一次）；移动/冲刺/缓冲都经它读语义。</summary>
+        /// <remarks>
+        /// 收口前本类在这里存一份 <c>PlayerConfig</c>（SO）。现在配置对象<b>不再往表现层走</b>：
+        /// 要哪条数就问 <see cref="PlayerSpec"/> 要哪条语义（见 <c>Attach</c> 处的两处读法）。
+        /// </remarks>
+        private PlayerSpec _spec;
 
         /// <summary>瞄准平面深度（世界单位）；<c>Attach</c> 时取一次，缺失时用代码兜底值。</summary>
         private float _cameraPlaneDepth = 100f;
@@ -201,19 +208,17 @@ namespace DeepseaOil.Presentation
         {
             if (Logic != null || motor == null) return;
 
-            PlayerSpec spec = ConfigModule.GetPlayer();
-
-            _config = spec.Config;
+            _spec = ConfigModule.GetPlayer();
 
             // 缓冲容量取"容量参数"与各输入窗口的较大者：容量小于任何窗口时，窗口内的按下会被挤出历史。
             _buffer = new InputBuffer(
-                Mathf.Max(_config.inputBufferTime, _config.dashBufferTime),
+                Mathf.Max(_spec.InputBufferSeconds, _spec.DashBufferSeconds),
                 Mathf.RoundToInt(1f / Time.fixedDeltaTime)
                 );
 
-            _cameraPlaneDepth = spec.CameraPlaneDepth;
+            _cameraPlaneDepth = _spec.CameraPlaneDepth;
 
-            Logic = new PlayerLogic(motor, spec, _buffer);
+            Logic = new PlayerLogic(motor, _spec, _buffer);
         }
 
         /// <summary>
@@ -230,7 +235,7 @@ namespace DeepseaOil.Presentation
 
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 
-            Vector2 move = SnapMoveToEightDirections(raw.Move, _config.snapToEightDirections);
+            Vector2 move = SnapMoveToEightDirections(raw.Move, _spec.SnapToEightDirections);
 
             // 归一化后的方向要写回快照：WorldInfo 与 InputBuffer 必须是同一份方向，
             // 否则 MoveGroup 取冲刺方向、PlayerLogic 记"最近朝向"时会看到另一份（未处理的）值。

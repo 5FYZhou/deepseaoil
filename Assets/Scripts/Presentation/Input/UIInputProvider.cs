@@ -1,8 +1,8 @@
-﻿using DeepseaOil.Generated;
+using DeepseaOil.Generated;
 using DeepseaOil.Logic.Input;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Input
 {
     /// <summary>
     /// UI输入采样器。

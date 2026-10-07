@@ -95,9 +95,9 @@ namespace DeepseaOil.Logic
         /// </remarks>
         private float Deceleration()
         {
-            float decay = Config.hurtDecay;
+            float decay = Motion.HurtDecay;
 
-            return decay > 0f ? decay : Config.moveAcceleration;
+            return decay > 0f ? decay : Motion.MoveAcceleration;
         }
     }
 }

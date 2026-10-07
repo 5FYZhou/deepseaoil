@@ -1,8 +1,9 @@
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Adapters
 {
     /// <summary>
     /// 移动执行器基类：<b>把逻辑层算出的速度写进物理体，并把朝向落成视觉镜像</b>；
@@ -127,8 +128,11 @@ namespace DeepseaOil.Presentation
         // IActorLedger：全部转发给账本
         // ─────────────────────────────────────────────
 
-        /// <inheritdoc />
+        /// <summary>角色共用运动参数（<b>只写不读</b>；状态机读的是 <see cref="Motion"/>）。</summary>
         public CharacterConfig Config => Ledger.Config;
+
+        /// <inheritdoc />
+        public MotionParams Motion => Ledger.Motion;
 
         /// <inheritdoc />
         public Vector2 FrameStartVelocity => Ledger.FrameStartVelocity;
@@ -177,13 +181,7 @@ namespace DeepseaOil.Presentation
         public void ClampSpeed(float maxSpeed) => Ledger.ClampSpeed(maxSpeed);
 
         /// <inheritdoc />
-        public void SetSpeedLimit(float maxSpeed) => Ledger.SetSpeedLimit(maxSpeed);
-
-        /// <inheritdoc />
         public void SetExtraForceScale(float scale) => Ledger.SetExtraForceScale(scale);
-
-        /// <inheritdoc />
-        public void StartMoveLock(float now, float duration) => Ledger.StartMoveLock(now, duration);
 
         // ─────────────────────────────────────────────
         // 控制律（IStateHost 的入口）
@@ -199,9 +197,6 @@ namespace DeepseaOil.Presentation
         public void MoveTowards(Vector2 direction, float speed)
         {
             FaceTowards(direction);
-
-            if (Ledger.IsMoveLocked) return;
-
             Ledger.MoveTowards(direction, speed);
         }
 
@@ -211,7 +206,7 @@ namespace DeepseaOil.Presentation
             Ledger.BrakeTowards();
         }
 
-        /// <summary>急停：速度当帧归零（朝向不变）；移动锁定期内不响应。</summary>
+        /// <summary>急停：速度当帧归零（朝向不变）。</summary>
         /// <remarks><b>它的语义是"硬停"</b>（重生、禁用、速度被外力完全接管时用）。
         /// 手感上的"松手滑停"走 <see cref="BrakeTowards"/> —— 两者刻意分开。</remarks>
         public void StopMove()
@@ -239,7 +234,8 @@ namespace DeepseaOil.Presentation
         /// 提交一帧外力（转发给账本）。
         /// </summary>
         /// <remarks>参数由调用方给出，本类不持有任何具体力的语义。
-        /// 它与 <see cref="SetSpeedLimit"/> 目前没有生产消费者（见 <see cref="ActorLedger.ApplyExtraForce"/>）。</remarks>
+        /// 它与 <see cref="SetExtraForceScale"/> <b>没有生产消费者</b>，但<b>有测试语义</b>——
+        /// 与已删除的"每帧速度上限 / 移动锁"的区别正在这里：那两条零消费者也零测试。</remarks>
         public void ApplyExtraForce(Vector2 force) => Ledger.ApplyExtraForce(force);
 
         protected virtual void Awake()

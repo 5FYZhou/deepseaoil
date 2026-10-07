@@ -1,4 +1,5 @@
 using cfg.demo;
+using UnityEngine;
 
 namespace DeepseaOil.Data
 {
@@ -38,12 +39,10 @@ namespace DeepseaOil.Data
 
         /// <param name="row">表行（<c>projectile</c>）。</param>
         /// <param name="tuning">观感与冲量调参；为 <c>null</c> 时全部走代码兜底值。</param>
-        /// <param name="visuals">观感颜色表；为 <c>null</c> 时表现层走自己的兜底（白色 / 默认阴影）。</param>
-        public ProjectileSpec(Projectile row, ThrowTuning tuning, VisualPalette visuals = null)
+        public ProjectileSpec(Projectile row, ThrowTuning tuning)
         {
             _row = row;
             _tuning = tuning;
-            Visuals = visuals;
         }
 
         /// <summary>球种（= 表主键）。</summary>
@@ -86,8 +85,16 @@ namespace DeepseaOil.Data
         /// <summary>本球种的观感与冲量调参（球实体默认吃这一份）。</summary>
         public ThrowTuning Tuning => _tuning;
 
-        /// <summary>观感颜色表（球色 / 阴影色）。表现层从它取色，逻辑层不认识它。</summary>
-        public VisualPalette Visuals { get; }
+        /// <summary>本球种的本体颜色。</summary>
+        /// <remarks>
+        /// <b>观感值经本类出去，调色板自己不出去。</b>表现层要的是"这颗球是什么颜色"这条语义，
+        /// 而不是"颜色表在哪" —— 后者会多出第三个入口（另两个是敌人的四态色与格子高亮的两态色）。
+        /// 唯一权威来源是 <c>ConfigModule.Visuals</c>，本属性只是把它按球种解析一次。
+        /// </remarks>
+        public Color BallColor => ConfigModule.Visuals.BallColor(Type);
+
+        /// <summary>贴地阴影色（球与掉落物的影子共用）。</summary>
+        public Color ShadowColor => ConfigModule.Visuals.shadow;
 
         /// <summary>球本体的视觉半径（世界单位）；调参缺失时退化为代码默认值。</summary>
         public float BallRadius => _tuning != null ? _tuning.ballRadiusMeters : FallbackBallRadius;

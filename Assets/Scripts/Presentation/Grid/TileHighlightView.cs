@@ -18,13 +18,12 @@ namespace DeepseaOil.Presentation.Grid
     /// 于是"什么时候开始听、什么时候停止听"只有一个答案。</para>
     /// <para><b>持续效果</b>：创建一次（<c>Play</c>），之后每帧只 <c>Update</c> 位置与颜色，
     /// 不瞄了就 <c>Stop</c>。这是"持续效果口"在工程里的第一个调用点。</para>
+    /// <para><b>色源是观感表</b>（<c>ConfigModule.Visuals</c>）：收口前这里借的是
+    /// <c>ConfigModule.GetEnemy().Visuals</c> —— 两个字段本来就是高亮自己的语义，
+    /// 借敌人的取值边界只是"顺手拿到同一个 SO"，归属接错了线。</para>
     /// </remarks>
     public sealed class TileHighlightView : MonoBehaviour
     {
-        /// <summary>兜底的两态色（观感表缺失时用）。</summary>
-        private static readonly Color FallbackAvailable = new(1f, 1f, 1f, 0.32f);
-        private static readonly Color FallbackBlocked = new(1f, 0.25f, 0.2f, 0.42f);
-
         private GridGeometry _geometry;
 
         /// <summary>格子边长（世界单位）。</summary>
@@ -92,17 +91,13 @@ namespace DeepseaOil.Presentation.Grid
         /// <summary>可用色（白，半透明：它是提示不是物体）。</summary>
         private static Color AvailableColor()
         {
-            VisualPalette visuals = ConfigModule.GetEnemy().Visuals;
-
-            return visuals != null ? visuals.highlightAvailable : FallbackAvailable;
+            return ConfigModule.Visuals.highlightAvailable;
         }
 
         /// <summary>不可用色（红）。</summary>
         private static Color BlockedColor()
         {
-            VisualPalette visuals = ConfigModule.GetEnemy().Visuals;
-
-            return visuals != null ? visuals.highlightBlocked : FallbackBlocked;
+            return ConfigModule.Visuals.highlightBlocked;
         }
 
         private void Hide()

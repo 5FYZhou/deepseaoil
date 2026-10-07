@@ -43,15 +43,22 @@ namespace DeepseaOil.Logic.Movement.States
             _direction = direction.normalized;
         }
 
-        /// <summary>冲刺方向（已归一化），供调试面板显示。</summary>
+        /// <summary>
+        /// 冲刺方向（已归一化）。
+        /// </summary>
+        /// <remarks>
+        /// <b>唯一的读者是测试</b>（钉"入场方向被喂成输入方向"这条契约）；
+        /// 调试面板读的是它前面那条 <c>MoveGroup.Dash</c>，不是本属性。
+        /// 留着它是因为它是"配置进来了没有"唯一可断言的口，而不是为了显示。
+        /// </remarks>
         public Vector2 Direction => _direction;
 
         public override void Enter(LogicContext ctx)
         {
             _enteredAt = ctx.now;
-            _duration = Config.dashDuration;
+            _duration = Motion.DashDuration;
 
-            Host.SnapVelocity(_direction * Config.dashSpeed);   // 沿朝向 8 向，不再是固定 x 轴
+            Host.SnapVelocity(_direction * Motion.DashSpeed);   // 沿朝向 8 向，不再是固定 x 轴
         }
 
         /// <summary>离开冲刺：<b>无清理动作</b>。</summary>

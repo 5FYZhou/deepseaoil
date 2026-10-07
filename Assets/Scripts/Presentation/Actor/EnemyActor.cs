@@ -3,7 +3,10 @@ using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Movement;
+using DeepseaOil.Presentation.Adapters;
 using DeepseaOil.Presentation.Effects;
+using DeepseaOil.Presentation.Primitive;
+using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Actor
@@ -261,7 +264,7 @@ namespace DeepseaOil.Presentation.Actor
             PrimitiveSprites.Configure(
                 _body,
                 PrimitiveSprites.Circle,
-                _spec.Visuals.enemyBodyNormal,
+                ConfigModule.Visuals.enemyBodyNormal,
                 RenderOrder.ActorOrder(Position.y),
                 _spec.Radius * 2f);
 
@@ -391,9 +394,11 @@ namespace DeepseaOil.Presentation.Actor
         /// 而"闪了几下"是玩家会数的东西。
         /// <para>判"该不该闪"用受击状态（<c>IsHurt</c>）：闪烁与"被撞飞的那一段"是同一件事的两面
         /// （速度滑停到零，闪也结束），另立一个计时器只会让两者悄悄不同步。</para>
-        /// <para><b>颜色来自取值边界的观感表</b>（<c>spec.Visuals</c>）：收口前这是一条逻辑层的纯函数
+        /// <para><b>颜色来自观感表</b>（<c>ConfigModule.Visuals</c>）：收口前这是一条逻辑层的纯函数
         /// （<c>EnemyVisual</c>）—— 而"这一帧画什么"是表现层的事，数值才是配置的事。
-        /// 颜色的<b>数值</b>现在在 <c>VisualPalette</c> SO 里，"四态怎么选"留在本类。</para>
+        /// 颜色的<b>数值</b>现在在 <c>VisualPalette</c> SO 里，"四态怎么选"留在本类。
+        /// 收口前这里读的是 <c>spec.Visuals</c>（敌人的取值边界上另开的一个调色板入口），
+        /// 现在观感只有一个入口 —— 与格子高亮取的是同一个。</para>
         ///
         /// <para><b>它是 <c>EffectId.Flash</c> 的当前实现方</b>（审查已定：<c>EnemyVisual</c> 只是数值表，
         /// 实现方在特效系统）：本类只说"我在减速 / 我在受击"，由观感层决定画成什么颜色。
@@ -403,11 +408,11 @@ namespace DeepseaOil.Presentation.Actor
         /// </remarks>
         private void UpdateBodyColor()
         {
-            if (_body == null || _spec.Visuals == null) return;
+            if (_body == null) return;
 
             bool flashOn = IsHurt && IsFlashOn(Time.time, _spec.FlashHz);
 
-            _body.color = _spec.Visuals.EnemyBodyColor(_slowMultiplier, flashOn);
+            _body.color = ConfigModule.Visuals.EnemyBodyColor(_slowMultiplier, flashOn);
         }
 
         /// <summary>
@@ -465,7 +470,7 @@ namespace DeepseaOil.Presentation.Actor
 
             // 碎裂走 EffectModule：表现层的统一出口（暂停会一起冻结、切场景会一起清）。
             EffectContext ctx = EffectContext.At(Position, hitDirection);
-            ctx.Tint = _spec.Visuals.enemyBodyNormal;
+            ctx.Tint = ConfigModule.Visuals.enemyBodyNormal;
 
             EffectModule.Play(EffectId.Shatter, in ctx);
 

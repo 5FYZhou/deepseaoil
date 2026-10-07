@@ -304,21 +304,18 @@ namespace DeepseaOil.Foundation
         }
     }
 
-    /// <summary>引用类型池的旧别名。签名保持不变，仅供既有调用方使用。</summary>
+    /// <summary>
+    /// 引用类型池的旧别名。签名保持不变，仅供既有调用方使用。
+    /// </summary>
+    /// <remarks>
+    /// <b>它与 <c>PoolInMono&lt;T&gt;</c> 曾是白模时代的一对</b>（按"装什么"分两个名字）。
+    /// 现在只剩本类：<c>PoolInMono</c> 零消费者、也零测试，已删除；
+    /// 而本类有真实调用方（<c>AudioManager</c> 的两个池），所以它是"改名前的兼容层"，
+    /// 不是待清残留。新代码直接用 <see cref="Pool{T}"/> 即可。
+    /// </remarks>
     public class PoolInClass<T> : Pool<T> where T : class
     {
         public PoolInClass(
-            Func<T> factory,
-            Action<T> onGet = null,
-            Action<T> onRelease = null) : base(factory, onGet, onRelease)
-        {
-        }
-    }
-
-    /// <summary>MonoBehaviour 池的旧别名。签名保持不变，仅供既有调用方使用。</summary>
-    public class PoolInMono<T> : Pool<T> where T : MonoBehaviour
-    {
-        public PoolInMono(
             Func<T> factory,
             Action<T> onGet = null,
             Action<T> onRelease = null) : base(factory, onGet, onRelease)

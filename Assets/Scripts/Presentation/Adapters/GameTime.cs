@@ -1,7 +1,7 @@
-﻿using DeepseaOil.Logic.Service;
+using DeepseaOil.Logic.Service;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Adapters
 {
     public sealed class GameTime : IGameTime
     {

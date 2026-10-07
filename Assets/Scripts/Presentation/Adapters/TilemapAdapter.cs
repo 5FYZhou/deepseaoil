@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using cfg.demo;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.Adapters
 {
     /// <summary>
     /// 格子系统与 Unity Tilemap 之间的适配器：把地板的格子与几何灌进逻辑层，把状态变化画出来。
@@ -32,6 +32,8 @@ namespace DeepseaOil.Presentation
     /// <para><b>格视觉的第二层（占位物：树 / 石头这类有体积的贴图）暂未落地</b>：
     /// 它要等到表里出现第一个"阻挡 / 占位"的格子状态才有生产者；届时由本类按状态 ID
     /// 增删该格的立体图与静态碰撞体（"阻挡＝甲方案"：真源在格状态、执行在物理）。</para>
+    /// <para><b><c>using cfg.demo;</c> 在这里吃的是枚举</b>（<see cref="TileStateType"/> 作字典键
+    /// 与 <c>evt.State</c> 的比较），不是生成行 —— 判据见 <c>ConfigModule</c> 底部那段注释。</para>
     /// </remarks>
     public sealed class TilemapAdapter : MonoBehaviour
     {

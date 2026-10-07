@@ -1,5 +1,7 @@
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
+using DeepseaOil.Presentation.Primitive;
+using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Drop
@@ -25,7 +27,7 @@ namespace DeepseaOil.Presentation.Drop
             PrimitiveSprites.Configure(
                 renderer,
                 PrimitiveSprites.Circle,
-                Definition.Visuals != null ? Definition.Visuals.waterBall : Color.white,
+                Definition.Color,
                 RenderOrder.BallOrder(Landing.y),
                 Definition.BodyDiameter);
 

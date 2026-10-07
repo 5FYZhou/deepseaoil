@@ -122,16 +122,6 @@ namespace DeepseaOil.Logic.Grid
                 : TileStateType.Normal;
         }
 
-        /// <summary>清空全部格子与状态（切场景）。</summary>
-        public void Clear()
-        {
-            _cells.Clear();
-            _machines.Clear();
-            _queue.Clear();
-            _pending.Clear();
-            _registry.Clear();
-        }
-
         // ─────────────────────────────────────────────
         // 加载 / 每帧
         // ─────────────────────────────────────────────
