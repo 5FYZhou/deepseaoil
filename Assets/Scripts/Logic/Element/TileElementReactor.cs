@@ -2,9 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using cfg.demo;
 using DeepseaOil.Data;
-using DeepseaOil.Logic.Element;
 
-namespace DeepseaOil.Logic.Grid
+namespace DeepseaOil.Logic.Element
 {
     /// <summary>一次元素反应的结果：切到哪个状态 ＋ 进格时要提交的效果清单。</summary>
     public readonly struct ElementReaction
@@ -52,8 +51,10 @@ namespace DeepseaOil.Logic.Grid
     /// 元素层的实现：<b>元素合成（<see cref="ElementCombiner"/>）＋ 规则匹配（<see cref="ReactionResolver"/>）＋ 每格元素的持有</b>。
     /// </summary>
     /// <remarks>
-    /// 由组合根装配后构造注入给 <see cref="GridLogic"/>（§8：与 <c>stateSpecs</c> 同一待遇，不吃单例）；
-    /// <c>GridLogic</c> 因此只留"状态 ＋ Tick 调度 ＋ 效果执行"，不再承担反应判定（§13 D8）。
+    /// 由组合根装配后构造注入给格子层（§8：与 <c>stateSpecs</c> 同一待遇，不吃单例）；
+    /// 格子层因此只留"状态 ＋ Tick 调度 ＋ 效果执行"，不再承担反应判定（§13 D8）。
+    /// <para><b>它不认识格子层</b>：本层只吃"格坐标 ＋ 两份元素 ＋ 状态包装件"，产出"下一个状态 ＋ 效果清单" ——
+    /// 于是它可以独立于 <c>GridLogic</c> 直测，而 <c>GridLogic</c> 换掉本层也不影响合成与匹配的口径。</para>
     /// <para>纯 C#：不碰 <c>MonoBehaviour</c> / <c>Time</c> / <c>Physics2D</c>，EditMode 里喂两参就能直测。</para>
     /// </remarks>
     public sealed class TileElementReactor : IElementReactor

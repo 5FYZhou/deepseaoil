@@ -27,6 +27,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
+using DeepseaOil.Logic.Element;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
 using NUnit.Framework;

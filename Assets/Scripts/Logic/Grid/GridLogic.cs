@@ -4,6 +4,7 @@ using UnityEngine;
 using cfg.demo;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
+using DeepseaOil.Logic.Element;
 using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Logic.Grid
