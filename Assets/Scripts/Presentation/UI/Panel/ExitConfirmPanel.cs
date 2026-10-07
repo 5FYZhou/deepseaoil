@@ -25,10 +25,10 @@ namespace DeepseaOil.Presentation
         {
             switch(name)
             {
-                case "ReturnMenuBtn":
+                case "BtnReturnMenu":
                     UIMgr.Instance.HidePanel<ExitConfirmPanel>();
                     break;
-                case "ExitBtn":
+                case "BtnExit":
                     GameManager.Instance.ChangeState(GameState.Exit);
                     break;
             }
