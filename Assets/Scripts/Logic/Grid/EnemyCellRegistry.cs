@@ -1,27 +1,19 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using DeepseaOil.Logic.Combat;
 
 namespace DeepseaOil.Logic.Grid
 {
-<<<<<<< HEAD
-    /// <summary>敌人 → 格子 的归属映射。<b>单点判定</b>（脚底中心），由敌人自己每帧上报。</summary>
-    /// <remarks>注销是强制的：表里存的是引用，敌人被销毁而没注销就会留下查得到但不能用的条目 —— 漏注销的表现是"格子上一具看不见的尸体"，而不是 <c>MissingReferenceException</c>。一格可以站多个目标（将来的大体型 / 重叠），所以值是列表。</remarks>
-=======
-    /// <summary>
-    /// 敌人 → 格子 的归属映射。<b>单点判定</b>（脚底中心），由敌人自己每帧上报。
-    /// </summary>
+    /// <summary>敌人 / 格上目标 → 格子 的归属映射。<b>单点判定</b>（脚底中心），由目标自己每帧上报。</summary>
     /// <remarks>
-    /// <b>为什么按引用而不是按编号：</b>格子系统只需要回答"这一格上站着谁"，
-    /// 而 <see cref="IEffectTarget"/> 已经是逻辑层认识的唯一目标抽象。多一层"编号 → 目标"的解析
-    /// 只会在每次结算时多一次查表，并让"谁负责注销"变成两个地方（编号表 + 目标表）。
-    /// <para><b>注销是强制的：</b>表里存的是引用，敌人被销毁而没注销就会留下一个查得到、
-    /// 但已经不能用的条目。<see cref="GridLogic.Deal"/> 会在碰 <c>Position</c> 之前先看
-    /// <see cref="IEffectTarget.IsDead"/>，所以漏注销的表现是"格子上一具看不见的尸体"，
-    /// 而不是 <c>MissingReferenceException</c>。</para>
+    /// 值类型是 <see cref="IEffectTarget"/> 而不是"能受伤的人"：格子的效果不止伤害（减速 / 击退 / 麻痹 / 将来更多），
+    /// 归属表要回答的是"谁站在这格上"，而"能不能受伤"由结算那一刻的 <see cref="IDamageable"/> 判断 —— 表宽一格，换来"加新能力时不再改本类"。
+    /// <para><b>为什么按引用而不是按编号：</b>格子系统只需要回答"这一格上站着谁"，而 <see cref="IEffectTarget"/> 已经是逻辑层认识的唯一目标抽象。
+    /// 多一层"编号 → 目标"的解析只会在每次结算时多一次查表，并让"谁负责注销"变成两个地方（编号表 ＋ 目标表）。</para>
+    /// <para><b>注销是强制的：</b>表里存的是引用，目标被销毁而没注销就会留下一个查得到、但已经不能用的条目。
+    /// 结算前会先看 <see cref="IAlivable.IsAlive"/>，所以漏注销的表现是"格子上一具看不见的尸体"，而不是 <c>MissingReferenceException</c>。</para>
     /// <para><b>一格可以站多个目标</b>（将来的大体型 / 重叠），所以值是列表。</para>
     /// </remarks>
->>>>>>> main
     public sealed class EnemyCellRegistry
     {
         private readonly Dictionary<Vector3Int, List<IEffectTarget>> _byCell = new();
@@ -82,19 +74,7 @@ namespace DeepseaOil.Logic.Grid
             _byCell.Clear();
             _cellOf.Clear();
         }
-        /// <summary>
-        /// 重置所有目标的环境减速。
-        /// </summary>
-        public void ResetSlow()
-        {
-            foreach (IEffectTarget target in _cellOf.Keys)
-            {
-                if (target is ISlowable slowable)
-                {
-                    slowable.ResetSlow();
-                }
-            }
-        }
+
         private void Detach(IEffectTarget target, Vector3Int cell)
         {
             _cellOf.Remove(target);

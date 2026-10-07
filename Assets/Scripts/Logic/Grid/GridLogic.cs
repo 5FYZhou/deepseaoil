@@ -1,42 +1,25 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using cfg.demo;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
-using UnityEditor;
-using DeepseaOil.Logic.Grid.Effects;
 
 namespace DeepseaOil.Logic.Grid
 {
-<<<<<<< HEAD
-    /// <summary>格子系统的逻辑门面：持有格子状态、调度 Tick、处理落地与状态转换、对格上目标结算伤害。</summary>
-    /// <remarks>① 球不伤害敌人：落地只把落点格切成对应状态，伤害全部由格子产生（<see cref="Deal"/>），来源是状态的配置行。
-    /// ② <b>同帧递归不存在</b>：Tick 请求进双缓冲队列（<b>本帧提交、下帧消费</b>），状态转换进待处理表（本帧 Tick 循环跑完后统一结算）。谁调它：组合根每渲染帧调一次 <see cref="Tick"/>（<c>dt</c> 用 <c>Time.deltaTime</c> ⇒ <c>timeScale = 0</c> 时格子整体冻结）。</remarks>
-    public sealed class GridLogic : ITileScheduler, ITileResolver
-=======
-    /// <summary>
-    /// 格子系统的逻辑门面：持有全部格子状态、调度 Tick、处理落地与状态转换、对格上目标结算伤害。
-    /// </summary>
+    /// <summary>格子系统的逻辑门面：持有格子状态、调度 Tick、处理落地与状态转换、对格上目标结算效果。</summary>
     /// <remarks>
-    /// <b>三个不变量：</b>
-    /// <list type="number">
-    /// <item><b>球不伤害敌人。</b>落地只做一件事：把落点格切到该球种对应的状态。
-    /// 伤害全部由格子产生（<see cref="Deal"/>），来源是状态的配置行。</item>
-    /// <item><b>同帧递归不存在。</b>Tick 请求进双缓冲队列（下帧消费），状态转换进待处理表
-    /// （本帧 Tick 循环跑完后统一结算）。</item>
-    /// <item><b>常规格不占常驻内存。</b>只有非 <see cref="TileStateType.Normal"/> 的格才有状态机；
-    /// 落回常规时整台机器被丢掉。</item>
-    /// </list>
-    /// <para><b>谁调它：</b>组合根每渲染帧调一次 <see cref="Tick"/>（<c>dt</c> 用 <c>Time.deltaTime</c>，
-    /// 于是 <c>timeScale = 0</c> 时格子整体冻结）；落地与查询随时可调。</para>
-    /// <para><b>它不知道 Tilemap、不知道物理、不知道 Time</b>：几何由组合根从 Tilemap 折算进来
-    /// （见 <see cref="GridGeometry"/>），于是整套格子行为可以在 EditMode 里喂 dt 复现。</para>
+    /// ① 球不伤害敌人：落地只把落点格切成反应结果的状态，伤害全部由格子产生（<see cref="Apply"/>），来源是状态的配置行。
+    /// ② <b>同帧递归不存在</b>：Tick 请求进双缓冲队列（<b>本帧提交、下帧消费</b>），状态转换进待处理表（本帧 Tick 循环跑完后统一结算）。谁调它：组合根每渲染帧调一次 <see cref="Tick"/>（<c>dt</c> 用 <c>Time.deltaTime</c> ⇒ <c>timeScale = 0</c> 时格子整体冻结）。
+    /// ③ <b>它不知道 Tilemap、不知道物理、不知道 Time，也不知道 <c>ConfigModule</c></b>：表数据（状态 / 规则 / 效果）全部由构造注入，元素合成与规则匹配在元素层（<see cref="IElementReactor"/>）——
+    /// 于是 EditMode 里喂参数就能直测格子行为，而"反应怎么算"不会腐化成本类内部的一大段判定（§13 D8）。
     /// </remarks>
-    public sealed class GridLogic : ITileScheduler
->>>>>>> main
+    public sealed class GridLogic : ITileScheduler, ITileResolver
     {
+        /// <summary>击退衰减率（1/秒）：<c>EnemySpec.KnockbackDecay</c> 的实现值，只用于"格 → 冲量"的换算。</summary>
+        private const float KnockbackDecayPerSecond = 10f;
+
         public GridGeometry Geometry => _geometry;
 
         public EnemyCellRegistry Registry => _registry;
@@ -48,12 +31,12 @@ namespace DeepseaOil.Logic.Grid
 
         private readonly GridGeometry _geometry;
         private readonly Dictionary<TileStateType, TileStateSpec> _specs = new();
+        private readonly Dictionary<TileEffectType, TileEffectSpec> _effectSpecs = new();
         private readonly Func<TileStateType, ITileState> _stateFactory;
-        private readonly ReactionResolver _reactionResolver;
         private readonly EnemyCellRegistry _registry;
-        private readonly TileEffectExecutor _effectExecutor;
+        private readonly IElementReactor _element;
 
-        /// <summary>合法格：只有登记过的格能被转换、被减速。来源是表现层从 Tilemap 枚举出的地板。</summary>
+        /// <summary>合法格：只有登记过的格能被转换、被结算。来源是表现层从 Tilemap 枚举出的地板。</summary>
         private readonly HashSet<Vector3Int> _cells = new();
 
         private readonly Dictionary<Vector3Int, TileStateMachine> _machines = new();
@@ -64,24 +47,29 @@ namespace DeepseaOil.Logic.Grid
         private readonly Dictionary<Vector3Int, TileStateType> _pending = new();
         private readonly List<KeyValuePair<Vector3Int, TileStateType>> _pendingScratch = new();
 
-        /// <summary>结算时的目标快照缓冲：受害方可能在结算里死亡并注销自己。</summary>
-        private readonly List<IEffectTarget> _effectScratch = new();
+        /// <summary>结算时的目标快照缓冲：受害方可能在结算里死亡并注销自己。类型是 <see cref="IEffectTarget"/>（不只是"能受伤的人"）。</summary>
+        private readonly List<IEffectTarget> _dealScratch = new();
 
         private float _now;
         private float _deltaTime;
 
+        /// <param name="geometry">格子几何。</param>
+        /// <param name="stateSpecs">全部地块状态（<c>tile_state</c> 表的包装件）。</param>
+        /// <param name="stateFactory">按 ID 造状态实例；返回 <c>null</c> = "这个 ID 没有实现"。</param>
+        /// <param name="element">元素层（合成 ＋ 规则匹配 ＋ 每格元素）；为 <c>null</c> 时落地不产生任何反应。</param>
+        /// <param name="tileEffects">地块效果表（<c>tile_effect</c> 的包装件）。用途只有一处：连续伤害的<b>扣血节奏</b>与伤害值以本表为准，让"调 DoT 数值"不必重导状态表。</param>
+        /// <param name="registry">格上目标归属表；为 <c>null</c> 时自建一份（单测直接读 <see cref="Registry"/>）。</param>
         public GridLogic(
             in GridGeometry geometry,
             IReadOnlyList<TileStateSpec> stateSpecs,
             Func<TileStateType, ITileState> stateFactory,
-            ReactionResolver reactionResolver,
-            TileEffectExecutor effectExecutor,
+            IElementReactor element = null,
+            IReadOnlyList<TileEffectSpec> tileEffects = null,
             EnemyCellRegistry registry = null)
         {
             _geometry = geometry;
             _stateFactory = stateFactory;
-            _reactionResolver = reactionResolver;
-            _effectExecutor = effectExecutor;
+            _element = element;
             _registry = registry ?? new EnemyCellRegistry();
 
             if (stateSpecs != null)
@@ -89,6 +77,14 @@ namespace DeepseaOil.Logic.Grid
                 for (int i = 0; i < stateSpecs.Count; i++)
                 {
                     _specs[stateSpecs[i].Id] = stateSpecs[i];
+                }
+            }
+
+            if (tileEffects != null)
+            {
+                for (int i = 0; i < tileEffects.Count; i++)
+                {
+                    _effectSpecs[tileEffects[i].Id] = tileEffects[i];
                 }
             }
         }
@@ -117,6 +113,7 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>按关卡数据灌入初始状态；<b>刻意不产生伤害</b>（伤害的语义是"状态发生了转换"）；没有地板的格被忽略、不报错。</summary>
+        /// <remarks>初始状态同样走一遍 D9（把状态的元素四件刷到格子上）—— 开局就是火池的格子，其元素必须在第一次反应之前就位。</remarks>
         public int LoadInitialStates(IReadOnlyList<TileInitial> states)
         {
             if (states == null) return 0;
@@ -133,11 +130,7 @@ namespace DeepseaOil.Logic.Grid
 
                 if (!_cells.Contains(cell)) continue;
 
-<<<<<<< HEAD
                 if (SwitchState(cell, state.StateId, applyEnterImpact: false)) applied++;
-=======
-                if (SwitchState(cell, state.State)) applied++;
->>>>>>> main
             }
 
             return applied;
@@ -147,18 +140,8 @@ namespace DeepseaOil.Logic.Grid
         {
             _now = now;
             _deltaTime = deltaTime;
-            // ① 环境效果每帧重新计算。
-            // 先清掉上一帧留下的持续效果。
-            _registry.ResetSlow();
 
-<<<<<<< HEAD
             // 翻页：本帧处理的是上一帧提交的请求。
-=======
-            // ② 对当前存在的地形状态施加 OnTick 效果。
-            ApplyTileTickEffects();
-
-            // ③ 原有状态机 Tick。
->>>>>>> main
             _queue.Swap();
 
             IReadOnlyList<Vector3Int> cells = _queue.Current;
@@ -167,75 +150,47 @@ namespace DeepseaOil.Logic.Grid
             {
                 Vector3Int cell = cells[i];
 
-                if (!_machines.TryGetValue(
-                        cell,
-                        out TileStateMachine machine))
-                {
-                    continue;
-                }
+                if (!_machines.TryGetValue(cell, out TileStateMachine machine)) continue;
 
                 machine.Tick(BuildContext(cell));
             }
 
-<<<<<<< HEAD
             // 本帧 Tick 循环跑完之后才结算状态转换：同帧递归因此不可能发生。
             DrainPendingTransitions();
         }
 
-        /// <summary>一次球落地：把落点格切成指定状态并结算"进入冲击"；落在地板外、或状态没变时为 <c>false</c> —— 反复砸同一格因此不是额外伤害的来源。</summary>
-        public bool OnBallHit(Vector3Int cell, TileStateType next)
-        {
-            return SwitchState(cell, next, applyEnterImpact: true);
-        }
-
-=======
-            // ④ 统一处理状态转换。
-            DrainPendingTransitions();
-        }
-
-        /// <summary>
-        /// 统一处理格子的效果(OnTick)，_effectExecutor应用效果
-        /// </summary>
-        private void ApplyTileTickEffects()
-        {
-            foreach (KeyValuePair<Vector3Int, TileStateMachine> pair in _machines)
-            {
-                Vector3Int cell = pair.Key;
-
-                TileStateType state = pair.Value.CurrentId;
-
-                if (!_specs.TryGetValue(state, out TileStateSpec spec))
-                    continue;
-
-                _effectExecutor.Execute(cell,
-                    in spec.EffectInfoSpec,
-                    BuildEffectContext());
-            }
-        }
-
-        // ─────────────────────────────────────────────
-        // 落地
-        // ─────────────────────────────────────────────
-
-        /// <summary>
-        /// 球落地：把落点格切到该球种对应的状态，并结算一次该状态的进入效果。
-        /// </summary>
+        /// <summary>一次球落地：合成球元素与该格地形元素 → 查反应规则 → 切到结果状态并提交效果清单。</summary>
         /// <param name="cell">落点格。</param>
-        /// <param name="ball">球种配置行。</param>
-        /// <returns>真的作用到了格子上为 <c>true</c>（落在地板外为 <c>false</c>）。</returns>
-        public bool OnBallHit(Vector3Int cell, in BallSpec ball)
+        /// <param name="ballElement">球的元素。</param>
+        /// <returns>是否真的发生了一次状态转换；落在地板外、规则不给状态（<c>None</c>）、或结果就是当前状态时为 <c>false</c>。</returns>
+        /// <remarks><b>没切状态时把元素改动收回去</b>：不这么做，规则表里那些兜底行（结果 <c>None</c>）会把合成结果留在格子上 —— "砸了没反应"却留下温度，下一颗球凭空吃到它。
+        /// 上游把合成结果当局部变量，没有这个问题；本侧按 D9 把元素落在格子上，就必须自己收尾。</remarks>
+        public bool OnBallHit(Vector3Int cell, in ElementValue ballElement)
         {
             if (!_cells.Contains(cell)) return false;
 
-            TryElementReact(cell, ball.Element);
-            return true;
+            if (_element == null) return false;
+
+            TileStateType current = StateOf(cell);
+
+            if (!_specs.TryGetValue(current, out TileStateSpec currentSpec)) return false;
+
+            ElementReaction reaction = _element.React(cell, in ballElement, in currentSpec);
+
+            if (reaction.Next == TileStateType.None)
+            {
+                _element.FlushStateElement(cell, in currentSpec);
+
+                return false;
+            }
+
+            bool changed = SwitchState(cell, reaction.Next, applyEnterImpact: true, reaction.Effects);
+
+            if (!changed) _element.FlushStateElement(cell, in currentSpec);
+
+            return changed;
         }
 
-        // ─────────────────────────────────────────────
-        // ITileScheduler
-        // ─────────────────────────────────────────────
-
->>>>>>> main
         /// <inheritdoc />
         public void ScheduleTick(Vector3Int cell)
         {
@@ -249,21 +204,98 @@ namespace DeepseaOil.Logic.Grid
             _pending[cell] = next;
         }
 
-<<<<<<< HEAD
         /// <inheritdoc />
-        /// <remarks>按目标分流：伤害走归属表逐个结算（方向按"格心 → 受害者"各算一份），减速只施加给实现了 <see cref="ISlowEffectTarget"/> 的目标。<b>玩家不在归属表里</b>，所以"泥浆会减速玩家"这条行为不存在。</remarks>
+        /// <remarks>按目标的能力分流：能受伤的吃伤害、能减速的吃减速、能击退的吃击退、能被麻痹的吃麻痹。
+        /// <b>玩家不在归属表里</b>，所以"泥浆会减速玩家"这条行为不存在（D7）。</remarks>
         public void Apply(Vector3Int cell, in TileEffect effect)
         {
             switch (effect.Kind)
             {
-                case TileEffectKind.Damage:
-                    Deal(cell, in effect);
+                case TileEffectKind.InstantDamage:
+                    Deal(cell, effect.Amount);
+                    return;
+
+                case TileEffectKind.DamageOverTime:
+                    // 数值与节奏以 tile_effect 表为准（表是权威）；取不到就退回效果的定值。
+                    if (_effectSpecs.TryGetValue(TileEffectType.DamageOverTime, out TileEffectSpec dot))
+                    {
+                        TileEffect table = dot.GetEffect(1);
+
+                        if (table.Kind == TileEffectKind.DamageOverTime)
+                        {
+                            Deal(cell, table.PerTick);
+                            return;
+                        }
+                    }
+
+                    Deal(cell, effect.PerTick);
                     return;
 
                 case TileEffectKind.Slow:
-                    ApplySlow(cell, effect.SpeedScale, effect.Seconds);
+                    ApplySlow(cell, effect.Scale, effect.Seconds);
+                    return;
+
+                case TileEffectKind.KnockBack:
+                    ApplyKnockback(cell, effect.Cells);
+                    return;
+
+                case TileEffectKind.Numbness:
+                    ApplyStun(cell, effect.Seconds);
+                    return;
+
+                // Slide：本轮未实现（需要"让敌人滑行"的能力接口，§10 的接口上限里没有它）。
+                // None / Skid / Block / Fixed：§6 本轮不做。
+                default:
                     return;
             }
+        }
+
+        /// <inheritdoc />
+        /// <remarks>只改 <paramref name="cell"/> 自身（D4：状态实现不许碰别的格，跨格由执行者做）。温湿度继承与清除植物都走这里。</remarks>
+        public void ApplyToCell(Vector3Int cell, in TileEffect effect)
+        {
+            if (_element == null) return;
+
+            switch (effect.Kind)
+            {
+                case TileEffectKind.InheritElement:
+                {
+                    ElementValue current = _element.GetElement(cell);
+
+                    _element.SetElement(cell, new ElementValue(
+                        current.Type,
+                        current.Tags,
+                        Mathf.RoundToInt(current.Temperature * effect.TemperatureRatio),
+                        Mathf.RoundToInt(current.Wet * effect.WetRatio),
+                        Mathf.RoundToInt(current.Conductivity * effect.ConductivityRatio)));
+
+                    return;
+                }
+
+                case TileEffectKind.ClearPlants:
+                {
+                    ElementValue current = _element.GetElement(cell);
+
+                    // 只清本格：表里的"范围"是十字，但跨格改写需要一条"对邻居下命令"的通道，那是另一件事（D4）。
+                    _element.SetElement(cell, new ElementValue(
+                        current.Type,
+                        current.Tags & ~ElementTag.Plant,
+                        current.Temperature,
+                        current.Wet,
+                        current.Conductivity));
+
+                    return;
+                }
+
+                default:
+                    return;
+            }
+        }
+
+        /// <inheritdoc />
+        public void SetCellElement(Vector3Int cell, in ElementValue element)
+        {
+            _element?.SetElement(cell, in element);
         }
 
         /// <summary>续一次减速修饰；<b>不做快照</b>（施加修饰不会让目标死亡或注销自己）。离开泥浆 ⇒ 不再续命 ⇒ 修饰自然过期；暂停 ⇒ 格子不 Tick ⇒ 恢复后立刻续上。</summary>
@@ -271,19 +303,68 @@ namespace DeepseaOil.Logic.Grid
         {
             if (seconds <= 0f) return;
 
-            if (!_registry.TryGetIn(cell, out List<IDamageable> targets) || targets.Count == 0) return;
+            if (!_registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets.Count == 0) return;
 
             for (int i = 0; i < targets.Count; i++)
             {
-                if (targets[i] is ISlowEffectTarget target) target.ApplySlow(speedScale, seconds);
+                if (targets[i] is ISlowable target) target.ApplySlow(speedScale, seconds);
             }
         }
 
-        private void Deal(Vector3Int cell, in TileEffect effect)
+        /// <summary>按"格数"击退：冲量 = 格数 × 格边长 × 击退衰减率。</summary>
+        /// <remarks>表里的 <c>value1</c> 单位是<b>格</b>，而 <c>IKnockBackable.ApplyKnockback</c> 收的是速度（单位/秒）：
+        /// 衰减是指数的，总位移 ≈ 冲量 / 衰减率，所以把衰减率乘回去才换算成"最终真的退了几格"。换算放在执行者，能力接口那边只认速度。</remarks>
+        private void ApplyKnockback(Vector3Int cell, float cells)
         {
-            if (effect.Amount <= 0f && effect.Knockback <= 0f) return;
+            if (cells <= 0f) return;
 
-            if (!_registry.TryGetIn(cell, out List<IDamageable> targets) || targets.Count == 0) return;
+            if (!_registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets.Count == 0) return;
+
+            float magnitude = cells * Mathf.Max(_geometry.CellSize, 0f) * KnockbackDecayPerSecond;
+
+            if (magnitude <= 0f) return;
+
+            Vector2 center = _geometry.CellCenter(cell);
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                IEffectTarget target = targets[i];
+
+                // null 必须先判：已销毁的 MonoBehaviour 一碰 transform 就抛。
+                if (target == null) continue;
+
+                if (!target.IsAlive) continue;
+
+                if (target is not IKnockBackable knockbackable) continue;
+
+                Vector2 delta = target.Position - center;
+
+                // 正好站在格心时方向为零：与 Damage.At 同一条纪律，给"上"，不让它退不动。
+                Vector2 direction = delta.sqrMagnitude > 1e-6f ? delta.normalized : Vector2.up;
+
+                knockbackable.ApplyKnockback(direction * magnitude);
+            }
+        }
+
+        /// <summary>麻痹：把时长交给目标，进不进移动门禁由目标自己决定（本轮只到"提交"这一层，见报告的待决问题）。</summary>
+        private void ApplyStun(Vector3Int cell, float seconds)
+        {
+            if (seconds <= 0f) return;
+
+            if (!_registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets.Count == 0) return;
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (targets[i] is IStunnable target) target.ApplyStun(seconds);
+            }
+        }
+
+        /// <summary>对格上目标结算一次伤害（方向按"格心 → 受害者"各算一份）。</summary>
+        private void Deal(Vector3Int cell, float amount)
+        {
+            if (amount <= 0f) return;
+
+            if (!_registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets.Count == 0) return;
 
             // 快照：受害方可能在 TakeDamage 里死亡并把自己从登记表摘掉，直接在原列表上遍历会改到正在遍历的集合。
             _dealScratch.Clear();
@@ -293,37 +374,32 @@ namespace DeepseaOil.Logic.Grid
 
             for (int i = 0; i < _dealScratch.Count; i++)
             {
-                IDamageable target = _dealScratch[i];
+                IEffectTarget target = _dealScratch[i];
 
-                // null 必须先判：已销毁的 MonoBehaviour 一碰 transform 就抛。
                 if (target == null) continue;
 
-                // 走 IAlivable：已死但还没被销毁的目标不该被重复结算；只实现 IDamageable 的目标没有"死活"概念。
-                if (target is IAlivable livable && !livable.IsAlive) continue;
+                // 已死但还没被销毁的目标不该被重复结算；生命体征经 IEffectTarget 继承来的 IAlivable 问。
+                if (!target.IsAlive) continue;
 
-                target.TakeDamage(Damage.At(center, target.Position, effect.Amount, effect.Source, effect.Knockback));
+                // 不能受伤的目标（将来的可推动物 / 纯装饰物）照样能被减速与击退，只是不吃伤害。
+                if (target is not IDamageable damageable) continue;
+
+                damageable.TakeDamage(Damage.At(center, target.Position, amount, DamageSource.Tile));
             }
         }
 
         /// <summary>切换某格的状态；同状态时是 no-op（不重入、不重置计时）。"切换"与"冲击"分两个参数：球落地与状态自己发起的转换都是"切换 + 给冲击"，开局加载是"只切换、绝不给冲击"。</summary>
-        public bool SwitchState(Vector3Int cell, TileStateType next, bool applyEnterImpact)
-=======
-        // ─────────────────────────────────────────────
-        // 内部
-        // ─────────────────────────────────────────────
-
-        /// <summary>
-        /// 切换某格的状态。同状态时是 no-op（不重入、不重置计时）。只切换格子状态，不应用效果。
-        /// </summary>
-        /// <param name="cell">格子。</param>
+        /// <param name="cell">目标格。</param>
         /// <param name="next">目标状态。</param>
-        /// <returns>真的发生了切换为 <c>true</c>。</returns>
-        public bool SwitchState(Vector3Int cell, TileStateType next)
->>>>>>> main
+        /// <param name="applyEnterImpact">是否提交这一次进格的效果清单。</param>
+        /// <param name="enterEffects">本次转换要提交的效果清单；<c>null</c> = 用状态自带的（<c>spec.EnterEffects</c>）。</param>
+        public bool SwitchState(
+            Vector3Int cell,
+            TileStateType next,
+            bool applyEnterImpact,
+            IReadOnlyList<TileEffect> enterEffects = null)
         {
             if (!_cells.Contains(cell)) return false;
-            // next==None即不发生地形变化
-            if (next == TileStateType.None) { return false; }
 
             // 没有实现的状态（配置里没有这一行）不算一次转换：否则"转换"会凭空发生一次（一条事件 + 一次冲击），而场上什么都没变。
             if (next != TileStateType.Normal && !_specs.ContainsKey(next)) return false;
@@ -346,46 +422,36 @@ namespace DeepseaOil.Logic.Grid
             if (machine.CurrentId == TileStateType.Normal) _machines.Remove(cell);
             else _machines[cell] = machine;
 
+            // D9：切进某状态时把该状态的元素四件刷到格子上作初值（落回常规 = 摘掉这一格的元素记录）。
+            if (_element != null && _specs.TryGetValue(next, out TileStateSpec spec))
+            {
+                _element.FlushStateElement(cell, in spec);
+            }
+
             EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, next));
+
+            if (applyEnterImpact) ApplyEnterImpact(cell, next, enterEffects);
 
             return true;
         }
 
-<<<<<<< HEAD
-        private void ApplyEnterImpact(Vector3Int cell, TileStateType state)
-=======
-        /// <summary>
-        /// 尝试根据元素反应切换地形
-        /// 应用发生反应时的效果(OnEnter)
-        /// </summary>
-        private bool TryElementReact(Vector3Int cell, ElementSpec elementOnBall)
->>>>>>> main
+        /// <summary>提交"进格效果"：默认取状态自带的清单；反应命中时传入的是<b>规则行</b>的清单。</summary>
+        private void ApplyEnterImpact(Vector3Int cell, TileStateType state, IReadOnlyList<TileEffect> enterEffects)
         {
-            // 找到当前格子的地形
-            TileStateType curTileType = StateOf(cell);
+            IReadOnlyList<TileEffect> effects = enterEffects;
 
-            // 找到当前地形对应的 ElementSpec
-            if (!_specs.TryGetValue(curTileType, out TileStateSpec tileSpec))
-                return false;
+            if (effects == null && _specs.TryGetValue(state, out TileStateSpec spec)) effects = spec.EnterEffects;
 
-<<<<<<< HEAD
-            Apply(cell, TileEffect.Damage(spec.EnterDamage, spec.EnterKnockback, DamageSource.Tile));
-=======
-            ElementSpec tileElement = tileSpec.Element;
+            if (effects == null) return;
 
-            // 球元素 + 地形元素 → 反应元素
-            ElementSpec resultElement = ElementCombiner.TryCombiner(elementOnBall, tileElement);
+            for (int i = 0; i < effects.Count; i++)
+            {
+                TileEffect effect = effects[i];
 
-            // 根据元素反应规则，找到反应生成的TileStateType和反应效果
-            // 已包含反应兜底
-            _reactionResolver.MatchRule(resultElement, out TileStateType resultTileType, out TileEffectInfoSpec effectInfo);
+                if (effect.Kind == TileEffectKind.None) continue;
 
-            // 应用反应产生的效果
-            _effectExecutor.Execute(cell, in effectInfo, BuildEffectContext());
-
-            // 反应成功：切换地形
-            return SwitchState(cell, resultTileType);
->>>>>>> main
+                Apply(cell, in effect);
+            }
         }
 
         private void DrainPendingTransitions()
@@ -406,7 +472,7 @@ namespace DeepseaOil.Logic.Grid
             {
                 KeyValuePair<Vector3Int, TileStateType> pair = _pendingScratch[i];
 
-                SwitchState(pair.Key, pair.Value);
+                SwitchState(pair.Key, pair.Value, applyEnterImpact: true);
             }
 
             _pendingScratch.Clear();
@@ -427,12 +493,7 @@ namespace DeepseaOil.Logic.Grid
 
         private TileContext BuildContext(Vector3Int cell)
         {
-            return new TileContext(cell, _now, _deltaTime, this);
-        }
-
-        private TileEffectContext BuildEffectContext()
-        {
-            return new TileEffectContext(_registry);
+            return new TileContext(cell, _now, _deltaTime, this, this);
         }
     }
 }

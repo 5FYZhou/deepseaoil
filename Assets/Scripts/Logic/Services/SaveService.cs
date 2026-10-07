@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,7 +21,8 @@ namespace DeepseaOil.Logic.Service
         {
         }
 
-        public void Tick(float unscaledDeltaTime)
+        /// <remarks>本轮是壳：存档系统的实做留给"存档重构"那一轮（§12 定案）。</remarks>
+        public void Tick(float deltaTime, float unscaledDeltaTime)
         {
         }
 
