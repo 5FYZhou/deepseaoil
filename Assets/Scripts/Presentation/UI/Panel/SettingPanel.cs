@@ -36,7 +36,7 @@ namespace DeepseaOil.Presentation.UI
         {
             switch (name)
             {
-                case "ReturnBtn":
+                case "BtnClose":
                     UIMgr.Instance.HidePanel<SettingPanel>();
                     break;
             }

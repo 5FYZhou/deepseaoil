@@ -24,15 +24,15 @@ namespace DeepseaOil.Presentation.UI
         {
             switch (btnName)
             {
-                case "StartBtn":
+                case "BtnStart":
                     GameManager.Instance.ChangeState(GameState.Running);
                     break;
-                case "ContinueBtn":
+                case "BtnContinue":
                     break;
-                case "SettingBtn":
+                case "BtnSetting":
                     UIMgr.Instance.ShowPanel<SettingPanel>();
                     break;
-                case "ExitBtn":
+                case "BtnExit":
                     GameManager.Instance.ChangeState(GameState.BeforeExit);
                     break;
             }
