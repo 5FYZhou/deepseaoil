@@ -11,12 +11,12 @@ namespace DeepseaOil.Logic.Grid
     {
         public readonly TileStateType Next;
 
-        public readonly IReadOnlyList<TileEffect> Effects;
+        public readonly IReadOnlyList<TileEffectValue> Effects;
 
         /// <summary>是否有规则真的命中（<c>false</c> = 走的是规则表的最后一条兜底行）。</summary>
         public readonly bool Matched;
 
-        public ElementReaction(TileStateType next, IReadOnlyList<TileEffect> effects, bool matched)
+        public ElementReaction(TileStateType next, IReadOnlyList<TileEffectValue> effects, bool matched)
         {
             Next = next;
             Effects = effects;
@@ -112,7 +112,7 @@ namespace DeepseaOil.Logic.Grid
 
             SetElement(cell, in combined);
 
-            bool matched = ReactionResolver.Match(_rules, in combined, out TileStateType next, out IReadOnlyList<TileEffect> effects);
+            bool matched = ReactionResolver.Match(_rules, in combined, out TileStateType next, out IReadOnlyList<TileEffectValue> effects);
 
             if (!matched && (effects == null || effects.Count == 0))
             {

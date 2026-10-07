@@ -1,9 +1,12 @@
-namespace DeepseaOil.Logic.Grid
+namespace DeepseaOil.Data
 {
     /// <summary>地块效果的种类。<b>取值与 <c>cfg.demo.TileEffectType</c> 的表号一一对应</b>（所以能直接按效果号查表取档位）。</summary>
     /// <remarks>
     /// <b>只有 8 个成员有实现</b>：<see cref="Slow"/> / <see cref="Slide"/> / <see cref="KnockBack"/> / <see cref="InstantDamage"/> / <see cref="DamageOverTime"/> / <see cref="InheritElement"/> / <see cref="ClearPlants"/> 与 <see cref="None"/>（= 本行无效果）。
     /// <c>Skid</c>(2) / <c>Block</c>(5) / <c>Fixed</c>(7) 按 §6"本轮不做"保留枚举位与表行，不写实现 —— 表里也没引用它们。
+    /// <para><b>名字为什么不带 Value</b>：它读的是"这份地块效果的种类"，与枚举成员一起看已经完整；
+    /// 它与生成的 <c>cfg.demo.TileEffectType</c> 也不是同一样东西 —— 后者是"表里那一行是什么效果"（含未实现的 Skid / Block / Fixed），
+    /// 前者是"这份已定值的数据该按哪种行为解释"。</para>
     /// </remarks>
     public enum TileEffectKind
     {
@@ -39,10 +42,12 @@ namespace DeepseaOil.Logic.Grid
     /// 一次<b>已定值</b>的格子效果：<see cref="Kind"/> ＋ 该种类用到的槽位。
     /// </summary>
     /// <remarks>
-    /// <b>不认识的"档位"在这里已经不存在了</b>：多档的选择发生在数据层（<c>TileEffectSpec.GetEffect(pos)</c>），Logic 层只看到定值 —— 于是本类型与 <see cref="ITileResolver.Apply"/> 的签名不会随效果数量增长。
-    /// <b>只能经工厂构造</b>：三个槽位按 <see cref="Kind"/> 解释，工厂方法保证"哪个种类用哪几个槽"不会对不上；读取时也必须先看 <see cref="Kind"/> 再取对应属性。
+    /// <b>为什么它在 Data 层</b>：它是"表数据的<b>已定值形态</b>"—— 档位在 <c>TileEffectSpec</c>（同层）就消解完了，剩下的是纯粹的取值。
+    /// 数据层产出它、逻辑层消费它（<c>ITileResolver.Apply(cell, in TileEffectValue)</c>），于是 <c>Data</c> 不需要认识 <c>Logic</c>；消费端也只看到定值，
+    /// <b>签名不会随效果数量增长</b>。
+    /// <para><b>只能经工厂构造</b>：三个槽位按 <see cref="Kind"/> 解释，工厂方法保证"哪个种类用哪几个槽"不会对不上；读取时也必须先看 <see cref="Kind"/> 再取对应属性。</para>
     /// </remarks>
-    public readonly struct TileEffect
+    public readonly struct TileEffectValue
     {
         public readonly TileEffectKind Kind;
 
@@ -55,7 +60,7 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>槽位 3：温度继承比率 / 导电继承比率 / 累计时长。</summary>
         private readonly float _c;
 
-        private TileEffect(TileEffectKind kind, float a, float b, float c)
+        private TileEffectValue(TileEffectKind kind, float a, float b, float c)
         {
             Kind = kind;
             _a = a;
@@ -97,36 +102,36 @@ namespace DeepseaOil.Logic.Grid
         public float ConductivityRatio => _c;
 
         /// <summary>减速修饰（<paramref name="scale"/> = 速度倍率，<paramref name="seconds"/> = 续命时长）。</summary>
-        public static TileEffect Slow(float scale, float seconds)
-            => new TileEffect(TileEffectKind.Slow, scale, seconds, 0f);
+        public static TileEffectValue Slow(float scale, float seconds)
+            => new TileEffectValue(TileEffectKind.Slow, scale, seconds, 0f);
 
         /// <summary>瞬时伤害（<paramref name="amount"/> = 伤害值）。</summary>
-        public static TileEffect InstantDamage(float amount)
-            => new TileEffect(TileEffectKind.InstantDamage, amount, 0f, 0f);
+        public static TileEffectValue InstantDamage(float amount)
+            => new TileEffectValue(TileEffectKind.InstantDamage, amount, 0f, 0f);
 
         /// <summary>击退（<paramref name="cells"/> = 距离，单位是格）。</summary>
-        public static TileEffect KnockBack(float cells)
-            => new TileEffect(TileEffectKind.KnockBack, cells, 0f, 0f);
+        public static TileEffectValue KnockBack(float cells)
+            => new TileEffectValue(TileEffectKind.KnockBack, cells, 0f, 0f);
 
         /// <summary>滑行（<paramref name="cells"/> 格、<paramref name="seconds"/> 秒）。</summary>
-        public static TileEffect Slide(int cells, float seconds)
-            => new TileEffect(TileEffectKind.Slide, cells, seconds, 0f);
+        public static TileEffectValue Slide(int cells, float seconds)
+            => new TileEffectValue(TileEffectKind.Slide, cells, seconds, 0f);
 
         /// <summary>麻痹（<paramref name="seconds"/> 秒内不能行动）。</summary>
-        public static TileEffect Numbness(float seconds)
-            => new TileEffect(TileEffectKind.Numbness, seconds, 0f, 0f);
+        public static TileEffectValue Numbness(float seconds)
+            => new TileEffectValue(TileEffectKind.Numbness, seconds, 0f, 0f);
 
         /// <summary>持续伤害（每 <paramref name="interval"/> 秒扣 <paramref name="perTick"/>，累计 <paramref name="seconds"/> 秒）。</summary>
-        public static TileEffect DamageOverTime(float perTick, float interval, float seconds)
-            => new TileEffect(TileEffectKind.DamageOverTime, perTick, interval, seconds);
+        public static TileEffectValue DamageOverTime(float perTick, float interval, float seconds)
+            => new TileEffectValue(TileEffectKind.DamageOverTime, perTick, interval, seconds);
 
         /// <summary>温湿度继承（三个比率，<c>1</c> = 原样）。</summary>
-        public static TileEffect InheritElement(float tempRatio, float wetRatio, float condRatio)
-            => new TileEffect(TileEffectKind.InheritElement, tempRatio, wetRatio, condRatio);
+        public static TileEffectValue InheritElement(float tempRatio, float wetRatio, float condRatio)
+            => new TileEffectValue(TileEffectKind.InheritElement, tempRatio, wetRatio, condRatio);
 
         /// <summary>清除植物（<paramref name="radius"/> = 表里声明的范围，单位格）。</summary>
-        public static TileEffect ClearPlants(int radius)
-            => new TileEffect(TileEffectKind.ClearPlants, radius, 0f, 0f);
+        public static TileEffectValue ClearPlants(int radius)
+            => new TileEffectValue(TileEffectKind.ClearPlants, radius, 0f, 0f);
 
         public override string ToString()
         {

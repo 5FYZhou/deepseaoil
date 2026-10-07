@@ -374,7 +374,7 @@ namespace DeepseaOil.Data
         {
             if (_tileEffects != null) return;
 
-            IReadOnlyList<TileEffect> rows = _holder.Tables.TbTileEffect.DataList;
+            IReadOnlyList<cfg.demo.TileEffect> rows = _holder.Tables.TbTileEffect.DataList;
 
             _tileEffects = new Dictionary<TileEffectType, TileEffectSpec>(rows.Count);
 
@@ -385,11 +385,10 @@ namespace DeepseaOil.Data
         }
 
         /// <summary>
-        /// "效果号 ＋ 档位 → 已定值的 <c>DeepseaOil.Logic.Grid.TileEffect</c>"的唯一解析点：<c>TileStateSpec</c>（状态的进格效果）与 <c>ElementRuleSpec</c>（反应规则的效果清单）都经它折算。
+        /// "效果号 ＋ 档位 → 已定值的 <see cref="TileEffectValue"/>"的唯一解析点：<c>TileStateSpec</c>（状态的进格效果）与 <c>ElementRuleSpec</c>（反应规则的效果清单）都经它折算。
         /// </summary>
-        /// <remarks>档位越界在这里由 <see cref="TileEffectSpec.GetEffect"/> 报 Warning 并夹到第 1 档；效果号不在表里返回 <c>None</c>（配表事故，表现成"这条效果没发生"）。
-        /// <para><b>返回类型写全名</b>：<c>cfg.demo.TileEffect</c> 是生成行、<c>DeepseaOil.Logic.Grid.TileEffect</c> 是已定值的逻辑值，本文件两个都在视野里。</para></remarks>
-        private static DeepseaOil.Logic.Grid.TileEffect ResolveEffect(TileEffectType effect, int pos)
+        /// <remarks>档位越界在这里由 <see cref="TileEffectSpec.GetEffect"/> 报 Warning 并夹到第 1 档；效果号不在表里返回 <c>None</c>（配表事故，表现成"这条效果没发生"）。</remarks>
+        private static TileEffectValue ResolveEffect(TileEffectType effect, int pos)
         {
             EnsureTileEffects();
 
