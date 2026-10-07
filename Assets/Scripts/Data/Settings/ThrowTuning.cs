@@ -2,27 +2,12 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 投掷与瞄准的<b>程序调参</b>：观感、射程以外的半径、冲量强度。
-    /// </summary>
-    /// <remarks>
-    /// <b>为什么这些不进 Luban：</b>数值分界规则第 1 条 —— 策划调参走表，程序调参走 SO。
-    /// 这里的每一个数都是"边跑边看手感"时改的（球的视觉半径、瞄准环压扁多少、推力多大），
-    /// 改它们不需要经过导表，也不该占用策划的表。
-    /// <para><b>资产缺失时不是错误：</b><see cref="LoadOrDefault"/> 在没接线 / 资产不存在时
-    /// 返回一份<b>字段默认值</b>的实例（默认值就是白模验收过的那一套）。于是"忘了拖资产"
-    /// 的表现是"有一份能跑的默认手感"，而不是一堆 0 导致的静默异常。
-    /// 这与 <c>ConfigModule</c> 的"带病数据不进运行时"是两种口径，因为这里的数据不参与判定，
-    /// 只影响观感与手感。</para>
-    /// <para><b>键与资产位置：</b><c>tuning/ThrowTuning</c> → <c>Assets/Resources/tuning/ThrowTuning.asset</c>。
-    /// 走 <c>AssetModule</c> 的同步窄路（体量小、必须当场拿到）。</para>
-    /// <para><b>颜色与排序层不在这里</b>：色值与 <c>sortingOrder</c> 是渲染约定，留在代码里
-    /// （见 <c>RenderOrder</c> 与各视效件），避免"同一个颜色有两个来源"。</para>
-    /// </remarks>
+    /// <summary>投掷与瞄准的程序调参：观感、射程以外的半径、冲量强度。</summary>
+    /// <remarks>程序调参走 SO（数值分界规则第 1 条），改它们不需要经过导表。资产随仓库提供（<c>Assets/Resources/tuning/ThrowTuning.asset</c>），
+    /// 真丢了资产时返回字段默认值的实例 —— "忘了拖资产"的表现是"有一份能跑的默认手感"，而不是一堆 0 导致的静默异常。渲染约定（颜色、<c>sortingOrder</c>）见 <c>RenderOrder</c>。</remarks>
     [CreateAssetMenu(fileName = "ThrowTuning", menuName = "DeepseaOil/Tuning/Throw")]
     public sealed class ThrowTuning : ScriptableObject
     {
-        /// <summary>AssetModule 的 Key。</summary>
         public const string ResourceKey = "tuning/ThrowTuning";
 
         [Header("投掷")]
@@ -71,30 +56,34 @@ namespace DeepseaOil.Data
         [Tooltip("落地冲量查询碰撞体时多查的余量（世界单位）。纯优化余量，不参与判定")]
         public float pushQueryMargin = 2f;
 
-        [Tooltip("落地瞬闪的持续时间（秒）")]
-        public float landingRingDuration = 0.15f;
+        private static ThrowTuning Cached;
 
-        /// <summary>
-        /// 取调参资产；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。
-        /// </summary>
-        /// <remarks>
-        /// <b>每个进程只该调一次</b>（由组合根在装配时调），兜底分支会创建一个不进资源系统的
-        /// <c>ScriptableObject</c> 实例，反复调会攒垃圾。
-        /// </remarks>
-        public static ThrowTuning LoadOrDefault()
+        /// <summary>取调参资产；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。</summary>
+        /// <remarks>调用方只有 <c>ConfigModule.BindAssets</c> 一处：消费者不直接读 SO，而是经 <c>ConfigModule.GetXxx</c> 拿合并了表与 SO 的包装件。
+        /// 重复调用返回同一份：兜底分支建的 <c>ScriptableObject</c> 不进资源系统，每次新建会攒垃圾，且"某一处改了字段、另一处看不见"。</remarks>
+        internal static ThrowTuning LoadOrDefault()
         {
+            if (Cached != null) return Cached;
+
             if (AssetModule.IsInitialized)
             {
                 ThrowTuning loaded = AssetModule.Load<ThrowTuning>(ResourceKey);
 
-                if (loaded != null) return loaded;
+                if (loaded != null)
+                {
+                    Cached = loaded;
+
+                    return loaded;
+                }
             }
 
             Debug.LogWarning(
                 $"[Tuning] 取不到 {ResourceKey}（未接线或资产不存在），改用代码默认值。" +
                 "观感与手感调参将在本局失效。");
 
-            return CreateInstance<ThrowTuning>();
+            Cached = CreateInstance<ThrowTuning>();
+
+            return Cached;
         }
     }
 }

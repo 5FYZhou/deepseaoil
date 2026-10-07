@@ -1,19 +1,14 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using cfg.demo;
 
 namespace DeepseaOil.Logic.Grid
 {
     /// <summary>
-    /// 单格的格子状态机：<b>只管切换与回调</b>，不管 Tick 调度（那在 <c>GridLogic</c> 与队列里）。
+    /// 单格状态机：只管切换与回调（Tick 调度在 <c>GridLogic</c> 与队列里）；切换立即、同步、同帧生效。
+    /// 未注册 id（含 <see cref="TileStateType.Normal"/>）造不出实例、CurrentId 读作 Normal；每次进入造新实例而非共享原型 —— 共享会让两格计时器合一、一起消失且不报错。
     /// </summary>
     /// <remarks>
-    /// <b>切换语义是"立即 Exit → 造新实例 → Enter"</b>，与 <c>MoveGroup</c> 的状态机同一套：
-    /// 立即、同步、同帧生效，没有"下一帧才切"的中间态。
-    /// <para><b>每次进入都造新实例（工厂），而不是共享原型：</b>状态把每格独立的量（已持续多久）
-    /// 放在自己字段里。共享一份会让"第一格变泥浆"和"第二格变泥浆"共用一个计时器 ——
-    /// 现象是"两片泥浆一起消失"，不报错，极难倒推。</para>
-    /// <para><b><see cref="TileStateType.Normal"/> 是"没有状态"</b>：不注册工厂、<c>_current</c> 为 null。
-    /// 这样 <c>GridLogic</c> 可以把落回 Normal 的格从字典里删掉 —— 常规格不占任何常驻内存。</para>
+    /// <b>它不认识效果、也不认识元素</b>：效果清单的提交在状态实现里（<c>TableTileState</c>），元素的读写由 <c>GridLogic</c> 与元素层负责。
     /// </remarks>
     public sealed class TileStateMachine
     {
@@ -21,10 +16,8 @@ namespace DeepseaOil.Logic.Grid
 
         private ITileState _current;
 
-        /// <summary>当前状态 ID；没有状态时是 <see cref="TileStateType.Normal"/>。</summary>
         public TileStateType CurrentId => _current != null ? _current.Id : TileStateType.Normal;
 
-        /// <summary>当前状态实例；没有状态时为 <c>null</c>。</summary>
         public ITileState Current => _current;
 
         /// <summary>注册一个状态的工厂。<see cref="TileStateType.Normal"/> 不需要注册。</summary>
@@ -36,27 +29,40 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>
-        /// 切换到 <paramref name="next"/>。已经是该状态时不重入、不重置 —— 返回 <c>false</c>。
+        /// 已经是该状态时不重入、不重置（反复投水球不会刷新泥浆计时），返回 <c>false</c>。
         /// </summary>
-        /// <returns>真的发生了切换为 <c>true</c>。</returns>
-        /// <remarks>
-        /// <b>"同状态不重入"是有后果的：</b>它意味着反复对同一格投水球不会刷新泥浆计时
-        /// （白模的行为也是如此）。要刷新就得先切走再切回，那是另一套语义。
-        /// </remarks>
+        /// <remarks><b>造不出实例时也返回 <c>false</c>，且不动 <see cref="_current"/></b>：空状态机不算一次切换。
+        /// 曾经的写法是"先换、后判、恒返回 true"，于是"切到一个没有实现的状态"会被上层当成切换成功 —— 上层照常发事件、刷元素、把机器存回去，
+        /// 而这一格的状态读回来仍是常规：<b>反应发生了、格子却是空的</b>，且没有任何报错。</remarks>
         public bool SwitchTo(TileStateType next, in TileContext ctx)
         {
             if (CurrentId == next) return false;
 
+            ITileState created;
+
+            try
+            {
+                created = Create(next);
+            }
+            catch (System.Exception e)
+            {
+                // 工厂抛异常不能把状态机弄成「旧的已经走了、新的没来」：那正是本方法要防的半途状态。
+                UnityEngine.Debug.LogError($"[Grid] 造状态 {next} 的实例时抛异常，本次切换作废：{e}");
+
+                created = null;
+            }
+
+            if (created == null) return false;
+
             _current?.OnExit(in ctx);
 
-            _current = Create(next);
+            _current = created;
 
-            _current?.OnEnter(in ctx);
+            _current.OnEnter(in ctx);
 
             return true;
         }
 
-        /// <summary>推进一次。</summary>
         public void Tick(in TileContext ctx)
         {
             _current?.OnTick(in ctx);

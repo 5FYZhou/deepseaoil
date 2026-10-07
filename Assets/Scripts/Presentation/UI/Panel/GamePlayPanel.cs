@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Logic;
+using DeepseaOil.Logic;
 using TMPro;
 
 namespace DeepseaOil.Presentation.UI
@@ -14,8 +14,11 @@ namespace DeepseaOil.Presentation.UI
         protected override void Awake()
         {
             base.Awake();
+
             txtCountdown = GetComponent<TMP_Text>("TxtCountdown");
-            txtNextWave = GetComponent<TMP_Text>("TxtWave");
+
+            // 子物体的名字是 TxtNextWave（prefab 里就这么写的）；按 TxtWave 取会拿不到、只留一条 BasePanel 警告。
+            txtNextWave = GetComponent<TMP_Text>("TxtNextWave");
         }
 
         public override void ShowMe() { }
@@ -27,10 +30,10 @@ namespace DeepseaOil.Presentation.UI
             switch (name)
             {
                 case "BtnPause":
-                    GameManager.Instance.ChangeState(GameState.Paused);
+                    GameRoot.Instance.Game.ChangeState(GameState.Paused);
                     break;
                 case "BtnSetting":
-                    //GameManager.Instance.ChangeState(GameState.Paused);
+                    //GameRoot.Instance.Game.ChangeState(GameState.Paused);
                     break;
             }
         }

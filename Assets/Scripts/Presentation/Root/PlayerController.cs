@@ -3,30 +3,30 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
+using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
+using DeepseaOil.Presentation.Adapters;
+using DeepseaOil.Presentation.Input;
+using DeepseaOil.Presentation.Visual;
+using cfg.demo;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>
-    /// 玩家组合根：组装执行器、配置、活动区域与输入缓冲，并每个物理帧驱动一次 <see cref="PlayerLogic"/>。
-    /// </summary>
-    /// <remarks>
-    /// 全部环境事实只在本类组装一次。同一个 <c>FixedUpdate</c> 内 <c>InputBuffer.Push</c> 必须先于 <c>Tick</c>，
-    /// 否则按下沿会滞后一帧（<c>Docs/框架设计/分层设计/逻辑层.md</c> §5）。
-    /// 顺序固定：消费快照 → 吸附到 8 向并归一化 → 以<b>同一份</b>归一化快照推缓冲 → 组装 <c>WorldInfo</c>
-    /// → <c>Logic.FixedTick</c> → 边界钳位。
-    /// 边界钳位放最后：它是物理步边界上的"保险丝"，防高速冲出地图；正常阻挡由刚体碰撞解算。
-    /// <para><b>归一化只在这里做一次</b>：<c>WorldInfo.MoveDirection</c> 与 <c>InputBuffer</c> 里的快照
-    /// 必须是同一份已归一化方向。曾出现"一个用处理后的值、一个用原始值"的写法——
-    /// 同一物理帧里存在两份方向真值，正是"斜向快 √2 倍"与"冲刺方向不一致"这类
-    /// 不报错、只错手感的缺陷的来源。</para>
-    /// </remarks>
-    public sealed class PlayerController : MonoBehaviour
+    /// <summary>玩家组合根：组装执行器、配置、活动区域与输入缓冲，并由 <c>GameRoot</c> 每个物理帧驱动一次 <see cref="PlayerLogic"/>。</summary>
+    /// <remarks>全部环境事实只在本类组装一次。同一物理帧内 <c>InputBuffer.Push</c> 必须先于 <c>Tick</c>，否则按下沿会滞后一帧；顺序固定：消费快照 → 吸附到 8 向并归一化 → 以<b>同一份</b>归一化快照推缓冲 → 组装 <c>WorldInfo</c> → <c>Logic.FixedTick</c> → 边界钳位（保险丝，防高速冲出地图；正常阻挡由刚体碰撞解算）。
+    /// <b>归一化只在这里做一次</b>：<c>WorldInfo.MoveDirection</c> 与 <c>InputBuffer</c> 里的快照必须是同一份已归一化方向 —— 两处各留一份方向真值，正是"斜向快 √2 倍"与"冲刺方向不一致"这类不报错、只错手感的缺陷的来源。
+    /// <b>物理帧只有一个发起者</b>（<c>GameRoot</c>），顺序由 <see cref="Order"/> 写死：玩家侧（<c>-100</c>）先于世界侧（<c>0</c>）。<b>两个帧相位各有一件事</b>：物理帧 = <see cref="FixedTick"/>（输入 → 逻辑 → 提交速度），渲染帧 = <see cref="RenderTick"/>（瞄准 ＋ 开火意图）；"屏幕 → 世界"只有表现层做得了，吸附到哪一格由逻辑层算（<c>PlayerLogic.UpdateAim</c>）。</remarks>
+    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked, IManagedActor
     {
-        [SerializeField] private PlayerConfig config = default;
-        [SerializeField] private MovementMotor motor = default;
+        /// <summary>驱动顺序：玩家侧必须早于世界侧（先提交速度、先读输入）。</summary>
+        public int Order => SceneOrder.Player;
+
+        [SerializeField] private PlayerMotor motor = default;
         [SerializeField] private InputProvider inputProvider = default;
+
+        [Tooltip("瞄准用的相机。留空取 Camera.main（战斗场景里就是主相机，所以通常不用拖）")]
+        [SerializeField] private Camera aimCamera = default;
 
         [Tooltip("地图活动区域：拖入覆盖可行走区域的 BoxCollider2D。不接则不钳位（不报错，调试面板会显示未接线）")]
         [SerializeField] private BoxCollider2D boundsArea = default;
@@ -37,29 +37,6 @@ namespace DeepseaOil.Presentation
         /// <summary>8 向吸附的一档（弧度）。45° 一档共 8 档。</summary>
         private const float OctantRadians = 2f * Mathf.PI / 8f;
 
-        /// <summary>
-        /// 逻辑层与它本帧的速度上限。<b>白模阶段新增</b>的受击推挤口，见
-        /// <see cref="OverrideLogicSpeedTargets"/>。
-        /// </summary>
-        /// <remarks>
-        /// 做成一个具名结构体而不是两个并列参数，是为了让"逻辑层引用 + 上限"这一对永远一起传、
-        /// 一起漏 —— 漏一个的后果是"推挤静默生效在另一个玩家身上"。
-        /// </remarks>
-        internal readonly struct LogicSpeedTargets
-        {
-            /// <summary>玩家的逻辑层入口。</summary>
-            public readonly PlayerLogic Logic;
-
-            /// <summary>本帧的速度上限（单位/秒）。</summary>
-            public readonly float MaxSpeed;
-
-            public LogicSpeedTargets(PlayerLogic logic, float maxSpeed)
-            {
-                Logic = logic;
-                MaxSpeed = maxSpeed;
-            }
-        }
-
         /// <summary>吸附到 8 向时的一族单位方向，键为"档位序号化的弧度"，避免浮点直接比 key。</summary>
         private static readonly Dictionary<int, Vector2> Snapped = BuildSnappedTable();
 
@@ -67,37 +44,29 @@ namespace DeepseaOil.Presentation
         private WorldInfo _world;
         private BoundsArea _bounds;
 
-        /// <summary>
-        /// 本帧被外部要求的速度上限；<c>null</c> 表示不覆盖（逻辑层按自己的满速档位走）。
-        /// </summary>
-        /// <remarks>
-        /// <b>一次性</b>：<c>FixedUpdate</c> 用它算完当帧上限后立刻清空，所以外因必须每帧重新声明。
-        /// 这正是我们要的语义 —— "这一帧被推了一下"与"从此一直被限速"是两件事，
-        /// 后者会永久改掉玩家的移动能力却不报错。
-        /// </remarks>
-        private LogicSpeedTargets? _speedLimit;
+        /// <summary>玩家取值边界（<c>Attach</c> 时取一次）；配置对象不往表现层走：要哪条数就问 <see cref="PlayerSpec"/> 要哪条语义。</summary>
+        private PlayerSpec _spec;
 
-        /// <summary>逻辑层入口，供调试面板读取。</summary>
+        /// <summary>瞄准平面深度（世界单位，正交相机下够大即可）；<c>Attach</c> 时取一次。</summary>
+        private float _cameraPlaneDepth = 100f;
+
+        private SpriteRenderer _body;
+
+        private Vector2 _spawnPoint;
+
+        private GameRoot _root;
+
         public PlayerLogic Logic { get; private set; }
 
-        /// <summary>本物理帧喂进逻辑层的环境事实。</summary>
+        /// <summary>物理体位置（世界侧判接触、算重生点用物理体而不是 <c>transform</c>）。</summary>
+        public Vector2 Position => motor == null ? Vector2.zero : motor.Position;
         public WorldInfo World => _world;
 
         /// <summary>引擎回读速度，与逻辑层的"提交后预期"对照；它滞后一个物理步。</summary>
-        public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.Velocity;
+        public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.EngineVelocity;
 
-        /// <summary>
-        /// 把原始输入吸附到 8 向并归一化：键盘同时按两个轴会得到模长 √2，摇杆则是任意角度。
-        /// </summary>
-        /// <param name="move">原始输入（−1..1，已 <c>ClampMagnitude(1)</c>）。</param>
-        /// <param name="snapToEightDirections">是否吸附；关掉时只补归一化。</param>
-        /// <returns>零输入 → <c>Vector2.zero</c>；否则 → <b>模长恒为 1</b> 的方向。</returns>
-        /// <remarks>
-        /// <b>契约：非零输出的模长一定是 1</b>（<c>WorldInfo.MoveDirection</c> 与逻辑层都依赖它）。
-        /// 因此"吸附到 45° 的一档"与"抹掉摇杆的模拟幅度"是同一件事——轻推摇杆与推满是同一个速度。
-        /// 本条是<b>静态纯函数</b>（不吃实例状态、不吃 <c>Time</c>），所以 EditMode 测试能直接调它，
-        /// 把"斜向不得快 √2 倍"这条断言真正钉在代码上，而不是钉在注释上。
-        /// </remarks>
+        /// <summary>把原始输入吸附到 8 向并归一化：键盘同时按两个轴会得到模长 √2，摇杆则是任意角度。</summary>
+        /// <returns>零输入 → <c>Vector2.zero</c>；否则 → <b>模长恒为 1</b> 的方向（<c>WorldInfo.MoveDirection</c> 与逻辑层都依赖这条契约；因此"吸附到 45° 的一档"与"抹掉摇杆的模拟幅度"是同一件事 —— 轻推摇杆与推满是同一个速度）。静态纯函数，EditMode 测试能直接调它。</returns>
         public static Vector2 SnapMoveToEightDirections(Vector2 move, bool snapToEightDirections)
         {
             if (move.sqrMagnitude <= DirectionEpsilon) return Vector2.zero;
@@ -105,8 +74,7 @@ namespace DeepseaOil.Presentation
             // 关掉吸附时也不能原样放行：斜向的 (1,1) 模长是 √2，会当帧写出快 41% 的速度。
             if (!snapToEightDirections) return move.normalized;
 
-            // 45° 一档共 8 档；Round 天然把 ±22.5° 内的输入归到最近一档，不需要额外死区。
-            // 取整 + 按档位查表（而不是直接 Cos/Sin 算值）是为了让"同一个方向"在不同输入下得到<b>逐位相同</b>的结果。
+            // 45° 一档共 8 档；Round 天然把 ±22.5° 内的输入归到最近一档，不需要额外死区。取整 + 按档位查表（而不是直接 Cos/Sin 算值）是为了让"同一个方向"在不同输入下得到**逐位相同**的结果。
             int octant = Mathf.RoundToInt(Mathf.Atan2(move.y, move.x) / OctantRadians);
             octant %= 8;
             if (octant < 0) octant += 8;
@@ -127,88 +95,32 @@ namespace DeepseaOil.Presentation
             return table;
         }
 
-        private void OnEnable()
+        /// <summary>回到出生点并满血（打空重来）。</summary>
+        /// <remarks>分工是：世界侧（<c>CombatRoot</c>）决定"什么时候重来"，玩家侧执行"回到哪、满血、停住"。出生点理论上在图内，但它是运行期读到的位置；越界时钳回来，否则玩家会回到一张"看不见自己"的地图外。</remarks>
+        public void RespawnToSpawn()
         {
-            EventBus<GamePaused>.Subscribe(OnGamePaused);
-            EventBus<GameResumed>.Subscribe(OnGameResumed);
-        }
+            if (Logic == null) return;
 
-        private void OnDisable()
-        {
-            EventBus<GamePaused>.Unsubscribe(OnGamePaused);
-            EventBus<GameResumed>.Unsubscribe(OnGameResumed);
-        }
+            Vector2 position = _spawnPoint;
 
-        private void OnGamePaused(GamePaused evt)
-        {
-            inputProvider.SetInputEnabled(false); // 内部已 Clear，无需再调一次
-            _buffer.Clear();
-        }
+            if (_bounds.TryClamp(position, out Vector2 clamped)) position = clamped;
 
-        private void OnGameResumed(GameResumed evt)
-        {
-            inputProvider.SetInputEnabled(true);
-        }
-
-        /// <summary>
-        /// <b>白模阶段新增</b>：本帧把玩家的速度上限换成给定值，并给出逻辑层入口。
-        /// </summary>
-        /// <remarks>
-        /// 用法是"声明式"的：调用方（首个是白模的 <c>PlayerHealth</c>）每帧调用一次表示
-        /// "这一帧我还想限速"，下一帧不调即自动恢复满速档位。
-        /// <para><b>为什么需要它：</b>玩家被撞开时，本类已经在同一个物理帧里把速度写成
-        /// <c>输入方向 × moveSpeed</c> 了。要让"被撞"表现出来，只能在这之后<b>再写一次</b>速度 ——
-        /// 而本类是玩家速度的唯一写者，所以这个口子必须开在这里，不能开在受害者自己那边
-        /// （那样就成了第二个速度写者，直接违反 <c>PlayerLogic</c> 与 <c>MovementMotor</c> 的核心不变量）。
-        /// 逻辑层本身不被改动语义：它只多知道一个"本帧上限"。</para>
-        /// <para>参数是结构体而不是两个独立方法，理由见 <see cref="LogicSpeedTargets"/>。</para>
-        /// </remarks>
-        internal void OverrideLogicSpeedTargets(PlayerLogic logic, float maxSpeed)
-        {
-            if (logic == null) return;
-
-            // 用结构体把"哪一层"与"上限多少"绑在一起传：两者分开传的时候漏一个，
-            // 后果是限速静默生效在另一个玩家身上（现在只有一个玩家，所以谁也发现不了）。
-            _speedLimit = new LogicSpeedTargets(logic, maxSpeed);
-        }
-
-        /// <summary>
-        /// <b>白模阶段新增</b>：本帧往玩家的速度账本里加一次冲量（击退、水流、吸附等外因用）。
-        /// </summary>
-        /// <param name="deltaVelocity">一次性的速度变化（单位/秒），<b>不</b>乘 Δt。</param>
-        /// <remarks>
-        /// <b>必须先 <see cref="OverrideLogicSpeedTargets"/> 再调用本方法。</b>理由同那条的注释：
-        /// 本方法是"写第二次速度"，而本类在同一个物理帧里已经写过第一次了。
-        /// <para>累加在账本上，所以不是"绕过逻辑层写刚体"：帧末仍由本类的一次写出生效，
-        /// 玩家速度依然只有一个写者。</para>
-        /// </remarks>
-        internal void AddLogicImpulse(PlayerLogic logic, Vector2 deltaVelocity)
-        {
-            if (logic == null) return;
-
-            logic.AddImpulse(deltaVelocity);
+            Logic.RespawnTo(position);
         }
 
         private void Awake()
         {
-            if (config == null
-                || motor == null
+            if (motor == null
                 || inputProvider == null)
             {
-                Debug.LogError("PlayerController 引用未接线（config / motor / inputProvider），已停用。", this);
+                Debug.LogError("PlayerController 引用未接线（motor / inputProvider），已停用。", this);
                 enabled = false;
                 return;
             }
 
-            // 缓冲容量取"容量参数"与各输入窗口的较大者：容量小于任何窗口时，窗口内的按下会被挤出历史。
-            _buffer = new InputBuffer(
-                Mathf.Max(config.inputBufferTime, config.dashBufferTime),
-                Mathf.RoundToInt(1f / Time.fixedDeltaTime)
-                );
-
             _bounds = ReadBounds();
             _world = new WorldInfo(Vector2.zero, in _bounds); // 首帧前也不留 default
-            Logic = new PlayerLogic(motor, config, _buffer);
+            _spawnPoint = motor.Position;
 
             if (!_bounds.IsValid)
             {
@@ -219,39 +131,54 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        private void FixedUpdate()
+        private void Start()
         {
+            _root = GameRoot.Instance;
+            _root.RegisterSceneRoot(this);
+        }
+
+        private void OnDestroy()
+        {
+            // 用 Start 里抓住的引用：销毁期再问 GameRoot.Instance 可能当场造一个新的出来
+            if (_root != null) _root.UnregisterSceneRoot(this);
+        }
+
+        /// <summary>装配玩家逻辑。<b>由 <c>GameRoot</c> 在第一个被驱动的帧调</b>（见 <see cref="ISceneRoot.Attach"/>）。</summary>
+        /// <remarks><b>读表放在这里而不是 <c>Awake</c></b>：<c>ConfigModule</c> 由 <c>GameRoot.Awake</c> 装配（含第二段 <c>BindAssets</c>），而组件之间的 <c>Awake</c> 顺序 Unity 不保证 —— 写在 <c>Awake</c> 里就是一次"看运气"的启动崩溃（<c>ConfigModule</c> 在未就绪时会抛）。
+        /// 输入缓冲也在这里建：它的容量来自配表，装配顺序只有一条 —— 先拿到 <c>PlayerSpec</c>，再建缓冲。</remarks>
+        public void Attach()
+        {
+            if (Logic != null || motor == null) return;
+
+            _spec = ConfigModule.GetPlayer();
+
+            // 缓冲容量取"容量参数"与各输入窗口的较大者：容量小于任何窗口时，窗口内的按下会被挤出历史。
+            _buffer = new InputBuffer(
+                Mathf.Max(_spec.InputBufferSeconds, _spec.DashBufferSeconds),
+                Mathf.RoundToInt(1f / Time.fixedDeltaTime)
+                );
+
+            _cameraPlaneDepth = _spec.CameraPlaneDepth;
+
+            Logic = new PlayerLogic(motor, _spec, _buffer);
+        }
+
+        /// <summary>物理帧：由 <c>GameRoot.FixedUpdate</c> 按 <see cref="Order"/> 驱动（物理帧只有一个发起者，"玩家先于战斗结算"因此是代码事实而不是 Unity 抽签）。</summary>
+        public void FixedTick(float deltaTime)
+        {
+            // 装配失败（引用未接线）或还没装配时整体 no-op：不读半装配状态
+            if (Logic == null) return;
+
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 
-            Vector2 move = SnapMoveToEightDirections(raw.Move, config.snapToEightDirections);
+            Vector2 move = SnapMoveToEightDirections(raw.Move, _spec.SnapToEightDirections);
 
-            // 归一化后的方向要写回快照：WorldInfo 与 InputBuffer 必须是同一份方向，
-            // 否则 MoveGroup 取冲刺方向、PlayerLogic 记"最近朝向"时会看到另一份（未处理的）值。
-            var snapshot = new InputSnapshot(move, raw.JumpPressed, raw.DashPressed, raw.GrabHeld);
+            // 归一化后的方向要写回快照：WorldInfo 与 InputBuffer 必须是同一份方向，否则 MoveGroup 取冲刺方向、PlayerLogic 记"最近朝向"时会看到另一份（未处理的）值。
+            var snapshot = new InputSnapshot(move, raw.DashPressed, raw.GrabHeld);
 
             _buffer.Push(in snapshot, Time.fixedTime);
 
             _world = new WorldInfo(move, in _bounds);
-
-            // 白模阶段新增：本帧的受击推挤。**必须在 Logic.FixedTick 之前声明**——
-            // FixedTick 帧末按这个上限把速度一次写出，声明晚了这一帧就被浪费掉。
-            // 声明是"一次性"的：用完立刻清空，所以外因要每帧重新声明（见 _speedLimit 的注释）。
-            if (_speedLimit.HasValue)
-            {
-                LogicSpeedTargets targets = _speedLimit.Value;
-
-                // 只对声明的那个逻辑层生效：将来场景里有第二个"逻辑被驱动的角色"时，
-                // 漏判这一条会让限速静默作用在别人身上。
-                if (!ReferenceEquals(targets.Logic, Logic))
-                {
-                    _speedLimit = null;
-                }
-                else
-                {
-                    Logic.SetSpeedLimit(targets.MaxSpeed);
-                    _speedLimit = null;
-                }
-            }
 
             Logic.FixedTick(
                 new LogicContext(
@@ -269,15 +196,56 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>
-        /// 把场景里的活动区域碰撞体折算成纯数据矩形。
-        /// </summary>
-        /// <remarks>
-        /// <b>这一步是逻辑层"零引擎类型"的代价，也是它的收益</b>：<c>BoxCollider2D</c> → <c>min/max</c>
-        /// 的折算只发生在表现层这一处，逻辑层拿到的永远是纯数据。
-        /// 每次 <c>Awake</c> 读一次即可：<c>BoxCollider2D.bounds</c> 是只读的派生值，
-        /// 地图尺寸在运行期不会变（改了尺寸要重进场景）。
-        /// </remarks>
+        /// <summary>渲染帧：瞄准 ＋ 开火意图（由 <c>GameRoot.Update</c> 按 <see cref="Order"/> 驱动）。</summary>
+        /// <remarks><b>瞄准在渲染帧而不在物理帧</b>：帧相位口径是"物理帧只放角色移动与参与物理的逻辑"，而瞄准既不吃物理也不产出物理量。"屏幕 → 世界"只有本类做得了，换算完把<b>世界点</b>交给逻辑层，吸附到哪一格由 <c>TileAim</c> 算 —— 于是"看着能扔到、其实扔不到"的根源（两处各算一次）从结构上消失。
+        /// <b>暂停 / 菜单下不瞄准也不开火</b>：判据只有"输入开关"一个真值（<c>InputProvider.IsInputEnabled</c>），并存第二个暂停真值就会不一致（订阅晚了就永远收不到那条事件）。</remarks>
+        public void RenderTick(float deltaTime)
+        {
+            if (Logic == null) return;
+
+            // 遮挡是观感，与物理步无关，所以放渲染帧；放在暂停判断之前：暂停时也要保持档位正确。
+            UpdateSortingOrder();
+
+            if (inputProvider == null || !inputProvider.IsInputEnabled)
+            {
+                Logic.ClearAim();
+                return;
+            }
+
+            Camera camera = aimCamera != null ? aimCamera : Camera.main;
+
+            if (camera == null || inputProvider == null) return;
+
+            float now = Time.time;
+
+            Logic.UpdateAim(AimWorldPoint(camera), now);
+
+            // 攻击输入：动作表里没有攻击动作，它由 InputProvider 直读指针产出（渲染帧语义）。主攻击 = 水球（吃弹药），副攻击 = 土球（不吃）。
+            if (inputProvider.AttackPressedThisFrame) Logic.RequestThrow(BallType.Water, now);
+            if (inputProvider.AltAttackPressedThisFrame) Logic.RequestThrow(BallType.Earth, now);
+        }
+
+        /// <summary>按 y 刷新本体的渲染档位（Y-Sort）：玩家本体是场景里摆的 <c>SpriteRenderer</c>，"谁挡住谁"必须每帧按 y 重算（场景里填的 <c>sortingOrder</c> 只是初始值）。</summary>
+        private void UpdateSortingOrder()
+        {
+            if (_body == null) _body = GetComponent<SpriteRenderer>();
+
+            if (_body == null) return;
+
+            _body.sortingOrder = RenderOrder.ActorOrder(Position.y);
+        }
+
+        /// <summary>屏幕点 → 世界点。<b>不读相机的 z：</b><c>Camera.main.transform.position.z</c> 被 Cinemachine 每帧驱动，依赖它等于让落点跟着相机插件走；正交相机下给一个足够大的常量深度即可（见 <c>ThrowTuning.cameraPlaneDepth</c>）。</summary>
+        private Vector2 AimWorldPoint(Camera camera)
+        {
+            Vector2 screen = inputProvider.AimScreen;
+
+            Vector3 world = camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, _cameraPlaneDepth));
+
+            return new Vector2(world.x, world.y);
+        }
+
+        /// <summary>把场景里的活动区域碰撞体折算成纯数据矩形：<c>BoxCollider2D</c> → <c>min/max</c> 的折算只发生在表现层这一处，每次 <c>Awake</c> 读一次即可（地图尺寸在运行期不会变）。</summary>
         private BoundsArea ReadBounds()
         {
             if (boundsArea == null || !boundsArea.enabled) return default;

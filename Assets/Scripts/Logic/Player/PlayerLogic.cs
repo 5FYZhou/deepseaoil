@@ -1,135 +1,111 @@
-﻿using DeepseaOil.Data;
+using DeepseaOil.Data;
+using DeepseaOil.Logic.Combat;
+using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
-using DeepseaOil.Presentation;
-using DeepseaOil.Logic;
 using UnityEngine;
+using cfg.demo;
 
 namespace DeepseaOil.Logic.Player
 {
-    /// <summary>
-    /// 玩家逻辑：持有冲刺余额与计时，回答"有没有资格"，并驱动移动状态组。
-    /// </summary>
-    /// <remarks>
-    /// 不做状态转移决策、不知道任何具体状态类；速度与外力的写入口见基类 <see cref="ActorLogic"/>。
-    /// 俯视角下跳跃/二段跳/蹬墙跳已移除（相应状态类也不存在），保留的是冲刺——
-    /// 它的"资格"由冷却 ＋ <see cref="InputBuffer"/> 窗口共同决定，是状态组唯一会查询的余额。
-    /// 外力：玩家<b>不主动施加外力</b>（<c>ApplyExtraForce</c> 无调用），击退/水流/吸附等由施加方决定，
-    /// 需要时在 <see cref="OnTick"/> 里加一行即可。
-    /// </remarks>
+    /// <summary>玩家逻辑：持有账本（血量 ＋ 水球）与三层领域状态机（状态效果 / 战斗 / 移动），并回答"我现在能不能做某件事"。</summary>
+    /// <remarks><b>受击的唯一入口是 <see cref="TakeDamage"/></b>：世界侧只能"通知"，数据由玩家侧自己改。
+    /// <b>击退必须"挂起"</b>：账本帧首清累加区，帧外直接 <c>AddImpulse</c> 会被下一帧帧首静默抹掉 ⇒"被撞了但纹丝不动"，且不报错。驱动顺序：状态效果 → 战斗 → 移动，只有移动层能写速度。</remarks>
     public sealed class PlayerLogic : ActorLogic
     {
-        private readonly PlayerConfig _player;
+        private readonly PlayerStats _stats;
         private readonly InputBuffer _buffer;
+        private readonly StatusGroup _status;
+        private readonly CombatGroup _combat;
         private readonly MoveGroup _moveGroup;
 
-        private float _lastDashAt = float.NegativeInfinity;
+        /// <summary>已递交、还没被状态效果层消费的击退冲量（可在帧外累加）。</summary>
+        private Vector2 _pendingKnockback;
 
-        /// <summary>最近一次非零输入方向（<b>已归一化</b>）；零输入时保持不变，供冲刺取向与后续技能使用。</summary>
-        /// <remarks>
-        /// 初始值是 <c>Vector2.right</c>：尚未有任何输入时按"朝右"冲刺，而不是把方向判成零向量
-        /// （零向量会让 <c>DashState.Configure</c> 保持它自己的初值，行为不直观）。
-        /// 存归一化值而不是原始输入：本属性的消费者（冲刺取向、后续技能）要的是"方向"，
-        /// 把"归一化"留给每个消费者各做一次，迟早会漏掉一处。
-        /// </remarks>
-        private Vector2 _direction = Vector2.right;
-
-        public PlayerLogic(IMovementMotor motor, PlayerConfig config, InputBuffer buffer) : base(motor, config)
+        public PlayerLogic(IActorMotor motor, PlayerSpec spec, InputBuffer buffer)
+            : base(motor, spec.Config)
         {
-            _player = config;
+            _stats = new PlayerStats(spec);
             _buffer = buffer;
-            _moveGroup = new MoveGroup(this);
+
+            _status = new StatusGroup(this);
+            _combat = new CombatGroup(this);
+            _moveGroup = new MoveGroup(this, spec, motor, buffer);
         }
 
-        /// <summary>当前移动状态。</summary>
-        public MovementStateTag CurrentState => _moveGroup.Current;
+        public PlayerStats Stats => _stats;
 
-        /// <summary>移动状态组，供调试面板与测试查看状态实例（只读用途）。</summary>
         public MoveGroup MoveGroup => _moveGroup;
 
-        /// <summary>最近一次非零输入方向（已归一化）；供冲刺取向与调试面板使用。</summary>
-        public Vector2 Direction => _direction;
+        public StatusGroup Status => _status;
 
-        /// <summary>
-        /// 满速档位：配置速度与冲刺速度里的较大者。
-        /// </summary>
-        /// <remarks>
-        /// <b>它是"受击速度上限"的基准</b>：外因（击退、水流、吸附）只被允许把速度往"当前档位"里补，
-        /// 补满为止，不允许把角色推到比它自己能力更快。于是"连续挨打会不会越推越快"有了确定答案。
-        /// <para>返回的是只读派生值、不是缓存字段：缓存了就要在每个写入速度的地方同步它，
-        /// 而那正是"两个速度真值"的开端。</para>
-        /// </remarks>
-        public float MaximumSpeed => Mathf.Max(Config.moveSpeed, _player.dashSpeed);
+        public CombatGroup Combat => _combat;
 
-        /// <summary>
-        /// 累加一次冲量（一次性的速度变化，单位/秒）—— <b>本类仍是玩家速度的唯一写者</b>。
-        /// </summary>
-        /// <remarks>
-        /// 基类的方法是 <c>protected</c>，这里用 <c>new</c> 提升成公开访问点（首个消费者是敌人接触击退）。
-        /// 调用方<b>不要</b>因此去写 <c>Rigidbody2D.velocity</c>：速度必须经本类账本，
-        /// 否则帧末写出会覆盖掉外力，表现为"被推了一下又弹回去"。
-        /// <para>冲量本身不乘 Δt（它是速度变化量）；本帧的提交由下一次固定帧一次写出。
-        /// 若同帧还要限制上限，顺序必须是"先累加冲量、后限速"——
-        /// 限速按当帧速度整体覆盖，顺序反了冲量会被整个吃掉且不报错。</para>
-        /// <para><b>用 <c>new</c> 而不是包一层方法：</b>包一层会让两个同签名成员同时存在，
-        /// 编译期报 CS0108（隐藏继承成员），而"隐藏"这件事本身是缺陷的信号 ——
-        /// 将来基类给 <c>AddImpulse</c> 加上参数或改变语义时，这里的覆盖会静默失效。</para>
-        /// </remarks>
-        public new void AddImpulse(Vector2 deltaVelocity)
+        public bool IsAlive => _stats.IsAlive;
+
+        public void ConfigureAim(in GridGeometry geometry, float maxThrowDistance, IThrowSink sink)
         {
-            base.AddImpulse(deltaVelocity);
+            _combat.Configure(in geometry, maxThrowDistance, sink);
         }
 
-        /// <summary>
-        /// 把角色瞬移到给定位置（重生 / 传送用）。
-        /// </summary>
-        /// <remarks>
-        /// 走执行器的物理体位置而不是 <c>transform.position</c>：后者会被刚体的位置积分覆盖掉，
-        /// 表现为"瞬移了一下又弹回去"。它<b>不</b>是"移动"：不经过状态机、不改朝向、不产生提交，
-        /// 所以想真正停住要另调 <see cref="ActorLogic.StopMove"/>。
-        /// </remarks>
-        public void ResetTo(Vector2 position)
+        public void UpdateAim(Vector2 aimWorld, float now)
         {
-            Motor.SetPosition(position);
+            _combat.UpdateAim(Motor.Position, aimWorld, now);
         }
 
-        /// <summary>是否可冲刺：冷却已过，且缓冲里有窗口内的按下。纯查询，不消费。</summary>
-        public bool CanDash(float now)
+        public void ClearAim()
         {
-            return CanDashNow(now) && _buffer.CanConsume(InputType.Dash, now, _player.dashBufferTime);
+            _combat.ClearAim();
         }
 
-        /// <summary>消费冲刺缓冲；冷却不足时拒绝。</summary>
-        public bool TryConsumeDash(float now)
+        public bool RequestThrow(BallType ball, float now)
         {
-            if (!CanDashNow(now)) return false;
-            if (!_buffer.TryConsume(InputType.Dash, now, _player.dashBufferTime)) return false;
+            return _combat.RequestThrow(ball, now);
+        }
 
-            _lastDashAt = now;
+        /// <summary>结算一次伤害：<b>世界侧唯一的受伤入口</b>（接触、陷阱、将来的技能都走这里）。</summary>
+        /// <remarks><b>被挡掉时三件事一起不发生</b>：不扣血、不推、也不写无敌时间；冲量只是<b>挂起</b>，真正的接管在下一次 <see cref="OnTick"/>。</remarks>
+        public bool TakeDamage(in Damage damage, float now)
+        {
+            if (!damage.HasDamage && !damage.HasKnockback) return false;
+
+            if (damage.HasDamage && !_stats.ApplyDamage(damage.Amount, now)) return false;
+
+            if (damage.HasKnockback)
+            {
+                Vector2 impulse = damage.Direction * damage.Impulse;
+                float limit = _stats.Spec.KnockbackSpeedLimit;
+
+                // 上限非法（0 / 非数）时按"不限"处理：ClampMagnitude 遇到 0 会把冲量整个吃掉
+                _pendingKnockback = limit > 0f && !float.IsNaN(limit)
+                    ? Vector2.ClampMagnitude(impulse, limit)
+                    : impulse;
+            }
+
             return true;
+        }
+
+        /// <summary>把角色瞬移到给定位置（重生 / 传送用），并把血量恢复满、停住、清掉挂起的击退。</summary>
+        /// <remarks>走执行器的物理体位置（<c>transform.position</c> 会被位置积分覆盖 ⇒ "瞬移了一下又弹回去"）；<b>速度要硬清零</b>：账本 <c>StopMove</c> 只管"本帧该提交什么"，物理体上的残留速度会让复活后自己滑一段。</remarks>
+        public void RespawnTo(Vector2 position)
+        {
+            _stats.ResetToFull();
+
+            Motor.StopMove();
+
+            _pendingKnockback = Vector2.zero;
+
+            Motor.Move(Vector2.zero);
+            Motor.SetPosition(position);
         }
 
         protected override void OnTick(in LogicContext ctx)
         {
-            // 此处是外力唯一入口，但玩家**刻意不施外力**（零惯性 ＋ 无重力）：
-            // 这不是"还没写"，是设计意图——第一个真实消费者预计是敌人、击退、水流或吸附。
-            // 要用时形如 ApplyExtraForce(in ctx, new Vector2(knockbackX, knockbackY)); 再按需 ClampSpeed(...)，
-            // 注意顺序必须先外力后钳制（钳制会整体覆盖当帧速度）。
+            // ① 状态效果层（帧外挂起的击退在这里变成一次"进入受击"并产出本帧门禁）→ ③ 移动层（唯一写速度处）；② 战斗层在物理帧没有职责
+            _status.Tick(in ctx, _pendingKnockback);
+            _pendingKnockback = Vector2.zero;
 
-            Vector2 move = ctx.inputSnapshot.Move;
-            if (move.sqrMagnitude > 0f) _direction = move.normalized;
-
-            _moveGroup.Tick(in ctx);
-        }
-
-        /// <summary>冲刺冷却是否已过。</summary>
-        /// <remarks>
-        /// 平台跳跃时代的条件还含"在地面 或 空中余额未用完"；俯视角没有明确的空中/地面之分，
-        /// 故只按冷却。若将来要做"空中只能冲一次"，需要先引入 Airborne 语义（见 Docs 待确认项）。
-        /// </remarks>
-        private bool CanDashNow(float now)
-        {
-            return now - _lastDashAt >= _player.dashCooldown;
+            _moveGroup.Tick(in ctx, _status.Gates);
         }
     }
 }

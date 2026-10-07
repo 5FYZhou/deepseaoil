@@ -1,58 +1,71 @@
-﻿using UnityEngine;
+using UnityEngine;
 using cfg.demo;
-using DeepseaOil.Logic.Combat;
 using DeepseaOil.Data;
 
 namespace DeepseaOil.Logic.Grid
 {
-    /// <summary>
-    /// 一次状态回调能看到的全部环境事实。由 <c>GridLogic</c> 构造并注入。
-    /// </summary>
-    /// <remarks>
-    /// <b>为什么把"能做的事"做成三个端口而不是直接给 <c>GridLogic</c>：</b>状态实现只该知道
-    /// "我在哪一格、现在几点、我能提交什么"。给了具体门面，状态就能顺手去改别的格子、
-    /// 读别人的状态 —— 于是"状态之间怎么互相影响"这件事会从一处（<c>GridLogic</c>）散到 N 个状态里。
-    /// <para><b>本次只被 <c>MudTileState</c> 使用</b>，但三个端口都是"骨架完整"的一部分：
-    /// 周期结算（毒 / 火）与联动（蔓延 / 连锁）是格子系统的既定扩展方向。</para>
-    /// </remarks>
+    /// <summary>一个格子在一次 Tick / 一次状态切换里能看到的全部上下文：格子身份、时间、以及两个端口。</summary>
+    /// <remarks>时间由驱动方给（状态自己不读 <c>Time</c>），于是整条时序能在 EditMode 里喂 <c>dt</c> 复现；暂停时 <see cref="DeltaTime"/> 为 <c>0</c>，累加自然冻结。</remarks>
     public readonly struct TileContext
     {
-        /// <summary>本格坐标。</summary>
         public readonly Vector3Int Cell;
 
-        /// <summary>逻辑时间（秒）。</summary>
         public readonly float Now;
 
         /// <summary>本帧时长（秒）；暂停时为 0。</summary>
         public readonly float DeltaTime;
 
-        /// <summary>提交下一次 Tick / 请求状态转换。</summary>
+        /// <summary>状态提交口（下一次 Tick 与状态转换）。</summary>
         public readonly ITileScheduler Scheduler;
 
-        public TileContext(Vector3Int cell, float now, float deltaTime, ITileScheduler scheduler)
+        /// <summary>唯一的效果出口；可为 <c>null</c>（逻辑层单跑测试的场合）。</summary>
+        public readonly ITileResolver Resolver;
+
+        public TileContext(
+            Vector3Int cell,
+            float now,
+            float deltaTime,
+            ITileScheduler scheduler,
+            ITileResolver resolver)
         {
             Cell = cell;
             Now = now;
             DeltaTime = deltaTime;
             Scheduler = scheduler;
+            Resolver = resolver;
         }
     }
 
-    /// <summary>
-    /// 状态提交口：下一次 Tick 与状态转换。
-    /// </summary>
-    /// <remarks>
-    /// <b>两个提交都是"请求"而不是"立刻执行"：</b>Tick 请求进双缓冲队列（本帧提交、下帧消费），
-    /// 状态转换进待处理表（本帧的 Tick 循环跑完之后统一结算）——
-    /// 于是"状态 A 的 OnTick 把格子切成状态 B、B 立刻又切回 A"这种同帧递归不可能发生。
-    /// </remarks>
+    /// <summary>状态提交口：下一次 Tick 与状态转换。Tick 请求进双缓冲队列（本帧提交、下帧消费），转换进待处理表、本帧 Tick 循环跑完后统一结算 —— 同帧递归不可能发生。</summary>
     public interface ITileScheduler
     {
-        /// <summary>请求在下一帧对本格再 Tick 一次。</summary>
         void ScheduleTick(Vector3Int cell);
 
-        /// <summary>请求把本格切换到 <paramref name="next"/>；<b>本帧 Tick 循环结束后</b>统一生效。</summary>
         void Transition(Vector3Int cell, TileStateType next);
     }
 
+    /// <summary><b>唯一的效果出口</b>：对站在该格上的目标施加一次效果；找人与击退方向（按"格心 → 受害者"逐个算，可能不止一个目标）由实现负责。</summary>
+    /// <remarks>签名只收一个<b>已定值</b>的 <see cref="TileEffectValue"/>：档位 / 级别在数据层就消解掉了，所以本接口不会随效果数量增长。</remarks>
+    public interface ITileResolver
+    {
+        /// <summary>对站在该格上的目标施加一次效果（伤害 / 减速 / 击退 / 麻痹 / 持续伤害）。</summary>
+        void Apply(Vector3Int cell, in TileEffectValue effect);
+
+        /// <summary>
+        /// <b>地形改写通道</b>（D11）：改的是格子<b>自身</b>，不是格上的目标 —— 温湿度继承、清除植物、状态转换都走这里。
+        /// </summary>
+        /// <remarks>与 <see cref="Apply"/> 分成两个方法而不是一个：一个动"格上的东西"，一个动"格子本身"，混成一个会让"这条效果改了谁"无法从签名上看出来（D10 的出口原则是"靠 Kind 区分种类"，不是"靠 Kind 区分作用对象"）。
+        /// 状态实现<b>仍然不许直接碰别的格</b>（D4）：跨格由执行者做，本方法只作用于 <paramref name="cell"/>。</remarks>
+        void ApplyToCell(Vector3Int cell, in TileEffectValue effect);
+
+        /// <summary>直接改写某格的元素四件（温湿度继承 / 清除植物 / 将来的地形脚本用）。端口面比 <see cref="ApplyToCell"/> 更窄：它不谈"效果"，只写值。</summary>
+        void SetCellElement(Vector3Int cell, in ElementValue element);
+    }
+
+    /// <summary>「会被减速修饰影响」的目标；当前只有敌人实现（格子系统完全不认识玩家，D7）。</summary>
+    public interface ISlowable
+    {
+        /// <summary>续一次减速修饰；<b>不是</b>"立刻把速度乘一下"，修饰由目标的状态效果层持有。<b>不是</b>帧式 <c>SetSlowMultiplier</c>：离开格子不再续命即自动过期。</summary>
+        void ApplySlow(float speedScale, float seconds);
+    }
 }

@@ -6,59 +6,39 @@ namespace DeepseaOil.Logic.Input
 {
     public enum InputType
     {
-        Jump,
         Dash,
         Attack, // M2
     }
 
-    /// <summary>
-    /// 输入缓冲：缓存近期采样输入快照，提供窗口内的按下查询与消费。
-    /// </summary>
-    /// <remarks>
-    /// 时间由调用方传入（不读 Unity Time），必须单调不减；窗口为闭区间 <c>now - window &lt;= t &lt;= now</c>。
-    /// 同一次按下只能消费一次；按下仅受窗口时长约束，不随样本被挤出历史而作废。
-    /// <b>输入按下沿一律由本类提供</b>（<see cref="CanConsume"/> / <see cref="TryConsume"/>），
-    /// 宿主不得自行保存"上一帧输入"，且 <see cref="Push"/> 必须先于逻辑层的 <c>Tick</c>。
-    /// 当前被消费的只有 <see cref="InputType.Dash"/>；<see cref="InputType.Jump"/> 等按下沿的入账见 <see cref="Push"/>。
-    /// 契约与设计理由见 <c>Docs/框架设计/分层设计/逻辑层.md</c> §5。
-    /// </remarks>
+    // 输入缓冲：窗口为闭区间 now - window <= t <= now；时间由调用方传入（不读 Unity Time），必须单调不减。
+    // 同一次按下只能消费一次；按下仅受窗口时长约束，不随样本被挤出历史而作废。
+    // 输入按下沿一律由本类产生（CanConsume / TryConsume）：宿主不得自行保存"上一帧输入"，且 Push 必须先于逻辑层的 Tick。当前只有 Dash 有消费者。
     public sealed class InputBuffer
     {
-        /// <summary>表示"该输入已失效"的哨兵值。</summary>
+        // "该输入已失效"的哨兵值；NaN 的传播特性使无效输入在窗口判定里自然判假。
         private const float InvalidTime = float.NaN;
 
-        /// <summary>样本环形缓冲。</summary>
         private readonly InputSnapshot[] _snapshots;
 
-        /// <summary>环形缓冲的写入位置。</summary>
         private int _writeIndex;
 
-        /// <summary>环形缓冲的最新位置。</summary>
         private int _latestIndex => (_writeIndex - 1 + Capacity) % Capacity;
 
-        /// <summary>环形缓冲容量（样本数）。</summary>
         public int Capacity => _snapshots.Length;
 
-        /// <summary>请求的缓冲时长（秒）。</summary>
         public float RequestedSeconds { get; }
 
-        /// <summary>每秒采样次数。</summary>
+        // 应与实际调用 Push 的频率一致：不一致会让 EffectiveSeconds 名不副实。
         public int SampleRatePerSecond { get; }
 
-        /// <summary>最近一次未被消费的按下时间；<see cref="InvalidTime"/> 表示无。</summary>
         private readonly Dictionary<InputType, float> _pendingTimes;
 
-        /// <summary>全部输入类型，构造时缓存：既省一次枚举分配，也避免遍历字典时再写字典。</summary>
         private readonly InputType[] _inputTypes;
 
         /// <summary>实际生效的历史窗口时长（秒），调手感时应以本值为准。</summary>
         public float EffectiveSeconds => Capacity / (float)SampleRatePerSecond;
 
-        /// <summary>
-        /// 构造输入缓冲。
-        /// </summary>
         /// <param name="bufferSeconds">需要保留的历史时长（秒），为 0 时存一帧。</param>
-        /// <param name="sampleRatePerSecond">每秒采样次数，应与实际调用 <see cref="Push"/> 的频率一致。</param>
         public InputBuffer(float bufferSeconds, int sampleRatePerSecond)
         {
             if (float.IsNaN(bufferSeconds) || float.IsInfinity(bufferSeconds) || bufferSeconds < 0f)
@@ -78,7 +58,6 @@ namespace DeepseaOil.Logic.Input
             SampleRatePerSecond = sampleRatePerSecond;
             RequestedSeconds = bufferSeconds;
 
-            // bufferSeconds 为 0 时保留"当前帧"这一格。
             int capacity = Mathf.Max(1, Mathf.CeilToInt(bufferSeconds * sampleRatePerSecond));
 
             _snapshots = new InputSnapshot[capacity];
@@ -93,32 +72,20 @@ namespace DeepseaOil.Logic.Input
             }
         }
 
-        /// <summary>
-        /// 记录一帧输入快照。缓冲区满时覆盖最旧样本。
-        /// </summary>
-        /// <remarks>
-        /// 只把"有消费者或有明确后续设计"的按下沿入账。松开沿（曾供可变跳高使用）已随跳跃曲线一起删除；
-        /// 将来若某个状态需要松开沿，回到这里按 <c>_prevXxx</c> ＋ 相邻两次采样就地求沿即可——
-        /// 不能挪到渲染帧求，一个渲染帧对应 0 或 2 个物理帧时会丢沿。
-        /// </remarks>
+        // 帧序：必须先于逻辑层的 Tick 调，缓冲区满时覆盖最旧样本；只把"有消费者"的按下沿入账。
+        // 松开沿（曾供可变跳高用）已随跳跃曲线删除；将来要松开沿，就地按相邻两次采样求，不能挪到渲染帧求 —— 一个渲染帧对应 0 或 2 个物理帧时会丢沿。
         public void Push(in InputSnapshot snapshot, float now)
         {
             _snapshots[_writeIndex++] = snapshot;
             _writeIndex %= Capacity;
 
-            if (snapshot.JumpPressed) _pendingTimes[InputType.Jump] = now;
             if (snapshot.DashPressed) _pendingTimes[InputType.Dash] = now;
         }
 
-        /// <summary>
-        /// 查询窗口内是否有未消费的按下。<b>不</b>消费，可重复调用。
-        /// </summary>
+        /// <summary>查询窗口内是否有未消费的按下。<b>不</b>消费，可重复调用。</summary>
         public bool CanConsume(InputType type, float now, float window)
             => IsInWindow(_pendingTimes[type], now, window);
 
-        /// <summary>
-        /// 尝试消费一次缓冲。
-        /// </summary>
         /// <returns>消费成功返回 true，并作废缓存。</returns>
         public bool TryConsume(InputType type, float now, float window)
         {
@@ -128,10 +95,8 @@ namespace DeepseaOil.Logic.Input
             return true;
         }
 
-        /// <summary>获取最新的移动数据。</summary>
         public Vector2 GetMove() => _snapshots[_latestIndex].Move;
 
-        /// <summary>清空全部历史。</summary>
         public void Clear()
         {
             Array.Clear(_snapshots, 0, _snapshots.Length);
@@ -143,7 +108,6 @@ namespace DeepseaOil.Logic.Input
             }
         }
 
-        /// <summary>判断时间戳是否落在闭区间窗口内（NaN 的传播特性使无效输入自然判假）。</summary>
         private static bool IsInWindow(float time, float now, float window)
         {
             return time <= now && time >= now - window;
