@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Logic;
+using DeepseaOil.Logic;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -16,7 +16,7 @@ namespace DeepseaOil.Presentation.UI
             switch (name)
             {
                 case "BtnClose":
-                    UIMgr.Instance.HidePanel<SavePanel>();
+                    GameRoot.Instance.UI.HidePanel<SavePanel>();
                     break;
                 case "BtnSave0":
                     break;

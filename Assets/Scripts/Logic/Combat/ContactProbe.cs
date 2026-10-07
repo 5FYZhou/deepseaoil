@@ -62,21 +62,21 @@ namespace DeepseaOil.Logic.Combat
             ref float bestSqr,
             ref Vector2 attacker)
         {
-            if (!registry.TryGetIn(cell, out List<IDamageable> targets) || targets == null) return false;
+            if (!registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets == null) return false;
 
             bool found = false;
 
             for (int i = 0; i < targets.Count; i++)
             {
-                IDamageable target = targets[i];
+                IEffectTarget target = targets[i];
 
                 // 已销毁的 Unity 对象在**接口引用**上不是 null（Unity 的 == 重载不参与接口比较），
                 // 直接读它等于抛 MissingReferenceException —— 先按 Unity 的 null 判定剔掉。
                 if (target is UnityEngine.Object unityObject && unityObject == null) continue;
 
-                // 已死但未被销毁的目标不该继续算接触（生命体征走 IAlivable，玩家侧与怪物侧同名）。
+                // 已死但未被销毁的目标不该继续算接触（生命体征经 IEffectTarget 继承来的 IAlivable 问，玩家侧与怪物侧同名）。
                 if (target == null) continue;
-                if (target is IAlivable livable && !livable.IsAlive) continue;
+                if (!target.IsAlive) continue;
 
                 Vector2 delta = playerPosition - target.Position;
                 float sqr = delta.sqrMagnitude;

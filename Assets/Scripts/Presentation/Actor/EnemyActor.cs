@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Data;
+using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
@@ -13,13 +13,12 @@ namespace DeepseaOil.Presentation.Actor
 {
     /// <summary>一只敌人：建出刚体与视效、推进逻辑层、结算伤害与死亡；它是这只敌人的组合根。</summary>
     /// <remarks><b>受伤只有一条路</b>：<see cref="TakeDamage"/>；脚底中心每帧登记进 <see cref="EnemyCellRegistry"/>（格子按"人站在哪一格"结算）。
-    /// <b>不自己驱动</b>：由 <c>CombatDirector</c> 统一逐只 <see cref="FixedTick"/>，自驱会让帧内顺序不可预测。</remarks>
+    /// <b>不自己驱动</b>：由 <c>CombatDirector</c> 统一逐只 <see cref="FixedTick"/>，自驱会让帧内顺序不可预测。
+    /// <para><b>接口上限（§10）：一只敌人实现 6 个窄接口</b> —— <see cref="IDamageable"/> / <see cref="ISlowable"/> / <see cref="IKnockBackable"/> / <see cref="IStunnable"/> / <see cref="IManagedActor"/>，
+    /// 加上经 <see cref="IDamageable"/> 继承得到的 <see cref="IEffectTarget"/> 与 <see cref="IAlivable"/>（生死与位置不再单列 —— 它们是 <see cref="IEffectTarget"/> 的一部分）。
+    /// 新玩法要挂接口时先问"这是不是一种独立的能力"：独立就加，不独立就复用现有接口。</para></remarks>
     [DisallowMultipleComponent]
-<<<<<<< HEAD
-    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowEffectTarget, IAlivable, IManagedActor
-=======
-    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable
->>>>>>> main
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor
     {
         private const float HpTextCharacterSize = 0.13f;
 
@@ -43,6 +42,9 @@ namespace DeepseaOil.Presentation.Actor
 
         /// <summary>本帧实际生效的减速乘数（视效读数）；速度那边由门禁经账本落地。<b>一份数据两个消费者</b>：各写一遍会让颜色与速度在某帧不一致，而两者看起来都"没错"。</summary>
         private float _slowMultiplier = 1f;
+
+        /// <summary>麻痹到期的时刻（<c>Time.time</c> 口径）；<c>0</c> = 没被麻痹过。只记不改移动 —— 见 <see cref="ApplyStun"/>。</summary>
+        private float _stunnedUntil;
 
         public bool IsAlive => Stats != null && Stats.IsAlive;
 
@@ -121,55 +123,17 @@ namespace DeepseaOil.Presentation.Actor
             UpdateHpText();
         }
 
-<<<<<<< HEAD
         /// <summary>推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。</summary>
         /// <remarks>由 <c>CombatDirector</c> 调用，<b>不</b>用 <c>Update</c>：速度必须一个物理帧只提交一次。视效同频刷新 —— 颜色与逻辑层用同一份减速系数，分两个频率会有一帧不同步。</remarks>
         public void FixedTick(float now, float deltaTime)
         {
             if (!Stats.IsAlive) return;
-=======
-        /// <summary>
-        /// 实现ISlowable接口，结算减速效果
-        /// </summary>
-        public void SetSlowMultiplier(float multiplier)
-        {
-            _slowMultiplier = _grid == null ? 1f : multiplier;
-        }
-        public void ResetSlow()
-        {
-            _slowMultiplier = 1f;
-        }
-
-
-        /// <summary>
-        /// 推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。
-        /// </summary>
-        /// <remarks>
-        /// 由 <c>WaveDirector</c> 调用，<b>不</b>用 <c>Update</c> ——
-        /// 速度必须在一个物理帧里被提交一次，而不是每个渲染帧提交多次。
-        /// <para>视效在物理帧刷而不是渲染帧刷：<b>颜色要跟逻辑层用的是同一份减速系数</b>
-        /// （见 <see cref="_slowMultiplier"/> 的注释）。两者用不同频率更新就会出现一帧的不同步，
-        /// 而那一帧正好是"泥浆刚消失"的时候。</para>
-        /// </remarks>
-        public void FixedTick(float now, float deltaTime)
-        {
-            if (_dead) return;
-
-            // 先算"这一帧踩没踩在减速格里"，再把它喂给逻辑层和视效 —— 同一个来源。
-            //_slowMultiplier = _grid == null ? 1f : _grid.GetSlowMultiplier(Position);
->>>>>>> main
 
             _logic.SetTarget(_target == null ? (Vector2?)null : TargetPosition());
             _logic.Tick(now, deltaTime);
 
-<<<<<<< HEAD
             _slowMultiplier = _logic.Status.SlowScale;
 
-=======
-            ///
-            /// 是否要在结算格子之前更新敌人坐标？
-            ///
->>>>>>> main
             UpdateCell(force: false);
             UpdateBodyColor();
             UpdateSortingOrder();
@@ -180,6 +144,34 @@ namespace DeepseaOil.Presentation.Actor
         {
             _logic?.Status.ApplySlow(speedScale, seconds);
         }
+
+        /// <inheritdoc />
+        /// <remarks>冲量拆成"大小 ＋ 方向"再递交：逻辑层的入口收的是 <c>(impulse, direction)</c>，方向为零会被那里当成"没方向"丢掉（此处不自己归一化，免得零向量变出非数）。</remarks>
+        public void ApplyKnockback(Vector2 impulse)
+        {
+            if (_logic == null) return;
+
+            float magnitude = impulse.magnitude;
+
+            if (magnitude <= 0f) return;
+
+            _logic.ApplyKnockback(magnitude, impulse / magnitude);
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// <b>本轮只记时长，不改移动</b>：麻痹要真的生效得挡住输入，而"持续到某时刻"的解除按 D12 该由计时器排程 ——
+        /// Actor 侧拿计时器的那条装配线还没拉（见报告的待决问题）。在那之前，本方法保证"格子提了、目标收下了"，不静默丢弃。
+        /// </remarks>
+        public void ApplyStun(float seconds)
+        {
+            if (seconds <= 0f) return;
+
+            _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + seconds);
+        }
+
+        /// <summary>麻痹是否还在生效（只读读数；暂无消费者）。</summary>
+        public bool IsStunned => Time.time < _stunnedUntil;
 
         private void OnDrawGizmosSelected()
         {

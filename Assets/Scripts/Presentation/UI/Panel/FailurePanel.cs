@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Logic;
+using DeepseaOil.Logic;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -19,7 +19,7 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnReturnMenu":
                     // 切换到开始场景
-                    GameManager.Instance.ChangeState(GameState.Menu);
+                    GameRoot.Instance.Game.ChangeState(GameState.Menu);
                     break;
             }
         }

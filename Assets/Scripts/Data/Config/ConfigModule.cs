@@ -29,6 +29,12 @@ namespace DeepseaOil.Data
         private static DropTuning _dropTuning;
         private static VisualPalette _visuals;
 
+        /// <summary>地块效果的取值缓存（效果号 → 包装件）。装一次、此后只读：它是"效果号 → 多档参数"的唯一入口。</summary>
+        private static Dictionary<TileEffectType, TileEffectSpec> _tileEffects;
+
+        /// <summary>元素反应规则（<b>列表顺序即优先级</b>，见 <see cref="ElementRuleSpec"/>）；装配期折算一次，此后只读。</summary>
+        private static IReadOnlyList<ElementRuleSpec> _elementRules;
+
         public static bool IsReady => _ready;
 
         public static bool AreAssetsBound => _bound;
@@ -113,6 +119,11 @@ namespace DeepseaOil.Data
             _ = GetEnemy();
             _ = GetWave();
             _ = GetDrop();
+
+            // 元素层与地块效果的两张新表：把它们在启动期走一遍 —— 少一行、少一档应该在这里炸，
+            // 而不是等第一次投掷（届时的表现是"球落地什么都没发生"，查不出是表的问题）。
+            _ = GetElementRules();
+            _ = GetTileEffects();
         }
 
         // 玩法数值查询（包装件：表行 ＋ SO）。边界：id 不存在时 Luban 的 Get 会抛异常 —— 这里不 catch；
@@ -148,7 +159,7 @@ namespace DeepseaOil.Data
         {
             EnsureAssets();
 
-            return new TileStateSpec(_holder.Tables.TbTileState.Get(id));
+            return new TileStateSpec(_holder.Tables.TbTileState.Get(id), ResolveEffect);
         }
 
         public static IReadOnlyList<TileStateSpec> GetAllTileStates()
@@ -161,10 +172,58 @@ namespace DeepseaOil.Data
 
             for (int i = 0; i < rows.Count; i++)
             {
-                result.Add(new TileStateSpec(rows[i]));
+                result.Add(new TileStateSpec(rows[i], ResolveEffect));
             }
 
             return result;
+        }
+
+        /// <summary>全部地块效果（<c>tile_effect</c> 表）：效果号 → 多档参数。<b>施工期调表后要重启</b>（装配期折算一次、此后只读）。</summary>
+        public static IReadOnlyList<TileEffectSpec> GetTileEffects()
+        {
+            EnsureAssets();
+
+            EnsureTileEffects();
+
+            var result = new List<TileEffectSpec>(_tileEffects.Count);
+
+            foreach (KeyValuePair<TileEffectType, TileEffectSpec> pair in _tileEffects)
+            {
+                result.Add(pair.Value);
+            }
+
+            return result;
+        }
+
+        /// <summary>读一个地块效果；表里没有这个效果号时返回 <c>null</c>。</summary>
+        public static TileEffectSpec GetTileEffect(TileEffectType id)
+        {
+            EnsureAssets();
+
+            EnsureTileEffects();
+
+            return _tileEffects.TryGetValue(id, out TileEffectSpec spec) ? spec : null;
+        }
+
+        /// <summary>全部元素反应规则（<c>element_rule</c> 表）。<b>返回顺序即匹配优先级</b>。</summary>
+        public static IReadOnlyList<ElementRuleSpec> GetElementRules()
+        {
+            EnsureAssets();
+
+            if (_elementRules != null) return _elementRules;
+
+            IReadOnlyList<ElementRule> rows = _holder.Tables.TbElementRule.DataList;
+
+            var rules = new List<ElementRuleSpec>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                rules.Add(new ElementRuleSpec(rows[i], ResolveEffect));
+            }
+
+            _elementRules = rules;
+
+            return _elementRules;
         }
 
         public static EnemySpec GetEnemy(int id = Ids.Enemy)
@@ -295,6 +354,40 @@ namespace DeepseaOil.Data
         {
             if (!_ready)
                 throw new InvalidOperationException("[Config] accessed before Init");
+        }
+
+        /// <summary>地块效果的取值缓存：首次访问时装一次（装表本身已由 <c>StartupValidator</c> 抽样触发过）。</summary>
+        private static void EnsureTileEffects()
+        {
+            if (_tileEffects != null) return;
+
+            IReadOnlyList<TileEffect> rows = _holder.Tables.TbTileEffect.DataList;
+
+            _tileEffects = new Dictionary<TileEffectType, TileEffectSpec>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                _tileEffects[rows[i].Id] = new TileEffectSpec(rows[i]);
+            }
+        }
+
+        /// <summary>
+        /// "效果号 ＋ 档位 → 已定值的 <c>DeepseaOil.Logic.Grid.TileEffect</c>"的唯一解析点：<c>TileStateSpec</c>（状态的进格效果）与 <c>ElementRuleSpec</c>（反应规则的效果清单）都经它折算。
+        /// </summary>
+        /// <remarks>档位越界在这里由 <see cref="TileEffectSpec.GetEffect"/> 报 Warning 并夹到第 1 档；效果号不在表里返回 <c>None</c>（配表事故，表现成"这条效果没发生"）。
+        /// <para><b>返回类型写全名</b>：<c>cfg.demo.TileEffect</c> 是生成行、<c>DeepseaOil.Logic.Grid.TileEffect</c> 是已定值的逻辑值，本文件两个都在视野里。</para></remarks>
+        private static DeepseaOil.Logic.Grid.TileEffect ResolveEffect(TileEffectType effect, int pos)
+        {
+            EnsureTileEffects();
+
+            if (!_tileEffects.TryGetValue(effect, out TileEffectSpec spec))
+            {
+                Debug.LogWarning($"[Config] tile_effect 表里没有效果 {effect}（规则 / 状态里引用了它）：这条效果被忽略。");
+
+                return default;
+            }
+
+            return spec.GetEffect(pos);
         }
 
         /// <remarks><b>刻意分开报错</b>：只报"没 Init"会把"忘了调 <c>BindAssets</c>"掩盖成同一个现象，而这两种装配错误的修法完全不同。</remarks>

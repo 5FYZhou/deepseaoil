@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using cfg.demo;
 
 namespace DeepseaOil.Logic.Grid
@@ -7,6 +7,9 @@ namespace DeepseaOil.Logic.Grid
     /// 单格状态机：只管切换与回调（Tick 调度在 <c>GridLogic</c> 与队列里）；切换立即、同步、同帧生效。
     /// 未注册 id（含 <see cref="TileStateType.Normal"/>）造不出实例、CurrentId 读作 Normal；每次进入造新实例而非共享原型 —— 共享会让两格计时器合一、一起消失且不报错。
     /// </summary>
+    /// <remarks>
+    /// <b>它不认识效果、也不认识元素</b>：效果清单的提交在状态实现里（<c>MudTileState</c> 之类），元素的读写由 <c>GridLogic</c> 与元素层负责。
+    /// </remarks>
     public sealed class TileStateMachine
     {
         private readonly Dictionary<TileStateType, System.Func<ITileState>> _factories = new();
@@ -17,10 +20,7 @@ namespace DeepseaOil.Logic.Grid
 
         public ITileState Current => _current;
 
-<<<<<<< HEAD
-=======
         /// <summary>注册一个状态的工厂。<see cref="TileStateType.Normal"/> 不需要注册。</summary>
->>>>>>> main
         public void Register(TileStateType id, System.Func<ITileState> factory)
         {
             if (factory == null) return;

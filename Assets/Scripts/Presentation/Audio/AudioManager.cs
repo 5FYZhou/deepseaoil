@@ -134,7 +134,8 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>先消费队列、再回收播完的音效；顺序反了会让"本帧入队的音效"晚一帧才播。</summary>
-        public void Tick(float unscaledDeltaTime)
+        /// <remarks>用 <b>unscaled</b> 那个：音频不参与暂停冻结（暂停时已经在放的音效该照常回收，否则 <c>_playing</c> 会挂着一堆播完的条目）。</remarks>
+        public void Tick(float deltaTime, float unscaledDeltaTime)
         {
             if (!_initialized) return;
 
