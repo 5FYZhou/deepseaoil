@@ -14,13 +14,85 @@ namespace cfg.demo
     public enum TileStateType
     {
         /// <summary>
-        /// 常规
+        /// 无
         /// </summary>
-        Normal = 0,
+        None = 0,
         /// <summary>
-        /// 泥浆
+        /// 空地
         /// </summary>
-        Mud = 1,
+        Normal = 1,
+        /// <summary>
+        /// 普通泥浆
+        /// </summary>
+        Mud = 2,
+        /// <summary>
+        /// 稀泥
+        /// </summary>
+        MudSkid = 3,
+        /// <summary>
+        /// 冰沙
+        /// </summary>
+        Smoothie = 4,
+        /// <summary>
+        /// 结冰
+        /// </summary>
+        Freeze = 5,
+        /// <summary>
+        /// 陶砖
+        /// </summary>
+        TerracottaBrick = 6,
+        /// <summary>
+        /// 冻土
+        /// </summary>
+        FrozenEarth = 7,
+        /// <summary>
+        /// 蒸汽
+        /// </summary>
+        Steam = 8,
+        /// <summary>
+        /// 导电
+        /// </summary>
+        ConductElectricity = 9,
+        /// <summary>
+        /// 藤蔓
+        /// </summary>
+        Vine = 10,
+        /// <summary>
+        /// 玻璃
+        /// </summary>
+        Glass = 11,
+        /// <summary>
+        /// 燃烧
+        /// </summary>
+        Burn = 12,
+        /// <summary>
+        /// 灰烬
+        /// </summary>
+        Ashes = 13,
+        /// <summary>
+        /// 基础水地块
+        /// </summary>
+        BasicWater = 14,
+        /// <summary>
+        /// 基础土地块
+        /// </summary>
+        BasicEarth = 15,
+        /// <summary>
+        /// 基础火池
+        /// </summary>
+        BasicFire = 16,
+        /// <summary>
+        /// 基础冰面
+        /// </summary>
+        BasicIce = 17,
+        /// <summary>
+        /// 基础电源
+        /// </summary>
+        BasicElectricity = 18,
+        /// <summary>
+        /// 基础植物区
+        /// </summary>
+        BasicPlant = 19,
     }
 
 } 

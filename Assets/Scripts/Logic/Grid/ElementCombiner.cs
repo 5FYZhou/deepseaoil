@@ -1,9 +1,9 @@
-﻿using Assets.Scripts.Data;
-using cfg.demo;
+﻿using cfg.demo;
+using DeepseaOil.Data;
 using System;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation.Element
+namespace DeepseaOil.Logic.Grid
 {
     public static class ElementCombiner
     {

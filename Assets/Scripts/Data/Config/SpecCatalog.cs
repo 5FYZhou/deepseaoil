@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using cfg.demo;
-using Assets.Scripts.Data;
 
 namespace DeepseaOil.Data
 {
@@ -50,7 +49,7 @@ namespace DeepseaOil.Data
                 row.Wet,
                 row.Conductive);
 
-            return new BallSpec(row.Id, row.Name, in throwSpec, row.TileState);
+            return new BallSpec(row.Id, row.Name, in throwSpec, in elementSpec);
         }
 
         /// <summary>全部球种（按表顺序）。</summary>
@@ -70,7 +69,14 @@ namespace DeepseaOil.Data
                     row.MaxThrowDistance,
                     row.MinThrowDistance);
 
-                result.Add(new BallSpec(row.Id, row.Name, in throwSpec, row.TileState));
+                var elementSpec = new ElementSpec(
+                    row.Type,
+                    row.Tags,
+                    row.Temp,
+                    row.Wet,
+                    row.Conductive);
+
+                result.Add(new BallSpec(row.Id, row.Name, in throwSpec, in elementSpec));
             }
 
             return result;
@@ -81,13 +87,29 @@ namespace DeepseaOil.Data
         {
             cfg.demo.TileState row = ConfigModule.Tables.TbTileState.Get(id);
 
+            var element = new ElementSpec(
+                ElementType.Environment,
+                row.Tags,
+                row.Temp,
+                row.Wet,
+                row.Cond);
+
+            var effectInfo = new TileEffectInfoSpec(
+                row.Effects,
+                row.EffectValuePos);
+
             return new TileStateSpec(
                 row.Id,
                 row.Name,
-                row.SlowFactor,
+                1f,
                 row.Duration,
-                row.EnterDamage,
-                row.EnterKnockback);
+                1f,
+                0.65f,
+                row.WillSpread,
+                row.CanReact,
+                element,
+                effectInfo,
+                row.Icon);
         }
 
         /// <summary>全部格子状态（按表顺序）。</summary>
@@ -101,13 +123,29 @@ namespace DeepseaOil.Data
             {
                 cfg.demo.TileState row = rows[i];
 
+                var element = new ElementSpec(
+                ElementType.Environment,
+                row.Tags,
+                row.Temp,
+                row.Wet,
+                row.Cond);
+
+                var effectInfo = new TileEffectInfoSpec(
+                    row.Effects,
+                    row.EffectValuePos);
+
                 result.Add(new TileStateSpec(
                     row.Id,
                     row.Name,
-                    row.SlowFactor,
+                    1f,
                     row.Duration,
-                    row.EnterDamage,
-                    row.EnterKnockback));
+                    1f,
+                    0.65f,
+                    row.WillSpread,
+                    row.CanReact,
+                    element,
+                    effectInfo,
+                    row.Icon));
             }
 
             return result;
@@ -125,6 +163,10 @@ namespace DeepseaOil.Data
             {
                 cfg.demo.ElementRule row = rows[i];
 
+                var effectInfo = new TileEffectInfoSpec(
+                    row.Effects,
+                    row.EffectValuePos);
+
                 result.Add(new ElementRuleSpec(
                     row.Priority,
                     row.RequireTag,
@@ -134,9 +176,34 @@ namespace DeepseaOil.Data
                     row.RequireWetMin,
                     row.RequireWetMax,
                     row.RequireCondMin,
-                    row.ResultId));
+                    row.ResultId,
+                    effectInfo));
+
             }
 
+            return result;
+        }
+
+        
+        /// <summary>全部效果（按表顺序）。 </summary>
+        public static IReadOnlyList<TileEffectSpec> AllTileEffects()
+        {
+            IReadOnlyList<cfg.demo.TileEffect> rows = ConfigModule.Tables.TbTileEffect.DataList;
+
+            var result = new List<TileEffectSpec>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                cfg.demo.TileEffect row = rows[i];
+
+                result.Add(new TileEffectSpec(
+                    row.Id,
+                    row.Name,
+                    row.Value1,
+                    row.Value2,
+                    row.Interval,
+                    row.Flag));
+            }
             return result;
         }
 

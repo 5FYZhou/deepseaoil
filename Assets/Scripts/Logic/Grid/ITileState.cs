@@ -1,4 +1,4 @@
-using cfg.demo;
+﻿using cfg.demo;
 
 namespace DeepseaOil.Logic.Grid
 {
@@ -23,9 +23,6 @@ namespace DeepseaOil.Logic.Grid
     {
         /// <summary>本状态对应的配置 ID。</summary>
         TileStateType Id { get; }
-
-        /// <summary>踩在本格上的速度系数（<c>1</c> = 不减速）。被查询，不是被推送。</summary>
-        float SlowMultiplier { get; }
 
         /// <summary>进入本格状态时调用一次。初次转换与"从别的状态切过来"走同一条路。</summary>
         void OnEnter(in TileContext ctx);

@@ -11,7 +11,7 @@ using DeepseaOil.Presentation.Player;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
 using cfg.demo;
-using DeepseaOil.Presentation.Element;
+using DeepseaOil.Logic.Grid.Effects;
 
 namespace DeepseaOil.Presentation
 {
@@ -67,6 +67,7 @@ namespace DeepseaOil.Presentation
         private WaveDirector _waves;
         private TileAimView _aim;
         private ReactionResolver _reactionResolver;
+        private TileEffectExecutor _tileEffectExecutor;
 
         /// <summary>装配是否成功（失败时所有 Tick 都是 no-op）。</summary>
         public bool IsReady { get; private set; }
@@ -159,7 +160,13 @@ namespace DeepseaOil.Presentation
 
             GridGeometry geometry = gridView.ReadGeometry();
 
-            _grid = new GridLogic(geometry, SpecCatalog.AllTileStates(), CreateTileState, _registry);
+            var effects = SpecCatalog.AllTileEffects();
+            _tileEffectExecutor = new(effects);
+            _tileEffectExecutor.Register(new SlowEffect());
+            _tileEffectExecutor.Register(new DamageInstantEffect(_registry, geometry));
+            _tileEffectExecutor.Register(new KnockBackEffect(_registry, geometry));
+
+            _grid = new GridLogic(geometry, SpecCatalog.AllTileStates(), CreateTileState, _reactionResolver, _tileEffectExecutor, _registry);
 
             int cells = gridView.RegisterCells(_grid);
             int initialStates = _grid.LoadInitialStates(SpecCatalog.TileInitials());
@@ -199,7 +206,7 @@ namespace DeepseaOil.Presentation
             Debug.Log(
                 $"[Combat] 装配完成：格子 {cells} 个（初始状态 {initialStates} 个），" +
                 $"球种 {balls.Count} 个，喷泉 {fountains.Length} 个，敌人 {(enableWaves ? "启用" : "关闭")}，" +
-                $"反应规则 {rules.Count}条");
+                $"反应规则 {rules.Count}条, 效果{effects.Count}个");
         }
 
         /// <summary>

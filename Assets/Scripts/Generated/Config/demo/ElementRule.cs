@@ -21,7 +21,9 @@ public sealed partial class ElementRule : Luban.BeanBase
     public ElementRule(JSONNode _buf) 
     {
         { if(!_buf["priority"].IsNumber) { throw new SerializationException(); }  Priority = _buf["priority"]; }
-        { if(!_buf["result_id"].IsNumber) { throw new SerializationException(); }  ResultId = (demo.TileType)_buf["result_id"].AsInt; }
+        { if(!_buf["result_id"].IsNumber) { throw new SerializationException(); }  ResultId = (demo.TileStateType)_buf["result_id"].AsInt; }
+        { var __json0 = _buf["effects"]; if(!__json0.IsArray) { throw new SerializationException(); } Effects = new System.Collections.Generic.List<demo.TileEffectType>(__json0.Count); foreach(JSONNode __e0 in __json0.Children) { demo.TileEffectType __v0;  { if(!__e0.IsNumber) { throw new SerializationException(); }  __v0 = (demo.TileEffectType)__e0.AsInt; }  Effects.Add(__v0); }   }
+        { var __json0 = _buf["effectValuePos"]; if(!__json0.IsArray) { throw new SerializationException(); } EffectValuePos = new System.Collections.Generic.List<int>(__json0.Count); foreach(JSONNode __e0 in __json0.Children) { int __v0;  { if(!__e0.IsNumber) { throw new SerializationException(); }  __v0 = __e0; }  EffectValuePos.Add(__v0); }   }
         { if(!_buf["requireTag"].IsNumber) { throw new SerializationException(); }  RequireTag = (demo.ElementTag)_buf["requireTag"].AsInt; }
         { if(!_buf["excludeTag"].IsNumber) { throw new SerializationException(); }  ExcludeTag = (demo.ElementTag)_buf["excludeTag"].AsInt; }
         { if(!_buf["requireTempMin"].IsNumber) { throw new SerializationException(); }  RequireTempMin = _buf["requireTempMin"]; }
@@ -41,9 +43,14 @@ public sealed partial class ElementRule : Luban.BeanBase
     /// </summary>
     public readonly int Priority;
     /// <summary>
-    /// 对应结果ID
+    /// 对应生成的地形
     /// </summary>
-    public readonly demo.TileType ResultId;
+    public readonly demo.TileStateType ResultId;
+    public readonly System.Collections.Generic.List<demo.TileEffectType> Effects;
+    /// <summary>
+    /// 生成的效果
+    /// </summary>
+    public readonly System.Collections.Generic.List<int> EffectValuePos;
     /// <summary>
     /// 必须有的标签
     /// </summary>
@@ -85,6 +92,8 @@ public sealed partial class ElementRule : Luban.BeanBase
         return "{ "
         + "priority:" + Priority + ","
         + "resultId:" + ResultId + ","
+        + "effects:" + Luban.StringUtil.CollectionToString(Effects) + ","
+        + "effectValuePos:" + Luban.StringUtil.CollectionToString(EffectValuePos) + ","
         + "requireTag:" + RequireTag + ","
         + "excludeTag:" + ExcludeTag + ","
         + "requireTempMin:" + RequireTempMin + ","

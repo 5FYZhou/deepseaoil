@@ -1,7 +1,13 @@
 [
   {
     "priority": 1,
-    "result_id": 7,
+    "result_id": 8,
+    "effects": [
+      4
+    ],
+    "effectValuePos": [
+      2
+    ],
     "requireTag": 0,
     "excludeTag": 7,
     "requireTempMin": 4,
@@ -12,7 +18,9 @@
   },
   {
     "priority": 2,
-    "result_id": 8,
+    "result_id": 9,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 0,
     "excludeTag": 7,
     "requireTempMin": -2,
@@ -23,7 +31,13 @@
   },
   {
     "priority": 3,
-    "result_id": 2,
+    "result_id": 3,
+    "effects": [
+      3
+    ],
+    "effectValuePos": [
+      2
+    ],
     "requireTag": 1,
     "excludeTag": 2,
     "requireTempMin": -1,
@@ -34,7 +48,9 @@
   },
   {
     "priority": 4,
-    "result_id": 1,
+    "result_id": 2,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 1,
     "excludeTag": 2,
     "requireTempMin": -1,
@@ -45,7 +61,15 @@
   },
   {
     "priority": 5,
-    "result_id": 11,
+    "result_id": 12,
+    "effects": [
+      4,
+      11
+    ],
+    "effectValuePos": [
+      1,
+      1
+    ],
     "requireTag": 4,
     "excludeTag": 0,
     "requireTempMin": 4,
@@ -56,7 +80,9 @@
   },
   {
     "priority": 6,
-    "result_id": 9,
+    "result_id": 10,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 4,
     "excludeTag": 0,
     "requireTempMin": -6,
@@ -67,7 +93,13 @@
   },
   {
     "priority": 7,
-    "result_id": 5,
+    "result_id": 6,
+    "effects": [
+      4
+    ],
+    "effectValuePos": [
+      1
+    ],
     "requireTag": 1,
     "excludeTag": 2,
     "requireTempMin": 3,
@@ -78,7 +110,9 @@
   },
   {
     "priority": 8,
-    "result_id": 6,
+    "result_id": 7,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 1,
     "excludeTag": 2,
     "requireTempMin": -6,
@@ -89,7 +123,9 @@
   },
   {
     "priority": 9,
-    "result_id": 3,
+    "result_id": 4,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 2,
     "excludeTag": 0,
     "requireTempMin": -6,
@@ -100,7 +136,14 @@
   },
   {
     "priority": 10,
-    "result_id": 10,
+    "result_id": 11,
+    "effects": [
+      4,
+      8
+    ],
+    "effectValuePos": [
+      1
+    ],
     "requireTag": 2,
     "excludeTag": 0,
     "requireTempMin": 3,
@@ -111,7 +154,13 @@
   },
   {
     "priority": 11,
-    "result_id": 4,
+    "result_id": 5,
+    "effects": [
+      3
+    ],
+    "effectValuePos": [
+      1
+    ],
     "requireTag": 0,
     "excludeTag": 7,
     "requireTempMin": -6,
@@ -122,7 +171,11 @@
   },
   {
     "priority": 12,
-    "result_id": 13,
+    "result_id": 14,
+    "effects": [
+      10
+    ],
+    "effectValuePos": [],
     "requireTag": 0,
     "excludeTag": 7,
     "requireTempMin": -6,
@@ -133,7 +186,11 @@
   },
   {
     "priority": 13,
-    "result_id": 14,
+    "result_id": 15,
+    "effects": [
+      10
+    ],
+    "effectValuePos": [],
     "requireTag": 1,
     "excludeTag": 2,
     "requireTempMin": -6,
@@ -144,7 +201,9 @@
   },
   {
     "priority": 14,
-    "result_id": 15,
+    "result_id": 16,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 0,
     "excludeTag": 7,
     "requireTempMin": 4,
@@ -155,7 +214,9 @@
   },
   {
     "priority": 15,
-    "result_id": 16,
+    "result_id": 17,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 0,
     "excludeTag": 7,
     "requireTempMin": -6,
@@ -166,7 +227,9 @@
   },
   {
     "priority": 16,
-    "result_id": 18,
+    "result_id": 19,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 4,
     "excludeTag": 0,
     "requireTempMin": -6,
@@ -177,7 +240,9 @@
   },
   {
     "priority": 17,
-    "result_id": 17,
+    "result_id": 18,
+    "effects": [],
+    "effectValuePos": [],
     "requireTag": 0,
     "excludeTag": 7,
     "requireTempMin": 1,
@@ -185,5 +250,22 @@
     "requireWetMin": 0,
     "requireWetMax": 1,
     "requireCondMin": 2
+  },
+  {
+    "priority": 18,
+    "result_id": 0,
+    "effects": [
+      4
+    ],
+    "effectValuePos": [
+      1
+    ],
+    "requireTag": 0,
+    "excludeTag": 0,
+    "requireTempMin": -6,
+    "requireTempMax": 6,
+    "requireWetMin": 0,
+    "requireWetMax": 6,
+    "requireCondMin": -1
   }
 ]

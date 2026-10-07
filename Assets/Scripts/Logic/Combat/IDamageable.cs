@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace DeepseaOil.Logic.Combat
 {
@@ -14,7 +14,7 @@ namespace DeepseaOil.Logic.Combat
     /// <para>实现方必须满足：<see cref="TakeDamage"/> <b>不抛异常</b>，且对
     /// <see cref="Damage.Amount"/> 为 0 的结算不扣血（只做被显式要求的击退）。</para>
     /// </remarks>
-    public interface IDamageable
+    public interface IDamageable : IEffectTarget
     {
         /// <summary>是否已死（死亡后到销毁前的窗口内为 true）。</summary>
         bool IsDead { get; }

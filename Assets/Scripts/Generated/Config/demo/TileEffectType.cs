@@ -11,52 +11,56 @@
 
 namespace cfg.demo
 { 
-    public enum BallType
+    public enum TileEffectType
     {
         /// <summary>
-        /// 纯水
+        /// 无
         /// </summary>
-        Water = 0,
+        None = 0,
         /// <summary>
-        /// 热水
+        /// 减速
         /// </summary>
-        WaterHot = 1,
+        Slow = 1,
         /// <summary>
-        /// 冷水
+        /// 打滑
         /// </summary>
-        WaterCold = 2,
+        Skid = 2,
         /// <summary>
-        /// 干土
+        /// 滑行
         /// </summary>
-        Earth = 3,
+        Slid = 3,
         /// <summary>
-        /// 湿土
+        /// 击退
         /// </summary>
-        EarthWet = 4,
+        KnockBack = 4,
         /// <summary>
-        /// 沙
+        /// 阻挡
         /// </summary>
-        Sand = 5,
+        Block = 5,
         /// <summary>
-        /// 粘土
+        /// 麻痹
         /// </summary>
-        Clay = 6,
+        Numbness = 6,
         /// <summary>
-        /// 冰种子
+        /// 定身
         /// </summary>
-        SeedIce = 7,
+        Fixed = 7,
         /// <summary>
-        /// 火种子
+        /// 瞬时伤害
         /// </summary>
-        SeedFire = 8,
+        DamageInstant = 8,
         /// <summary>
-        /// 植物种子
+        /// 持续伤害
         /// </summary>
-        SeedPlant = 9,
+        DamageOverTime = 9,
         /// <summary>
-        /// 电种子
+        /// 温湿度继承
         /// </summary>
-        SeedElec = 10,
+        InheritedTW = 10,
+        /// <summary>
+        /// 清除植物
+        /// </summary>
+        ClearPlant = 11,
     }
 
 } 

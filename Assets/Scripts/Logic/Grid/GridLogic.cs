@@ -1,10 +1,12 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using cfg.demo;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
+using UnityEditor;
+using DeepseaOil.Logic.Grid.Effects;
 
 namespace DeepseaOil.Logic.Grid
 {
@@ -26,7 +28,7 @@ namespace DeepseaOil.Logic.Grid
     /// <para><b>它不知道 Tilemap、不知道物理、不知道 Time</b>：几何由组合根从 Tilemap 折算进来
     /// （见 <see cref="GridGeometry"/>），于是整套格子行为可以在 EditMode 里喂 dt 复现。</para>
     /// </remarks>
-    public sealed class GridLogic : ITileScheduler, IDamageDealer
+    public sealed class GridLogic : ITileScheduler
     {
         /// <summary>格子的几何（世界 ↔ 格）。</summary>
         public GridGeometry Geometry => _geometry;
@@ -43,7 +45,9 @@ namespace DeepseaOil.Logic.Grid
         private readonly GridGeometry _geometry;
         private readonly Dictionary<TileStateType, TileStateSpec> _specs = new();
         private readonly Func<TileStateType, ITileState> _stateFactory;
+        private readonly ReactionResolver _reactionResolver;
         private readonly EnemyCellRegistry _registry;
+        private readonly TileEffectExecutor _effectExecutor;
 
         /// <summary>合法格：只有登记过的格能被转换、被减速。来源是表现层从 Tilemap 枚举出的地板。</summary>
         private readonly HashSet<Vector3Int> _cells = new();
@@ -58,7 +62,7 @@ namespace DeepseaOil.Logic.Grid
         private readonly List<KeyValuePair<Vector3Int, TileStateType>> _pendingScratch = new();
 
         /// <summary>结算时的目标快照缓冲：受害方可能在结算里死亡并注销自己。</summary>
-        private readonly List<IDamageable> _dealScratch = new();
+        private readonly List<IEffectTarget> _effectScratch = new();
 
         /// <summary>最近一次 <see cref="Tick"/> 的时间；状态回调里读到的是它。</summary>
         private float _now;
@@ -72,10 +76,14 @@ namespace DeepseaOil.Logic.Grid
             in GridGeometry geometry,
             IReadOnlyList<TileStateSpec> stateSpecs,
             Func<TileStateType, ITileState> stateFactory,
+            ReactionResolver reactionResolver,
+            TileEffectExecutor effectExecutor,
             EnemyCellRegistry registry = null)
         {
             _geometry = geometry;
             _stateFactory = stateFactory;
+            _reactionResolver = reactionResolver;
+            _effectExecutor = effectExecutor;
             _registry = registry ?? new EnemyCellRegistry();
 
             if (stateSpecs != null)
@@ -114,7 +122,7 @@ namespace DeepseaOil.Logic.Grid
         {
             return _machines.TryGetValue(cell, out TileStateMachine machine)
                 ? machine.CurrentId
-                : TileStateType.Normal;
+                : TileStateType.BasicEarth;
         }
 
         /// <summary>清空全部格子与状态（切场景）。</summary>
@@ -156,7 +164,7 @@ namespace DeepseaOil.Logic.Grid
 
                 if (!_cells.Contains(cell)) continue;
 
-                if (SwitchState(cell, state.State, applyEnterImpact: false)) applied++;
+                if (SwitchState(cell, state.State)) applied++;
             }
 
             return applied;
@@ -167,8 +175,14 @@ namespace DeepseaOil.Logic.Grid
         {
             _now = now;
             _deltaTime = deltaTime;
+            // ① 环境效果每帧重新计算。
+            // 先清掉上一帧留下的持续效果。
+            _registry.ResetSlow();
 
-            // ① 翻页：本帧处理的是"上一帧提交的"请求。
+            // ② 对当前存在的地形状态施加 OnTick 效果。
+            ApplyTileTickEffects();
+
+            // ③ 原有状态机 Tick。
             _queue.Swap();
 
             IReadOnlyList<Vector3Int> cells = _queue.Current;
@@ -177,13 +191,38 @@ namespace DeepseaOil.Logic.Grid
             {
                 Vector3Int cell = cells[i];
 
-                if (!_machines.TryGetValue(cell, out TileStateMachine machine)) continue;
+                if (!_machines.TryGetValue(
+                        cell,
+                        out TileStateMachine machine))
+                {
+                    continue;
+                }
 
                 machine.Tick(BuildContext(cell));
             }
 
-            // ② 本帧 Tick 循环跑完之后才结算状态转换：同帧递归因此不可能发生。
+            // ④ 统一处理状态转换。
             DrainPendingTransitions();
+        }
+
+        /// <summary>
+        /// 统一处理格子的效果(OnTick)，_effectExecutor应用效果
+        /// </summary>
+        private void ApplyTileTickEffects()
+        {
+            foreach (KeyValuePair<Vector3Int, TileStateMachine> pair in _machines)
+            {
+                Vector3Int cell = pair.Key;
+
+                TileStateType state = pair.Value.CurrentId;
+
+                if (!_specs.TryGetValue(state, out TileStateSpec spec))
+                    continue;
+
+                _effectExecutor.Execute(cell,
+                    in spec.EffectInfoSpec,
+                    BuildEffectContext());
+            }
         }
 
         // ─────────────────────────────────────────────
@@ -191,43 +230,17 @@ namespace DeepseaOil.Logic.Grid
         // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 球落地：把落点格切到该球种对应的状态，并结算一次该状态的"进入冲击"。
+        /// 球落地：把落点格切到该球种对应的状态，并结算一次该状态的进入效果。
         /// </summary>
         /// <param name="cell">落点格。</param>
         /// <param name="ball">球种配置行。</param>
         /// <returns>真的作用到了格子上为 <c>true</c>（落在地板外为 <c>false</c>）。</returns>
-        /// <remarks>
-        /// <b>为什么"已经是该状态"也要结算一次冲击：</b>白模的行为是"每一颗水球落地都对这一格的敌人
-        /// 造成一次伤害"，与那一格是不是已经是泥浆无关。把冲击挂在"状态转换"上会静默改掉伤害节奏
-        /// （打同一格的第一颗球有用、后面几颗全被丢掉），而"不重入状态机"保证了泥浆计时不被刷新 ——
-        /// 与白模逐条一致：<b>伤害照给，计时不重置</b>。
-        /// </remarks>
         public bool OnBallHit(Vector3Int cell, in BallSpec ball)
         {
             if (!_cells.Contains(cell)) return false;
 
-            SwitchState(cell, ball.TileState, applyEnterImpact: false);
-            ApplyEnterImpact(cell, ball.TileState);
-
+            TryElementReact(cell, ball.Element);
             return true;
-        }
-
-        // ─────────────────────────────────────────────
-        // 查询
-        // ─────────────────────────────────────────────
-
-        /// <summary>世界坐标处的速度系数（<c>1</c> = 不减速）。</summary>
-        public float GetSlowMultiplier(Vector2 world)
-        {
-            if (!_geometry.IsValid) return 1f;
-
-            return GetSlowMultiplierAt(_geometry.WorldToCell(world));
-        }
-
-        /// <summary>本格的速度系数（<c>1</c> = 不减速）。</summary>
-        public float GetSlowMultiplierAt(Vector3Int cell)
-        {
-            return _machines.TryGetValue(cell, out TileStateMachine machine) ? machine.SlowMultiplier : 1f;
         }
 
         // ─────────────────────────────────────────────
@@ -248,53 +261,20 @@ namespace DeepseaOil.Logic.Grid
         }
 
         // ─────────────────────────────────────────────
-        // IDamageDealer
-        // ─────────────────────────────────────────────
-
-        /// <inheritdoc />
-        public void Deal(Vector3Int cell, float amount, float knockback, DamageSource source)
-        {
-            if (amount <= 0f && knockback <= 0f) return;
-
-            if (!_registry.TryGetIn(cell, out List<IDamageable> targets) || targets.Count == 0) return;
-
-            // 快照：受害方可能在 TakeDamage 里死亡并把自己从登记表摘掉，
-            // 直接在原列表上遍历会改到正在遍历的集合。
-            _dealScratch.Clear();
-            _dealScratch.AddRange(targets);
-
-            Vector2 center = _geometry.CellCenter(cell);
-
-            for (int i = 0; i < _dealScratch.Count; i++)
-            {
-                IDamageable target = _dealScratch[i];
-
-                if (target == null || target.IsDead) continue;
-
-                // IsDead 必须先判：已销毁的 MonoBehaviour 一碰 transform 就抛。
-                target.TakeDamage(Damage.At(center, target.Position, amount, source, knockback));
-            }
-        }
-
-        // ─────────────────────────────────────────────
         // 内部
         // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 切换某格的状态。同状态时是 no-op（不重入、不重置计时）。
+        /// 切换某格的状态。同状态时是 no-op（不重入、不重置计时）。只切换格子状态，不应用效果。
         /// </summary>
         /// <param name="cell">格子。</param>
         /// <param name="next">目标状态。</param>
-        /// <param name="applyEnterImpact">是否结算目标状态的"进入冲击"。</param>
         /// <returns>真的发生了切换为 <c>true</c>。</returns>
-        /// <remarks>
-        /// <b>切换与冲击是两件事，所以分成两个参数：</b>球的落地是"切换（可能没切）+ 每次都给冲击"，
-        /// 而状态自己发起的转换（泥浆到期落回常规）是"切换 + 给冲击"，
-        /// 开局加载是"只切换、绝不给冲击"。三种组合都在这里表达，不需要三份代码。
-        /// </remarks>
-        public bool SwitchState(Vector3Int cell, TileStateType next, bool applyEnterImpact)
+        public bool SwitchState(Vector3Int cell, TileStateType next)
         {
             if (!_cells.Contains(cell)) return false;
+            // next==None即不发生地形变化
+            if (next == TileStateType.None) { return false; }
 
             if (!_machines.TryGetValue(cell, out TileStateMachine machine))
             {
@@ -316,19 +296,36 @@ namespace DeepseaOil.Logic.Grid
 
             EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, next));
 
-            if (applyEnterImpact) ApplyEnterImpact(cell, next);
-
             return true;
         }
 
-        /// <summary>把"进入某状态"的冲击（伤害 / 击退）结算给站在该格上的目标。</summary>
-        private void ApplyEnterImpact(Vector3Int cell, TileStateType state)
+        /// <summary>
+        /// 尝试根据元素反应切换地形
+        /// 应用发生反应时的效果(OnEnter)
+        /// </summary>
+        private bool TryElementReact(Vector3Int cell, ElementSpec elementOnBall)
         {
-            if (!_specs.TryGetValue(state, out TileStateSpec spec)) return;
+            // 找到当前格子的地形
+            TileStateType curTileType = StateOf(cell);
 
-            if (spec.EnterDamage <= 0f && spec.EnterKnockback <= 0f) return;
+            // 找到当前地形对应的 ElementSpec
+            if (!_specs.TryGetValue(curTileType, out TileStateSpec tileSpec))
+                return false;
 
-            Deal(cell, spec.EnterDamage, spec.EnterKnockback, DamageSource.Tile);
+            ElementSpec tileElement = tileSpec.Element;
+
+            // 球元素 + 地形元素 → 反应元素
+            ElementSpec resultElement = ElementCombiner.TryCombiner(elementOnBall, tileElement);
+
+            // 根据元素反应规则，找到反应生成的TileStateType和反应效果
+            // 已包含反应兜底
+            _reactionResolver.MatchRule(resultElement, out TileStateType resultTileType, out TileEffectInfoSpec effectInfo);
+
+            // 应用反应产生的效果
+            _effectExecutor.Execute(cell, in effectInfo, BuildEffectContext());
+
+            // 反应成功：切换地形
+            return SwitchState(cell, resultTileType);
         }
 
         private void DrainPendingTransitions()
@@ -350,7 +347,7 @@ namespace DeepseaOil.Logic.Grid
             {
                 KeyValuePair<Vector3Int, TileStateType> pair = _pendingScratch[i];
 
-                SwitchState(pair.Key, pair.Value, applyEnterImpact: true);
+                SwitchState(pair.Key, pair.Value);
             }
 
             _pendingScratch.Clear();
@@ -371,7 +368,12 @@ namespace DeepseaOil.Logic.Grid
 
         private TileContext BuildContext(Vector3Int cell)
         {
-            return new TileContext(cell, _now, _deltaTime, this, this);
+            return new TileContext(cell, _now, _deltaTime, this);
+        }
+
+        private TileEffectContext BuildEffectContext()
+        {
+            return new TileEffectContext(_registry);
         }
     }
 }
