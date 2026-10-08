@@ -2,10 +2,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <remarks>
-    /// 运动参数是装配期 <c>Configure</c> 一次性折算的快照：事后改 SO 不生效
-    /// （M19/M20 测试断言"改 SO 即时生效"，因此被删）。删字段前先确认没有敌人侧消费者。
-    /// </remarks>
+    /// <remarks>运动参数是装配期 Configure 一次性折算的快照，事后改 SO 不生效</remarks>
     public class CharacterConfig : BaseConfig
     {
         [Header("名称")]

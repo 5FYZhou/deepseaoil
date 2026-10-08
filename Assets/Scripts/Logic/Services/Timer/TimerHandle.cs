@@ -2,10 +2,6 @@
 
 namespace DeepseaOil.Logic.Services.Time
 {
-    /// <summary>
-    /// Timer 的唯一句柄。
-    /// 以Id区分已经注册的 Timer。
-    /// </summary>
     public readonly struct TimerHandle : IEquatable<TimerHandle>
     {
         public static readonly TimerHandle Invalid = new(0);

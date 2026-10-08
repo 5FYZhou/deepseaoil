@@ -4,18 +4,16 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Events
 {
-    // EventChannel<T>：单个事件类型的订阅通道，事件类型是 struct（按值传递，不共享堆引用）。
+    // EventChannel 泛型：单个事件类型的订阅通道。
     internal sealed class EventChannel<T> where T : struct
     {
         private const int InitialCapacity = 4;
         private Action<T>[] _handlers = new Action<T>[InitialCapacity];
         private int _writeIndex;
 
-        // HandlerCount：当前有效订阅者数量（测试断言 / 订阅泄漏观测）。
+        // HandlerCount：当前有效订阅者数量。
         public int HandlerCount => _writeIndex;
 
-        /// <summary>订阅，幂等。</summary>
-        /// <exception cref="ArgumentNullException"><paramref name="handler"/> 为 null。</exception>
         public void Subscribe(Action<T> handler)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
@@ -26,7 +24,7 @@ namespace DeepseaOil.Logic.Events
             _writeIndex++;
         }
 
-        // 退订：尾部填充法，幂等。
+        // 退订：尾部填充法。
         public void Unsubscribe(Action<T> handler)
         {
             if (handler == null) return;
@@ -48,7 +46,7 @@ namespace DeepseaOil.Logic.Events
             _writeIndex = 0;
         }
 
-        /// <summary>发布事件。遍历使用快照（每次发布分配一个数组，有 GC 消耗）：发布过程中增删的订阅者不会收到本次事件；订阅者异常被 <c>try/catch</c> 隔离，不打断其余订阅者。</summary>
+        /// <summary>发布事件。遍历快照（每次发布分配数组，有 GC 消耗）：发布中增删的订阅者收不到本次事件；订阅者异常被隔离，不打断其余订阅者。</summary>
         public void Publish(in T evt)
         {
             int count = _writeIndex;
@@ -81,14 +79,13 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    // EventBus<T>：按事件类型分流订阅与发布。例：EventBus<PlayerDied>.Subscribe(OnPlayerDied); EventBus<PlayerDied>.Publish(new PlayerDied(2));
+    // EventBus 泛型：按事件类型分流订阅与发布。
     public static class EventBus<T> where T : struct
     {
         private static readonly EventChannel<T> Channel = new EventChannel<T>();
 
         public static int HandlerCount => Channel.HandlerCount;
 
-        /// <exception cref="ArgumentNullException"><paramref name="handler"/> 为 null。</exception>
         public static void Subscribe(Action<T> handler)
         {
             Channel.Subscribe(handler);
@@ -105,15 +102,15 @@ namespace DeepseaOil.Logic.Events
             Channel.Publish(in evt);
         }
 
-        // 清空本事件类型的全部订阅（测试与场景收尾用，不自动调用）。
+        // 清空本事件类型的全部订阅，不自动调用。
         public static void Clear()
         {
             Channel.Clear();
         }
     }
 
-    // EventBus：非泛型门面。静态字段按封闭类型隔离，非泛型代码无法遍历 —— 由 EventChannelRegistry 登记事件类型，重置时反射调用 EventBus<T>.Clear()。
-    // ClearAll 当前无调用方。不添加 [RuntimeInitializeOnLoadMethod] 自动清理：当前开启 Domain Reload，进入 Play 模式静态状态自动重置；后续关闭 Domain Reload 提速时再补充。
+    // EventBus：非泛型门面。静态字段按封闭类型隔离，非泛型代码无法遍历，由 EventChannelRegistry 登记事件类型，重置时反射调用泛型 EventBus 的 Clear()。
+    // ClearAll 当前无调用方。不加 [RuntimeInitializeOnLoadMethod] 自动清理：当前开启 Domain Reload，进 Play 模式静态状态自动重置。
     public static class EventBus
     {
         public static void ClearAll()
@@ -122,7 +119,7 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    // EventChannelRegistry：封闭事件类型登记表。仅在订阅时写入，发布路径不触碰本表，无每帧开销。
+    // 封闭事件类型登记表。仅订阅时写入，发布路径不触碰。
     internal static class EventChannelRegistry
     {
         private readonly struct ClearMethodProbe

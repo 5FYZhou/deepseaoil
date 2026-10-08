@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>驱动工厂：把一行 <see cref="EffectSpec"/> 变成 <see cref="IEffectDriver"/>。分派依据是 <see cref="EffectSpec.DriverKind"/> 而不是 <c>spec.Id</c>。</summary>
-    /// <remarks>未加 <c>case</c> 的种类静默落到 <c>default</c> → <c>ParticleDriver</c>，不报错。</remarks>
+    /// <summary>驱动工厂，按 DriverKind 而非 spec.Id 分派</summary>
+    /// <remarks>未加 case 的种类静默落到 default 的 ParticleDriver，不报错</remarks>
     internal static class EffectDriverFactory
     {
         internal static IEffectDriver Create(in EffectSpec spec, Transform root)

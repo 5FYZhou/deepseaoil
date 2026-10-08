@@ -13,13 +13,11 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>玩家组合根：组装执行器、配置、活动区域与输入缓冲，并由 <c>GameRoot</c> 每个物理帧驱动一次 <see cref="PlayerLogic"/>。</summary>
-    /// <remarks>全部环境事实只在本类组装一次。同一物理帧内 <c>InputBuffer.Push</c> 必须先于 <c>Tick</c>，否则按下沿会滞后一帧；顺序固定：消费快照 → 吸附到 8 向并归一化 → 以<b>同一份</b>归一化快照推缓冲 → 组装 <c>WorldInfo</c> → <c>Logic.FixedTick</c> → 边界钳位（保险丝，防高速冲出地图；正常阻挡由刚体碰撞解算）。
-    /// <b>归一化只在这里做一次</b>：<c>WorldInfo.MoveDirection</c> 与 <c>InputBuffer</c> 里的快照必须是同一份已归一化方向 —— 两处各留一份方向真值，正是"斜向快 √2 倍"与"冲刺方向不一致"这类不报错、只错手感的缺陷的来源。
-    /// <b>物理帧只有一个发起者</b>（<c>GameRoot</c>），顺序由 <see cref="Order"/> 写死：玩家侧（<c>-100</c>）先于世界侧（<c>0</c>）。<b>两个帧相位各有一件事</b>：物理帧 = <see cref="FixedTick"/>（输入 → 逻辑 → 提交速度），渲染帧 = <see cref="RenderTick"/>（瞄准 ＋ 开火意图）；"屏幕 → 世界"只有表现层做得了，吸附到哪一格由逻辑层算（<c>PlayerLogic.UpdateAim</c>）。</remarks>
+    /// <summary>玩家组合根：组装执行器/配置/活动区域/输入缓冲</summary>
+    /// <remarks>Push 先于 Tick，否则按下沿滞后一帧。方向只归一化一次，WorldInfo 与缓冲快照必须是同一份，各留一份会导致斜向快 √2 倍。</remarks>
     public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked, IManagedActor
     {
-        /// <summary>驱动顺序：玩家侧必须早于世界侧（先提交速度、先读输入）。</summary>
+        /// <summary>玩家侧早于世界侧</summary>
         public int Order => SceneOrder.Player;
 
         [SerializeField] private PlayerMotor motor = default;
@@ -31,23 +29,25 @@ namespace DeepseaOil.Presentation
         [Tooltip("地图活动区域：拖入覆盖可行走区域的 BoxCollider2D。不接则不钳位（不报错，调试面板会显示未接线）")]
         [SerializeField] private BoxCollider2D boundsArea = default;
 
-        /// <summary>方向判零的容差：摇杆漂移与浮点残渣不该让角色每帧微动。</summary>
+        /// <summary>方向判零容差，吸收摇杆漂移与浮点残渣</summary>
         private const float DirectionEpsilon = 1e-6f;
 
-        /// <summary>8 向吸附的一档（弧度）。45° 一档共 8 档。</summary>
+        /// <summary>8 向吸附一档，45°</summary>
         private const float OctantRadians = 2f * Mathf.PI / 8f;
 
-        /// <summary>吸附到 8 向时的一族单位方向，键为"档位序号化的弧度"，避免浮点直接比 key。</summary>
+        /// <summary>键为档位序号</summary>
         private static readonly Dictionary<int, Vector2> Snapped = BuildSnappedTable();
 
         private InputBuffer _buffer;
+
         private WorldInfo _world;
+
         private BoundsArea _bounds;
 
-        /// <summary>玩家取值边界（<c>Attach</c> 时取一次）；配置对象不往表现层走：要哪条数就问 <see cref="PlayerSpec"/> 要哪条语义。</summary>
+        /// <summary>配置只在 Attach 取一次，不驻留表现层</summary>
         private PlayerSpec _spec;
 
-        /// <summary>瞄准平面深度（世界单位，正交相机下够大即可）；<c>Attach</c> 时取一次。</summary>
+        /// <summary>瞄准平面深度，世界单位，Attach 取一次</summary>
         private float _cameraPlaneDepth = 100f;
 
         private SpriteRenderer _body;
@@ -58,23 +58,23 @@ namespace DeepseaOil.Presentation
 
         public PlayerLogic Logic { get; private set; }
 
-        /// <summary>物理体位置（世界侧判接触、算重生点用物理体而不是 <c>transform</c>）。</summary>
+        /// <summary>碰撞用物理体位置，不是 transform</summary>
         public Vector2 Position => motor == null ? Vector2.zero : motor.Position;
         public WorldInfo World => _world;
 
-        /// <summary>引擎回读速度，与逻辑层的"提交后预期"对照；它滞后一个物理步。</summary>
+        /// <summary>引擎回读速度，滞后一个物理步，用于与逻辑层对照</summary>
         public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.EngineVelocity;
 
-        /// <summary>把原始输入吸附到 8 向并归一化：键盘同时按两个轴会得到模长 √2，摇杆则是任意角度。</summary>
-        /// <returns>零输入 → <c>Vector2.zero</c>；否则 → <b>模长恒为 1</b> 的方向（<c>WorldInfo.MoveDirection</c> 与逻辑层都依赖这条契约；因此"吸附到 45° 的一档"与"抹掉摇杆的模拟幅度"是同一件事 —— 轻推摇杆与推满是同一个速度）。静态纯函数，EditMode 测试能直接调它。</returns>
+        /// <summary>原始输入吸附到 8 向并归一化</summary>
+        /// <remarks>零输入返回 Vector2.zero，否则模长恒为 1（WorldInfo 与逻辑层的契约）；吸附同时抹掉摇杆模拟幅度，轻推与推满同速。静态纯函数。</remarks>
         public static Vector2 SnapMoveToEightDirections(Vector2 move, bool snapToEightDirections)
         {
             if (move.sqrMagnitude <= DirectionEpsilon) return Vector2.zero;
 
-            // 关掉吸附时也不能原样放行：斜向的 (1,1) 模长是 √2，会当帧写出快 41% 的速度。
+            // 关掉吸附也不能原样放行：(1,1) 模长 √2，会写出快 41% 的速度。
             if (!snapToEightDirections) return move.normalized;
 
-            // 45° 一档共 8 档；Round 天然把 ±22.5° 内的输入归到最近一档，不需要额外死区。取整 + 按档位查表（而不是直接 Cos/Sin 算值）是为了让"同一个方向"在不同输入下得到**逐位相同**的结果。
+            // Round 把 ±22.5° 内输入归到最近一档，无需死区；查表而非 Cos/Sin 算值，让同一方向逐位相同。
             int octant = Mathf.RoundToInt(Mathf.Atan2(move.y, move.x) / OctantRadians);
             octant %= 8;
             if (octant < 0) octant += 8;
@@ -95,8 +95,8 @@ namespace DeepseaOil.Presentation
             return table;
         }
 
-        /// <summary>回到出生点并满血（打空重来）。</summary>
-        /// <remarks>分工是：世界侧（<c>CombatRoot</c>）决定"什么时候重来"，玩家侧执行"回到哪、满血、停住"。出生点理论上在图内，但它是运行期读到的位置；越界时钳回来，否则玩家会回到一张"看不见自己"的地图外。</remarks>
+        /// <summary>回出生点并满血</summary>
+        /// <remarks>时机由世界侧决定，本类只执行回哪、满血、停住；出生点越界时钳回来，否则会回到地图外。</remarks>
         public void RespawnToSpawn()
         {
             if (Logic == null) return;
@@ -143,16 +143,15 @@ namespace DeepseaOil.Presentation
             if (_root != null) _root.UnregisterSceneRoot(this);
         }
 
-        /// <summary>装配玩家逻辑。<b>由 <c>GameRoot</c> 在第一个被驱动的帧调</b>（见 <see cref="ISceneRoot.Attach"/>）。</summary>
-        /// <remarks><b>读表放在这里而不是 <c>Awake</c></b>：<c>ConfigModule</c> 由 <c>GameRoot.Awake</c> 装配（含第二段 <c>BindAssets</c>），而组件之间的 <c>Awake</c> 顺序 Unity 不保证 —— 写在 <c>Awake</c> 里就是一次"看运气"的启动崩溃（<c>ConfigModule</c> 在未就绪时会抛）。
-        /// 输入缓冲也在这里建：它的容量来自配表，装配顺序只有一条 —— 先拿到 <c>PlayerSpec</c>，再建缓冲。</remarks>
+        /// <summary>装配玩家逻辑，由 GameRoot 在第一个被驱动的帧调</summary>
+        /// <remarks>读表必须放这里：ConfigModule 由 GameRoot.Awake 装配，组件 Awake 顺序不保证，写在 Awake 里 ConfigModule 未就绪会抛。缓冲先取 PlayerSpec 再建。</remarks>
         public void Attach()
         {
             if (Logic != null || motor == null) return;
 
             _spec = ConfigModule.GetPlayer();
 
-            // 缓冲容量取"容量参数"与各输入窗口的较大者：容量小于任何窗口时，窗口内的按下会被挤出历史。
+            // 缓冲容量取容量参数与各输入窗口的较大者：小于窗口时窗口内按下会被挤出历史。
             _buffer = new InputBuffer(
                 Mathf.Max(_spec.InputBufferSeconds, _spec.DashBufferSeconds),
                 Mathf.RoundToInt(1f / Time.fixedDeltaTime)
@@ -163,17 +162,16 @@ namespace DeepseaOil.Presentation
             Logic = new PlayerLogic(motor, _spec, _buffer);
         }
 
-        /// <summary>物理帧：由 <c>GameRoot.FixedUpdate</c> 按 <see cref="Order"/> 驱动（物理帧只有一个发起者，"玩家先于战斗结算"因此是代码事实而不是 Unity 抽签）。</summary>
+        /// <summary>物理帧，由 GameRoot.FixedUpdate 按 Order 驱动</summary>
         public void FixedTick(float deltaTime)
         {
-            // 装配失败（引用未接线）或还没装配时整体 no-op：不读半装配状态
             if (Logic == null) return;
 
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 
             Vector2 move = SnapMoveToEightDirections(raw.Move, _spec.SnapToEightDirections);
 
-            // 归一化后的方向要写回快照：WorldInfo 与 InputBuffer 必须是同一份方向，否则 MoveGroup 取冲刺方向、PlayerLogic 记"最近朝向"时会看到另一份（未处理的）值。
+            // 归一化后的方向要写回快照：WorldInfo 与 InputBuffer 必须是同一份，否则 MoveGroup 与 PlayerLogic 的最近朝向会看到未处理值。
             var snapshot = new InputSnapshot(move, raw.DashPressed, raw.GrabHeld);
 
             _buffer.Push(in snapshot, Time.fixedTime);
@@ -189,21 +187,20 @@ namespace DeepseaOil.Presentation
                 )
             );
 
-            // 保险丝：只在真的越界时写位置，避免每帧打断刚体的位置积分。
+            // 保险丝：只在真越界时写位置，避免每帧打断刚体位置积分。
             if (_world.Bounds.TryClamp(motor.Position, out Vector2 clamped))
             {
                 motor.SetPosition(clamped);
             }
         }
 
-        /// <summary>渲染帧：瞄准 ＋ 开火意图（由 <c>GameRoot.Update</c> 按 <see cref="Order"/> 驱动）。</summary>
-        /// <remarks><b>瞄准在渲染帧而不在物理帧</b>：帧相位口径是"物理帧只放角色移动与参与物理的逻辑"，而瞄准既不吃物理也不产出物理量。"屏幕 → 世界"只有本类做得了，换算完把<b>世界点</b>交给逻辑层，吸附到哪一格由 <c>TileAim</c> 算 —— 于是"看着能扔到、其实扔不到"的根源（两处各算一次）从结构上消失。
-        /// <b>暂停 / 菜单下不瞄准也不开火</b>：判据只有"输入开关"一个真值（<c>InputProvider.IsInputEnabled</c>），并存第二个暂停真值就会不一致（订阅晚了就永远收不到那条事件）。</remarks>
+        /// <summary>渲染帧：瞄准与开火意图，由 GameRoot.Update 按 Order 驱动</summary>
+        /// <remarks>瞄准不吃也不产物理量，故放渲染帧；屏幕→世界只有本类能做，算完把世界点交逻辑层算吸附格。暂停只认 InputProvider.IsInputEnabled 一个真值。</remarks>
         public void RenderTick(float deltaTime)
         {
             if (Logic == null) return;
 
-            // 遮挡是观感，与物理步无关，所以放渲染帧；放在暂停判断之前：暂停时也要保持档位正确。
+            // 遮挡属观感与物理步无关；放暂停判断之前，暂停时也要保持档位正确。
             UpdateSortingOrder();
 
             if (inputProvider == null || !inputProvider.IsInputEnabled)
@@ -220,12 +217,12 @@ namespace DeepseaOil.Presentation
 
             Logic.UpdateAim(AimWorldPoint(camera), now);
 
-            // 攻击输入：动作表里没有攻击动作，它由 InputProvider 直读指针产出（渲染帧语义）。主攻击 = 水球（吃弹药），副攻击 = 土球（不吃）。
+            // 动作表无攻击动作：由 InputProvider 直读指针产出。主攻击=水球（耗弹药），副攻击=土球（不耗）。
             if (inputProvider.AttackPressedThisFrame) Logic.RequestThrow(BallType.Water, now);
             if (inputProvider.AltAttackPressedThisFrame) Logic.RequestThrow(BallType.Earth, now);
         }
 
-        /// <summary>按 y 刷新本体的渲染档位（Y-Sort）：玩家本体是场景里摆的 <c>SpriteRenderer</c>，"谁挡住谁"必须每帧按 y 重算（场景里填的 <c>sortingOrder</c> 只是初始值）。</summary>
+        /// <summary>按 y 刷新本体渲染档位，场景里填的 sortingOrder 只是初始值</summary>
         private void UpdateSortingOrder()
         {
             if (_body == null) _body = GetComponent<SpriteRenderer>();
@@ -235,7 +232,7 @@ namespace DeepseaOil.Presentation
             _body.sortingOrder = RenderOrder.ActorOrder(Position.y);
         }
 
-        /// <summary>屏幕点 → 世界点。<b>不读相机的 z：</b><c>Camera.main.transform.position.z</c> 被 Cinemachine 每帧驱动，依赖它等于让落点跟着相机插件走；正交相机下给一个足够大的常量深度即可（见 <c>ThrowTuning.cameraPlaneDepth</c>）。</summary>
+        /// <summary>屏幕点→世界点；不读相机 z，它被 Cinemachine 每帧驱动，正交相机下用足够大的常量深度更稳，见 ThrowTuning.cameraPlaneDepth</summary>
         private Vector2 AimWorldPoint(Camera camera)
         {
             Vector2 screen = inputProvider.AimScreen;
@@ -245,7 +242,7 @@ namespace DeepseaOil.Presentation
             return new Vector2(world.x, world.y);
         }
 
-        /// <summary>把场景里的活动区域碰撞体折算成纯数据矩形：<c>BoxCollider2D</c> → <c>min/max</c> 的折算只发生在表现层这一处，每次 <c>Awake</c> 读一次即可（地图尺寸在运行期不会变）。</summary>
+        /// <summary>活动区域碰撞体折算成纯数据矩形，Awake 读一次即可（地图尺寸运行期不变）</summary>
         private BoundsArea ReadBounds()
         {
             if (boundsArea == null || !boundsArea.enabled) return default;

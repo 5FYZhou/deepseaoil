@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
 // 粒子特效系统 · EditMode 测试
 //
-// 【为什么在这里】Assets/Tests/Runtime/Editor/ —— 末级 Editor 是 Unity 的**硬要求**，
-//   不能改名：asmdef 程序集无法引用预定义程序集 Assembly-CSharp，而 EffectModule / Pool
-//   就在 Assembly-CSharp 里。本目录没有 asmdef，靠路径里的 Editor 落 Assembly-CSharp-Editor。
+// 【为什么在这里】Assets/Tests/Runtime/Editor/ 被 DeepseaOil.Tests.EditMode.asmdef 覆盖
+//   （includePlatforms: [Editor]）；EffectModule / Pool 住在 DeepseaOil.Presentation 程序集，
+//   由该 asmdef 的 references 显式引用。
 //
 // 【只用 public API】与 Data层Tests 同一约定：internal 类型（EffectCatalog / EffectSpec）
 //   跨程序集不可见，所以本文件不碰它们，也就不需要 InternalsVisibleTo。

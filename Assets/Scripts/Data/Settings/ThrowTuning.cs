@@ -2,9 +2,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>投掷与瞄准的程序调参：观感、射程以外的半径、冲量强度。</summary>
-    /// <remarks>程序调参走 SO（数值分界规则第 1 条），改它们不需要经过导表。资产随仓库提供（<c>Assets/Resources/tuning/ThrowTuning.asset</c>），
-    /// 真丢了资产时返回字段默认值的实例 —— "忘了拖资产"的表现是"有一份能跑的默认手感"，而不是一堆 0 导致的静默异常。渲染约定（颜色、<c>sortingOrder</c>）见 <c>RenderOrder</c>。</remarks>
+    /// <summary>投掷与瞄准的程序调参</summary>
+    /// <remarks>程序调参走 SO，不经导表；资产丢失时返回字段默认值实例而非 0；渲染约定见 RenderOrder</remarks>
     [CreateAssetMenu(fileName = "ThrowTuning", menuName = "DeepseaOil/Tuning/Throw")]
     public sealed class ThrowTuning : ScriptableObject
     {
@@ -58,9 +57,8 @@ namespace DeepseaOil.Data
 
         private static ThrowTuning Cached;
 
-        /// <summary>取调参资产；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。</summary>
-        /// <remarks>调用方只有 <c>ConfigModule.BindAssets</c> 一处：消费者不直接读 SO，而是经 <c>ConfigModule.GetXxx</c> 拿合并了表与 SO 的包装件。
-        /// 重复调用返回同一份：兜底分支建的 <c>ScriptableObject</c> 不进资源系统，每次新建会攒垃圾，且"某一处改了字段、另一处看不见"。</remarks>
+        /// <summary>取调参资产；缺失时返回字段默认值实例</summary>
+        /// <remarks>调用方只有 ConfigModule.BindAssets；消费者经 ConfigModule.GetXxx 拿合并件；重复调用返回同一份，兜底实例不进资源系统</remarks>
         internal static ThrowTuning LoadOrDefault()
         {
             if (Cached != null) return Cached;

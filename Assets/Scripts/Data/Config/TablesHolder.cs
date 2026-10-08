@@ -5,12 +5,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 持有 Luban 生成的 cfg.Tables 实例（调用时机：ConfigModule.Init 时构造一次，构造时同步加载全部 JSON）。
-    /// Loader 严格校验：文件不存在 / 为空 / 解析失败都抛异常 —— 少一行、坏一行要在启动期炸，不静默降级。
-    /// 平台只支持桌面端：Android / WebGL 的 StreamingAssets 在包内，须改用 UnityWebRequest（会让 Init 变异步、
-    /// 牵动整条启动链），Jam 期不支持 —— 该平台约束未登记在文档里。
-    /// </summary>
+    /// <summary>持有 cfg.Tables，Init 时构造一次并同步加载全部 JSON</summary>
+    /// <remarks>Loader 缺文件/空/解析失败一律抛异常。仅桌面端，Android/WebGL 须改用 UnityWebRequest。</remarks>
     internal sealed class TablesHolder
     {
         public cfg.Tables Tables { get; }
@@ -20,7 +16,7 @@ namespace DeepseaOil.Data
             Tables = new cfg.Tables(file => LoadJson(jsonRoot, file));
         }
 
-        /// <summary>Luban 调用的 Loader：入参文件名不含扩展名（如 "demo_tbweapon"），出参解析后的 JSON（<c>Luban.SimpleJSON</c>，生成目标是 cs-simple-json）。</summary>
+        /// <summary>Luban 的 Loader，入参文件名不含扩展名，出参解析后的 JSON</summary>
         private static JSONNode LoadJson(string root, string file)
         {
             string path = Path.Combine(root, file + ".json");
