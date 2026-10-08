@@ -1,12 +1,9 @@
-// 配表工作流 · 运行期消费示例（可选，删掉不影响导表）
-// 用法：SampleScene / TestConfig 里挂着本脚本，进 Play 看 Console。
-// 本脚本不是配置的唯一入口，真正的入口是 Data 层的 ConfigModule。它只做两件事：
-//   ① 兜底初始化 —— TestConfig 场景没有 GameRoot，没人 Init
-//   ② 把查询结果打到 Console，作为「表 → 生成代码 → StreamingAssets JSON → ConfigModule」链路自检
-// 时序：GameRoot 在自己的 Awake 里 Init（Unity 保证所有 Awake 先于任何 Start），所以本脚本的 Start 里 IsReady 通常已是 true。
-// ConfigModule.Init 重复调用会抛异常，必须先问 IsReady —— 不要直接再 Init 一次。
-// 注意：本文件与生成的配置类（命名空间 cfg）都落默认程序集 Assembly-CSharp，所以能直接引用，不需要额外 asmdef。
-// 将来需要热更时再给生成物划 asmdef，Jam 期不做。
+// 配表工作流 · 运行期消费示例
+// 真正的配置入口是 Data 层 ConfigModule，本脚本只做两件事：
+//   ① 兜底初始化 —— TestConfig 场景无 GameRoot
+//   ② 打到 Console 自检「表 → 生成代码 → JSON」链路
+// 时序：GameRoot 在 Awake 里 Init，本脚本 Start 时配置通常已就绪。
+// ConfigModule.Init 重复调用会抛异常，必须先问 IsReady。
 
 using DeepseaOil.Data;
 using UnityEngine;
@@ -17,12 +14,12 @@ namespace DeepseaOil.Presentation.Diagnostics
     {
         void Start()
         {
-            // 兜底：TestConfig 场景没有 GameRoot，配置还没装配
+            // 兜底：TestConfig 没有 GameRoot
             if (!ConfigModule.IsReady)
                 ConfigModule.InitFromStreamingAssets();
 
-            // 逃生舱：直接读原始 cfg.Tables，全库唯一登记在案的破例（见 ConfigModule.Tables 的注释）。
-            // 注意它读的是表的行数，不是某一列：拿它读列就绕过了包装件与"表列迁到 SO"的全部收益 —— 那种用法属于新增破例，必须先登记。
+            // 逃生舱：直读 cfg.Tables，全库唯一登记破例（见 ConfigModule.Tables）
+            // 读表行数；读列即绕过包装件与"表列迁到 SO"收益，必须先登记
             var tables = ConfigModule.Tables;
 
             var weapon = ConfigModule.GetWeapon(1);
@@ -40,7 +37,6 @@ namespace DeepseaOil.Presentation.Diagnostics
                 weapon.IconItem,
                 weapon.IconItem_Ref != null ? weapon.IconItem_Ref.Name : "<空>"));
 
-            // 各表条数：类型名取自生成类，加表后这里自动跟着变
             var sb = new System.Text.StringBuilder("[Config] 已加载表：");
             Append(sb, tables.TbWeapon);
             Append(sb, tables.TbItem);

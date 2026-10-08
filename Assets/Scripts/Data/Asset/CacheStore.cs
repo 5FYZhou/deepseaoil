@@ -3,9 +3,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 缓存表：持有所有已加载资源条目；主线程独占、无锁；Key 大小写敏感；lastAccessTime 是 LRU 依据，命中时由 Touch 更新。
-    /// </summary>
+    /// <summary>缓存表，主线程独占</summary>
     internal sealed class CacheStore
     {
         private readonly Dictionary<string, CacheEntry> _entries = new Dictionary<string, CacheEntry>();
@@ -14,9 +12,7 @@ namespace DeepseaOil.Data
 
         public bool TryGetEntry(string key, out CacheEntry entry) => _entries.TryGetValue(key, out entry);
 
-        /// <summary>
-        /// Key 存在但类型不匹配返回 false，不抛异常。
-        /// </summary>
+        /// <summary>Key 存在但类型不匹配返回 false</summary>
         public bool TryGet<T>(string key, out CacheEntry entry) where T : UnityEngine.Object
         {
             if (_entries.TryGetValue(key, out entry) && entry.asset is T)
@@ -31,7 +27,7 @@ namespace DeepseaOil.Data
             _entries[key] = new CacheEntry
             {
                 asset = asset,
-                refCount = 0,           // Retain 由调用方显式做
+                refCount = 0,           // 调用方 Retain
                 lastAccessTime = Time.realtimeSinceStartup,
                 isPreloaded = isPreloaded,
                 cooldownUntil = 0f,

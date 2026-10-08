@@ -4,11 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace DeepseaOil.Presentation.Diagnostics
 {
-    /// <summary>特效调试面板：一行统计 + 每个已装配特效一个"播放"按钮 + 全部清空。只读诊断件，不影响判定。</summary>
-    /// <remarks>
-    /// 取鼠标位置必须走 <c>Mouse.current</c>：本工程 <c>activeInputHandler = 1</c>（只用新输入系统），<c>UnityEngine.Input</c> 会抛异常。
-    /// 按钮右边那行 <c>→ None</c> = 被丢弃 / 未注册 / 资源缺失（不是"播了但没看见"），具体原因看 Console。
-    /// </remarks>
+    /// <remarks>取鼠标必须走 Mouse.current：本工程 activeInputHandler=1，UnityEngine.Input 抛异常。→ None = 被丢弃/未注册/资源缺失，原因见 Console</remarks>
     public sealed class EffectDebugPanel : MonoBehaviour
     {
         [SerializeField] private Camera targetCamera = default;
@@ -58,7 +54,6 @@ namespace DeepseaOil.Presentation.Diagnostics
                 _lastResult = "CleanAll";
             }
 
-            // 探针：故意用一个没有驱动的 EffectId，验证"未注册只报错不崩"（Console 里会出现一条 LogError）
             if (GUILayout.Button($"未注册探针 ({EffectId.ScreenShake})", GUILayout.Width(200f)))
             {
                 EffectHandle handle = EffectModule.Play(EffectId.ScreenShake, EffectContext.Default);
@@ -70,7 +65,7 @@ namespace DeepseaOil.Presentation.Diagnostics
             GUILayout.EndArea();
         }
 
-        /// <summary>鼠标当前的世界坐标（投到 z = 0 平面）；取不到相机或鼠标时返回原点。</summary>
+        /// <summary>相机把鼠标投到 z=0 平面</summary>
         private Vector2 MouseWorld()
         {
             Camera cam = targetCamera != null ? targetCamera : Camera.main;

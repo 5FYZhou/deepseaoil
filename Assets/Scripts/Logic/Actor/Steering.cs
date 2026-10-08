@@ -4,10 +4,10 @@ namespace DeepseaOil.Logic
 {
     public readonly struct Steering
     {
-        /// <summary>期望方向：<b>可能不是单位向量</b>（就是"目标 − 自己"），零向量表示"没有期望方向"；归一化不在这里做，交给 <c>ActorLogic.SteerTowards</c>（两处都归就会出 √2 倍的静默偏差）。</summary>
+        /// <summary>期望方向，可能不是单位向量（目标−自己）；零向量=无期望方向，归一化只归 ActorLogic.SteerTowards</summary>
         public readonly Vector2 Direction;
 
-        /// <summary>该方向上的目标速度（单位/秒）。</summary>
+        /// <summary>目标速度（单位/秒）</summary>
         public readonly float Speed;
 
         public Steering(Vector2 direction, float speed)
@@ -18,8 +18,7 @@ namespace DeepseaOil.Logic
 
         public bool IsIdle => Direction.sqrMagnitude <= 0f || Speed <= 0f;
 
-        /// <remarks>按"追击 + 泥浆减速"算一次转向。<b>静态纯函数</b>：只吃参数，不读时间、不读单例、不持状态；两个距离参数都是世界单位。减速不在这里做：减益只做乘法、不做加法，由 <c>ActorLogic.SetSpeedScale</c> 乘在目标速度上。
-        /// 三个"不动"各对应一类真实缺陷：<paramref name="stopDistance"/> 内不动（否则敌人会不停往玩家身上挤，表现为贴着玩家抖动）、<paramref name="chaseRange"/> 外不动（不给方向 ⇒ 走指数衰减，是"滑停"而不是"定住"，否则"跑得够远能脱离"永远不可能成立）、方向向量为零不动（返回"不动"而不是硬塞默认方向，且必须先于距离判断；零向量归一化是 <c>NaN</c>，角色会带着非数坐标消失）。</remarks>
+        /// <remarks>静态纯函数，只吃参数、不持状态；两个距离都是世界单位。三个"不动"各对应一类缺陷：stopDistance 内不动（否则贴脸抖动）；chaseRange 外不动（否则"跑得够远能脱离"永不成立）；零向量不动（必须先于距离判断，零向量归一化是 NaN）。</remarks>
         public static Steering Resolve(
             Vector2 self,
             Vector2 target,

@@ -3,11 +3,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 启动时抽样校验（调用时机：ConfigModule.Init 中，TablesHolder 构造完成后）。
-    /// 只确认「数据能被加载进内存」，不重复 Luban 的 ref / path / range 校验（那些在导表期由 --strict 完成）。
-    /// 抽样而非全遍历（全表遍历会拖慢启动）；不抛异常，失败通过返回值告知调用方。
-    /// </summary>
+    /// <summary>启动时抽样校验，调用时机 ConfigModule.Init 中；不重复 Luban 的 ref/path/range 校验，失败通过返回值告知</summary>
     internal static class StartupValidator
     {
         public static bool Validate(TablesHolder holder)
@@ -20,7 +16,6 @@ namespace DeepseaOil.Data
 
             var tables = holder.Tables;
 
-            // 抽样访问每张已登记的表：触发其构造与索引建立；清单来自手写 TablesMeta（加表时同步维护，漏登记不报错、只是少抽一张表）
             if (TablesMeta.Names.Length == 0)
             {
                 Debug.LogWarning("[Config] TablesMeta.Names is empty: 跳过抽样校验");

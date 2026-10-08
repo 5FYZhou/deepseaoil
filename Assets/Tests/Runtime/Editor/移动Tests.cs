@@ -2,8 +2,7 @@
 // 俯视角移动 · 运行期测试
 //
 // 【为什么在这里】Assets/Tests/Runtime/Editor/ —— 与 Data层Tests.cs 同机制：
-//   本目录没有 asmdef，靠「路径里有名为 Editor 的目录」落 Assembly-CSharp-Editor，
-//   它既能引用 Assembly-CSharp（被测代码所在），又被 Test Framework 自动引用 NUnit。
+//   被 DeepseaOil.Tests.EditMode.asmdef 覆盖，被测的各层由它的 references 显式引用。
 //
 // 【留什么 · 砍什么】判据只有一条：这条用例守的是不是「改错了不报错、只表现为手感/观感不对」。
 //   留（测试名即清单）：

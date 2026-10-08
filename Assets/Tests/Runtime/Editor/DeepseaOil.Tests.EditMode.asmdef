@@ -1,0 +1,29 @@
+{
+    "name": "DeepseaOil.Tests.EditMode",
+    "rootNamespace": "DeepseaOil.Tests.EditMode",
+    "references": [
+        "DeepseaOil.Foundation",
+        "DeepseaOil.Data",
+        "DeepseaOil.Logic",
+        "DeepseaOil.Presentation",
+        "cfg",
+        "Luban.Runtime",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
