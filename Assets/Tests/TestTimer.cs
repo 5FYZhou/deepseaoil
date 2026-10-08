@@ -5,7 +5,8 @@ using UnityEngine;
 /// <summary>计时器的<b>用法示例</b>（保留作参考，不被任何场景引用）。</summary>
 /// <remarks>
 /// <b>为什么不是 <c>MonoBehaviour</c></b>：计时器已脱单例（由 <c>GameRoot</c> 构造、进服务表驱动），
-/// 场景里再挂一个自驱的组件去拿它，等于把刚收掉的"第二个驱动入口"又放回来（<c>收口一致性Tests</c> 会红）。
+/// 场景里再挂一个自驱的组件去拿它，等于把刚收掉的"第二个驱动入口"又放回来 —— 那条纪律只写在
+/// `AGENTS.md` 第 5 节与 `Docs/架构约束.md`（原先扫源码文本的 `收口一致性Tests` 已删）。
 /// <para><b>为什么参数是 TimerManager 而不是自己去取</b>：这就是本轮的落点 —— 计时器从 <c>GameRoot.Timer</c> 出去，谁要用谁收参。</para>
 /// </remarks>
 public static class TestTimer

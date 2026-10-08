@@ -38,7 +38,7 @@ namespace DeepseaOil.EditorTools
         public string Output = string.Empty;
         public string ErrorMessage;
         public string LogPath;
-        /// <summary>本次 Luban 真正写出的文件（相对暂存目录，形如 demo/Weapon.cs）。</summary>
+        /// <summary>本次 Luban 真正写出的文件（相对暂存目录，形如 dso/Enemy.cs）。</summary>
         public List<string> WrittenFiles = new List<string>();
         /// <summary>镜像拷贝时从工程目录删掉的孤儿文件（绝对路径）。</summary>
         public List<string> DeletedFiles = new List<string>();
@@ -235,7 +235,7 @@ namespace DeepseaOil.EditorTools
             new Regex(@"\|INFO\|\s*\[(?:new|overwrite)\]\s+(?<path>[^\r\n]+?)\s*$", RegexOptions.Multiline),
         };
 
-        /// <summary>从 Luban 日志里刮出本次写出的文件（形如 demo/Weapon.cs）。</summary>
+        /// <summary>从 Luban 日志里刮出本次写出的文件（形如 dso/Enemy.cs）。</summary>
         public static List<string> ParseWrittenFiles(string output)
         {
             var list = new List<string>();

@@ -1,5 +1,5 @@
 using DeepseaOil.Data;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Logic.Grid.States
 {

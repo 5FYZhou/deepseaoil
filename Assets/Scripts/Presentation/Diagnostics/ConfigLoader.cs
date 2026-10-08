@@ -19,28 +19,18 @@ namespace DeepseaOil.Presentation.Diagnostics
                 ConfigModule.InitFromStreamingAssets();
 
             // 逃生舱：直读 cfg.Tables，全库唯一登记破例（见 ConfigModule.Tables）
-            // 读表行数；读列即绕过包装件与"表列迁到 SO"收益，必须先登记
+            // 这里只遍历表对象数行数；读列即绕过包装件与"表列迁到 SO"收益，必须先登记
             var tables = ConfigModule.Tables;
 
-            var weapon = ConfigModule.GetWeapon(1);
-            Debug.Log(string.Format("[Config] 武器 id=1 → {0}  攻击={1}  品质={2}  攻速={3}  图标={4}",
-                weapon.Name, weapon.Pow, weapon.Quality, weapon.AtkSpeed, weapon.Icon));
-
-            // 外键链：Fish.best_weapon → Weapon.icon_item → Item
-            var fish = ConfigModule.GetFish(1002);
-            Debug.Log(string.Format("[Config] 外键：鱼 {0} 推荐武器={1} → {2}",
-                fish.Name,
-                fish.BestWeapon,
-                fish.BestWeapon_Ref != null ? fish.BestWeapon_Ref.Name : "<空>"));
-            Debug.Log(string.Format("[Config] 外键：武器 {0} 图标道具={1} → {2}",
-                weapon.Name,
-                weapon.IconItem,
-                weapon.IconItem_Ref != null ? weapon.IconItem_Ref.Name : "<空>"));
-
             var sb = new System.Text.StringBuilder("[Config] 已加载表：");
-            Append(sb, tables.TbWeapon);
-            Append(sb, tables.TbItem);
-            Append(sb, tables.TbFish);
+            Append(sb, tables.TbProjectile);
+            Append(sb, tables.TbEnemy);
+            Append(sb, tables.TbTileState);
+            Append(sb, tables.TbPlayer);
+            Append(sb, tables.TbWave);
+            Append(sb, tables.TbTileInitial);
+            Append(sb, tables.TbElementRule);
+            Append(sb, tables.TbTileEffect);
             Debug.Log(sb.ToString());
 
             // 观测面：拉模型，不推送事件

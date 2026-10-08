@@ -1,4 +1,4 @@
-using cfg.demo;
+using cfg.dso;
 using UnityEngine;
 
 namespace DeepseaOil.Data
@@ -46,7 +46,9 @@ namespace DeepseaOil.Data
 
         public int Hp => _row.Hp;
 
-        public float FlashHz => _row.FlashHz;
+        /// <summary>受击闪烁频率（Hz）</summary>
+        /// <remarks>表已不再配这一列：频率是观感参数，取 VisualPalette.enemyFlashHz，改它不用导表</remarks>
+        public float FlashHz => ConfigModule.Visuals != null ? ConfigModule.Visuals.enemyFlashHz : 4f;
 
         /// <remarks>运行期按种类造一份、每只各持一份；只有装配链消费</remarks>
         public CharacterConfig Config { get; }

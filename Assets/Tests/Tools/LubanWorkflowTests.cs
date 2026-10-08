@@ -163,17 +163,17 @@ namespace DeepseaOil.EditorTools.Tests
         {
             const string sample =
                 "2026/09/30 01:36:39.000|INFO|process data target:\"json\" begin\n" +
-                "2026/09/30 01:36:39.001|INFO|[new] T:\\x\\output\\data/demo_tbweapon.json \n" +
-                "2026/09/30 01:36:39.002|INFO|[overwrite] T:\\x\\output\\data/demo_tbitem.json \n" +
-                "2026/09/30 01:36:39.003|INFO|[new] T:\\x\\output\\code/demo/Weapon.cs \n" +
+                "2026/09/30 01:36:39.001|INFO|[new] T:\\x\\output\\data/dso_tbenemy.json \n" +
+                "2026/09/30 01:36:39.002|INFO|[overwrite] T:\\x\\output\\data/dso_tbplayer.json \n" +
+                "2026/09/30 01:36:39.003|INFO|[new] T:\\x\\output\\code/dso/Enemy.cs \n" +
                 "2026/09/30 01:36:39.004|INFO|[remove] T:\\x\\output\\code/old.cs\n" +
                 "2026/09/30 01:36:39.005|INFO|bye~\n";
 
             var files = LubanImport.ParseWrittenFiles(sample);
 
-            // ParseWrittenFiles 内部按 OrdinalIgnoreCase 排序（大写字母在前）
+            // ParseWrittenFiles 内部按 OrdinalIgnoreCase 排序
             CollectionAssert.AreEqual(
-                new List<string> { "demo_tbitem.json", "demo_tbweapon.json", "Weapon.cs" },
+                new List<string> { "dso_tbenemy.json", "dso_tbplayer.json", "Enemy.cs" },
                 files);
         }
 
@@ -184,9 +184,9 @@ namespace DeepseaOil.EditorTools.Tests
         [Test]
         public void 预检可用且表名映射正确()
         {
-            // 表名换算：~$weapon.xlsx -> weapon.xlsx
-            var names = LubanProject.TableNamesOf(new List<string> { "~$weapon.xlsx", "~$item.xlsx" });
-            CollectionAssert.AreEqual(new List<string> { "weapon.xlsx", "item.xlsx" }, names,
+            // 表名换算：~$enemy.xlsx -> enemy.xlsx
+            var names = LubanProject.TableNamesOf(new List<string> { "~$enemy.xlsx", "~$player.xlsx" });
+            CollectionAssert.AreEqual(new List<string> { "enemy.xlsx", "player.xlsx" }, names,
                 "锁文件名 → 表名的换算不对");
 
             Assert.IsNotNull(LubanProject.FindExcelLockFiles(), "FindExcelLockFiles 不应返回 null");

@@ -4,7 +4,7 @@ using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Logic.Player
 {

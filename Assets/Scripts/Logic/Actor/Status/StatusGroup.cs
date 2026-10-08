@@ -14,6 +14,9 @@ namespace DeepseaOil.Logic
 
         private float _slowRemaining;
 
+        /// <summary>本拍是否刚被续过一次减速：跨帧续命靠它活过当拍（见 Tick）</summary>
+        private bool _slowRenewed;
+
         public StatusGroup(ActorLogic logic)
         {
             _hurt = new HurtState(logic);
@@ -37,6 +40,7 @@ namespace DeepseaOil.Logic
 
             _slowScale = float.IsNaN(speedScale) ? 1f : Mathf.Clamp01(speedScale);
             _slowRemaining = seconds;
+            _slowRenewed = true;
         }
 
         /// <remarks>受击时产出 Forced 门禁，不带乘数：外力滑停不该被地面减速拖短</remarks>
@@ -56,7 +60,10 @@ namespace DeepseaOil.Logic
 
         public void Tick(in LogicContext ctx, Vector2 pendingKnockback)
         {
-            if (_slowRemaining > 0f) _slowRemaining -= ctx.deltaTime;
+            // 刚续过的一拍不扣时：格上减速把秒数设成"本帧 Δt"（泥浆每帧提交一次），而扣时按物理 Δt，
+            // 两者相等时恰好归零 ⇒ SlowScale 读成 1f，减速与减速色一起消失（编译器不拦、测试不红，只错手感）。
+            if (_slowRenewed) _slowRenewed = false;
+            else if (_slowRemaining > 0f) _slowRemaining -= ctx.deltaTime;
 
             EnterHurtIfPending(in ctx, pendingKnockback);
 
