@@ -4,9 +4,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>瞄准格高亮驱动：整格半透明色块，创建一次后只更新；持续型，无池、无时长、无 Tick 回收，只由 <c>Stop</c> 关闭。</summary>
-    /// <remarks>色源是观感表 <c>ConfigModule.Visuals</c>（经 <c>ctx.Tint</c> 传入）；程序生成，换正式美术只改 <see cref="Apply"/> 里的图元。
-    /// 句柄＝编号＋代次：<c>CleanAll</c> 递增代次，旧句柄不得误停或挪动新实例（不符即 no-op）。</remarks>
+    /// <summary>瞄准格高亮驱动，整格半透明色块，创建一次后只更新，持续型无池无时长，只由 Stop 关闭</summary>
+    /// <remarks>色源是观感表 ConfigModule.Visuals，程序生成，换正式美术只改 Apply 里的图元。</remarks>
     public sealed class HighlightDriver : IEffectDriver
     {
         private const int SortingOrder = RenderOrder.Aim;
@@ -32,28 +31,20 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _maxSize = maxSize > 0 ? maxSize : 1;
         }
 
-        /// <inheritdoc />
         public bool IsSingleton => true;
-
-        /// <inheritdoc />
         /// <remarks>空串 = "不需要资源"：既不预加载也不懒加载，也不会被判为缺失。</remarks>
         public string AssetKey => string.Empty;
 
-        /// <inheritdoc />
         public bool IsAssetReady => true;
 
-        /// <inheritdoc />
         public int ActiveInstanceCount => _active ? 1 : 0;
 
-        /// <inheritdoc />
         public int PooledObjectCount => _go != null && !_active ? 1 : 0;
 
-        /// <inheritdoc />
         public void OnAssetLoaded(Object asset)
         {
         }
 
-        /// <inheritdoc />
         public EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (_disposed) return EffectHandle.None;
@@ -68,7 +59,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             return new EffectHandle(_nextId, _epoch, this);
         }
 
-        /// <inheritdoc />
         public void UpdateInstance(EffectHandle handle, in EffectContext ctx)
         {
             if (_disposed || !_active) return;
@@ -77,7 +67,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             Apply(in ctx);
         }
 
-        /// <inheritdoc />
         public void Stop(EffectHandle handle)
         {
             if (_disposed || !_active) return;
@@ -86,7 +75,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             Hide();
         }
 
-        /// <inheritdoc />
         public void CleanAll()
         {
             _epoch++;
@@ -95,12 +83,10 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             Hide();
         }
 
-        /// <inheritdoc />
         public void Tick(float dt)
         {
         }
 
-        /// <inheritdoc />
         public void Dispose()
         {
             if (_disposed) return;

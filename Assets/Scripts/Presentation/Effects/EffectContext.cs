@@ -2,8 +2,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects
 {
-    /// <remarks>归一化口径（全在读取处做，所以 <c>default(EffectContext)</c> 与只写一部分字段的对象初始化器都安全）：<see cref="Direction"/> 零向量读作 <c>Vector2.up</c>；<see cref="Scale"/> / <see cref="Radius"/>（世界单位）<c>&lt;= 0</c> 读作 1；<see cref="Intensity"/> 读时 <c>Clamp01</c>，<b>未显式赋值即 0</b>（要满强度用 <see cref="At(Vector2)"/>）；<see cref="Tint"/> alpha 为 0 读作白色；<see cref="Duration"/>（秒）<b>不归一化</b>，<c>&lt;= 0</c> 由驱动取自己的默认时长。
-    /// <b>Intensity 的语义由 Driver 解释</b>（<c>EffectModule</c> 只传递）：<c>ScreenShake</c> 取最大值合并、<c>HitSpark</c> 缩放粒子量与大小；参考实现 <c>ParticleDriver.ApplyIntensity</c>。</remarks>
+    /// <remarks>归一化均在读取处做：Direction 零向量=Vector2.up；Scale/Radius（世界单位）≤0=1；Intensity 读时 Clamp01；Tint alpha=0=白色；Duration（秒）不归一化，≤0 由驱动取默认时长。Intensity 语义由 Driver 解释（EffectModule 只传递）：ScreenShake 取最大值合并，HitSpark 缩放粒子量与大小，参考 ParticleDriver.ApplyIntensity。</remarks>
     public struct EffectContext
     {
         public Vector2 Position;
@@ -34,7 +33,7 @@ namespace DeepseaOil.Presentation.Effects
 
         private Color _tint;
 
-        /// <summary>着色。<b>未设置（alpha 为 0）时读取为白色</b>：透明 = 什么也看不见，且不报错。</summary>
+        /// <summary>着色，未设置（alpha=0）时读作白色</summary>
         public Color Tint
         {
             get => _tint.a > 0f ? _tint : Color.white;
@@ -57,7 +56,6 @@ namespace DeepseaOil.Presentation.Effects
             set => _duration = value;
         }
 
-        /// <summary>跟随目标，可空；非空时每帧把特效挪到它身上，目标被销毁则自动停止。</summary>
         public Transform Follow;
 
         public bool FollowRequested => Follow != null;
@@ -82,7 +80,7 @@ namespace DeepseaOil.Presentation.Effects
                 Follow = null,
             };
 
-        /// <summary>跟随一个 Transform 播一次（满强度）。目标为 null 时退化为原点，不抛异常。</summary>
+        /// <summary>跟随目标播一次（满强度）；目标 null 退化为原点，不抛异常</summary>
         public static EffectContext OnTarget(Transform target)
             => new EffectContext
             {

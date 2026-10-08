@@ -8,8 +8,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Player
 {
-    /// <summary>移动状态组：持有移动层的状态实例与状态机，<b>并且是唯一写速度的地方</b>。</summary>
-    /// <remarks>帧序见 <c>ActorLogic</c>；门禁由骨架仲裁，本类只负责把上层门禁落到速度上。</remarks>
+    /// <summary>移动状态组，唯一写速度处</summary>
     public sealed class MoveGroup : StateGroup<MovementStateTag, LogicContext>
     {
         private readonly PlayerLogic _logic;
@@ -20,10 +19,10 @@ namespace DeepseaOil.Logic.Player
         private readonly InputBuffer _buffer;
         private readonly DashState _dash;
 
-        /// <summary>冲刺冷却：存绝对时刻（不受暂停影响，也不需要每帧累减）。</summary>
+        /// <summary>冲刺冷却，绝对时刻，不受暂停影响</summary>
         private readonly Cooldown _dashCooldown = new Cooldown();
 
-        /// <summary>最近一次非零输入方向（<b>已归一化</b>）；零输入时保持不变，供冲刺取向用。</summary>
+        /// <summary>最近非零输入方向，已归一化</summary>
         private Vector2 _direction = Vector2.right;
 
         public MoveGroup(PlayerLogic logic, PlayerSpec spec, IActorMotor motor, InputBuffer buffer)
@@ -51,10 +50,10 @@ namespace DeepseaOil.Logic.Player
                 : MovementStateTag.Idle;
         }
 
-        /// <summary>冲刺状态实例（调试与测试读入场方向）；入场参数一律经 <see cref="TryCommitPreempt"/> 喂入。</summary>
+        /// <summary>冲刺状态实例</summary>
         public DashState Dash => _dash;
 
-        /// <summary>冲刺资格：冷却已过，且缓冲里有窗口内的按下。<b>纯查询</b>，不消费。</summary>
+        /// <summary>冲刺资格，纯查询不消费</summary>
         public bool CanDash(float now)
         {
             return _dashCooldown.CanUse(now)
@@ -71,10 +70,9 @@ namespace DeepseaOil.Logic.Player
             return true;
         }
 
-        /// <summary>推进一个物理帧：<b>速度乘数先交给账本、状态再按输入写速度、强制速度最后整条接管</b>。</summary>
+        /// <summary>推进物理帧：先交乘数给账本，再状态写速度，最后强制速度接管</summary>
         public void Tick(in LogicContext ctx, in MoveGates gates)
         {
-            // 乘数落在"目标速度"上，必须赶在状态算速度之前交给账本（见 IActorMotor.SpeedScale）。
             _motor.SpeedScale = gates.SpeedScale;
 
             Vector2 move = ctx.inputSnapshot.Move;
@@ -98,7 +96,7 @@ namespace DeepseaOil.Logic.Player
             return false;
         }
 
-        /// <summary>抢占提交：喂方向必须在消费成功之后，否则提交失败时会留下与上次冲刺不符的脏方向。</summary>
+        /// <summary>抢占提交：喂方向须在消费成功后</summary>
         protected override bool TryCommitPreempt(MovementStateTag target, in LogicContext ctx)
         {
             if (target != MovementStateTag.Dash) return false;
@@ -110,9 +108,7 @@ namespace DeepseaOil.Logic.Player
             return true;
         }
 
-        /// <summary>把门禁落到速度上 —— <b>全工程唯一"按上层要求改速度"的地方</b>。</summary>
-        /// <remarks>必须放在状态跑完之后：状态（<c>MoveState</c> / <c>IdleState</c>）会整体接管速度，门禁写在它们前面等于没写 —— 现象是"挨打了却纹丝不动"，不报错。
-        /// 强制速度不叠加速度乘数：受击滑停是外力，叠上地面减速会把它拖短。</remarks>
+        /// <summary>门禁落速度，必须放在状态跑完之后，否则挨打了却纹丝不动且不报错；强制速度不叠加速度乘数</summary>
         private void ApplyGates(in MoveGates gates)
         {
             if (gates.HasForcedVelocity) _motor.SetVelocity(gates.ForcedVelocity);

@@ -4,24 +4,23 @@ using UnityEngine;
 
 namespace DeepseaOil.Foundation
 {
-    /// <summary>池空（空闲区为空）时的处理策略。</summary>
-    /// <remarks>注意区分「池空」与「达到上限」：本枚举描述的是池空那一次请求怎么处理，只有 <see cref="CreateOrDrop"/> 会把 <see cref="Pool{T}.MaxSize"/> 当硬上限用。</remarks>
+    /// <summary>池空策略，只有 CreateOrDrop 把 MaxSize 当硬上限</summary>
     public enum PoolOverflowPolicy
     {
-        /// <summary>池空时现场创建并 <c>LogWarning</c>，<b>不看 MaxSize</b>（默认值）：此时 MaxSize 只作空闲保留上限；热路径请改用 <see cref="CreateOrDrop"/> 或先 Prewarm。</summary>
+        /// <summary>池空即创建并警告，MaxSize 只作空闲保留上限</summary>
         CreateAndWarn = 0,
 
-        /// <summary>池空且「累计创建数 &lt; MaxSize」时现场创建（不警告）；已达上限则<b>丢弃本次请求</b>（<see cref="Pool{T}.TryGet"/> 返回 false）并计数。有上限的对象池（特效池）用这个。</summary>
+        /// <summary>累计创建数&lt;MaxSize 时创建，达上限则丢弃并计数</summary>
         CreateOrDrop = 1,
 
-        /// <summary>池空即丢弃，不创建。只吃 Prewarm 出来的与已归还的对象 —— 严格定容池用。</summary>
+        /// <summary>池空即丢弃，只吃 Prewarm 出来的与已归还的对象</summary>
         DropSilently = 2,
 
-        /// <summary>池空即抛 <see cref="InvalidOperationException"/>。装配期错误用。</summary>
+        /// <summary>池空即抛 InvalidOperationException</summary>
         Throw = 3,
     }
 
-    /// <summary>池的只读快照。调用方：调试面板 / 观测代码。</summary>
+    /// <summary>池的只读快照，供调试与观测用</summary>
     public readonly struct PoolStats
     {
         public readonly int Active;
@@ -32,7 +31,7 @@ namespace DeepseaOil.Foundation
 
         public readonly int TotalCreated;
 
-        /// <summary>累计被丢弃的请求数（TryGet 失败次数）。</summary>
+        /// <summary>累计丢弃的请求数</summary>
         public readonly int TotalDropped;
 
         public PoolStats(int active, int idle, int peak, int totalCreated, int totalDropped)
@@ -48,13 +47,9 @@ namespace DeepseaOil.Foundation
             => $"active={Active} idle={Idle} peak={Peak} created={TotalCreated} dropped={TotalDropped}";
     }
 
-    /// <remarks>
-    /// <see cref="TryGet"/>：空闲区有货就弹出；空了按 <see cref="PoolOverflowPolicy"/> 处理，返回是否借出成功。<see cref="Get"/> 是便利包装，失败返回 <c>null</c>（调用方需判空）。
-    /// <see cref="Prewarm"/>：<b>只造对象</b>，不触发 <c>onGet</c> / <c>onRelease</c>。<see cref="Clear"/>：清空<b>空闲区</b>并逐个回调 <c>onDestroy</c>，不影响已借出对象；<see cref="Dispose"/> 幂等，之后再取还会抛 <see cref="ObjectDisposedException"/>。
-    /// <see cref="Release"/>：归还；空闲区已达 <see cref="MaxSize"/> 时不再保留，直接交 <c>onDestroy</c>（若有）。
-    /// <b>MaxSize 的准确含义</b>：空闲区保留上限，同时也是 <see cref="PoolOverflowPolicy.CreateOrDrop"/> 下「活跃 + 空闲」的总量上限。
-    /// <b>线程</b>：仅主线程，不做锁。
-    /// </remarks>
+    /// <remarks>Get/TryGet 空闲区有货就弹出，空了按 PoolOverflowPolicy 处理。
+    /// Prewarm 只造对象不触发回调；Clear 清空闲区并逐个 onDestroy，不动已借出对象；Dispose 幂等，之后再取抛 ObjectDisposedException。
+    /// Release 归还，空闲区达 MaxSize 则不再保留，直接交 onDestroy。MaxSize 是空闲区保留上限，也是 CreateOrDrop 下总量上限。仅主线程，不做锁。</remarks>
     public class Pool<T> : IDisposable where T : class
     {
         private readonly string _name;
@@ -73,7 +68,7 @@ namespace DeepseaOil.Foundation
         private int _totalDropped;
         private bool _disposed;
 
-        /// <summary>池名；只用于日志，为空则取 <c>typeof(T).Name</c>。</summary>
+        /// <summary>池名，只用于日志，空则取 typeof(T).Name</summary>
         public string Name => _name;
 
         public int MaxSize => _maxSize;
@@ -82,12 +77,10 @@ namespace DeepseaOil.Foundation
 
         public int IdleCount => _idle.Count;
 
-        /// <summary>兼容旧 API：等同于 <see cref="IdleCount"/>。</summary>
+        /// <summary>兼容旧 API，等同 IdleCount</summary>
         public int Count => _idle.Count;
 
-        /// <param name="factory">创建新对象；不能返回 null。</param>
-        /// <param name="maxSize">空闲保留上限 / CreateOrDrop 的总量上限。必须 &gt; 0。</param>
-        /// <param name="onDestroy">对象被彻底丢弃时回调（例如 <c>Object.Destroy(go)</c>）。</param>
+        /// <remarks>factory 不能返回 null；maxSize 必须&gt;0</remarks>
         public Pool(
             Func<T> factory,
             Action<T> onGet = null,
@@ -110,9 +103,7 @@ namespace DeepseaOil.Foundation
             _overflowPolicy = overflowPolicy;
         }
 
-        /// <summary>借出一个对象。失败（被丢弃）时返回 false 且 <paramref name="obj"/> 为 null。</summary>
-        /// <exception cref="ObjectDisposedException">已 Dispose。</exception>
-        /// <exception cref="InvalidOperationException">池空且策略为 <see cref="PoolOverflowPolicy.Throw"/>。</exception>
+        /// <summary>借出对象，被丢弃时返回 false 且 obj 为 null；策略 Throw 时池空抛 InvalidOperationException</summary>
         public bool TryGet(out T obj)
         {
             ThrowIfDisposed();
@@ -157,11 +148,11 @@ namespace DeepseaOil.Foundation
             }
         }
 
-        /// <summary>借出一个对象。池空且策略为丢弃时返回 null，调用方需判空。</summary>
+        /// <summary>借出对象，池空且策略为丢弃时返回 null</summary>
         public T Get() => TryGet(out var obj) ? obj : null;
 
-        /// <summary>归还一个对象。</summary>
-        /// <remarks><paramref name="obj"/> 为 null（例如 GameObject 已被外部销毁）时只记警告并返回、<b>不抛异常</b> —— 池位于帧循环里，抛异常会连带炸掉整帧。</remarks>
+        /// <summary>归还对象</summary>
+        /// <remarks>obj 为 null 时只记警告并返回，不抛异常</remarks>
         public void Release(T obj)
         {
             ThrowIfDisposed();
@@ -191,8 +182,7 @@ namespace DeepseaOil.Foundation
             _idle.Push(obj);
         }
 
-        /// <summary>预创建 <paramref name="count"/> 个对象放进空闲区。不触发 onGet / onRelease。</summary>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> 为负。</exception>
+        /// <summary>预创建 count 个对象放进空闲区，不触发 onGet/onRelease；count 为负抛异常</summary>
         public void Prewarm(int count)
         {
             ThrowIfDisposed();
@@ -207,7 +197,7 @@ namespace DeepseaOil.Foundation
             }
         }
 
-        /// <summary>清空空闲区。已借出的对象不受影响。有 onDestroy 时逐个回调。</summary>
+        /// <summary>清空空闲区并逐个 onDestroy，已借出对象不受影响</summary>
         public void Clear()
         {
             if (_onDestroy != null)
@@ -224,7 +214,7 @@ namespace DeepseaOil.Foundation
         public PoolStats GetStats()
             => new PoolStats(_active, _idle.Count, _peak, _totalCreated, _totalDropped);
 
-        /// <summary>清空空闲区并标记不可用。幂等。</summary>
+        /// <summary>清空空闲区并标记不可用，幂等</summary>
         public void Dispose()
         {
             if (_disposed) return;
@@ -261,7 +251,7 @@ namespace DeepseaOil.Foundation
         }
     }
 
-    /// <summary>引用类型池的旧别名（改名前的兼容层），仅供既有调用方 <c>AudioManager</c> 使用；新代码直接用 <see cref="Pool{T}"/>。</summary>
+    /// <summary>引用类型池旧别名，仅供 AudioManager 使用</summary>
     public class PoolInClass<T> : Pool<T> where T : class
     {
         public PoolInClass(

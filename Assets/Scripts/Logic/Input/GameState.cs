@@ -1,9 +1,9 @@
 namespace DeepseaOil.Logic
 {
-    /// <summary>游戏状态：逻辑层概念（决定"这一帧游戏在不在跑"）；状态的执行在表现层 <c>GameManager</c>。</summary>
+    /// <summary>游戏状态，逻辑层概念，执行在表现层</summary>
     public enum GameState
     {
-        /// <summary>还没有人切过状态（<c>GameRoot</c> 启动时据此进菜单）；<c>default(GameState)</c> 即此值。</summary>
+        /// <summary>默认值，据此进菜单</summary>
         None = 0,
 
         Menu,
@@ -12,7 +12,7 @@ namespace DeepseaOil.Logic
 
         Running,
 
-        /// <summary>确认退出游戏（弹确认框的那一态）；<c>Exit</c> 才是真的退出。</summary>
+        /// <summary>确认退出的那一态，真退出是 Exit</summary>
         BeforeExit,
 
         Exit,

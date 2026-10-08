@@ -6,26 +6,25 @@ namespace DeepseaOil.Logic.Combat
     {
         Tile = 0,
 
-        /// <summary>环境（陷阱 / 地形 / 脚本）。预留，当前无发布者。</summary>
+        /// <summary>环境伤害，预留，无发布者</summary>
         Environment = 1,
 
-        /// <summary>接触伤害：敌人贴在身上（世界侧判定"谁被打到了"之后，经玩家侧入口触发）。</summary>
+        /// <summary>接触伤害，敌人贴身时触发</summary>
         Contact = 2,
     }
 
-    /// <summary>一次伤害结算的全部事实。<b>纯数据</b>，由 <see cref="IDamageable"/> 的宿主消费。</summary>
+    /// <summary>一次伤害结算的事实，位置为世界坐标贴地</summary>
     public readonly struct Damage
     {
-        /// <summary>结算位置（世界坐标，贴地）。方向与范围都以它为基准。</summary>
         public readonly Vector2 Point;
 
-        /// <summary>从 <see cref="Point"/> 指向受害者的<b>单位</b>方向；两者重合时是 <see cref="Vector2.up"/>。</summary>
+        /// <summary>指向受害者的单位方向，重合时为 up</summary>
         public readonly Vector2 Direction;
 
-        /// <summary>伤害值；<c>0</c> = 纯效果（只击退、不扣血）。</summary>
+        /// <summary>伤害值，0=纯效果不扣血</summary>
         public readonly float Amount;
 
-        /// <summary>击退冲量（速度，单位/秒），<c>0</c> = 不击退（受害方不该凭空推自己一下）。<b>不</b>乘 Δt。</summary>
+        /// <summary>击退冲量，速度(单位/秒)，0=不击退，不乘 Δt</summary>
         public readonly float Impulse;
 
         public readonly DamageSource Source;
@@ -48,7 +47,7 @@ namespace DeepseaOil.Logic.Combat
             Impulse = impulse;
         }
 
-        /// <remarks><b>正中命中时给"上"</b>：落点压在受害者身上时方向向量为零，归一化会产生 <c>NaN</c>（角色会带着非数坐标消失），也不该让站在落点正中的敌人免疫击退。</remarks>
+        /// <remarks>正中命中给"上"，避免方向为零时归一化出 NaN</remarks>
         public static Damage At(
             Vector2 point,
             Vector2 victim,

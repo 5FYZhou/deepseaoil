@@ -2,14 +2,14 @@ using UnityEngine;
 
 namespace DeepseaOil.Foundation
 {
-    /// <summary>全局随机门面：默认用 <see cref="DefaultRng"/>，测试/回放可整体替换实现。</summary>
+    /// <summary>全局随机门面，默认 DefaultRng，可整体替换</summary>
     public static class Rng
     {
         private static IRng _impl = new DefaultRng();
 
         public static IRng Impl => _impl;
 
-        /// <summary>替换实现；传 <c>null</c> 等价于 <see cref="Reset"/>。</summary>
+        /// <summary>替换实现，null 等价 Reset</summary>
         public static void SetImpl(IRng impl)
         {
             _impl = impl ?? new DefaultRng();
@@ -25,20 +25,17 @@ namespace DeepseaOil.Foundation
             _impl = new DefaultRng(seed);
         }
 
-        /// <inheritdoc cref="IRng.Value01"/>
         public static float Value01() => _impl.Value01();
 
-        /// <inheritdoc cref="IRng.InsideUnitCircle"/>
         public static Vector2 InsideUnitCircle() => _impl.InsideUnitCircle();
 
-        /// <inheritdoc cref="IRng.Range(int,int)"/>
         public static int Range(int minInclusive, int maxExclusive) => _impl.Range(minInclusive, maxExclusive);
     }
 
-    /// <summary>默认实现：<c>System.Random</c>（<b>不用</b> <c>UnityEngine.Random</c>：那个是全局状态、与渲染/物理共享，无法替换、无法固定种子复现）。</summary>
+    /// <summary>默认实现，用 System.Random；UnityEngine.Random 是全局状态，无法替换与复现</summary>
     public sealed class DefaultRng : IRng
     {
-        /// <summary>默认种子。固定值 = 每局一致，便于复现。</summary>
+        /// <summary>固定默认种子，每局一致便于复现</summary>
         public const int DefaultSeed = 20261004;
 
         private readonly System.Random _random;
@@ -52,13 +49,11 @@ namespace DeepseaOil.Foundation
             _random = new System.Random(seed);
         }
 
-        /// <inheritdoc />
         public float Value01()
         {
             return (float)_random.NextDouble();
         }
 
-        /// <inheritdoc />
         public Vector2 InsideUnitCircle()
         {
             float radius = Mathf.Sqrt(Value01());
@@ -67,8 +62,7 @@ namespace DeepseaOil.Foundation
             return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
         }
 
-        /// <inheritdoc />
-        /// <remarks><c>min == max</c> 时返回 <c>min</c>（空区间），不抛异常：调用方算出一个空区间是常见情况（比如"在 0 个候选里挑一个"），让它在边界上安静地退化比抛异常便宜。</remarks>
+        /// <summary>min≥max 的空区间返回 min，不抛异常</summary>
         public int Range(int minInclusive, int maxExclusive)
         {
             if (maxExclusive <= minInclusive) return minInclusive;

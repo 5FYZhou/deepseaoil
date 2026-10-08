@@ -2,11 +2,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Movement
 {
-    /// <summary>移动层的门禁：上层（状态效果层 / 战斗层）只能提交请求，只有移动层有写速度的权限（速度只有一个写者）。</summary>
-    /// <remarks>
-    /// 两把锁：<see cref="ForcedVelocity"/> 整条接管本帧速度（<c>0</c> = 硬停）；<see cref="SpeedScale"/> 只缩放（<c>0</c> = 定住，方向仍归移动层），越界夹到 <c>0..1</c>、没带乘数读 <c>1</c>。
-    /// 两者同时提交时强制速度优先；<c>default</c> 是合法空门禁，<see cref="None"/> 即 <c>default</c>。
-    /// </remarks>
+    /// <summary>移动层门禁，上层只提交、写速度只有移动层；ForcedVelocity 整条接管速度（0=硬停），SpeedScale 只缩放（0=定住，方向仍归移动层）夹到0..1缺省1，同时提交强制优先，default=None 空门禁</summary>
     public readonly struct MoveGates
     {
         public readonly bool HasForcedVelocity;

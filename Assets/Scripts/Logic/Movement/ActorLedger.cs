@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic.Movement
 {
-    /// <summary>速度账本 ＋ 角色控制律：<b>一帧的速度累加区、帧末一次写出，以及"怎么逼近目标速度"的全部数学</b>。帧边界与唯一调用方见 <see cref="IActorLedger"/>。</summary>
+    /// <summary>速度账本 ＋ 角色控制律：一帧的速度累加区、帧末一次写出，以及逼近目标速度的全部数学</summary>
     public sealed class ActorLedger : IActorLedger
     {
         private readonly System.Func<Vector2> _readVelocity;
@@ -31,7 +31,7 @@ namespace DeepseaOil.Logic.Movement
 
         public float DeltaTime => _dt;
 
-        /// <remarks>装配期把 <paramref name="config"/> 一次性折算成 <see cref="Motion"/> 快照：<b>事后改 SO 不生效</b>（M19/M20 测试因断言"改 SO 即时生效"被删）。</remarks>
+        /// <remarks>config 折算成 Motion 快照，事后改 SO 不生效</remarks>
         public void Configure(CharacterConfig config)
         {
             Config = config;
@@ -51,10 +51,9 @@ namespace DeepseaOil.Logic.Movement
 
         public Vector2 SubmittedDelta => _delta + _accel * _dt;
 
-        /// <inheritdoc />
         public Vector2 Velocity => _frameStart + SubmittedDelta;
 
-        /// <summary>本帧速度乘数（<c>1</c> = 不缩放）；<b>写口夹取</b>：<c>NaN</c> → <c>1</c>、负数 → <c>0</c>、<c>&gt; 1</c> → <c>1</c>（非数进入速度会让角色带着非数坐标消失，且不报错）。</summary>
+        /// <summary>速度乘数，1=不缩放；写口夹取 NaN→1、负数→0、&gt;1→1</summary>
         public float SpeedScale
         {
             get => _speedScale;
@@ -70,8 +69,7 @@ namespace DeepseaOil.Logic.Movement
             }
         }
 
-        /// <inheritdoc />
-        /// <remarks>时刻与 Δt 都由驱动方给出：同一帧里"状态机算出来的"与"账本乘的"必须是同一个数。</remarks>
+        /// <remarks>时刻与 Δt 由驱动方给出</remarks>
         public void BeginStep(float now, float deltaTime)
         {
             _now = now;
@@ -80,14 +78,13 @@ namespace DeepseaOil.Logic.Movement
             _delta = Vector2.zero;
             _accel = Vector2.zero;
 
-            // 乘数是**一次性**的：上一帧声明的到这一帧开头就失效，门禁必须每帧重新提交；不复位的话"这一帧被推了一下"会变成"从此一直被限速"。
+            // 乘数一次性：上一帧声明的到这一帧开头就失效，门禁必须每帧重新提交，否则"这一帧被推了一下"会变成"从此一直被限速"。
             _speedScale = 1f;
         }
 
-        /// <inheritdoc />
         public void Commit()
         {
-            // 零提交帧不写速度：没有变更就不必覆盖引擎，第二个写者因此不会被清掉。
+            // 零提交帧不写速度，没有变更就不覆盖引擎。
             if (!HasSubmission) return;
 
             _writeVelocity(_frameStart + SubmittedDelta);
@@ -106,7 +103,6 @@ namespace DeepseaOil.Logic.Movement
             facing?.Invoke(velocity);
         }
 
-        /// <inheritdoc />
         public void SetVelocity(Vector2 velocity)
         {
             SetVelocityX(velocity.x);
@@ -114,7 +110,6 @@ namespace DeepseaOil.Logic.Movement
             _delta.y = velocity.y - _frameStart.y;
         }
 
-        /// <inheritdoc />
         public void ClampSpeed(float maxSpeed)
         {
             if (maxSpeed <= 0f) return;
@@ -122,10 +117,9 @@ namespace DeepseaOil.Logic.Movement
             SetVelocity(Vector2.ClampMagnitude(Velocity, maxSpeed));
         }
 
-        /// <inheritdoc />
         public void SetExtraForceScale(float scale) => _extraForceScale = scale;
 
-        /// <summary>提交一帧外力：把 <paramref name="force"/>（单位/秒²）按 Δt 与强度缩放累进账本；零向量表示无外力（当帧成立即返回，不产生提交）。它与 <see cref="SetExtraForceScale"/> <b>没有生产消费者</b>，但测试里有语义钉子，刻意保留（本类不持有任何具体力的语义，重力 / 浮力 / 水流 / 风 / 吸附 / 击退滑行都只是它的取值）。</summary>
+        /// <summary>提交一帧外力，force 单位/秒²，按 Δt 与强度缩放累进账本，零向量表示无外力；没有生产消费者，刻意保留</summary>
         public void ApplyExtraForce(Vector2 force)
         {
             if (force.sqrMagnitude <= 0f || _extraForceScale == 0f) return;
@@ -143,8 +137,8 @@ namespace DeepseaOil.Logic.Movement
             SetVelocity(Vector2.zero);
         }
 
-        /// <summary>移动层的"走"：<b>有惯性按加速度逼近，零惯性当帧直达</b>；方向可未归一化，零向量表示没有期望方向。</summary>
-        /// <remarks>判据是 <see cref="Foundation.MotionParams.MoveAcceleration"/>（<c>≤ 0</c> = 零惯性配置）。<b>速度乘数在这里落地</b>：乘的是目标速度 ⇒ 零惯性角色当帧生效，有惯性角色稳态精确等于"配置速度 × 乘数"。</remarks>
+        /// <summary>移动层的"走"：有惯性按加速度逼近，零惯性当帧直达；方向可未归一化，零向量表示没有期望方向</summary>
+        /// <remarks>判据是 MotionParams.MoveAcceleration（≤0 即零惯性）。速度乘数乘的是目标速度，零惯性当帧生效，有惯性稳态等于配置速度 × 乘数</remarks>
         public void MoveTowards(Vector2 direction, float speed)
         {
             float scaled = speed * _speedScale;
@@ -169,8 +163,8 @@ namespace DeepseaOil.Logic.Movement
             SteerTowards(Vector2.zero, 0f, Motion.MoveAcceleration, Motion.TurnDecayRate);
         }
 
-        /// <summary>二维渐进逼近目标速度；<b>控制律的唯一实现点</b>。方向可未归一化，零向量表示"没有期望方向"。</summary>
-        /// <remarks><b>零方向走指数衰减，且只有这一支</b>（<c>Δ -= 当前速度 × (1 − e^(−衰减率·Δt))</c>）：符号保持、模长单调收缩，不振荡、不反向、不越过零；方向变号时取两支中较快的一支（纯指数衰减永不反向，只看它会把角色停在原地不动）。<b>目标速度与当前速度都为零时不写速度</b>：零提交帧在 <see cref="Commit"/> 里会被跳过，"没有变更就不覆盖引擎"因此仍然成立。</remarks>
+        /// <summary>二维渐进逼近目标速度，控制律的唯一实现点；方向可未归一化，零向量表示没有期望方向</summary>
+        /// <remarks>零方向走指数衰减（Δ -= 当前速度 × (1 − e^(−衰减率·Δt))），符号保持、模长单调收缩；方向变号时取两支中较快的一支。目标速度与当前速度都为零时不写速度</remarks>
         public void SteerTowards(Vector2 direction, float targetSpeed, float acceleration, float decayPerSecond)
         {
             Vector2 current = Velocity;

@@ -3,9 +3,6 @@ using DeepseaOil.Foundation;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>
-    /// 公共Mono模块管理器
-    /// </summary>
     public class MonoMgr : Singleton<MonoMgr>
     {
         private event UnityAction updateEvent;

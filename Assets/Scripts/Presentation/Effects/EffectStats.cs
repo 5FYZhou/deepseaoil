@@ -1,7 +1,6 @@
 namespace DeepseaOil.Presentation.Effects
 {
-    /// <summary><c>EffectModule</c> 的只读调试快照。拉模型：由调试面板 / 观测代码主动拉取，不走 EventBus。</summary>
-    /// <remarks>未 Init 时所有字段为 0，不抛异常。</remarks>
+    /// <summary>只读调试快照，拉模型（不走 EventBus）；未 Init 时字段全 0 不抛</summary>
     public readonly struct EffectStats
     {
         public readonly int ActiveInstances;

@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>玩家专属参数。移动的共用部分在 <see cref="CharacterConfig"/>。</summary>
-    /// <remarks>读取口只有 <c>ConfigModule.GetPlayer().Config</c>（资产 <c>Assets/Resources/config/PlayerConfig.asset</c>，由 <c>ConfigModule.BindAssets</c> 读一次），不再由 <c>PlayerController</c> 拖 Inspector。</remarks>
+    /// <summary>玩家专属参数，共用部分在 CharacterConfig</summary>
+    /// <remarks>唯一读取口 ConfigModule.GetPlayer().Config，由 BindAssets 读一次</remarks>
     [CreateAssetMenu(fileName = "PlayerConfig", menuName = "DeepseaOil/Settings/Player")]
     public class PlayerConfig : CharacterConfig
     {

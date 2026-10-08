@@ -1,10 +1,6 @@
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// Data 层可观测性表面。**拉模型**：不推送事件，不走 EventBus；调用时机：DebugOverlay 每 N 帧拉一次。
-    /// 只读、不修改任何 Module 状态、不持有资源引用；不分配（struct + 无 List），每帧调用开销可忽略。
-    /// 允许在未 Init 时调用：返回零值快照，不报错。
-    /// </summary>
+    /// <summary>Data 层可观测性表面；拉模型，不走 EventBus；只读、不持资源引用、不分配；未 Init 时返回零值快照，不报错</summary>
     public static class DataMetrics
     {
         public static DataSnapshot GetSnapshot()

@@ -2,15 +2,9 @@ using DeepseaOil.Foundation;
 
 namespace DeepseaOil.Logic.Movement.States
 {
-    /// <summary>
-    /// 移动：按输入方向朝配置速度推进。有没有惯性由角色的加速度配置决定。
-    /// </summary>
-    /// <remarks>
-    /// <c>MoveTowards</c>：加速度填 0 ⇒ 当帧直达（俯视角零惯性）；填正数 ⇒ 按加速度逼近、反向时走转向衰减。
-    /// </remarks>
+    /// <summary>按输入方向朝配置速度推进；MoveTowards 加速度 0 ⇒ 当帧直达，正数 ⇒ 逼近，反向走转向衰减</summary>
     public sealed class MoveState : StateBase<MovementStateTag, LogicContext>
     {
-        /// <summary>宿主（移动层账本）。</summary>
         public MoveState(IStateHost host) : base(host)
         {
         }
