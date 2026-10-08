@@ -1,4 +1,4 @@
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Presentation.UI;
@@ -43,6 +43,7 @@ namespace DeepseaOil.Presentation
 
                     // 收起战斗 HUD：它是局内读数，留在菜单上会盖住开始面板。
                     _ui.HidePanel<HudPanel>();
+                    _ui.HidePanel<GamePlayPanel>();
 
                     // 请求暂停：PlayerController 监听该事件，并在暂停时关掉输入。
                     EventBus<RequestPause>.Publish(new RequestPause());
@@ -57,6 +58,7 @@ namespace DeepseaOil.Presentation
                         _ui.HidePanel<PausePanel>();
 
                     _ui.ShowPanel<HudPanel>();
+                    _ui.ShowPanel<GamePlayPanel>();
                     break;
 
                 case GameState.Paused:
