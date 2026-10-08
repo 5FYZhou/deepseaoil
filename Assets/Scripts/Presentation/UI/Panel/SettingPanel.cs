@@ -1,3 +1,4 @@
+﻿using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using System.Collections;
 using System.Collections.Generic;
@@ -38,6 +39,10 @@ namespace DeepseaOil.Presentation.UI
             {
                 case "BtnClose":
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
+                    break;
+                case "BtnReturnMenu":
+                    // 切换到开始场景
+                    GameRoot.Instance.Game.ChangeState(GameState.Menu);
                     break;
             }
         }
