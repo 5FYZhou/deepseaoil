@@ -168,9 +168,18 @@ namespace DeepseaOil.Presentation.Diagnostics
 
             int cells = adapter.RegisterCells(_grid);
 
-            _grid.LoadInitialStates(ConfigModule.GetTileInitials());
+            // 与 CombatRoot 同一口径：初始地块优先读场景里的 InitialSetup 笔刷层，没刷才退回表驱动。
+            // 本切片没有 CombatRoot（这是它唯一的驱动器），少了这一行 InitialSetup 上刷的东西在这张场景里永远不会生效。
+            int initialStates = adapter.LoadInitialSetupTiles(_grid);
 
-            Debug.Log($"[Harness] 本地装配最小运行时：登记地板 {cells} 格，反应规则 {ConfigModule.GetElementRules().Count} 条。");
+            if (initialStates == 0)
+            {
+                initialStates = _grid.LoadInitialStates(ConfigModule.GetTileInitials());
+            }
+
+            Debug.Log(
+                $"[Harness] 本地装配最小运行时：登记地板 {cells} 格，初始状态 {initialStates} 个，" +
+                $"反应规则 {ConfigModule.GetElementRules().Count} 条。");
         }
 
         /// <summary>状态工厂：给 ID 造新实例，null=该 ID 没有实现（与 CombatRoot 用同一套表驱动实现）</summary>

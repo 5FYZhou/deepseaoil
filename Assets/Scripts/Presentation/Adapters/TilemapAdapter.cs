@@ -32,12 +32,19 @@ namespace DeepseaOil.Presentation.Adapters
         [Tooltip("状态 → 贴图（特例覆盖）。命中即用；未配的状态按 tiles/Tile_<状态> 的约定懒加载。")]
         [SerializeField] private StateTileBinding[] stateTiles = new StateTileBinding[0];
 
+        [Tooltip("初始地块编辑层（可选）：用笔刷在此绘制开局特殊地块。读取后自动隐藏")]
+        [SerializeField] private Tilemap initialSetupTilemap = default;
+
         /// <remarks>只记第一次覆盖，否则第二次覆盖会把"泥浆"当原值，这一格永远回不到原样且不报错。前提：效果层只有 Show/Restore 两个写者，别处改动会被还原盖掉；effectTilemap 被换掉时旧记录会贴到新层上。原值取自 effectTilemap，拿地板图还原会抹掉效果层装饰。</remarks>
         private readonly Dictionary<Vector3Int, TileBase> _previousTiles = new();
 
         /// <summary>懒加载到的状态贴图，状态 → 贴图</summary>
         /// <remarks>存在的理由：TileFor 在"格子状态变了"的热路径上（战斗里成片变泥），每次寻址都会走一遍资源系统。这里只缓存**取到过**的贴图：未配置的状态在 stateTiles 里已有特例覆盖，不进这张表，字典保持很小。</remarks>
         private readonly Dictionary<TileStateType, TileBase> _runtimeTileCache = new();
+
+        /// <summary>InitialSetup 层首次载入的结果，-1 = 还没载入</summary>
+        /// <remarks>读完那层会被 SetActive(false)，再扫一遍既拿不到数据（Tilemap 不保证对非激活对象可见）也会让调用方以为"这次读到 0"。</remarks>
+        private int _initialSetupLoaded = -1;
 
         public bool IsWired => groundTilemap != null;
 
@@ -103,6 +110,96 @@ namespace DeepseaOil.Presentation.Adapters
             return count;
         }
 
+        /// <summary>把 InitialSetup 编辑层上刷出来的地块读进逻辑层（含开局状态），读完当场关掉该层，返回真正切了状态的格数</summary>
+        /// <remarks>
+        /// 关卡设计的入口：策划在编辑器里用笔刷画"开局就有的火池／冰面／植物"，不再手填 tile_initial.xlsx。
+        /// 调用时机必须在 Attach() 之后：那批初始泥浆靠 TileStateChanged 事件画到效果层上，订阅晚一步就只能看见逻辑没有贴图。
+        /// 本层只在编辑器里有意义，运行时 SetActive(false) 掉，省掉一次多余的 Tilemap 渲染。
+        /// 读一次就够：第二次调用直接返回首次结果，不重扫也不重复报日志（同一场景里可能有两个驱动器各调一次）。
+        /// 返回 0 有两种含义：这层没接线／没刷东西（调用方据此退回表驱动），或刷的恰好全是 Normal。
+        /// </remarks>
+        public int LoadInitialSetupTiles(GridLogic grid)
+        {
+            if (initialSetupTilemap == null || grid == null) return 0;
+
+            if (_initialSetupLoaded >= 0) return _initialSetupLoaded;
+
+            int count = 0;
+
+            BoundsInt bounds = initialSetupTilemap.cellBounds;
+
+            foreach (Vector3Int cell in bounds.allPositionsWithin)
+            {
+                TileBase tile = initialSetupTilemap.GetTile(cell);
+
+                if (tile == null) continue;
+
+                if (!grid.HasCell(cell))
+                {
+                    Debug.LogWarning(
+                        $"[Grid] InitialSetup 层在格 {cell} 刷了地块，但这一格没有地板（不在地板层上）：已忽略。" +
+                        "两张 Tilemap 必须挂在同一个 Grid 下，否则坐标对不上。", this);
+
+                    continue;
+                }
+
+                TileStateType state = ResolveSetupState(tile);
+
+                grid.RegisterCell(cell, state);
+
+                if (state == TileStateType.Normal) continue;
+
+                if (grid.SwitchState(cell, state, applyEnterImpact: false)) count++;
+            }
+
+            _initialSetupLoaded = count;
+
+            // 读完立刻关层：初始地块只是编辑期的输入，留着会白吃一次 Tilemap 渲染
+            initialSetupTilemap.gameObject.SetActive(false);
+
+            Debug.Log($"[Grid] 从 InitialSetup 层成功载入 {count} 个初始特殊地块。");
+
+            return count;
+        }
+
+        /// <summary>InitialSetup 层的贴图 → 状态：先查 stateTiles 特例覆盖，未命中再按 Tile_&lt;状态&gt; 资产名兜底</summary>
+        /// <remarks>
+        /// 通道②是两条：先剥 <c>Tile_</c> 前缀再解析，失败后拿资产全名再解析一次。
+        /// 两条都要，且顺序不能换 —— Unity 里 <c>Object.name</c> 是资产内部的 m_Name（本工程的 <c>tiles/Tile_Mud.asset</c> 名字就是 <c>Mud</c>，文件名前缀不算），
+        /// 所以"文件名带 Tile_ 前缀"这套约定对现有美术件并不成立；只留剥离一条，笔刷刷上去的泥浆会静默落回 Normal（实测过）。
+        /// 反过来，资产全名等于 <c>Tile_Mud</c> 时第一条命中，第二条根本不会跑，故对按约定命名的贴图毫无影响。
+        /// 解析不出来时不能静默当 Normal：那格会静默地什么都没发生，而策划只会看见"我刷了但没生效"。
+        /// </remarks>
+        private TileStateType ResolveSetupState(TileBase tile)
+        {
+            if (stateTiles != null)
+            {
+                for (int i = 0; i < stateTiles.Length; i++)
+                {
+                    if (stateTiles[i].Tile != tile) continue;
+
+                    return stateTiles[i].State;
+                }
+            }
+
+            const string prefix = "Tile_";
+
+            string name = tile.name;
+
+            if (name.StartsWith(prefix, StringComparison.Ordinal) && Enum.TryParse(name.Substring(prefix.Length), out TileStateType stripped))
+            {
+                return stripped;
+            }
+
+            if (Enum.TryParse(name, out TileStateType exact)) return exact;
+
+            Debug.LogWarning(
+                $"[Grid] InitialSetup 层的贴图「{name}」按名字解析不出地块状态：该格只当普通地板处理。" +
+                "要么把资产名改成状态的枚举名（如 Mud / BasicFire），要么在 stateTiles 里给它配一行。", this);
+
+            return TileStateType.Normal;
+        }
+
         private void Awake()
         {
             // 接线自检：这三条错误的共同点是不报错也能跑
@@ -122,6 +219,14 @@ namespace DeepseaOil.Presentation.Adapters
                 Debug.LogError(
                     "[Grid] TilemapAdapter 的 groundTilemap 与 effectTilemap 指向了同一层：状态结束时会把地板一起擦掉" +
                     "（表现为地上出现一块空洞）。请用两层不同的 Tilemap。", this);
+            }
+
+            // InitialSetup 读完会被 SetActive(false)：指错层等于开局把地板或效果层关掉，而且现象离病因很远
+            if (initialSetupTilemap != null && (initialSetupTilemap == groundTilemap || initialSetupTilemap == effectTilemap))
+            {
+                Debug.LogError(
+                    "[Grid] TilemapAdapter 的 initialSetupTilemap 与地板层／效果层指向了同一层：" +
+                    "初始地块读完会把这个物体整个 SetActive(false)，地板或效果会一起消失。请单独建一个 InitialSetup 层。", this);
             }
 
             ValidateStateTiles();
