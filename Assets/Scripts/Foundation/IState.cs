@@ -2,25 +2,22 @@ using UnityEngine;
 
 namespace DeepseaOil.Foundation
 {
-    /// <summary>状态机能看见的宿主：运动标量 ＋ 几个"提交速度"的入口。</summary>
-    // 窄口是为了不反向依赖逻辑层的账本 ActorLogic；取数口是 Motion 的六个标量，非法值兜底见 MotionParams。
+    /// <summary>状态机能看见的宿主</summary>
+    // 窄口：不反向依赖逻辑层 ActorLogic；取数口为 Motion 六标量
     public interface IStateHost
     {
-        /// <summary>状态机能看见的运动标量（装配期由执行器折算一次）。</summary>
         MotionParams Motion { get; }
 
-        /// <summary>移动层的"走"：有惯性按加速度逼近，零惯性当帧直达。</summary>
+        /// <summary>有惯性按加速度逼近，零惯性当帧直达</summary>
         void MoveTowards(Vector2 direction, float speed);
 
-        /// <summary>移动层的"停"：有惯性滑停，零惯性当帧停。</summary>
+        /// <summary>有惯性滑停，零惯性当帧停</summary>
         void BrakeTowards();
 
-        /// <summary>直接接管两个分量的速度（冲刺这类"一次性"写法）。</summary>
         void SnapVelocity(Vector2 velocity);
     }
 
-    // 状态接口：标签 ＋ 四个钩子（进 / 出 / 每帧 / 是否结束）。
-    // 上下文是泛型参数，骨架不认识任何具体领域；参数按值传，实现方不用写修饰符。
+    // 状态接口：标签＋四个钩子（进/出/每帧/是否结束）
     public interface IState<TStateTag, TContext>
     {
         TStateTag StateTag { get; }
@@ -31,7 +28,7 @@ namespace DeepseaOil.Foundation
 
         void Tick(TContext ctx);
 
-        /// <summary>状态是否已结束（结束即让位给状态组仲裁出的下一状态）。</summary>
+        /// <summary>结束即让位给仲裁的下一状态</summary>
         bool IsDone(TContext ctx);
     }
 

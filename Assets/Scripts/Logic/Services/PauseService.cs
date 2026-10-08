@@ -32,7 +32,7 @@ namespace DeepseaOil.Logic.Service {
             EventBus<RequestResume>.Subscribe(OnRequestResume);
         }
 
-        /// <remarks>暂停时长只在暂停期间累加，用的是 <b>unscaled</b> 那个 —— 暂停时 <c>timeScale = 0</c>，缩放后的 dt 恒为 0，拿它累加等于永远读 0。</remarks>
+        /// <remarks>用 unscaled 累加：暂停时 dt 已缩放到 0</remarks>
         public void Tick(float deltaTime, float unscaledDeltaTime)
         {
             if (isPaused)

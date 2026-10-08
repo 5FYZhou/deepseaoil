@@ -11,8 +11,8 @@
 //   `ActorLedger`（Logic 层）。本探针把它接到一个纯 C# 的速度字段上，于是
 //   **测试里验的账本与线上跑的是同一份代码**，而 EditMode 不需要造 Rigidbody2D。
 //
-// 【本目录的硬约束】Assets/Tests/Runtime/Editor/ 的末级 `Editor` 不能改名：
-//   只有落 `Assembly-CSharp-Editor` 才看得见 Assembly-CSharp（被测代码）。
+// 【本目录的硬约束】Assets/Tests/Runtime/Editor/ 的末级 `Editor` 保留为目录约定；
+//   真正决定平台的是 DeepseaOil.Tests.EditMode.asmdef 的 includePlatforms: [Editor]。
 // ---------------------------------------------------------------------------
 
 using DeepseaOil.Data;

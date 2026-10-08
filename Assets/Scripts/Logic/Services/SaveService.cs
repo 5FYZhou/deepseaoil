@@ -21,7 +21,7 @@ namespace DeepseaOil.Logic.Service
         {
         }
 
-        /// <remarks>本轮是壳：存档系统的实做留给"存档重构"那一轮（§12 定案）。</remarks>
+        /// <remarks>本轮未实现</remarks>
         public void Tick(float deltaTime, float unscaledDeltaTime)
         {
         }

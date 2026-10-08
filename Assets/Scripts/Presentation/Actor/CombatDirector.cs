@@ -7,9 +7,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Actor
 {
-    /// <summary>战斗调度：按波次生成敌人、逐只驱动、清场。<b>它是敌人的组合根（造 ＋ 持 ＋ 驱）</b>。</summary>
-    /// <remarks>世界信息（玩家引用、波次数值、格子门面、归属表）全部经 <see cref="Initialize"/> 注入，本类不自己去找世界；计时与分支交给 <see cref="WaveLogic"/>（纯逻辑、可喂 dt 复现）。
-    /// <b>不自己挂 <c>FixedUpdate</c></b>：由组合根在每个物理帧调 <see cref="FixedTick"/>，自驱会让帧内顺序不可预测。<b>它是存活数与波次的唯一权威</b>：HUD 读的 <c>WaveChanged</c> 由这里发布。</remarks>
+    /// <summary>战斗调度：按波次生成敌人、逐只驱动、清场</summary>
+    /// <remarks>敌人组合根；世界信息全经 Initialize 注入，计时与分支交给 WaveLogic。不挂 FixedUpdate，由组合根每物理帧调 FixedTick。存活数与波次唯一权威：HUD 读的 WaveChanged 由此发布。</remarks>
     public sealed class CombatDirector : MonoBehaviour
     {
         private WaveLogic _logic;
@@ -27,14 +26,12 @@ namespace DeepseaOil.Presentation.Actor
 
         public int AliveCount { get; private set; }
 
-        /// <summary>列表里<b>第一只存活敌人</b>离玩家多远；没有敌人时 <c>-1</c>（取列表中第一只存活的，<b>不比较距离</b>）。</summary>
+        /// <summary>列表里第一只存活敌人离玩家多远；无敌人时 -1</summary>
         public float FirstAliveEnemyDistance { get; private set; } = -1f;
 
-        /// <summary>列表里第一只存活敌人的引擎速度（单位/秒）；与 <see cref="FirstAliveEnemyDistance"/> 一起看才能分开两种"不动"（速度非零 = 撞墙 / 被顶住）。</summary>
         public Vector2 FirstAliveEnemyVelocity { get; private set; }
 
-        /// <summary>组装调度器。</summary>
-        /// <param name="player">玩家组合根；为 <c>null</c>（或它的逻辑层没装配好）时本组件停用。</param>
+        /// <summary>组装调度器</summary>
         public void Initialize(
             PlayerController player,
             in WaveSpec waveSpec,
@@ -60,7 +57,7 @@ namespace DeepseaOil.Presentation.Actor
             PublishIfChanged();
         }
 
-        /// <summary>清空全场敌人并停掉当前波次（玩家被打空时调用：不清的话玩家一复活就会被原地的敌人立刻再打一次）。</summary>
+        /// <summary>清空全场敌人并停当前波次：不清则玩家复活立刻被原地敌人再打一次</summary>
         public void ClearAll()
         {
             for (int i = 0; i < _enemies.Count; i++)
@@ -70,7 +67,6 @@ namespace DeepseaOil.Presentation.Actor
 
             _enemies.Clear();
 
-            // _logic 可能为 null：player 未接线时 Initialize 会提前返回（那时也不会有敌人）
             _logic?.Reset();
 
             AliveCount = 0;
@@ -79,12 +75,12 @@ namespace DeepseaOil.Presentation.Actor
 
             PublishIfChanged();
 
-            // 不静默：白模的"敌人全没了"必须能追溯到一次清场，而不是"刷怪坏了"。
+            // 不静默：敌人全没了必须能追溯到一次清场。
             Debug.Log("[Combat] 敌人清场，等待下一波");
         }
 
-        /// <summary>推进一个物理帧：驱动敌人 → 刷读数 → 跑波次。</summary>
-        /// <remarks>暂停时 <c>timeScale</c> 为 0、<c>deltaTime</c> 也是 0，计时与移动自然冻住；组合根仍然会挡一层：恢复那一帧不该补上一大段"暂停期间欠下的"生成量。</remarks>
+        /// <summary>推进一个物理帧：驱动敌人→刷读数→跑波次</summary>
+        /// <remarks>暂停时 timeScale 与 deltaTime 均 0；恢复那帧不补暂停期间欠的生成量</remarks>
         public void FixedTick(float now, float deltaTime)
         {
             if (_logic == null || _player == null) return;
@@ -135,7 +131,7 @@ namespace DeepseaOil.Presentation.Actor
 
         private void ClearDestroyed()
         {
-            // 倒序删：正序删除会跳过紧挨着的下一个元素，而那种漏删不报错、只表现为"列表越来越长"。
+            // 倒序删：正序会跳过紧挨的下一个元素，漏删不报错、表现为列表变长。
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
                 if (_enemies[i] == null) _enemies.RemoveAt(i);
@@ -150,7 +146,6 @@ namespace DeepseaOil.Presentation.Actor
             {
                 EnemyActor enemy = _enemies[i];
 
-                // 已销毁的对象在列表里还是非空引用，Unity 的 null 判定会挡住它们。
                 if (enemy != null && enemy.IsAlive) alive++;
             }
 
@@ -175,7 +170,7 @@ namespace DeepseaOil.Presentation.Actor
             }
         }
 
-        /// <summary>只在"波次或存活数真的变了"时发布，避免每物理帧刷一条事件。</summary>
+        /// <summary>只在波次或存活数真的变了时发布，免每帧刷事件</summary>
         private void PublishIfChanged()
         {
             int wave = _logic != null ? _logic.WaveIndex : 0;

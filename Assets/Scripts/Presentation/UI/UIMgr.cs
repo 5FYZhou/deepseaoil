@@ -15,8 +15,8 @@ namespace DeepseaOil.Presentation.UI
         System,
     }
 
-    /// <summary>管理所有 UI 面板。<b>普通类，由 <c>GameRoot</c> 持有</b>（普通类不是 <c>MonoBehaviour</c>，面板异步加载要靠 <c>MonoMgr</c> 这个协程宿主）。</summary>
-    /// <remarks><b>面板预设体名必须和面板类名一致。</b>构造是空的、三件套的创建在 <see cref="Init"/>：<c>GameRoot</c> 是唯一调用点，于是"谁造 UI、什么时候造"有唯一答案。</remarks>
+    /// <summary>管理所有 UI 面板，普通类由 GameRoot 持有，异步加载靠 MonoMgr 这个协程宿主</summary>
+    /// <remarks>面板预设体名必须与类名一致。三件套的创建在 Init，唯一调用点是 GameRoot。</remarks>
     public class UIMgr : IUIOperation
     {
         private abstract class BasePanelInfo
@@ -55,10 +55,10 @@ namespace DeepseaOil.Presentation.UI
         private Canvas uiCanvas;
         private EventSystem uiEventSystem;
 
-        /// <summary>装配是否完成（未完成时所有面板操作是 no-op）。</summary>
+        /// <summary>装配是否完成</summary>
         public bool IsReady { get; private set; }
 
-        /// <summary>是否已就"场景里多出来一份 EventSystem"报过一次（那是接线错误、不是每帧状态；少了这个开关它自己会变成新的刷屏源）。</summary>
+        /// <summary>重复 EventSystem 是否已报过一次（防刷屏）</summary>
         private bool _warnedDuplicateEventSystem;
 
         private Transform bottomLayer;
@@ -66,7 +66,7 @@ namespace DeepseaOil.Presentation.UI
         private Transform topLayer;
         private Transform systemLayer;
 
-        // 资源 Key：用「Resources 相对路径、不带扩展名」写法（表里存的是「相对 Assets/ 带扩展名」，那是配置表的口径；AssetRegistry.ResolvePath 对两种形式都容忍）。
+        // 资源 Key：Resources 相对路径、不带扩展名；ResolvePath 两种形式都容忍
         private const string UI_CAMERA_KEY    = "ui/UICamera";
         private const string UI_CANVAS_KEY    = "ui/Canvas";
         private const string UI_EVENT_SYS_KEY = "ui/EventSystem";
@@ -86,7 +86,7 @@ namespace DeepseaOil.Presentation.UI
         {
         }
 
-        /// <summary>装配 UI 三件套（摄像机 / 画布 / 事件系统）。<b>唯一调用点是 <c>GameRoot.Assemble</c>。</b></summary>
+        /// <summary>装配 UI 三件套，唯一调用点是 GameRoot.Assemble</summary>
         public void Init()
         {
             if (IsReady)
@@ -115,15 +115,14 @@ namespace DeepseaOil.Presentation.UI
             IsReady = true;
         }
 
-        /// <summary>拆除：销毁三件套（它们带走了全部面板实例）并把资源引用计数还给 <c>AssetModule</c>。</summary>
-        /// <remarks><b>必须早于 <c>AssetModule.Dispose</c></b>（<c>Release</c> 要经它）；必须幂等。</remarks>
+        /// <summary>拆除三件套并归还资源引用计数</summary>
+        /// <remarks>必须早于 AssetModule.Dispose，且必须幂等。</remarks>
         public void Dispose()
         {
             if (!IsReady) return;
 
             IsReady = false;
 
-            // 面板是 Canvas 的子物体：销毁 Canvas 会带走它们。这里只负责把引用计数还掉。
             foreach (KeyValuePair<string, BasePanelInfo> kv in panelDic)
             {
                 AssetModule.Release(UI_PANEL_PREFIX + kv.Key);
@@ -153,18 +152,15 @@ namespace DeepseaOil.Presentation.UI
             systemLayer = null;
         }
 
-        /// <summary>停用场景里多出来的 EventSystem（UIMgr 自己那份除外），并就"该去清理场景"报一次错。</summary>
-        /// <remarks>Unity 在用户"在场景里新建 UI 文本 / 按钮"时会自动补一个 EventSystem，而两份同时在场上时它会每帧打一条「There are 2 event systems in the scene.」。
-        /// <b>停用而不是销毁</b>：场景里那份是用户的资产，运行时替用户删物体既越权又无法持久化；停用足以让它走 <c>OnDisable</c> 从 <c>EventSystem.m_EventSystems</c> 里摘掉。
-        /// <b>用 includeInactive 的重载</b>：失活的那份同样要处理 —— 它什么时候被谁激活，警告就什么时候回来。</remarks>
+        /// <summary>停用场景里多余的 EventSystem 并就该去清理场景报一次错</summary>
+        /// <remarks>停用而非销毁：场景那份是用户资产，停用足以让它走 OnDisable 摘掉注册。必须用 includeInactive 重载，失活的那份被激活时警告会回来。</remarks>
         private void DisableSceneEventSystems()
         {
-            //本方法在实例化 ui/EventSystem **之前**调用，此刻场上查得到的 EventSystem 都不是 UIMgr 自己那份。
+            //调用点在实例化 ui/EventSystem 之前
             EventSystem[] sceneEventSystems = UnityEngine.Object.FindObjectsOfType<EventSystem>(true);
 
             foreach (EventSystem sceneEventSystem in sceneEventSystems)
             {
-                //绝不自碰：不依赖调用点在装配序里的位置
                 if (sceneEventSystem == uiEventSystem)
                     continue;
 
@@ -203,7 +199,7 @@ namespace DeepseaOil.Presentation.UI
             }
         }
 
-        /// <summary>显示面板（可能在异步加载中，故用回调交付）；<paramref name="isSync"/> ⚠️ 默认 <c>true</c>，但方法体<b>从不读它</b>。</summary>
+        /// <summary>显示面板；isSync 方法体从不读</summary>
         public void ShowPanel<T>(UnityAction<T> callBack = null, bool isSync = true) where T : BasePanel
         {
             string panelName = typeof(T).Name;
@@ -230,16 +226,13 @@ namespace DeepseaOil.Presentation.UI
                 return;
             }
 
-            //先占位，之后再次显示才能从字典里拿到状态
             panelDic.Add(panelName, new PanelInfo<T>(this, callBack));
 
-            //MonoMgr 是全工程唯一的协程宿主（UIMgr 不是 MonoBehaviour）
+            //MonoMgr 是全工程唯一的协程宿主，UIMgr 不是 MonoBehaviour
             MonoMgr.Instance.StartCoroutine(CoLoadPanel<T>(panelName));
         }
 
-        /// <summary>异步加载面板并挂到指定层。</summary>
-        /// <remarks>轮询而不是 <c>await</c>：句柄在 <c>AssetModule.Tick</c> 的分发循环内部完成，<c>await</c> 的续体会内联在那里执行，等于在调度器的分发循环里再进一次 UIMgr。
-        /// 轮询把挂载推迟到下一帧（代价 1 帧），换掉那个重入风险。</remarks>
+        /// <remarks>轮询而非 await：await 续体会在 AssetModule.Tick 分发循环里重入 UIMgr</remarks>
         private System.Collections.IEnumerator CoLoadPanel<T>(string panelName) where T : BasePanel
         {
             string key = UI_PANEL_PREFIX + panelName;
@@ -248,7 +241,6 @@ namespace DeepseaOil.Presentation.UI
             while (!handle.IsDone)
                 yield return null;
 
-            //期间可能被 HidePanel 摘掉了占位
             if (!panelDic.TryGetValue(panelName, out var raw) || !(raw is PanelInfo<T> panelInfo))
             {
                 AssetModule.Release(key);
@@ -265,7 +257,7 @@ namespace DeepseaOil.Presentation.UI
             var prefab = handle.Asset;
             if (prefab == null)
             {
-                //降级资源也可能为 null：不实例化，摘掉占位以免永久占坑
+                //降级资源也可能为 null，摘掉占位以免永久占坑
                 Debug.LogError($"[UI] 面板加载失败，已放弃显示：{panelName}");
                 panelDic.Remove(panelName);
                 yield break;
@@ -274,7 +266,6 @@ namespace DeepseaOil.Presentation.UI
             GameObject panelObj = GameObject.Instantiate(prefab, middleLayer, false);
 
             T panel = panelObj.GetComponent<T>();
-            //层级兜底：面板没按规则给层级时落到 middleLayer
             Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);
@@ -300,14 +291,14 @@ namespace DeepseaOil.Presentation.UI
                 else
                 {
                     if (panelInfo.isHide)
-                        return;                       // 已经在隐藏流程中，重入直接短路
+                        return;
 
                     panelInfo.isHide = true;
                     if (isDestory)
                     {
                         GameObject.Destroy(panelInfo.panel.gameObject);
                         panelDic.Remove(panelName);
-                        //与 ShowPanel 的 LoadAsync 成对：引用计数归零 → 进冷却期，不立即卸载
+                        //与 ShowPanel 的 LoadAsync 成对；引用计数归零进冷却期，不立即卸载
                         AssetModule.Release(UI_PANEL_PREFIX + panelName);
                     }
                     else
@@ -317,7 +308,6 @@ namespace DeepseaOil.Presentation.UI
             }
         }
 
-        /// <summary>获取面板（加载中就挂回调，加载完且未隐藏才立刻回调）。</summary>
         public void GetPanel<T>(UnityAction<T> callBack) where T : BasePanel
         {
             string panelName = typeof(T).Name;
@@ -340,7 +330,6 @@ namespace DeepseaOil.Presentation.UI
         }
 
 
-        /// <summary>为控件添加自定义事件（控件上只挂一个 <c>EventTrigger</c>）。</summary>
         public static void AddCustomEventListener(UIBehaviour control, EventTriggerType type, UnityAction<BaseEventData> callBack)
         {
             EventTrigger trigger = control.GetComponent<EventTrigger>();
@@ -355,7 +344,6 @@ namespace DeepseaOil.Presentation.UI
         }
 
 
-        /// <summary>尝试关闭可被 Esc 关闭的、最上层的面板；顺带懒更新 openPanels（移除已 Hide 的）。</summary>
         public bool TryCloseTopmostPanel()
         {
             E_UILayer[] layers = {E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom};

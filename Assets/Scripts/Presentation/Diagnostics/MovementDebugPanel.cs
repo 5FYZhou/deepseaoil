@@ -6,18 +6,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Diagnostics
 {
-    /// <summary>
-    /// 移动调试面板：显示当前移动状态、帧首真值与本帧提交量、引擎回读速度与边界接线情况。
-    /// </summary>
-    /// <remarks>
-    /// 状态机首次进入不发事件，故状态一律直接读 <see cref="MoveGroup.Current"/> 补显，
-    /// 订阅 <see cref="MovementStateChanged"/> 只用于显示切换历史。
-    /// "提交后预期"与"引擎速度"不一致即引擎在干预（撞障碍物、外力），属正常；
-    /// 引擎速度是上一物理步结束时的值，滞后一帧。
-    /// "世界边界"一行是接线成败的唯一可见指示——未接线时不钳位且这里显示"未接线"。
-    /// <para><b>账本读数与状态都取自下层件</b>（<c>Logic.Motor</c> / <c>Logic.MoveGroup</c>）：
-    /// <c>PlayerLogic</c> 已按审查裁定退化为组合件，不再为它们开同名转发属性。</para>
-    /// </remarks>
+    /// <summary>移动调试面板，显示移动状态、帧首真值与提交量、引擎回读速度、边界接线</summary>
+    /// <remarks>状态机首次进入不发事件，故直接读 MoveGroup.Current；订阅只用于切换历史。提交后预期与引擎速度不一致即引擎干预（撞障碍、外力），属正常。引擎速度是上一物理步的值，滞后一帧。世界边界一行是接线成败的唯一可见指示</remarks>
     public sealed class MovementDebugPanel : MonoBehaviour
     {
         [SerializeField] private PlayerController controller = default;

@@ -4,10 +4,6 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Input
 {
-    /// <summary>
-    /// UI输入采样器。
-    /// 由 GameRoot 统一驱动采样。
-    /// </summary>
     public sealed class UIInputProvider
     {
         private readonly InputSys _input;

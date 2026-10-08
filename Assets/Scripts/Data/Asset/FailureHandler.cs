@@ -4,10 +4,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>
-    /// 失败处理：降级资源注册 + 失败记录；RegisterFallback 由业务代码启动时调用，其余由 AssetModule 的 onFail 调用。
-    /// 不参与重试（重试在 LoadScheduler.HandleFailure）；不抛异常，只记录；不创建 Unity 资源（降级资源由业务代码注册）。
-    /// </summary>
+    /// <summary>降级资源注册与失败记录</summary>
+    /// <remarks>RegisterFallback 由业务调用，其余经 onFail</remarks>
     internal sealed class FailureHandler
     {
         private const int MAX_RECENT_RECORDS = 32;
@@ -31,9 +29,7 @@ namespace DeepseaOil.Data
             _fallbacks[typeof(T)] = fallback;
         }
 
-        /// <summary>
-        /// 未注册返回 null，调用方需处理 null（例如完全放弃显示）。
-        /// </summary>
+        /// <summary>未注册返回 null</summary>
         public T GetFallback<T>() where T : UnityEngine.Object
         {
             return _fallbacks.TryGetValue(typeof(T), out var fb) ? fb as T : null;

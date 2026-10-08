@@ -26,7 +26,6 @@ namespace DeepseaOil.Logic
     public readonly struct UILogicContext
     {
         public readonly UIInputSnapshot inputSnapshot;
-        // 当前场景
         public readonly GameState gameState; 
 
         public UILogicContext(UIInputSnapshot inputSnapshot, GameState state)

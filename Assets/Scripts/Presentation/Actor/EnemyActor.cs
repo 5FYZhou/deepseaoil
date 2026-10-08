@@ -11,21 +11,17 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Actor
 {
-    /// <summary>一只敌人：建出刚体与视效、推进逻辑层、结算伤害与死亡；它是这只敌人的组合根。</summary>
-    /// <remarks><b>受伤只有一条路</b>：<see cref="TakeDamage"/>；脚底中心每帧登记进 <see cref="EnemyCellRegistry"/>（格子按"人站在哪一格"结算）。
-    /// <b>不自己驱动</b>：由 <c>CombatDirector</c> 统一逐只 <see cref="FixedTick"/>，自驱会让帧内顺序不可预测。
-    /// <para><b>接口上限（§10）：一只敌人实现 6 个窄接口</b> —— <see cref="IDamageable"/> / <see cref="ISlowable"/> / <see cref="IKnockBackable"/> / <see cref="IStunnable"/> / <see cref="IManagedActor"/>，
-    /// 加上经 <see cref="IDamageable"/> 继承得到的 <see cref="IEffectTarget"/> 与 <see cref="IAlivable"/>（生死与位置不再单列 —— 它们是 <see cref="IEffectTarget"/> 的一部分）。
-    /// 新玩法要挂接口时先问"这是不是一种独立的能力"：独立就加，不独立就复用现有接口。</para></remarks>
+    /// <summary>一只敌人：建刚体与视效、推进逻辑层、结算伤害与死亡，是这只敌人的组合根</summary>
+    /// <remarks>受伤只有一条路：TakeDamage。脚底中心每帧登记进 EnemyCellRegistry，格子按"人站在哪一格"结算。不自己驱动：由 CombatDirector 逐只 FixedTick，自驱会让帧内顺序不可预测。挂接口前先问是否一种独立能力。</remarks>
     [DisallowMultipleComponent]
     public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor
     {
         private const float HpTextCharacterSize = 0.13f;
 
-        /// <summary>头顶数字的垂直偏移；<c>0</c> = 压在圆心（锚点用 <c>MiddleCenter</c>）。</summary>
+        /// <summary>头顶数字垂直偏移，0=压在圆心（锚点 MiddleCenter）</summary>
         private const float HpTextOffsetY = 0f;
 
-        /// <summary>内置字体候选名，按"新版 → 旧版"排；旧名在 2022.3 <b>会抛 <c>ArgumentException</c></b> 而不是返回 <c>null</c>，所以逐个 <c>try</c>。</summary>
+        /// <summary>内置字体候选名，新→旧排；旧名在 2022.3 抛 ArgumentException 而非返回 null，故逐个 try</summary>
         private static readonly string[] BuiltinFontNames = { "LegacyRuntime.ttf", "Arial.ttf" };
 
         private EnemySpec _spec;
@@ -40,16 +36,15 @@ namespace DeepseaOil.Presentation.Actor
         private bool _registered;
         private Vector3Int _currentCell;
 
-        /// <summary>本帧实际生效的减速乘数（视效读数）；速度那边由门禁经账本落地。<b>一份数据两个消费者</b>：各写一遍会让颜色与速度在某帧不一致，而两者看起来都"没错"。</summary>
+        /// <summary>本帧生效的减速乘数（视效读数），速度由门禁经账本落地；一份数据两个消费者</summary>
         private float _slowMultiplier = 1f;
 
-        /// <summary>麻痹到期的时刻（<c>Time.time</c> 口径）；<c>0</c> = 没被麻痹过。只记不改移动 —— 见 <see cref="ApplyStun"/>。</summary>
+        /// <summary>麻痹到期时刻（Time.time 口径），0=没被麻痹过；只记不改移动</summary>
         private float _stunnedUntil;
 
         public bool IsAlive => Stats != null && Stats.IsAlive;
 
-        /// <inheritdoc />
-        /// <remarks>取执行器的物理体位置，不取 <c>transform.position</c>（会被位置积分覆盖）：两个位置真值迟早有一帧对不上，且那一帧没有任何报错。</remarks>
+        /// <remarks>取执行器物理体位置而非 transform.position，两者迟早有一帧对不上且不报错</remarks>
         public Vector2 Position => _motor != null ? _motor.Position : (Vector2)transform.position;
 
         public EnemyStats Stats { get; private set; }
@@ -59,9 +54,7 @@ namespace DeepseaOil.Presentation.Actor
         public bool IsHurt => Stats != null && Stats.IsAlive && _logic != null && _logic.IsHurt;
         public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
-        /// <summary>组装一只敌人；依赖全部由参数给出（不留 inspector 字段）。</summary>
-        /// <param name="target">追击目标；<c>null</c> 时敌人随即滑停。</param>
-        /// <param name="registry"><c>null</c> 时不登记（敌人不会被格子结算）。</param>
+        /// <summary>组装一只敌人，依赖全部由参数给出；target=null 则随即滑停，registry=null 则不登记</summary>
         public void Initialize(
             Vector2 position,
             in EnemySpec spec,
@@ -86,7 +79,7 @@ namespace DeepseaOil.Presentation.Actor
 
             _motor = gameObject.AddComponent<EnemyMotor>();
 
-            // 建完刚体立刻固化物理参数：否则到第一次读位置之间的那个物理步会用默认重力跑。
+            // 建完刚体立刻固化物理参数，否则到首次读位置间的物理步用默认重力跑
             _motor.EnsureInitialized();
 
             _logic = new EnemyLogic(_motor, spec);
@@ -97,20 +90,20 @@ namespace DeepseaOil.Presentation.Actor
             UpdateCell(force: true);
         }
 
-        /// <summary>结算一次命中：<b>唯一受伤入口</b>（格子状态转换、近战与陷阱都走这里）。</summary>
+        /// <summary>唯一受伤入口；格子状态转换、近战与陷阱都走这里</summary>
         public void TakeDamage(in Damage damage)
         {
             if (Stats == null || !Stats.IsAlive) return;
 
             if (damage.HasDamage)
             {
-                // 耐久是整数，伤害是配置里的浮点数：四舍五入到整数（见 EnemyStats.ApplyDamage）。
+                // 耐久是整数、伤害是浮点数，四舍五入到整数
                 Stats.ApplyDamage(damage.Amount);
             }
 
             if (damage.HasKnockback && _logic != null)
             {
-                // 只递交：冲量到下一次逻辑帧才由状态效果层变成一次"进入受击"；"被撞多远 / 滑多久"归角色配置（hurtDecay）。
+                // 只递交，下一次逻辑帧才由状态效果层变成"进入受击"；撞多远归 hurtDecay
                 _logic.ApplyKnockback(damage.Impulse, damage.Direction);
             }
 
@@ -123,8 +116,7 @@ namespace DeepseaOil.Presentation.Actor
             UpdateHpText();
         }
 
-        /// <summary>推进一个物理帧：算减速、刷视效、上报所在格，然后驱动逻辑层。</summary>
-        /// <remarks>由 <c>CombatDirector</c> 调用，<b>不</b>用 <c>Update</c>：速度必须一个物理帧只提交一次。视效同频刷新 —— 颜色与逻辑层用同一份减速系数，分两个频率会有一帧不同步。</remarks>
+        /// <remarks>由 CombatDirector 调用而非 Update：速度一个物理帧只提交一次，视效同频刷新以免一帧不同步。</remarks>
         public void FixedTick(float now, float deltaTime)
         {
             if (!Stats.IsAlive) return;
@@ -139,14 +131,12 @@ namespace DeepseaOil.Presentation.Actor
             UpdateSortingOrder();
         }
 
-        /// <inheritdoc />
         public void ApplySlow(float speedScale, float seconds)
         {
             _logic?.Status.ApplySlow(speedScale, seconds);
         }
 
-        /// <inheritdoc />
-        /// <remarks>冲量拆成"大小 ＋ 方向"再递交：逻辑层的入口收的是 <c>(impulse, direction)</c>，方向为零会被那里当成"没方向"丢掉（此处不自己归一化，免得零向量变出非数）。</remarks>
+        /// <remarks>冲量拆成大小+方向再递交，零向量会被逻辑层当成没方向丢掉</remarks>
         public void ApplyKnockback(Vector2 impulse)
         {
             if (_logic == null) return;
@@ -158,11 +148,7 @@ namespace DeepseaOil.Presentation.Actor
             _logic.ApplyKnockback(magnitude, impulse / magnitude);
         }
 
-        /// <inheritdoc />
-        /// <remarks>
-        /// <b>本轮只记时长，不改移动</b>：麻痹要真的生效得挡住输入，而"持续到某时刻"的解除按 D12 该由计时器排程 ——
-        /// Actor 侧拿计时器的那条装配线还没拉（见报告的待决问题）。在那之前，本方法保证"格子提了、目标收下了"，不静默丢弃。
-        /// </remarks>
+        /// <remarks>本轮只记时长不改移动：麻痹要生效得挡住输入，Actor 侧的计时器装配线还没拉；保证不静默丢弃。</remarks>
         public void ApplyStun(float seconds)
         {
             if (seconds <= 0f) return;
@@ -170,7 +156,7 @@ namespace DeepseaOil.Presentation.Actor
             _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + seconds);
         }
 
-        /// <summary>麻痹是否还在生效（只读读数；暂无消费者）。</summary>
+        /// <summary>麻痹是否还在生效；只读、暂无消费者</summary>
         public bool IsStunned => Time.time < _stunnedUntil;
 
         private void OnDrawGizmosSelected()
@@ -211,7 +197,7 @@ namespace DeepseaOil.Presentation.Actor
             UpdateBodyColor();
         }
 
-        /// <summary>建敌人圆心的剩余耐久数字；字体取不到时<b>干脆不建数字</b>（<c>TextMesh</c> 没字体会画成方块），而"拿不到"本身也不报错。</summary>
+        /// <summary>建耐久数字；字体取不到就不建（TextMesh 无字体会画成方块），不报错</summary>
         private void BuildHpText()
         {
             Font font = BuiltinFont();
@@ -229,21 +215,20 @@ namespace DeepseaOil.Presentation.Actor
             _hpText.fontSize = 64;
             _hpText.characterSize = HpTextCharacterSize;
 
-            // 锚点居中是**配合偏移为 0** 用的：LowerCenter 会让数字从"给定位置"往上长。
+            // 锚点居中配合偏移 0；LowerCenter 会让数字往上长
             _hpText.anchor = TextAnchor.MiddleCenter;
             _hpText.alignment = TextAlignment.Center;
             _hpText.color = Color.white;
 
-            // 材质必须从字体上取：TextMesh 不会自己找，不给就是粉红方块。
+            // 材质必须从字体上取，不给就是粉红方块
             var textRenderer = _hpText.GetComponent<MeshRenderer>();
 
             textRenderer.sharedMaterial = font.material;
 
-            // sortingOrder 必须显式设：全部是 z=0 的正交俯视，不设这句数字会和自己的身体抢先后。
+            // sortingOrder 必须显式设，否则数字会和自己的身体抢先后
             textRenderer.sortingOrder = RenderOrder.ActorOverlay;
         }
 
-        /// <summary>取一个能用的内置字体；一个都拿不到时返回 <c>null</c>（调用方跳过数字，不报错）。</summary>
         private static Font BuiltinFont()
         {
             for (int i = 0; i < BuiltinFontNames.Length; i++)
@@ -256,22 +241,21 @@ namespace DeepseaOil.Presentation.Actor
                 }
                 catch (System.ArgumentException)
                 {
-                    // 这个版本不认这个名字：静默试下一个。
+                    // 这个版本不认这个名字，试下一个
                 }
             }
 
             return null;
         }
 
-        /// <summary>头顶的剩余耐久数字；<b>耐久为 0 时是空串</b>（显示一个 <c>"0"</c> 会让人以为它还有 0 点血）。</summary>
+        /// <summary>头顶耐久数字；0 时是空串（显示"0"会让人以为还有 0 点血）</summary>
         public static string HpText(int hp)
         {
             return hp > 0 ? hp.ToString() : string.Empty;
         }
 
-        /// <summary>这一帧该不该亮；闪烁是<b>相位</b>而不是状态（布尔字段会在暂停 / 掉帧时偷偷不同步）。</summary>
-        /// <param name="hz">闪烁频率（Hz）；非法值按不闪处理。</param>
-        /// <remarks>用 <c>Sin</c> 而不是 <c>(time * hz) % 1</c>：取整在 <c>hz</c> 为 0 时会除零；<c>Sin</c> 在频率 0 时恒为 0（整段受击保持亮色，能看出不对但不崩）。</remarks>
+        /// <summary>这一帧该不该亮；闪烁是相位而非状态。hz=频率（Hz），非法值按不闪处理。</summary>
+        /// <remarks>用 Sin 而非取模：取模在 hz=0 时除零，Sin 恒为 0。</remarks>
         public static bool IsFlashOn(float time, float hz)
         {
             if (float.IsNaN(hz) || hz <= 0f) return false;
@@ -290,9 +274,7 @@ namespace DeepseaOil.Presentation.Actor
             _hpText.text = text;
         }
 
-        /// <summary>刷新身体颜色：减速变深、受击闪烁，两者可叠加。</summary>
-        /// <remarks>闪白相位用 <c>Time.time</c>，不自己累加（累加出来的相位会随帧率漂）；颜色来自观感表 <c>ConfigModule.Visuals</c>，与格子高亮同一个入口。
-        /// <c>EffectId.Flash</c> 的驱动尚未实现，所以这里每帧刷一次 color。</remarks>
+        /// <remarks>闪白相位用 Time.time 而非累加（累加会随帧率漂）；EffectId.Flash 驱动未实现，故每帧刷 color。</remarks>
         private void UpdateBodyColor()
         {
             if (_body == null) return;
@@ -338,7 +320,7 @@ namespace DeepseaOil.Presentation.Actor
         {
             if (_motor != null) _motor.Move(Vector2.zero);
 
-            // 死亡即刻摘掉归属：留着它会让这一格继续"有目标"，而结算方拿到的是一个正在销毁的对象。
+            // 死亡即刻摘掉归属，否则这一格继续"有目标"且结算方拿到正在销毁的对象
             if (_registry != null && _registered)
             {
                 _registry.Unregister(this);

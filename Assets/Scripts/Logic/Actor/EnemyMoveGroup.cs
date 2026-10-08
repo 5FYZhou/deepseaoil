@@ -4,8 +4,8 @@ using DeepseaOil.Logic.Movement.States;
 
 namespace DeepseaOil.Logic
 {
-    /// <summary>敌人的移动状态组：唯一写速度的地方，与玩家的 <c>MoveGroup</c> 同一套骨架。</summary>
-    /// <remarks>门禁语义与玩家一致：状态先写速度、门禁最后统一施加（顺序反了，"挨打了却纹丝不动"会以另一种形式回来）。</remarks>
+    /// <summary>敌人移动状态组，唯一写速度处</summary>
+    /// <remarks>门禁同玩家：状态先写速度、门禁后施加</remarks>
     public sealed class EnemyMoveGroup : StateGroup<MovementStateTag, LogicContext>
     {
         private readonly IActorMotor _motor;
@@ -27,10 +27,10 @@ namespace DeepseaOil.Logic
                 : MovementStateTag.Idle;
         }
 
-        /// <summary>推进一个物理帧；帧序见 <c>ActorLogic</c>。</summary>
+        /// <summary>推进一物理帧</summary>
         public void Tick(in LogicContext ctx, in MoveGates gates)
         {
-            // 乘数落在"目标速度"上，所以必须赶在状态算速度之前交给账本（见 IActorMotor.SpeedScale）。
+            // 乘数落在目标速度，须先于状态算速度交账
             _motor.SpeedScale = gates.SpeedScale;
 
             TickStates(in ctx);
@@ -40,7 +40,7 @@ namespace DeepseaOil.Logic
 
         private void ApplyGates(in MoveGates gates)
         {
-            // 强制速度不叠加速度乘数：受击滑停是外力，叠上地面减速会把它拖短。
+            // 强制速度不叠速度乘数：受击滑停是外力
             if (gates.HasForcedVelocity) _motor.SetVelocity(gates.ForcedVelocity);
         }
     }
