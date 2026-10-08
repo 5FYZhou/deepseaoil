@@ -1,0 +1,19 @@
+{
+    "name": "DeepseaOil.Logic",
+    "rootNamespace": "DeepseaOil.Logic",
+    "references": [
+        "DeepseaOil.Foundation",
+        "DeepseaOil.Data",
+        "cfg",
+        "Luban.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

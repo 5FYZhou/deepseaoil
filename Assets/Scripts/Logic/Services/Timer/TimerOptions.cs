@@ -1,24 +1,12 @@
 ﻿namespace DeepseaOil.Logic.Services.Time
 {
-    /// <summary>
-    /// Timer 创建参数。
-    /// </summary>
     public readonly struct TimerOptions
     {
-        /// <summary>
-        /// 延迟时间。
-        /// </summary>
         public readonly float Delay;
 
-        /// <summary>
-        /// 是否循环。
-        /// </summary>
         public readonly bool Repeat;
 
-        /// <summary>
-        /// 循环间隔。
-        /// Repeat = false 时忽略。
-        /// </summary>
+        /// <summary>循环间隔，Repeat=false 时忽略</summary>
         public readonly float Interval;
 
         public TimerOptions(float delay, bool repeat = false, float interval = 0f)
@@ -33,7 +21,7 @@
             return new TimerOptions(delay, repeat: false, interval: 0f);
         }
 
-        /// <param name="interval"> 循环间隔 </param>
+        /// <summary>构造循环 Timer</summary>
         public static TimerOptions Loop(float interval = 0)
         {
             return new TimerOptions(interval, repeat: true, interval);

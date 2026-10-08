@@ -8,10 +8,8 @@ using cfg.demo;
 
 namespace DeepseaOil.Presentation.Ball
 {
-    /// <summary>球的调度器：<b>造 ＋ 持 ＋ 驱</b>。玩家抛出去的每一颗球都归它。</summary>
-    /// <remarks>
-    /// 帧相位：飞行与改格都在渲染帧；只有冲量跨物理帧（<see cref="ImpulseExecutor"/> 的短队列）—— 本类不碰物理。它不是 MonoBehaviour，由组合根显式造、显式驱动。
-    /// </remarks>
+    /// <summary>球的调度器，由组合根显式造与驱动</summary>
+    /// <remarks>飞行与改格都在渲染帧，只有冲量跨物理帧</remarks>
     public sealed class BallDirector : IBallLogicEffectContext
     {
         private readonly List<BallActor> _flying = new List<BallActor>();
@@ -26,10 +24,9 @@ namespace DeepseaOil.Presentation.Ball
 
         public int FlyingCount => _flying.Count;
 
-        /// <summary>装配是否完成；没装配时一切操作是 no-op（不报错）。</summary>
         public bool IsReady => _grid != null;
 
-        /// <summary>装配（依赖全部由参数给出，本类没有 inspector 字段）；<c>ballRoot</c> 为 <c>null</c> 时球建在场景根下。</summary>
+        /// <remarks>ballRoot=null 建在场景根下</remarks>
         public void Attach(
             GridLogic grid,
             IReadOnlyList<ProjectileSpec> balls,
@@ -51,16 +48,15 @@ namespace DeepseaOil.Presentation.Ball
 
                 _balls[ball.Type] = ball;
 
-                // 每个球种都走同一条落地链（元素反应）：旧版"按 projectile.tile_state 决定改不改格"已随上游表改版作废 ——
-                // 那一列不存在了，而"这颗球落地之后世界变成什么"改由 element_rule 算出来。
+                // 球种都走同一条落地链（元素反应）；旧 projectile.tile_state 列已作废，落地后世界由 element_rule 算
                 _effects[ball.Type] = new TileStateLogicEffect();
             }
         }
 
-        /// <summary>推进一个渲染帧：驱动在飞的球，落地那一帧完成"改格 ＋ 入队冲量"再回收该球；<c>deltaTime</c> 为 0（暂停）时球自然冻结。</summary>
+        /// <summary>推进一个渲染帧；落地帧改格＋入队冲量再回收；deltaTime=0（暂停）冻结</summary>
         public void Tick(float deltaTime)
         {
-            // 倒序：正序删除会跳过紧挨着的下一个元素，而那种漏删不报错、只表现为"列表越来越长"。
+            // 倒序：正序删除会跳过下一个元素
             for (int i = _flying.Count - 1; i >= 0; i--)
             {
                 BallActor ball = _flying[i];
@@ -80,9 +76,7 @@ namespace DeepseaOil.Presentation.Ball
             }
         }
 
-        /// <summary>按已经裁决通过的意图真的投一颗球。</summary>
-        /// <returns>球种没定义（表里少一行）时为 <c>false</c>。</returns>
-        /// <remarks>调用方是 <c>CombatRoot.RequestThrow</c>；走到这里时"落点合法"已经问过了。距离与落点取自同一份意图 —— 两处各算一次会漂。</remarks>
+        /// <summary>按已裁决通过的意图投一颗球；球种没定义时丢弃</summary>
         public bool Throw(in ThrowIntent intent)
         {
             if (!_balls.TryGetValue(intent.Ball, out ProjectileSpec definition))
@@ -100,7 +94,7 @@ namespace DeepseaOil.Presentation.Ball
             return true;
         }
 
-        /// <summary>清掉在飞的球与待施加的冲量（打空重来 / 切场景）；冲量也要清，否则那一下会砸在下一局的箱子上。</summary>
+        /// <summary>清空在飞球与待施加冲量；冲量不清会砸在下一局的箱子上</summary>
         public void ClearAll()
         {
             for (int i = 0; i < _flying.Count; i++)
@@ -113,8 +107,6 @@ namespace DeepseaOil.Presentation.Ball
             _impulses?.Clear();
         }
 
-        /// <inheritdoc />
-        /// <remarks>球效果唯一被允许的世界操作：把"落点格 ＋ 球元素"交给世界侧结算元素反应（新状态与效果清单都由格子自己按配置算）。</remarks>
         public void RequestTileState(Vector3Int cell, in ElementValue element)
         {
             if (_grid == null) return;
@@ -122,8 +114,8 @@ namespace DeepseaOil.Presentation.Ball
             _grid.OnBallHit(cell, in element);
         }
 
-        /// <summary>一次落地的完整结算：先改世界状态，再排冲量。</summary>
-        /// <remarks>顺序即语义：改格会在同一帧内结算格上目标的伤害（可能把敌人打死并注销自己）；冲量只进队列，下一个物理帧才生效。</remarks>
+        /// <summary>一次落地的完整结算，先改格再排冲量</summary>
+        /// <remarks>顺序即语义：改格在同一帧内结算目标伤害；冲量下一物理帧才生效</remarks>
         private void OnLanded(BallActor ball, Vector2 point)
         {
             if (_grid != null && _grid.Geometry.IsValid)

@@ -2,9 +2,9 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Primitive
 {
-    /// <summary>运行期生成的两张纯色 sprite：圆点与方块/贴地圆环。<b>缺美术资源时的 fallback</b>。</summary>
-    /// <remarks>不给 <c>SpriteRenderer</c> 留空 sprite：没有 sprite 的渲染器画的是"默认白色方块"网格，只受 <c>transform.localScale</c> 控制 —— 而 <c>localScale</c> 同时是"球多大 / 阴影缩到多少"的载体，两者会互相覆盖。
-    /// 具名 <c>pixelsPerUnit</c> 让"半径几米"与 <c>localScale</c> 的换算是一个确定的数，否则调一次贴图尺寸全场的球大小都会跟着变。<c>HideFlags.HideAndDontSave</c>：否则运行期生成的对象被 <c>Resources.UnloadUnusedAssets()</c>（切场景时自动跑）回收后，sprite 会变成白块或直接消失。</remarks>
+    /// <summary>运行期生成的两张纯色 sprite：圆点与方块/圆环，缺美术资源时的 fallback</summary>
+    /// <remarks>不给 SpriteRenderer 留空 sprite：会画默认白色方块，只受 localScale 控制，与"球多大/阴影缩多少"互相覆盖。
+    /// 具名 pixelsPerUnit 让"半径几米"与 localScale 的换算是确定的数；HideFlags.HideAndDontSave 防被 Resources.UnloadUnusedAssets() 回收。</remarks>
     public static class PrimitiveSprites
     {
         private const int PointTextureSize = 64;
@@ -14,7 +14,7 @@ namespace DeepseaOil.Presentation.Primitive
         private static Sprite _circle;
         private static Sprite _square;
 
-        /// <summary>实心圆点 sprite（直径 = 1 世界单位）。惰性生成，全工程共用一张。</summary>
+        /// <summary>实心圆点 sprite，直径=1 世界单位，全工程共用一张</summary>
         public static Sprite Circle
         {
             get
@@ -25,7 +25,7 @@ namespace DeepseaOil.Presentation.Primitive
             }
         }
 
-        /// <summary>实心方块 sprite（边长 = 1 世界单位），用于"整格"类提示（瞄准高亮）：压扁的圆与格子之间会留一圈空隙，"这一格"就读不出来了。</summary>
+        /// <summary>实心方块 sprite，边长=1 世界单位，供"整格"提示</summary>
         public static Sprite Square
         {
             get
@@ -36,7 +36,7 @@ namespace DeepseaOil.Presentation.Primitive
             }
         }
 
-        /// <remarks>造一个<b>贴在</b>地面上的圆（或圆环）sprite：一个圆做视觉透视压扁后的效果。<paramref name="thicknessMeters"/> 是<b>世界单位</b>（<paramref name="solid"/> 为真时忽略）；<paramref name="verticalSquash"/> 1 = 不压扁，<paramref name="perspectiveTaper"/> 0 = 上下对称椭圆；返回的 sprite 半径恰好等于 <paramref name="radius"/>。落点指示器、球阴影、落地瞬闪共用这一个函数，所以"贴地感"必然一致；球本体走 <see cref="Circle"/>（保持正圆）。</remarks>
+        /// <summary>造贴地圆/圆环 sprite；thicknessMeters 是世界单位，verticalSquash 1=不压扁，perspectiveTaper 0=上下对称椭圆</summary>
         public static Sprite GroundDiscOrRing(
             float radius,
             float verticalSquash,
@@ -44,7 +44,7 @@ namespace DeepseaOil.Presentation.Primitive
             float thicknessMeters,
             bool solid)
         {
-            // 环厚按世界单位给再换算成比例：改半径不会顺带把环的粗细也改掉。实心盘走内圈缩到 0 的分支。
+            // 环厚按世界单位给再换算成比例；实心盘走内圈缩到 0 的分支。
             float thickness = solid
                 ? 1f
                 : Mathf.Clamp(thicknessMeters / Mathf.Max(radius, 1e-4f), 0.02f, 0.9f);
@@ -52,8 +52,7 @@ namespace DeepseaOil.Presentation.Primitive
             return BuildGroundShape(radius, verticalSquash, perspectiveTaper, thickness, solid);
         }
 
-        /// <summary>配置一个纯色 sprite 渲染器；**所有视效件都走这里**（sprite / 排序 / 颜色只写一遍）。</summary>
-        /// <param name="renderer">目标渲染器；<c>null</c> 时静默返回（视效缺失不该让逻辑炸掉）。</param>
+        /// <summary>配置一个纯色 sprite 渲染器，所有视效件都走这里</summary>
         public static void Configure(
             SpriteRenderer renderer,
             Sprite sprite,
@@ -70,7 +69,7 @@ namespace DeepseaOil.Presentation.Primitive
             renderer.transform.localScale = new Vector3(diameterMeters, diameterMeters, 1f);
         }
 
-        /// <remarks>把渲染器的缩放设成"贴图烘的半径"换算出的值，让贴地件的世界尺寸与 <paramref name="diameterMeters"/> 一致：缩放系数 = 目标直径 / 贴图直径（贴地件的贴图按自己的半径烘）；与 <see cref="Configure"/> 分开，是因为那条路假设"贴图直径 = 1 米"。</remarks>
+        /// <summary>把渲染器缩放设成"贴图烘的半径"换算值；缩放系数=目标直径/贴图直径</summary>
         public static void ConfigureGround(
             SpriteRenderer renderer,
             Sprite sprite,
@@ -102,7 +101,6 @@ namespace DeepseaOil.Presentation.Primitive
             {
                 for (int x = 0; x < size; x++)
                 {
-                    // +0.5 取像素中心：否则 x=0 与 x=size-1 那两个像素到圆心的距离不一致，圆会差半像素。
                     float dx = x + 0.5f - radius;
                     float dy = y + 0.5f - radius;
 
@@ -129,12 +127,12 @@ namespace DeepseaOil.Presentation.Primitive
                 pixels[i] = new Color32(255, 255, 255, 255);
             }
 
-            // 像素密度取 size ⇒ 贴图边长恰好 1 世界单位，与 Circle 的约定一致。
+            // 像素密度取 size
             return Commit(texture, pixels, size, "GroundSquare", size);
         }
 
-        /// <remarks>生成贴地形状：一个圆做视觉透视后压扁到地面的效果（圆环或实心圆盘）。画法：上、下两半各自是一个标准椭圆（<c>vBase = radius × verticalSquash</c>；<c>vTop = vBase × (1 − perspectiveTaper)</c>），在左右最宽点的切线竖直 ⇒ 接缝无断点；<b>形状参数不参与任何落点计算</b>，落点都是同一个吸附函数的输出。
-        /// <b>边界保护</b>：<c>thickness</c> 收窄后内圈一旦不小于外圈，环就整个消失（而且不报错）；<b>实心盘不走那条夹取</b>（内圈直接缩到 0），否则中心会留一个洞、画出来是甜甜圈。</remarks>
+        /// <summary>造贴地形状：上下两半各是标准椭圆，vBase=radius×verticalSquash，vTop=vBase×(1−perspectiveTaper)；不参与落点计算</summary>
+        /// <remarks>thickness 收窄后内圈不小于外圈环会整个消失且不报错；实心盘不走那条夹取。</remarks>
         public static Sprite BuildGroundShape(
             float radius,
             float verticalSquash,
@@ -148,7 +146,7 @@ namespace DeepseaOil.Presentation.Primitive
             verticalSquash = Mathf.Clamp(verticalSquash, 0.02f, 1f);
             perspectiveTaper = Mathf.Clamp(perspectiveTaper, 0f, 0.95f);
 
-            // sprite 是正方形，所以用水平直径换算像素密度；竖直方向靠压扁比例体现。
+            // sprite 是正方形，用水平直径换算像素密度
             float pixelsPerUnit = size / Mathf.Max(radius * 2f, 1e-4f);
 
             float cx = size * 0.5f;
@@ -195,7 +193,7 @@ namespace DeepseaOil.Presentation.Primitive
             return Commit(texture, pixels, size, "GroundShape", pixelsPerUnit);
         }
 
-        /// <remarks>把像素数组落成 sprite。<c>alphaIsTransparency: true</c> 不是可有可无的：透明像素上残留的颜色会被双线性过滤带进边缘，关掉它就会出现一圈脏边。</remarks>
+        /// <summary>把像素数组落成 sprite；alphaIsTransparency: true 不能关，否则透明像素残留颜色被双线性过滤带进边缘成脏边</summary>
         private static Sprite Commit(Texture2D texture, Color32[] pixels, int size, string name, float pixelsPerUnit)
         {
             texture.name = name;

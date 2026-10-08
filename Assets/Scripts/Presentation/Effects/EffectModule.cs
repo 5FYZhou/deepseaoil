@@ -5,27 +5,23 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects
 {
-    /// <summary>特效模块。<b>纯工具</b>：谁调都行 —— 它不认识 EventBus、不认识 Logic、不认识白模。</summary>
-    /// <remarks>触发路径：Logic 发 <c>EventBus&lt;EnemyHit&gt;</c> → 表现层组件订阅 → 组件自己决定 <c>EffectModule.Play(...)</c>；「何时播」永远在调用方。
-    /// 生命周期（顺序不能反）：<c>AssetModule.Init</c> → <see cref="Init"/> → <see cref="Preload"/>；切场景 → <see cref="CleanAll"/>（在 <c>LoadScene</c> 之前）；<c>GameRoot.OnDestroy</c> → <see cref="Dispose"/>（在 <c>AssetModule.Dispose</c> <b>之前</b>，要经它归还引用计数）。
-    /// <b>所有失败都不抛异常</b>：未 Init、未注册、资源缺失、池满，一律 LogError / LogWarning 并返回 <see cref="EffectHandle.None"/>。唯一例外是装配错误（<c>Init</c> 调两次）。</remarks>
+    /// <summary>特效模块，纯工具，不认识 EventBus/Logic/白模</summary>
+    /// <remarks>Init 要在 AssetModule.Init 之后；除 Init 调两次外，失败一律只 LogError/LogWarning 并返回 EffectHandle.None。</remarks>
     public static class EffectModule
     {
-        /// <summary>启动时<b>同步</b>预加载的清单：进这里 = 启动多阻塞一点换 Play 零延迟，不进 = 首次 Play 走异步懒加载。</summary>
+        /// <summary>启动时同步预加载的清单，不进列表则首次 Play 走异步懒加载</summary>
         public static readonly EffectId[] PreloadList =
         {
             EffectId.BurstSparks,
             EffectId.MudSplash,
         };
 
-        /// <summary>单个特效在懒加载期间最多排队多少次 Play。超了丢最老的（迟到的特效比不播更糟）。</summary>
         private const int MaxQueuedPlaysPerEffect = 8;
 
         private const string RootName = "[Effects]";
 
         private static readonly Dictionary<EffectId, IEffectDriver> _drivers = new Dictionary<EffectId, IEffectDriver>();
 
-        /// <summary>资源缺失的 EffectId：后续 Play 直接返回 None，不重试。</summary>
         private static readonly HashSet<EffectId> _missing = new HashSet<EffectId>();
 
         private static readonly Dictionary<EffectId, AsyncHandle<GameObject>> _loads =
@@ -34,7 +30,7 @@ namespace DeepseaOil.Presentation.Effects
         private static readonly Dictionary<EffectId, List<EffectContext>> _pendingPlays =
             new Dictionary<EffectId, List<EffectContext>>();
 
-        /// <summary>本模块 Retain 过的资源 Key，Dispose 时成对 Release。</summary>
+        /// <summary>本模块 Retain 过的资源 Key，Dispose 时成对 Release</summary>
         private static readonly HashSet<string> _retainedKeys = new HashSet<string>();
 
         private static readonly List<EffectId> _loadPollScratch = new List<EffectId>();
@@ -44,11 +40,11 @@ namespace DeepseaOil.Presentation.Effects
 
         public static bool IsInitialized => _initialized;
 
-        /// <summary>特效实例的父物体（运行期创建，DontDestroyOnLoad）；未 Init 时为 <c>null</c>。</summary>
+        /// <summary>特效实例的父物体，运行期创建且 DontDestroyOnLoad；未 Init 时为 null</summary>
         internal static Transform Root => _root != null ? _root.transform : null;
 
-        /// <summary>初始化：建特效根 ＋ 按 <see cref="EffectCatalog"/> 装配全部驱动。</summary>
-        /// <remarks>调用方 <c>GameRoot.Awake</c>，必须在 <c>AssetModule.Init()</c> 之后（<see cref="Preload"/> 依赖它）；重复调用只 LogError 并返回（不重置已有驱动），本方法不做资源 IO。</remarks>
+        /// <summary>初始化：建特效根 + 按 EffectCatalog 装配全部驱动</summary>
+        /// <remarks>调用方 GameRoot.Awake；重复调用只 LogError 并返回，不重置已有驱动。</remarks>
         public static void Init()
         {
             if (_initialized)
@@ -85,8 +81,7 @@ namespace DeepseaOil.Presentation.Effects
             }
         }
 
-        /// <summary>同步预加载 <see cref="PreloadList"/>；调用方 <c>GameRoot.Awake</c>，紧随 <see cref="Init"/>。</summary>
-        /// <remarks>单个资源缺失只 LogError 并标记该 EffectId 不可用（<b>不阻止游戏启动</b>）；已就位与资源缺失的驱动都跳过（不重试）。</remarks>
+        /// <summary>同步预加载 PreloadList</summary>
         public static void Preload()
         {
             if (!_initialized)
@@ -110,8 +105,8 @@ namespace DeepseaOil.Presentation.Effects
             }
         }
 
-        /// <summary>清空所有活跃实例（全部归还各自的池），并作废排队中的 Play 请求；调用方：切场景之前。</summary>
-        /// <remarks>在途的懒加载<b>不</b>取消：它完成后驱动就绪，资源引用由 <see cref="Dispose"/> 统一归还，强行丢弃句柄会让 AssetModule 的引用计数对不上。</remarks>
+        /// <summary>清空所有活跃实例并作废排队中的 Play</summary>
+        /// <remarks>在途懒加载不取消，完成后资源引用由 Dispose 统一归还，硬丢句柄会让 AssetModule 引用计数对不上。</remarks>
         public static void CleanAll()
         {
             if (!_initialized) return;
@@ -124,7 +119,7 @@ namespace DeepseaOil.Presentation.Effects
             _pendingPlays.Clear();
         }
 
-        /// <summary>每帧推进；调用方 <c>GameRoot.Update</c>（<c>Time.deltaTime</c>，暂停时自然冻结）。未 Init 时 no-op，不抛异常。</summary>
+        /// <summary>每帧推进，调用方 GameRoot.Update；未 Init 时 no-op</summary>
         public static void Tick(float dt)
         {
             if (!_initialized) return;
@@ -137,7 +132,7 @@ namespace DeepseaOil.Presentation.Effects
             }
         }
 
-        /// <summary>进程/场景退出：清实例 → 释放驱动 → 销毁特效根 → 归还资源引用计数。调用方 <c>GameRoot.OnDestroy</c>，必须在 <c>AssetModule.Dispose()</c> 之前。</summary>
+        /// <summary>退出：清实例+释放驱动+销毁特效根+归还资源引用计数</summary>
         public static void Dispose()
         {
             if (!_initialized) return;
@@ -154,7 +149,7 @@ namespace DeepseaOil.Presentation.Effects
 
             DestroyRoot();
 
-            // 顺序要求：这里要经 AssetModule 归还引用计数，所以 AssetModule 必须还活着
+            // 顺序要求：这里要经 AssetModule 归还引用计数，它必须还活着
             if (_retainedKeys.Count > 0 && AssetModule.IsInitialized)
             {
                 foreach (string key in _retainedKeys)
@@ -167,7 +162,7 @@ namespace DeepseaOil.Presentation.Effects
             _initialized = false;
         }
 
-        /// <summary>播放一次特效；失败（未 Init / 未注册 / 资源缺失 / 池满）一律返回 <see cref="EffectHandle.None"/>，<b>资源还在加载时也会记下这次请求</b>、到位后自动补播。</summary>
+        /// <summary>播放一次特效，失败一律返回 EffectHandle.None；资源还在加载时记下请求，到位后补播</summary>
         public static EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (!_initialized)
@@ -196,8 +191,8 @@ namespace DeepseaOil.Presentation.Effects
             return driver.Play(id, in ctx);
         }
 
-        /// <summary>更新一次<b>已经在播</b>的实例（持续型特效：位置 / 颜色 / 半径）。</summary>
-        /// <remarks>返回值只代表"句柄有效"；未 Init、句柄为 <c>None</c>、句柄过期都是安全的 no-op，不报错 —— 不支持的驱动也是 no-op（接口默认实现）。</remarks>
+        /// <summary>更新一次已在播的实例（持续型：位置/颜色/半径）</summary>
+        /// <remarks>返回值只代表句柄有效；未 Init、句柄为 None、句柄过期都是安全 no-op，不支持的驱动也是 no-op。</remarks>
         public static bool Update(EffectHandle handle, in EffectContext ctx)
         {
             if (!_initialized) return false;
@@ -208,7 +203,7 @@ namespace DeepseaOil.Presentation.Effects
             return true;
         }
 
-        /// <summary>停止一次播放。句柄无效 / 已过期 / 未 Init 时是 no-op。</summary>
+        /// <summary>停止一次播放，句柄无效/过期/未 Init 时是 no-op</summary>
         public static void Stop(EffectHandle handle)
         {
             if (!_initialized) return;
@@ -217,7 +212,7 @@ namespace DeepseaOil.Presentation.Effects
             handle.Driver.Stop(handle);
         }
 
-        /// <summary>调试快照（拉模型）。未 Init 时全 0。</summary>
+        /// <summary>调试快照；未 Init 时全 0</summary>
         public static EffectStats GetStats()
         {
             int active = 0;
@@ -235,8 +230,8 @@ namespace DeepseaOil.Presentation.Effects
             return new EffectStats(active, _drivers.Count, pooled);
         }
 
-        /// <summary>注册（或覆盖）一个 EffectId 的驱动。调用方 <see cref="Init"/>，以及需要自建驱动的装配代码 / 测试。</summary>
-        /// <remarks>必须在 <see cref="Init"/> 之后调用：<c>Init</c> 会清空驱动表。</remarks>
+        /// <summary>注册（或覆盖）驱动，必须在 Init 之后</summary>
+        /// <remarks>Init 会清空驱动表。</remarks>
         public static void Register(EffectId id, IEffectDriver driver)
         {
             if (!_initialized)
@@ -387,7 +382,7 @@ namespace DeepseaOil.Presentation.Effects
             }
             else
             {
-                // 编辑模式（EditMode 测试）下 Object.Destroy 会打"may not be called from edit mode"警告且延迟生效
+                // 编辑模式下 Object.Destroy 会打警告且延迟生效
                 Object.DestroyImmediate(_root);
             }
 

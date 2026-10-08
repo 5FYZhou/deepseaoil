@@ -5,12 +5,12 @@ using cfg.demo;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>数值配置模块。Data 层的<b>唯一取值入口</b>：调用方只认识这里的 <c>GetXxx</c> 与它返回的包装件（数据来自 Excel 表还是 SO 文件，消费者不该关心）。</summary>
+    /// <summary>数值配置模块，Data 层唯一取值入口：调用方只用 GetXxx 与包装件，数据来自表还是 SO 不外露</summary>
     public static class ConfigModule
     {
         private const string PlayerConfigKey = "config/PlayerConfig";
 
-        /// <summary>关键表的主键默认值。当前每张表都只有一行（"默认"那一行）。</summary>
+        /// <summary>关键表主键默认值</summary>
         public static class Ids
         {
             public const int Player = 1;
@@ -29,18 +29,17 @@ namespace DeepseaOil.Data
         private static DropTuning _dropTuning;
         private static VisualPalette _visuals;
 
-        /// <summary>地块效果的取值缓存（效果号 → 包装件）。装一次、此后只读：它是"效果号 → 多档参数"的唯一入口。</summary>
+        /// <summary>地块效果缓存，效果号→包装件；装配期装一次，此后只读</summary>
         private static Dictionary<TileEffectType, TileEffectSpec> _tileEffects;
 
-        /// <summary>元素反应规则（<b>列表顺序即优先级</b>，见 <see cref="ElementRuleSpec"/>）；装配期折算一次，此后只读。</summary>
+        /// <summary>元素反应规则，列表顺序即匹配优先级；装配期折算，此后只读</summary>
         private static IReadOnlyList<ElementRuleSpec> _elementRules;
 
         public static bool IsReady => _ready;
 
         public static bool AreAssetsBound => _bound;
 
-        /// <summary>初始化（第一段：只读表）。调用方：<c>GameRoot.Awake</c>，**必须早于 <c>AssetModule.Init</c>**；重复调用抛异常。</summary>
-        /// <remarks>任何失败都包成 <see cref="ConfigLoadException"/> 抛出；<c>jsonRoot</c> 是 Luban 导出的 JSON 目录。</remarks>
+        /// <summary>初始化第一段只读表：必须早于 AssetModule.Init，重复调用抛异常，jsonRoot 是 Luban 导出的 JSON 目录</summary>
         public static void Init(string jsonRoot)
         {
             if (_ready)
@@ -58,7 +57,7 @@ namespace DeepseaOil.Data
             }
             catch (Exception e)
             {
-                // Luban 生成代码在 JSON 结构不符时抛 SerializationException、文件缺失 / 为空在 TablesHolder 内抛 IOException 系：统一包成 ConfigLoadException，让 GameRoot 能区分「配置问题」与「代码问题」。
+                // 一切异常统一包成 ConfigLoadException：让 GameRoot 能区分配置问题与代码问题。
                 throw new ConfigLoadException($"[Config] load failed: {e.Message}", e);
             }
 
@@ -77,8 +76,8 @@ namespace DeepseaOil.Data
             Init(System.IO.Path.Combine(Application.streamingAssetsPath, "Luban"));
         }
 
-        /// <summary>绑定 SO 资产（第二段）。调用方：<c>GameRoot.Assemble</c>，**必须在 <c>AssetModule.Init</c> 之后**；重复调用是 no-op（切场景 / 重复装配都不该重建一份）。</summary>
-        /// <remarks>这一趟顺手把"资产缺了"炸在启动期：只读的 <c>PlayerConfig</c> 缺失是硬错误（走代码默认值的玩家会有 0 速度，查起来极慢）；三份观感调参缺资产只报警告 ＋ 走一份字段默认值。</remarks>
+        /// <summary>绑定 SO 资产第二段：必须在 AssetModule.Init 之后，重复调用是 no-op</summary>
+        /// <remarks>资产缺失炸在启动期：PlayerConfig 缺失是硬错误（否则玩家速度为 0），三份观感调参缺失只报警告并走字段默认值</remarks>
         public static void BindAssets()
         {
             EnsureReady();
@@ -102,14 +101,13 @@ namespace DeepseaOil.Data
                     "玩家移动参数会全部是字段默认值（字段级默认值不是策划填的那一套）。");
             }
 
-            // 三份观感调参自带兜底（丢资产时返回一份字段默认值 ＋ 一条 Warning）：它们不参与判定，只影响观感与手感，与 PlayerConfig 的"硬错误"是两种口径。
             _throwTuning = ThrowTuning.LoadOrDefault();
             _dropTuning = DropTuning.LoadOrDefault();
             _visuals = VisualPalette.LoadOrDefault();
 
             _bound = true;
 
-            // 启动期把资产依赖的取值走一遍：表里少一行应该在这里炸，而不是等第一次投掷。
+            // 启动期走一遍：表里少一行应在这里炸，而不是等第一次投掷
             ProjectileSpec water = GetBall(BallType.Water);
 
             if (water == null)
@@ -120,16 +118,14 @@ namespace DeepseaOil.Data
             _ = GetWave();
             _ = GetDrop();
 
-            // 元素层与地块效果的两张新表：把它们在启动期走一遍 —— 少一行、少一档应该在这里炸，
-            // 而不是等第一次投掷（届时的表现是"球落地什么都没发生"，查不出是表的问题）。
+            // 元素层与地块效果两张表也在启动期走一遍：少一行、少一档在这里炸
             _ = GetElementRules();
             _ = GetTileEffects();
         }
 
-        // 玩法数值查询（包装件：表行 ＋ SO）。边界：id 不存在时 Luban 的 Get 会抛异常 —— 这里不 catch；
-        // 表里少一行属于配置事故，应该在启动时就炸出来，而不是让敌人以速度 0 待机。
+        // 玩法数值查询（包装件：表行 ＋ SO）。边界：id 不存在时 Luban 的 Get 抛异常这里不 catch —— 配置事故应在启动期炸出来
 
-        /// <summary>读一个球种（表行 ＋ 投掷调参）。表中不存在该球种时返回 <c>null</c>。</summary>
+        /// <summary>读一个球种（表行＋投掷调参），表中不存在时返回 null</summary>
         public static ProjectileSpec GetBall(BallType type)
         {
             EnsureAssets();
@@ -155,7 +151,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>读一个格子状态。<b>表里没有这一行时抛异常</b>（Luban 的 <c>Get</c> 语义）：配置事故应该在启动期炸出来。</summary>
+        /// <summary>读一个格子状态，表里没有这一行时抛异常：配置事故应在启动期炸出来</summary>
         public static TileStateSpec GetTileState(TileStateType id)
         {
             EnsureAssets();
@@ -163,9 +159,7 @@ namespace DeepseaOil.Data
             return new TileStateSpec(_holder.Tables.TbTileState.Get(id), ResolveEffect);
         }
 
-        /// <summary>读一个格子状态；<b>表里没有这一行时返回 <c>null</c></b>（不抛异常）。</summary>
-        /// <remarks>给"按 ID 造状态"的工厂用：那个调用点必须能回答"这个 ID 到底有没有实现"，而"有没有实现"的第一道判据就是"配置里有没有这一行" ——
-        /// 用会抛异常的 <see cref="GetTileState"/> 会让"切到一个没配的状态"变成一条异常，而不是一次可以判定的失败。</remarks>
+        /// <summary>读一个格子状态，表里没有这一行时返回 null 不抛异常：给按 ID 造状态的工厂判断该 ID 有没有实现</summary>
         public static TileStateSpec TryGetTileState(TileStateType id)
         {
             EnsureAssets();
@@ -191,7 +185,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>全部地块效果（<c>tile_effect</c> 表）：效果号 → 多档参数。<b>施工期调表后要重启</b>（装配期折算一次、此后只读）。</summary>
+        /// <summary>全部地块效果（tile_effect 表），效果号→多档参数；装配期折算一次此后只读，调表后须重启</summary>
         public static IReadOnlyList<TileEffectSpec> GetTileEffects()
         {
             EnsureAssets();
@@ -208,7 +202,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>读一个地块效果；表里没有这个效果号时返回 <c>null</c>。</summary>
+        /// <summary>读一个地块效果，表里没有这个效果号时返回 null</summary>
         public static TileEffectSpec GetTileEffect(TileEffectType id)
         {
             EnsureAssets();
@@ -218,7 +212,7 @@ namespace DeepseaOil.Data
             return _tileEffects.TryGetValue(id, out TileEffectSpec spec) ? spec : null;
         }
 
-        /// <summary>全部元素反应规则（<c>element_rule</c> 表）。<b>返回顺序即匹配优先级</b>。</summary>
+        /// <summary>全部元素反应规则（element_rule 表），返回顺序即匹配优先级</summary>
         public static IReadOnlyList<ElementRuleSpec> GetElementRules()
         {
             EnsureAssets();
@@ -246,8 +240,8 @@ namespace DeepseaOil.Data
             return new EnemySpec(_holder.Tables.TbEnemy.Get(id));
         }
 
-        /// <summary>观感颜色表（SO）。<b>观感取值的单一权威入口</b>。</summary>
-        /// <remarks><b>永不返回 <c>null</c></b>：<see cref="VisualPalette.LoadOrDefault"/> 丢资产时给一份字段默认值的实例 ＋ 一条 Warning（观感参数不参与判定，不能因为缺资产把游戏卡死），消费者不需要再写 <c>!= null</c> 兜底。球种色 / 敌人四态色 / 瞄准高亮两态色 / 贴地阴影色全部从这一处出去（要哪条语义就问包装件要，别把调色板本身传下去）。</remarks>
+        /// <summary>观感颜色表（SO），观感取值的唯一权威入口</summary>
+        /// <remarks>永不返回 null：丢资产时给字段默认值实例＋Warning；球种色/敌人四态色/瞄准高亮两态色/贴地阴影色都从这里出去</remarks>
         public static VisualPalette Visuals
         {
             get
@@ -258,7 +252,7 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <summary>读玩家数值。它同时也是"玩家"这个取值的唯一入口：移动参数（SO）与水球的射程都从这里出去。</summary>
+        /// <summary>读玩家数值，"玩家"取值的唯一入口：移动参数（SO）与水球射程都从这里出去</summary>
         public static PlayerSpec GetPlayer(int id = Ids.Player)
         {
             EnsureAssets();
@@ -276,8 +270,7 @@ namespace DeepseaOil.Data
             return new WaveSpec(_holder.Tables.TbWave.Get(id));
         }
 
-        /// <summary>全部关卡初始格子状态（返回生成行而不是包装件：每格一行的批量数据，消费者只做一次遍历）。</summary>
-        /// <remarks><b>表里现在是 0 行</b>（<c>demo_tbtileinitial.json</c> 是 <c>[]</c>），也没有"关卡"维度：它是<b>待填充的基础设施</b>而不是零消费者残留 —— 关卡数据一进来消费端已经就位，<b>不要因为"表是空的"就删掉这一条链</b>。</remarks>
+        /// <summary>全部关卡初始格子状态，返回生成行供一次性遍历；表当前 0 行且无关卡维度，属待填充基础设施，不要因表空删链</summary>
         public static IReadOnlyList<TileInitial> GetTileInitials()
         {
             EnsureAssets();
@@ -322,20 +315,11 @@ namespace DeepseaOil.Data
             return _holder.Tables.TbWeapon.DataList;
         }
 
-        // ─────────────────────────────────────────────
         // 逃生舱：特殊情况直接访问原始 Tables
-        // 边界：只读；调用方不得跨帧持有该引用；**新增消费必须登记在本注释里**
-        // ─────────────────────────────────────────────
+        // 边界：只读；调用方不得跨帧持有该引用；新增消费必须登记在本注释里
 
-        /// <summary>
-        /// 原始生成表（<c>cfg.Tables</c>）。<b>只给诊断用</b>：正常取值一律走上面的 <c>GetXxx</c>。
-        /// </summary>
-        /// <remarks>
-        /// <b>登记在案的破例只有一个</b>：<c>Presentation/Diagnostics/ConfigLoader.cs</c> 用它数三张示范表
-        /// （<c>TbWeapon</c> / <c>TbItem</c> / <c>TbFish</c>）的行数，作为"导表链路通不通"的自检输出。
-        /// <para>它给出的是<b>表对象</b>而不是行，调用方拿到之后只能数数；一旦有人拿它读某一列，
-        /// 就绕过了包装件、也绕过了"表列迁到 SO"的全部收益。那种用法属于新增破例，必须先登记在这里。</para>
-        /// </remarks>
+        /// <summary>原始生成表（cfg.Tables），只给诊断用，正常取值一律走上面的 GetXxx</summary>
+        /// <remarks>登记在案的破例只有 Presentation/Diagnostics/ConfigLoader.cs 数 TbWeapon/TbItem/TbFish 三张示范表的行数，拿到的只是表对象不能读列；新增破例必须先登记在这里</remarks>
         public static cfg.Tables Tables
         {
             get
@@ -346,22 +330,7 @@ namespace DeepseaOil.Data
             }
         }
 
-        // ─────────────────────────────────────────────
-        // 「生成行不出 Data 层」的判据（可判定，替代过去的口头约定）
-        //
-        // ① 放行：生成**枚举**。`BallType` / `TileStateType` 是配置词汇本身
-        //    （球种、格状态），包一层只会造出两个同义的平行类型。Data 层之外
-        //    允许 `using cfg.demo;`，前提是该文件只吃这两个枚举类型。
-        // ② 禁止：生成**行**（`cfg.demo.Projectile` / `Enemy` / `Player` / `Wave` /
-        //    `TileState` / `TileInitial` …）。这类引用只准出现在 `Data/Config/**`。
-        // ③ 例外：必须在此登记并说明理由。**当前例外为零** ——
-        //    全库 `using cfg.demo;` 的 17 个非 Data 文件（含两处测试夹具）里只有一个
-        //    真实用法形态：吃枚举做 switch / 字典键。一行都不碰生成行。
-        //    `TableTileState` 看起来像例外，其实拿的是 `TileStateSpec`（包装件），不是 `TileState`。
-        //
-        // 判据怎么用：翻一个文件，问"它 `using cfg.demo;` 之后碰了什么类型"。
-        // 只碰枚举 ⇒ ①；碰了行 ⇒ 必须先在这里登记；都不是 ⇒ 违纪。
-        // ─────────────────────────────────────────────
+        // 「生成行不出 Data 层」判据：放行生成枚举（BallType / TileStateType）；禁止生成行（Projectile / Enemy / Player / Wave / TileState / TileInitial 等），这类引用只准出现在 Data/Config/**；例外必须在此登记，当前为零
 
         private static void EnsureReady()
         {
@@ -369,7 +338,7 @@ namespace DeepseaOil.Data
                 throw new InvalidOperationException("[Config] accessed before Init");
         }
 
-        /// <summary>地块效果的取值缓存：首次访问时装一次（装表本身已由 <c>StartupValidator</c> 抽样触发过）。</summary>
+        /// <summary>地块效果取值缓存，首次访问装一次</summary>
         private static void EnsureTileEffects()
         {
             if (_tileEffects != null) return;
@@ -384,10 +353,8 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <summary>
-        /// "效果号 ＋ 档位 → 已定值的 <see cref="TileEffectValue"/>"的唯一解析点：<c>TileStateSpec</c>（状态的进格效果）与 <c>ElementRuleSpec</c>（反应规则的效果清单）都经它折算。
-        /// </summary>
-        /// <remarks>档位越界在这里由 <see cref="TileEffectSpec.GetEffect"/> 报 Warning 并夹到第 1 档；效果号不在表里返回 <c>None</c>（配表事故，表现成"这条效果没发生"）。</remarks>
+        /// <summary>「效果号＋档位 → 已定值 TileEffectValue」的唯一解析点，TileStateSpec 与 ElementRuleSpec 都经它折算</summary>
+        /// <remarks>档位越界由 TileEffectSpec.GetEffect 报 Warning 并夹到第 1 档；效果号不在表里返回 None（配置事故，表现为这条效果没发生）</remarks>
         private static TileEffectValue ResolveEffect(TileEffectType effect, int pos)
         {
             EnsureTileEffects();
@@ -402,7 +369,7 @@ namespace DeepseaOil.Data
             return spec.GetEffect(pos);
         }
 
-        /// <remarks><b>刻意分开报错</b>：只报"没 Init"会把"忘了调 <c>BindAssets</c>"掩盖成同一个现象，而这两种装配错误的修法完全不同。</remarks>
+        /// <remarks>刻意分开报错：只报"没 Init"会把"忘了调 BindAssets"掩盖成同一现象，而两种装配错误的修法完全不同</remarks>
         private static void EnsureAssets()
         {
             EnsureReady();
@@ -416,7 +383,7 @@ namespace DeepseaOil.Data
         }
     }
 
-    /// <summary>配置加载异常。独立定义，让 GameRoot 能区分「配置问题（重新导表）」与「代码问题」。</summary>
+    /// <summary>配置加载异常，独立定义让 GameRoot 能区分配置问题（重新导表）与代码问题</summary>
     public class ConfigLoadException : Exception
     {
         public ConfigLoadException(string message) : base(message) { }

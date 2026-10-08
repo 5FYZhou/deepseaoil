@@ -3,16 +3,11 @@ using cfg.demo;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>战斗表现件的<b>颜色表</b>；观感参数一律走 SO，给程序调、不对策划暴露。</summary>
-    /// <remarks>
-    /// 球种色必须只有一份：同一个球种的颜色有三个消费者 —— 球本体、落地环、（将来的）HUD 图标。
-    /// 敌人四态色显式写出来，不做乘法或插值：<c>Color.Lerp</c> 会让"这一帧到底该是什么色"变成算不出来的数，也没法单独调。
-    /// 兜底口径：丢了资产时给一份字段默认值的实例 ＋ 一条 Warning，颜色退回白模那一套，而不是一堆 alpha 为 0 的透明色（那会让全场看不见，且不报错）。
-    /// </remarks>
+    /// <summary>战斗表现件颜色表；观感参数一律走 SO，不对策划暴露</summary>
+    /// <remarks>球种色只有一份（球本体/落地环/HUD 图标三个消费者）；敌人四态色显式写出，不做乘法或插值；丢资产时给字段默认值实例＋Warning，退回白模色而非透明</remarks>
     [CreateAssetMenu(fileName = "VisualPalette", menuName = "DeepseaOil/Settings/VisualPalette")]
     public sealed class VisualPalette : ScriptableObject
     {
-        /// <summary>AssetModule 的 Key：<c>Assets/Resources/tuning/VisualPalette.asset</c>。</summary>
         public const string ResourceKey = "tuning/VisualPalette";
 
         [Header("球种")]
@@ -49,8 +44,8 @@ namespace DeepseaOil.Data
         [Tooltip("球阴影色：贴地件的“存在感”来自它，不走球种色（阴影是光，不是材质）")]
         public Color shadow = new(0f, 0f, 0f, 0.35f);
 
-        /// <summary>取观感颜色表；没有（未接线 / 资产不存在）时返回一份字段默认值的实例。</summary>
-        /// <remarks>调用方只有 <c>ConfigModule.BindAssets</c> 一处；消费者经 <c>ConfigModule.Visuals</c> 拿到它（观感取值的单一权威入口）。</remarks>
+        /// <summary>取观感颜色表；缺失时返回字段默认值实例</summary>
+        /// <remarks>调用方只有 ConfigModule.BindAssets；消费者经 ConfigModule.Visuals 取，观感唯一权威入口</remarks>
         internal static VisualPalette LoadOrDefault()
         {
             if (Cached != null) return Cached;
@@ -87,8 +82,7 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <param name="slowMultiplier">本帧实际生效的减速系数（<c>&lt; 1</c> 表示被减速）。</param>
-        /// <remarks>四态而不是"二选一"：减速与受击是两个独立的 debuff，同时发生时两种反馈都要在 —— 否则站在减速格里被打中的敌人"看起来跟没踩进去一样"。判据用"是否小于 1"，将来减速分等级时这里不用改。</remarks>
+        /// <remarks>slowMultiplier 本帧减速系数，小于 1 即被减速；减速与受击是两个独立 debuff</remarks>
         public Color EnemyBodyColor(float slowMultiplier, bool flashOn)
         {
             bool slowed = slowMultiplier < 1f;

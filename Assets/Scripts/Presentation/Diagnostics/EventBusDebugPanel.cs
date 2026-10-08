@@ -4,8 +4,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Diagnostics
 {
-    /// <summary>EventBus 可视调试面板：屏幕上显示最近收到的格子状态事件。只读诊断件，不属于验收依据，不影响判定。</summary>
-    /// <remarks>订阅的是逻辑层真实事实 <see cref="TileStateChanged"/>；留在表现层是因为 <c>OnGUI</c> 依赖 <c>UnityEngine.IMGUIModule</c>（Logic 层禁引 UI）。</remarks>
+    /// <remarks>订阅的是逻辑层真实事实 TileStateChanged；OnGUI 依赖 IMGUIModule，故只能留在表现层（Logic 层禁引 UI）</remarks>
     public sealed class EventBusDebugPanel : MonoBehaviour
     {
         [SerializeField, Min(1)]
@@ -14,7 +13,7 @@ namespace DeepseaOil.Presentation.Diagnostics
         [SerializeField]
         private Vector2 panelOrigin = new Vector2(8f, 8f);
 
-        /// <summary>面板尺寸（像素）；负值 = 由 GUILayout 自适应。</summary>
+        /// <summary>面板尺寸（像素）；负值=自适应</summary>
         [SerializeField]
         private Vector2 panelSize = new Vector2(420f, 160f);
 
@@ -35,7 +34,6 @@ namespace DeepseaOil.Presentation.Diagnostics
 
         private void OnDestroy()
         {
-            // 必须退订：静态事件总线不会因物体销毁而自动解除引用。
             EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
         }
 

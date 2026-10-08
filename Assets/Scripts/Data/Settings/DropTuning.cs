@@ -2,10 +2,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <remarks>
-    /// 取不到资产时 <see cref="LoadOrDefault"/> 返回一份字段默认值的实例（默认值就是白模验收过的那一套）：玩法退回"能跑的默认手感"，而不是"时长 0、原地不动"。
-    /// 资产 <c>Assets/Resources/tuning/DropTuning.asset</c>（键 <c>tuning/DropTuning</c>，走 <c>AssetModule</c> 同步窄路）必须在仓库里：缺资源该表现成一条加载失败并计入 <c>DataMetrics</c>，不靠兜底掩盖。
-    /// </remarks>
+    /// <summary>资产 Assets/Resources/tuning/DropTuning.asset 必须在仓库；缺资源表现为加载失败并计入 DataMetrics，不靠兜底掩盖</summary>
     [CreateAssetMenu(fileName = "DropTuning", menuName = "DeepseaOil/Tuning/Drop")]
     public sealed class DropTuning : ScriptableObject
     {
@@ -36,8 +33,7 @@ namespace DeepseaOil.Data
         [Tooltip("触发半径（世界单位）")]
         public float triggerRadius = 0.15f;
 
-        /// <summary>取调参资产；取不到时返回一份字段默认值的实例。</summary>
-        /// <remarks>调用方只有 <c>ConfigModule.BindAssets</c> 一处，且重复调用返回同一份（兜底实例不进资源系统）；消费者经 <c>ConfigModule.GetDrop</c> 拿 <c>DropSpec</c>，不直接读 SO。</remarks>
+        /// <summary>取调参资产；取不到时返回字段默认值实例；调用方只有 ConfigModule.BindAssets，消费者经 ConfigModule.GetDrop 取 DropSpec</summary>
         internal static DropTuning LoadOrDefault()
         {
             if (Cached != null) return Cached;

@@ -2,10 +2,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Logic
 {
-    /// <summary>地图活动区域：一份纯数据矩形；玩家钳位与相机 confiner 共用它代表的同一块地图，min/max 由组合根在表现层把 <c>BoxCollider2D</c> 折算后传进来（见 <c>PlayerController</c>）。</summary>
-    /// <remarks>
-    /// 未接线是安全降级而非错误：默认值（min == max == 零，常见于框被停用 / 没设 Size）判为无效、<see cref="TryClamp"/> 原样返回不钳位；改成无条件 <c>Clamp</c> 会让忘接线时玩家被钉死在地图原点，现象诡异且难查。
-    /// </remarks>
+    /// <summary>地图活动区域：纯数据矩形，玩家钳位与相机 confiner 共用</summary>
+    /// <remarks>默认值（min==max==零）判无效，TryClamp 原样返回不钳位</remarks>
     public readonly struct BoundsArea
     {
         public readonly Vector2 Min;
@@ -20,7 +18,7 @@ namespace DeepseaOil.Logic
 
         public bool IsValid => Max.x > Min.x && Max.y > Min.y;
 
-        /// <returns>区域无效、或位置原本就在内时返回 <c>false</c>（<paramref name="clamped"/> 为原值），发生钳位返回 <c>true</c>；判定用 <c>sqrMagnitude</c> 而非 <c>Vector2 !=</c>（后者带 1e-5 量级容差，会把只差 1e-6 的钳位结果报成未钳位）。</returns>
+        /// <remarks>无效或已在内返回 false（clamped 为原值），钳位了返回 true；判定用 sqrMagnitude 而非 Vector2 !=，后者 1e-5 容差会把只差 1e-6 的钳位报成未钳位</remarks>
         public bool TryClamp(Vector2 position, out Vector2 clamped)
         {
             if (!IsValid)

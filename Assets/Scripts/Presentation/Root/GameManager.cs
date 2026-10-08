@@ -6,11 +6,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>
-    /// 游戏状态机：切状态时连带切面板、发暂停 / 恢复意图；它也是状态的唯一入口（改 <c>CurState</c> 只此一条路）。
-    /// 唯一构造点是 <c>GameRoot.Assemble</c>，普通类、由 <c>GameRoot</c> 持有；面板操作走构造注入的 <c>UIMgr</c>，本类不认识 <c>GameRoot</c>。
-    /// UI 输入逻辑只能经 <see cref="IUIStateRequest"/> 请求切状态，不能直接调它（依赖方向 Logic → 接口）。
-    /// </summary>
+    /// <summary>游戏状态机：切状态连带切面板、发暂停/恢复意图，是状态唯一入口。构造点只有 GameRoot.Assemble；面板操作走注入的 UIMgr，本类不认识 GameRoot。UI 输入只能经 IUIStateRequest 请求切状态。</summary>
     public sealed class GameManager : IUIStateRequest
     {
         private readonly UIMgr _ui;
@@ -22,13 +18,11 @@ namespace DeepseaOil.Presentation
             _ui = ui;
         }
 
-        /// <inheritdoc />
         public void RequestState(GameState state)
         {
             ChangeState(state);
         }
 
-        /// <summary>切换游戏状态；同状态是 no-op（面板显示 / 隐藏与暂停意图都在这里发生）。</summary>
         public void ChangeState(GameState newState)
         {
             if (CurState == newState) return;
@@ -41,11 +35,10 @@ namespace DeepseaOil.Presentation
                     if (CurState == GameState.Paused)
                         _ui.HidePanel<PausePanel>();
 
-                    // 收起战斗 HUD：它是局内读数，留在菜单上会盖住开始面板。
                     _ui.HidePanel<HudPanel>();
                     _ui.HidePanel<GamePlayPanel>();
 
-                    // 请求暂停：PlayerController 监听该事件，并在暂停时关掉输入。
+                    // 请求暂停；PlayerController 监听它并在暂停时关掉输入
                     EventBus<RequestPause>.Publish(new RequestPause());
                     break;
 

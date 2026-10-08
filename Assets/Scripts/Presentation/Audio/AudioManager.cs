@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>一次音效播放的记账条目（池化复用）。</summary>
+    /// <summary>一次音效播放的记账条目，池化复用</summary>
     public sealed class PlayingEntry
     {
         public GameObject go;
@@ -21,14 +21,7 @@ namespace DeepseaOil.Presentation
         }
     }
 
-    /// <summary>
-    /// 音频：<c>EnqueueSfx</c> / <c>EnqueueBgm</c> <b>只入队</b>，真正的播放统一在 <see cref="Tick"/> 里消费 —— 播放请求与实际播放在时间上解耦，同一帧里的多次请求按入队顺序各播各的。
-    /// 普通类、由 <c>GameRoot</c> 持有，作为 <c>IService</c> 每帧被驱动（先消费队列、再回收播完的音效）。
-    /// </summary>
-    /// <remarks>
-    /// <b>单帧只消费"本 Tick 开始时已存在的请求"</b>：消费循环先取 <c>count</c> 再跑，于是播放过程中新产生的请求留到下一 Tick —— 没有它，一个在回调里自排队的调用点能让这一帧停不下来。
-    /// 队列不是线程安全设施：全程主线程，它解决的是"请求/消费解耦"，不是并发。
-    /// </remarks>
+    /// <remarks>EnqueueSfx/EnqueueBgm 只入队，播放统一在 Tick 里消费；单帧只消费本 Tick 开始时已有的请求，播放中新产生的留到下一 Tick。由 GameRoot 持有并驱动。队列只为请求/消费解耦，非线程安全设施。</remarks>
     public sealed class AudioManager : IService
     {
         private const string CONFIGKEY = "Config/AudioConfig";
@@ -58,7 +51,6 @@ namespace DeepseaOil.Presentation
         private readonly Dictionary<AudioId, string> _idToFileName = new();
         private readonly Dictionary<AudioId, AudioClip> _cache = new();
 
-        /// <summary>待播放请求（先入先出）。只在 <c>GameRoot</c> 的服务通道（unscaled 时间）里被消费。</summary>
         private readonly Queue<AudioRequest> _requestQueue = new();
 
         private readonly List<PlayingEntry> _playing = new();
@@ -77,19 +69,16 @@ namespace DeepseaOil.Presentation
         private float _bgmVolume;
         private float _sfxVolume;
 
-        /// <summary>装配是否完成（未完成时播放与音量设置是 no-op）。</summary>
         public bool IsReady => _initialized;
 
         public float BgmVolume => _bgmVolume;
         public float SfxVolume => _sfxVolume;
 
-        /// <param name="host">音频根的宿主；传场景根之外的对象会让音频随它一起消失。</param>
         public AudioManager(Transform host)
         {
             _host = host;
         }
 
-        /// <summary>装配：读配置 + 建音频根 + 建两个池 + 建音乐播放器。<b>唯一调用点是 <c>GameRoot</c>。</b></summary>
         public void Init()
         {
             if (_initialized)
@@ -133,8 +122,8 @@ namespace DeepseaOil.Presentation
             _initialized = true;
         }
 
-        /// <summary>先消费队列、再回收播完的音效；顺序反了会让"本帧入队的音效"晚一帧才播。</summary>
-        /// <remarks>用 <b>unscaled</b> 那个：音频不参与暂停冻结（暂停时已经在放的音效该照常回收，否则 <c>_playing</c> 会挂着一堆播完的条目）。</remarks>
+        /// <summary>先消费队列、再回收播完的音效，顺序反了会让本帧入队的音效晚一帧才播</summary>
+        /// <remarks>用 unscaled 那个：音频不参与暂停冻结，否则 _playing 会在暂停时挂着播完的条目。</remarks>
         public void Tick(float deltaTime, float unscaledDeltaTime)
         {
             if (!_initialized) return;
@@ -146,7 +135,7 @@ namespace DeepseaOil.Presentation
 
         // 消息队列
 
-        /// <summary>请求播放音效，<b>只入队</b>，不立即操作 Unity AudioSource；<c>AudioId.None</c> 直接丢弃。</summary>
+        /// <summary>请求播放音效，只入队，None 丢弃</summary>
         public void EnqueueSfx(AudioId id)
         {
             if (id == AudioId.None)
@@ -155,7 +144,7 @@ namespace DeepseaOil.Presentation
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Sfx, id));
         }
 
-        /// <summary>请求播放 BGM，<b>只入队</b>，不立即操作 Unity AudioSource；<c>AudioId.None</c> 直接丢弃。</summary>
+        /// <summary>请求播放 BGM，只入队，None 丢弃</summary>
         public void EnqueueBgm(AudioId id)
         {
             if (id == AudioId.None)
@@ -164,7 +153,6 @@ namespace DeepseaOil.Presentation
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id));
         }
 
-        /// <summary>消费本次 Tick 开始时已经存在的请求；过程中新产生的请求留到下一 Tick。</summary>
         private void ProcessRequests()
         {
             int count = _requestQueue.Count;
@@ -186,7 +174,6 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>音效播放维护：倒序遍历，播完（或剩余时长耗尽）就归还两个池。</summary>
         private void UpdatePlaying(float unscaledDeltaTime)
         {
             for (int i = _playing.Count - 1; i >= 0; i--)
@@ -206,8 +193,8 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>拆除：清空待播请求、停掉在播的音效、还清资源引用、销毁音频根。<b>幂等。</b></summary>
-        /// <remarks>必须早于 <c>AssetModule.Dispose</c>（归还引用计数要经它）。</remarks>
+        /// <summary>拆除：清空待播请求、停掉在播的音效、还清资源引用、销毁音频根，幂等</summary>
+        /// <remarks>必须早于 AssetModule.Dispose（归还引用计数要经它）。</remarks>
         public void Dispose()
         {
             if (!_initialized) return;
@@ -292,7 +279,7 @@ namespace DeepseaOil.Presentation
 
         // 音频资源
 
-        /// <summary>音频资源 Key：<c>&lt;配置里的目录&gt;/&lt;文件名&gt;</c>（<c>AssetRegistry.ResolvePath</c> 会去掉扩展名）。</summary>
+        /// <summary>音频资源 Key：&lt;配置目录&gt;/&lt;文件名&gt;，ResolvePath 会去掉扩展名</summary>
         private static string ClipKey(string fileName) => "audio/" + fileName;
 
         private AudioClip GetClip(AudioId id)

@@ -15,20 +15,14 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>唯一的真单例：<b>谁造、谁清、别人怎么拿到它</b> —— 进程里只有本类有答案。</summary>
-    /// <remarks><b>它是常驻对象</b>（<c>DontDestroyOnLoad</c>）：每个场景重建一次就会重新 <c>new</c> 一份 <c>UIMgr</c> / 音频池 / <c>GameState</c>，而旧的那份还活着。
-    /// <b>驱动入口收敛到 1 个（渲染帧）＋ 1 个（物理帧）</b>：若让 <c>PlayerController</c>、<c>InputProvider</c> 各自被 Unity 直接调用，先后由引擎决定 —— 而接触结算依赖"玩家这一帧的速度已经提交"，输入采样依赖"按下沿在同一帧被采到"。
-    /// 顺序表（<see cref="Update"/>）：ⓐ 输入采样 → ⓑ UI 输入段 → ① 进程级服务（暂停 / 切场景 / 存档 / 音频 / 计时器）→ ② <c>AssetModule.Tick</c> → ③ 场景根 <c>RenderTick</c>（玩家侧 → 世界侧）→ ④ <c>EffectModule.Tick</c>；③④ 用 <c>Time.deltaTime</c>，暂停时一起冻结。<c>Order</c> 越小越先跑，顺序错了没有任何结构拦得住，所以顺序是数据。
-    /// <b>物理帧</b>（<see cref="FixedUpdate"/>）：玩家侧先跑（先提交速度），世界侧后跑（落地冲量 → 敌人 → 受击）。
-    /// 三个 static 模块的生命周期也在本类：<c>ConfigModule</c> 先于 <c>AssetModule</c>，<c>EffectModule.Preload</c> 又依赖 <c>AssetModule</c>；拆除顺序必须反过来，且 <c>AssetModule.Dispose</c> 必须最后（别人要经它归还引用计数）。</remarks>
+    /// <summary>唯一真单例：谁造、谁清、别人怎么拿到它</summary>
+    /// <remarks>常驻对象（DontDestroyOnLoad），每场景重建会多出一份 UIMgr/音频池/GameState。驱动入口收敛到 1 个渲染帧 + 1 个物理帧（顺序是数据，见 UpdateSteps）。三个 static 模块的生命周期也在这里：ConfigModule 先于 AssetModule，EffectModule.Preload 又依赖 AssetModule；拆除顺序必须反过来，AssetModule.Dispose 必须最后。</remarks>
     public sealed class GameRoot : Singleton<GameRoot>
     {
-        /// <summary>场景根：按 <see cref="ISceneRoot.Order"/> 升序排列，小者先跑。</summary>
         private readonly List<ISceneRoot> _sceneRoots = new();
 
         private readonly List<ISceneRoot> _pendingAttach = new();
 
-        /// <summary>进程级服务：<b>加进来的顺序既是 Init 序也是每帧 Tick 序</b>。</summary>
         private readonly List<IService> _services = new();
 
         private InputProvider _input;
@@ -37,12 +31,11 @@ namespace DeepseaOil.Presentation
         private ITickable _uiInput;
         private IGameTime _gameTime;
 
-        /// <summary>真正装配了进程级件的那个实例；只有它负责拆（重复的 <c>GameRoot</c> 被销毁时不许拆掉别人正在用的缓存）。</summary>
+        /// <summary>真正装配了进程级件的那个实例，只有它负责拆</summary>
         private static GameRoot _assembled;
 
-        /// <summary>渲染帧驱动项：<c>Order</c>（升序执行）＋ <c>Label</c>（诊断用）＋ 一个步骤；<b>顺序是数据而不是方法体里的一段注释</b>。</summary>
-        /// <remarks>步骤收到<b>两个</b>时间：<c>scaledDeltaTime</c>（暂停时为 0，走 <see cref="Time.deltaTime"/>）与 <c>unscaledDeltaTime</c>（暂停时照走，走 <see cref="Time.unscaledDeltaTime"/>）。
-        /// 一起给是因为<b>服务一律不自己读 <c>Time</c></b>：口径由驱动方给，服务只声明自己要哪一个。</remarks>
+        /// <summary>渲染帧驱动项：Order（升序）+ Label + 一个步骤</summary>
+        /// <remarks>步骤收到两个时间：scaledDeltaTime（暂停时为 0）与 unscaledDeltaTime（暂停时照走）；服务一律不自己读 Time，口径由驱动方给。</remarks>
         private readonly struct DriveStep
         {
             public readonly int Order;
@@ -64,21 +57,19 @@ namespace DeepseaOil.Presentation
 
         public IReadOnlyList<(int Order, string Label)> FixedSteps => Describe(_fixedSteps);
 
-        /// <summary>装配是否完成（失败时 <see cref="Update"/> 整体 no-op）。</summary>
         public bool IsReady { get; private set; }
 
-        /// <summary>UI：面板的显示 / 隐藏 / 关闭最上层。<b>面板也走这里拿</b>，没有第二个入口。</summary>
+        /// <summary>UI：面板显隐与关闭最上层</summary>
         public UIMgr UI { get; private set; }
 
-        /// <summary>游戏状态机（菜单 / 暂停 / 进行）：切状态会连带切面板与暂停意图。</summary>
         public GameManager Game { get; private set; }
 
         public AudioManager Audio { get; private set; }
 
-        /// <summary>全局计时器（时间轮）：麻痹 / 冷却 / 倒计时这类"持续到某时刻"的东西排在这里，<b>不排给已经有钟的格子</b>（D12）。</summary>
+        /// <summary>全局计时器（时间轮）：麻痹/冷却/倒计时这类"持续到某时刻"的排这里，不排给已有钟的格子</summary>
         public TimerManager Timer { get; private set; }
 
-        /// <summary>注册一个场景根（重复注册是 no-op）；真正的装配推迟到第一个被驱动的帧。</summary>
+        /// <summary>注册场景根（重复是 no-op），真正装配推迟到第一个被驱动的帧</summary>
         public void RegisterSceneRoot(ISceneRoot root)
         {
             if (root == null || _sceneRoots.Contains(root)) return;
@@ -97,7 +88,7 @@ namespace DeepseaOil.Presentation
             _pendingAttach.Remove(root);
         }
 
-        /// <summary>注册输入采样器：<b>每帧的采样由本类发起</b>（见 <see cref="Update"/> 的 ⓐ）。</summary>
+        /// <summary>注册输入采样器；每帧采样由本类发起</summary>
         public void RegisterInputProvider(InputProvider provider)
         {
             if (provider == null) return;
@@ -114,10 +105,10 @@ namespace DeepseaOil.Presentation
         {
             base.Awake();
 
-            // 重复的 GameRoot 走到这里时已被判销毁（Destroy 延期到帧末），必须再判一次：否则它会在这一帧里把 Data 层重新装配一遍。
+            // Destroy 延期到帧末，这里必须再判一次，否则它会重装一遍 Data 层
             if (!ReferenceEquals(Instance, this)) return;
 
-            // 必须在 SceneService.Init（在 Assemble 里）之前订阅（EventBus 的发布是"快照 + 按订阅顺序调用"）；不写进 SceneService：它属于 Logic 层，调 EffectModule 会造成反向依赖。
+            // 必须在 SceneService.Init 之前订阅（发布按订阅顺序调用）；不写进 SceneService：它属 Logic 层，调 EffectModule 是反向依赖
             EventBus<RequestChangeScene>.Subscribe(OnRequestChangeScene);
 
             Assemble();
@@ -125,14 +116,13 @@ namespace DeepseaOil.Presentation
             IsReady = true;
         }
 
-        /// <summary>切场景复位清单里的表现层那一步：在 LoadScene 之前清空所有特效实例。</summary>
         private void OnRequestChangeScene(RequestChangeScene evt)
         {
             EffectModule.CleanAll();
         }
 
-        /// <summary>进程级装配：Data 层 → UI / 游戏状态 → 音频 → 服务表 → UI 输入逻辑。</summary>
-        /// <remarks>顺序不能反：<c>AssetModule</c> 的 Key 来自 <c>ConfigModule</c>；<c>EffectModule.Preload</c> 走 <c>AssetModule</c> 的同步窄路；<c>UIMgr.Init</c> 与 <c>AudioManager.Init</c> 都要读资源。失败即抛：带病数据不进运行时。</remarks>
+        /// <summary>进程级装配：Data 层 → UI/状态 → 音频 → 服务表 → UI 输入</summary>
+        /// <remarks>顺序不能反：AssetModule 的 Key 来自 ConfigModule，EffectModule.Preload 走 AssetModule；UIMgr.Init 与 AudioManager.Init 都要读资源。失败即抛。</remarks>
         private void Assemble()
         {
             if (!ConfigModule.IsReady)
@@ -170,10 +160,9 @@ namespace DeepseaOil.Presentation
             var sceneService = new SceneService(pauseService);
             var saveService = new SaveService();
 
-            // 计时器：脱掉 BaseManager 单例之后的常规写法 —— 参数走构造，Init 保持无参（IService 的形状）。
             Timer = new TimerManager(0.1f, 512);
 
-            // 顺序 [Pause, Scene, Save, Audio, Timer] 既是 Init 序也是每帧 Tick 序
+            // 顺序 [Pause, Scene, Save, Audio, Timer] 既是 Init 序也是 Tick 序
             pauseService.Init();
             sceneService.Init();
             saveService.Init();
@@ -200,16 +189,16 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>把驱动顺序写成数据。<b>加一个阶段是加一行</b>，不是改 <c>Update</c> 的方法体。</summary>
+        /// <summary>把驱动顺序写成数据：加阶段是加一行，不改 Update 方法体</summary>
         private void BuildDriveSteps()
         {
             _updateSteps.Clear();
             _fixedSteps.Clear();
 
-            // ⓪ 场景根装配：只在本帧有新注册者时真的做事（幂等，见 EnsureAttached）
+            // ⓪ 场景根装配：有新注册者时才做事（幂等）
             _updateSteps.Add(new DriveStep(0, "场景根装配 EnsureAttached", (_, __) => EnsureAttached()));
 
-            // ⓐ 输入采样：全工程唯一采样点，必须在任何消费者之前（按下沿只在动态更新里有效）
+            // ⓐ 输入采样：全工程唯一采样点，必须在消费者之前
             _updateSteps.Add(new DriveStep(10, "输入采样 InputProvider.Sample", (_, __) => _input?.Sample()));
 
             _updateSteps.Add(new DriveStep(20, "UI 输入段", (_, __) =>
@@ -218,15 +207,15 @@ namespace DeepseaOil.Presentation
                 _uiInput.Tick(new UILogicContext(_uiInputProvider.ConsumeSnapshot(), Game.CurState));
             }));
 
-            // ① 进程级服务：暂停 / 切场景 / 存档 / 音频 / 计时器。两个 delta 一起给 —— 用 unscaled 的（暂停时也要推进）与两个都要的（计时器）各取所需
+            // ① 进程级服务：暂停/切场景/存档/音频/计时器，两个 delta 一起给
             _updateSteps.Add(new DriveStep(30, "进程级服务 Services.Tick", (dt, unscaledDt) => TickServices(dt, unscaledDt)));
 
             _updateSteps.Add(new DriveStep(40, "Data 层 AssetModule.Tick", (dt, __) => AssetModule.Tick(dt)));
 
-            // ③ 场景根（渲染帧）：玩家侧（瞄准 / 投掷意图）→ 世界侧（格子 / 球 / 掉落物 / 喷泉）
+            // ③ 场景根：玩家侧 → 世界侧
             _updateSteps.Add(new DriveStep(50, "场景根 RenderTick", (dt, __) => TickSceneRootsRender(dt)));
 
-            // ④ 特效：放在场景根之后 —— 本帧新播的特效当帧就被推进一次
+            // ④ 特效：放在场景根之后，本帧新播的当帧就推进一次
             _updateSteps.Add(new DriveStep(60, "特效 EffectModule.Tick", (dt, __) => EffectModule.Tick(dt)));
 
             _fixedSteps.Add(new DriveStep(0, "场景根 FixedTick", (dt, __) => TickSceneRootsPhysics(dt)));
@@ -242,7 +231,6 @@ namespace DeepseaOil.Presentation
             RunSteps(_fixedSteps, Time.fixedDeltaTime, Time.fixedDeltaTime);
         }
 
-        /// <summary>按 <c>Order</c> 升序执行一张顺序表；每次调用都排一次序（项数个位数），不依赖"谁先被 <c>Add</c>"。</summary>
         private static void RunSteps(List<DriveStep> steps, float deltaTime, float unscaledDeltaTime)
         {
             steps.Sort(static (a, b) => a.Order.CompareTo(b.Order));
@@ -253,7 +241,7 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>推进服务表。<b>两个 delta 原样转发</b>：口径由本类决定，服务不自己读 <c>Time</c>。</summary>
+        /// <summary>推进服务表；两个 delta 原样转发</summary>
         private void TickServices(float deltaTime, float unscaledDeltaTime)
         {
             for (int i = 0; i < _services.Count; i++)
@@ -292,7 +280,6 @@ namespace DeepseaOil.Presentation
             return result;
         }
 
-        /// <summary>渲染帧通道：<b>按 <see cref="UpdateSteps"/> 的 <c>Order</c> 升序跑</b>（全工程唯一入口）。</summary>
         private void Update()
         {
             if (!IsReady) return;
@@ -300,8 +287,8 @@ namespace DeepseaOil.Presentation
             RunUpdateSteps();
         }
 
-        /// <summary>物理帧通道：<b>按 <see cref="FixedSteps"/> 的 <c>Order</c> 升序跑</b>（场景根内部再按各自的 <c>ISceneRoot.Order</c>：玩家侧先跑，世界侧后跑）。</summary>
-        /// <remarks>若让两个 <c>MonoBehaviour</c> 各自被 Unity 调，谁先跑由 Unity 决定，而接触结算读的是"玩家这一帧提交后的位置"。暂停时 Unity 不跑本方法，所以不需要额外挡一层。</remarks>
+        /// <summary>物理帧通道：按 FixedSteps 的 Order 升序跑，场景根内部再按各自 Order</summary>
+        /// <remarks>若让两个 MonoBehaviour 各自被 Unity 调，先后由 Unity 决定，而接触结算读的是玩家这一帧提交后的位置。</remarks>
         private void FixedUpdate()
         {
             if (!IsReady) return;
@@ -309,11 +296,11 @@ namespace DeepseaOil.Presentation
             RunFixedSteps();
         }
 
-        /// <summary>进程退出：<b>按装配的逆序拆</b>。</summary>
-        /// <remarks>顺序不能反：<c>EffectModule</c> 与 <c>UIMgr</c> 释放资源要经 <c>AssetModule</c> 归还引用计数，所以 <c>AssetModule.Dispose</c> 必须最后；<c>AudioManager</c> 与 <c>TimerManager</c> 在服务表里，由服务表统一按反序 <c>Dispose</c>。</remarks>
+        /// <summary>进程退出：按装配逆序拆</summary>
+        /// <remarks>EffectModule 与 UIMgr 释放资源要经 AssetModule 归还引用计数，故 AssetModule.Dispose 必须最后；AudioManager 与 TimerManager 由服务表按反序 Dispose。</remarks>
         private void OnDestroy()
         {
-            // 退订放在守卫之前：任何 GameRoot 都要拆掉自己的订阅
+            // 退订必须在守卫之前
             EventBus<RequestChangeScene>.Unsubscribe(OnRequestChangeScene);
 
             if (!ReferenceEquals(_assembled, this)) return;
@@ -336,8 +323,8 @@ namespace DeepseaOil.Presentation
             _assembled = null;
         }
 
-        /// <summary>把新注册的场景根按 <see cref="ISceneRoot.Order"/> 装配一次（幂等）。</summary>
-        /// <remarks>装配推迟到这里而不是各自的 <c>Start</c>：Unity 不保证组件之间的 <c>Awake</c> / <c>Start</c> 顺序，而装配既要读配表、世界侧又要读玩家侧的 <c>Logic</c>。先移出待装列表再调：某个场景根装配失败（抛异常）时不该每帧重试。</remarks>
+        /// <summary>把新注册的场景根按 Order 装配一次（幂等）</summary>
+        /// <remarks>装配推迟到这里而非各自 Start：Unity 不保证 Awake/Start 顺序。先移出待装列表再调：某个装配失败时不该每帧重试。</remarks>
         private void EnsureAttached()
         {
             PruneSceneRoots();
@@ -360,7 +347,7 @@ namespace DeepseaOil.Presentation
 
         private void PruneSceneRoots()
         {
-            // 场景根是 MonoBehaviour：对象被销毁后引用还在（接口不参与 Unity 的 null 判定），不剔掉就会在下一帧对已销毁对象调方法。
+            // 对象销毁后引用还在（接口不参与 Unity 的 null 判定），不剔掉就会对已销毁对象调方法
             for (int i = _sceneRoots.Count - 1; i >= 0; i--)
             {
                 if (!IsAlive(_sceneRoots[i])) _sceneRoots.RemoveAt(i);
