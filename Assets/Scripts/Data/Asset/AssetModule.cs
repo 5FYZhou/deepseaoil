@@ -29,8 +29,12 @@ namespace DeepseaOil.Data
 
         private static bool _initialized;
 
-        // 供 DataMetrics 只读访问（同程序集内可见）
-        internal static bool IsInitialized => _initialized;
+        /// <summary>是否已 <see cref="Init"/>。</summary>
+        // 公开口：表现层装配期要判断「此刻能不能 Tick / Dispose」（跨程序集，internal 拿不到）。
+        // 上一版它靠"全工程一个程序集"白拿，加 asmdef 后变成 CS0117。
+        public static bool IsInitialized => _initialized;
+
+        // 以下仅供 DataMetrics 只读访问（同程序集内可见）
         internal static CacheStore Cache => _cache;
         internal static LoadScheduler Scheduler => _scheduler;
         internal static LifecycleMgr Lifecycle => _lifecycle;

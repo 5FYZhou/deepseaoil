@@ -1,0 +1,17 @@
+{
+    "name": "DeepseaOil.Data",
+    "rootNamespace": "DeepseaOil.Data",
+    "references": [
+        "cfg",
+        "Luban.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

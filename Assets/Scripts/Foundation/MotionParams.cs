@@ -1,7 +1,7 @@
 namespace DeepseaOil.Foundation
 {
     /// <summary>状态机能看见的那几个<b>运动标量</b>：地基认识的全部角色数据到此为止。</summary>
-    /// <remarks><b>为什么不是 <c>CharacterConfig</c>：</b>那会让全工程的地基（<c>Foundation</c>，其余四层都依赖它）反向依赖数据层，而这种逆向层依赖不报错、不警告、测试也不查（没有 asmdef 时层与层之间没有编译器边界）。
+    /// <remarks><b>为什么不是 <c>CharacterConfig</c>：</b>那会让全工程的地基（<c>Foundation</c>，其余四层都依赖它）反向依赖数据层。这种逆向层依赖现在由编译器直接挡下：<c>DeepseaOil.Foundation.asmdef</c> 的 references 是空的，碰 Data 就是 CS0234。
     /// <b>这里是装配期 <c>Configure</c> 一次性折算的快照：事后改 SO 不生效</b>（M19/M20 测试因断言"改 SO 即时生效"被删）；不在这里的字段就是没有消费者，加字段前先确认真的有一个状态要读它。</remarks>
     public readonly struct MotionParams
     {
