@@ -115,7 +115,7 @@ namespace DeepseaOil.EditorTools
             return list;
         }
 
-        /// <summary>`~$weapon.xlsx` → `weapon.xlsx`，去掉 Excel 的占用标记前缀。</summary>
+        /// <summary>`~$enemy.xlsx` → `enemy.xlsx`，去掉 Excel 的占用标记前缀。</summary>
         public static List<string> TableNamesOf(List<string> lockFiles)
         {
             var names = new List<string>();

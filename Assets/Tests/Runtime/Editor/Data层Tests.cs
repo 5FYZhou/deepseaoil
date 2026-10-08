@@ -145,7 +145,7 @@ namespace DeepseaOil.Tests
             AssetModule.Release(PanelKey);
 
             // ── 这里原本还有第二段：「表里真实的 icon 能不能真的加载出来」──
-            // 已删。表里的资源路径列（weapon/fish 的 icon、tile_state 的 icon）连同那三张示范表
+            // 已删。表里的资源路径列（`icon`）连同那三张示范表
             // 一起下架了，现在 8 张表**一个 `#path=unity` 列都没有**，这条链路没有真值可测。
             // 表列 → 资源 Key 这条约定本身仍有活消费者（TilemapAdapter 的 `tiles/Tile_<状态>`），
             // 它的验收在 PlayMode：Editor 下 Resources.LoadAsync 的完成回调本来就不触发（见 A4 注释）。
