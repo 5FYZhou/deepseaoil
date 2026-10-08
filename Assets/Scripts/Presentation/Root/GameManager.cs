@@ -1,4 +1,4 @@
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Presentation.UI;
@@ -36,6 +36,7 @@ namespace DeepseaOil.Presentation
                         _ui.HidePanel<PausePanel>();
 
                     _ui.HidePanel<HudPanel>();
+                    _ui.HidePanel<GamePlayPanel>();
 
                     // 请求暂停；PlayerController 监听它并在暂停时关掉输入
                     EventBus<RequestPause>.Publish(new RequestPause());
@@ -50,6 +51,7 @@ namespace DeepseaOil.Presentation
                         _ui.HidePanel<PausePanel>();
 
                     _ui.ShowPanel<HudPanel>();
+                    _ui.ShowPanel<GamePlayPanel>();
                     break;
 
                 case GameState.Paused:
