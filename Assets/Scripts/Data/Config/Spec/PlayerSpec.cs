@@ -2,8 +2,8 @@ using cfg.demo;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>玩家的取值边界：合并「<c>player</c> 表行」与「<c>PlayerConfig</c> SO」，外加投掷调参。</summary>
-    /// <remarks>表行管血量与受击（策划调参），SO 管移动与冲刺（程序调参），两者语义不重叠；两份数据都在装配期折算一次。</remarks>
+    /// <summary>玩家取值边界，合并 player 表行与 PlayerConfig SO</summary>
+    /// <remarks>表行管血量与受击，SO管移动与冲刺，装配期折算一次</remarks>
     public sealed class PlayerSpec
     {
         private readonly Player _row;
@@ -34,28 +34,28 @@ namespace DeepseaOil.Data
 
         public float KnockbackSpeedLimit => _row.KnockbackSpeedLimit;
 
-        /// <summary>敌人"贴上了"的圆心距（世界单位）；比"两者碰撞半径之和"略小，所以是"几乎贴在身上"而不是"擦到就算"。</summary>
+        /// <summary>敌人贴上圆心距，世界单位，略小于两半径之和</summary>
         public float ContactRadius => _row.ContactRadius;
 
-        /// <summary>移动与冲刺参数（SO）；只有一个读者：装配链把玩家执行器配起来的那一行（<c>PlayerLogic</c> → <c>ActorLogic(motor, spec.Config)</c>）—— 消费方要哪条语义就问本类要哪条，不要再往下取配置对象，且装配期折算成快照后改 SO 不生效。</summary>
+        /// <remarks>移动与冲刺参数，装配期折算快照，改SO不生效</remarks>
         public PlayerConfig Config => _config;
 
         public ProjectileSpec Ball { get; }
 
         public bool SnapToEightDirections => _config.snapToEightDirections;
 
-        /// <summary>输入缓冲容量（秒）：历史窗口时长，必须 ≥ 下面所有输入各自的窗口。</summary>
+        /// <summary>输入缓冲容量，秒，须≥各输入窗口</summary>
         public float InputBufferSeconds => _config.inputBufferTime;
 
         public float DashCooldownSeconds => _config.dashCooldown;
 
         public float DashBufferSeconds => _config.dashBufferTime;
 
-        /// <summary>屏幕点投到世界平面时给的相机深度（世界单位，取水球行的 <c>ThrowTuning</c>）；取不到时 100。</summary>
+        /// <summary>相机深度，世界单位，取水球行ThrowTuning，缺失=100</summary>
         public float CameraPlaneDepth
             => Ball != null && Ball.Tuning != null ? Ball.Tuning.cameraPlaneDepth : 100f;
 
-        /// <summary>投掷射程上限（世界单位），取水球那一行；射程属"玩家资格"而不是"球的规则"。表里一行都没有时返回 0，而 <c>TileAim</c> 对非法射程按"不限"处理 —— 表现是"射程变得很远"，不是"投不出去"。</summary>
+        /// <summary>投掷射程上限，世界单位，取水球行，缺失=0=不限</summary>
         public float MaxThrowDistance => Ball != null ? Ball.MaxThrowDistance : 0f;
     }
 }

@@ -4,9 +4,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>生命周期管理：冷却期标记 ＋ LRU 淘汰 ＋ 淘汰后的资源回收。</summary>
-    /// <remarks>调用时机：Tick 由 <c>GameRoot</c> 每帧驱动；OnSceneSwitch 由 <c>SceneService</c> 切场景前调用。
-    /// 边界：主线程独占；isPreloaded = true 的条目永不淘汰；单帧最多淘汰 _maxEvictPerTick 条，避免卡帧；不修改 refCount，也不删除 refCount &gt; 0 的条目。</remarks>
+    /// <summary>生命周期：冷却期标记 + LRU 淘汰</summary>
+    /// <remarks>Tick 由 GameRoot 驱动，OnSceneSwitch 由 SceneService 在切场景前调。主线程独占；isPreloaded 永不淘汰</remarks>
     internal sealed class LifecycleMgr
     {
         private readonly CacheStore _cache;
@@ -25,7 +24,7 @@ namespace DeepseaOil.Data
             _maxEvictPerTick = maxEvictPerTick;
         }
 
-        /// <summary>每帧推进。两阶段：先标记冷却期到期（每帧全遍历 O(N)），再按需 LRU 淘汰（只在超阈值时发生）。</summary>
+        /// <summary>每帧推进：先标记冷却期到期，再按需淘汰</summary>
         public void Tick(float dt)
         {
             float now = Time.realtimeSinceStartup;
@@ -47,8 +46,8 @@ namespace DeepseaOil.Data
                 EvictLRU(overflow);
         }
 
-        /// <summary>按 LRU 淘汰。调用方：Tick 阶段 2。</summary>
-        /// <remarks>边界：只淘汰 canEvict && !isPreloaded；单次最多 _maxEvictPerTick 个；先收集候选再删除。</remarks>
+        /// <summary>按 LRU 淘汰</summary>
+        /// <remarks>只淘汰 canEvict 且非 isPreloaded</remarks>
         private void EvictLRU(int count)
         {
             List<KeyValuePair<string, CacheEntry>> candidates = null;
@@ -76,13 +75,12 @@ namespace DeepseaOil.Data
 
             if (toEvict > 0)
             {
-                // 解除我们的引用后，让 Unity 回收「未引用资源」；不 yield 等它完成（协程会打破「GameRoot 唯一驱动」），限流靠「单帧最多淘汰 8 条 ＋ 只在真的淘汰后触发」。
                 Resources.UnloadUnusedAssets();
             }
         }
 
-        /// <summary>切场景时调用（<c>AssetModule.OnSceneSwitch</c>）：上一场景的缓存不再享受冷却期保护，可被立即淘汰。</summary>
-        /// <remarks>边界：isPreloaded 不动；refCount &gt; 0 不动（不强制释放）；本方法不删任何条目。</remarks>
+        /// <summary>切场景时调用：上一场景缓存不再享受冷却期保护</summary>
+        /// <remarks>isPreloaded 与 refCount &gt; 0 不动</remarks>
         public void OnSceneSwitch()
         {
             foreach (var kv in _cache.AllEntries)

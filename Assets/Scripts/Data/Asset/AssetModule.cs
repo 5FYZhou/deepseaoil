@@ -4,9 +4,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>资源模块：Data 层的资源查询与生命周期管理入口。仅主线程调用（Unity 资源 API 限制）；Init 重复调用抛异常。
-    /// 调用时机：Init = GameRoot.Awake（紧随 ConfigModule.Init 之后）；Tick = GameRoot 顺序表 step ②，每帧；OnSceneSwitch = SceneService.Load（必须在 LoadScene 之前）；Dispose = GameRoot.OnDestroy。
-    /// 边界：不发布/不订阅任何事件（观测走 DataMetrics 拉模型）；不感知调用方身份与业务语义，不知道 Luban 存在。</summary>
+    /// <summary>资源模块：Data 层资源查询与生命周期入口，仅主线程调用</summary>
+    /// <remarks>Init=GameRoot.Awake；Tick=GameRoot step② 每帧；OnSceneSwitch=LoadScene 前；Dispose=GameRoot.OnDestroy。不订阅事件，观测走 DataMetrics 拉模型</remarks>
     public static class AssetModule
     {
         private const float COOLDOWN_SECONDS    = 60f;
@@ -29,12 +28,8 @@ namespace DeepseaOil.Data
 
         private static bool _initialized;
 
-        /// <summary>是否已 <see cref="Init"/>。</summary>
-        // 公开口：表现层装配期要判断「此刻能不能 Tick / Dispose」（跨程序集，internal 拿不到）。
-        // 上一版它靠"全工程一个程序集"白拿，加 asmdef 后变成 CS0117。
         public static bool IsInitialized => _initialized;
 
-        // 以下仅供 DataMetrics 只读访问（同程序集内可见）
         internal static CacheStore Cache => _cache;
         internal static LoadScheduler Scheduler => _scheduler;
         internal static LifecycleMgr Lifecycle => _lifecycle;
@@ -42,7 +37,7 @@ namespace DeepseaOil.Data
         internal static int CacheHits => _cacheHits;
         internal static int CacheMisses => _cacheMisses;
 
-        /// <summary>初始化。不创建任何 Unity 资源（降级资源由业务注册）；重复调用抛异常。</summary>
+        /// <summary>初始化，不创建 Unity 资源</summary>
         public static void Init()
         {
             if (_initialized)
@@ -61,7 +56,7 @@ namespace DeepseaOil.Data
             _initialized = true;
         }
 
-        /// <summary>每帧推进，只驱动 Scheduler 与 Lifecycle（FailureHandler 的重试在 Scheduler 内）。未 Init 时 no-op 不抛异常：防装配顺序出错时整帧炸掉。</summary>
+        /// <summary>每帧推进 Scheduler 与 Lifecycle，未 Init 时 no-op</summary>
         public static void Tick(float dt)
         {
             if (!_initialized) return;
@@ -70,7 +65,7 @@ namespace DeepseaOil.Data
             _lifecycle.Tick(dt);
         }
 
-        /// <summary>切场景时调用（必须在 LoadScene 之前）：不清挂起请求、不动合并列表（可能是新场景的预加载）；不强制释放 refCount &gt; 0 的资源，保留 isPreloaded 条目。</summary>
+        /// <summary>切场景前调用，不清挂起请求，不动 refCount>0 与 isPreloaded 条目</summary>
         public static void OnSceneSwitch()
         {
             if (!_initialized) return;
@@ -78,7 +73,6 @@ namespace DeepseaOil.Data
             _lifecycle.OnSceneSwitch();
         }
 
-        /// <summary>进程退出时调用（GameRoot.OnDestroy）。</summary>
         public static void Dispose()
         {
             if (!_initialized) return;
@@ -91,10 +85,8 @@ namespace DeepseaOil.Data
             _initialized = false;
         }
 
-        // 主路径：异步加载
-
-        /// <summary>异步加载资源，任何层可调。命中缓存则 refCount++ 并返回已完成句柄（await 不挂起）；未命中则入队、由 Tick 推进，同一 Key 的并发请求合并为一个 IO。
-        /// 加载成功严格按 Put 缓存 → Retain → Complete 的顺序；失败重试 2 次后返回降级资源（可能为 null）；调用方拿到句柄后必须成对调用 Release。</summary>
+        /// <summary>异步加载资源，跨层可调；命中缓存即 refCount++ 返回已完成句柄；同 Key 并发请求合并为一个 IO</summary>
+        /// <remarks>成功顺序 Put→Retain→Complete；失败重试 2 次后返回降级资源（可能 null）；句柄须成对 Release</remarks>
         public static AsyncHandle<T> LoadAsync<T>(string key) where T : UnityEngine.Object
         {
             if (!_initialized)
@@ -133,14 +125,12 @@ namespace DeepseaOil.Data
                 type = typeof(T),
                 onDone = asset =>
                 {
-                    // 顺序严格：先写缓存 → 再 Retain → 最后 Complete。否则调用方 await 后立即 TryGet/Release 会撞上「句柄已 resolve 但缓存未写入」的窗口。
                     _cache.Put(key, asset, isPreloaded: false);
                     _refCounter.Retain(key);
                     DispatchPending(key, asset);
                 },
                 onFail = reason =>
                 {
-                    // 重试已用尽：记录 + 降级。fallback 可能为 null，调用方需处理
                     _failure.RecordFailure(key, reason);
                     DispatchPending(key, _failure.GetFallback<T>());
                 },
@@ -149,10 +139,7 @@ namespace DeepseaOil.Data
             return handle;
         }
 
-        // 同步加载（ResMgr.Load<T> 的平替路径）
-
-        /// <summary>同步加载资源。调用方：需要"当场拿到"且体量确定很小的资源（UI 基建 prefab 等）。<b>阻塞主线程</b>，不要用于面板/场景级资源；与 LoadAsync 共用同一份缓存与引用计数，同一 Key 可混用。
-        /// 失败记一次并返回降级资源（可能为 null），<b>不走重试</b>（重试属于异步路径）。</summary>
+        /// <summary>同步加载，阻塞主线程，只用于体量很小的资源；与 LoadAsync 共用缓存与引用计数；失败不重试，返回降级资源（可能 null）</summary>
         public static T Load<T>(string key) where T : UnityEngine.Object
         {
             if (!_initialized)
@@ -186,9 +173,7 @@ namespace DeepseaOil.Data
             return asset;
         }
 
-        // 观测路径：查缓存（不触发加载）
-
-        /// <summary>不触发加载、不改变引用计数、命中时更新访问时间。</summary>
+        /// <summary>不触发加载，不改引用计数，命中时更新访问时间</summary>
         public static bool TryGet<T>(string key, out T asset) where T : UnityEngine.Object
         {
             asset = null;
@@ -206,7 +191,7 @@ namespace DeepseaOil.Data
             return false;
         }
 
-        /// <summary>释放一次引用。未知 Key / 重复释放记警告不抛异常；refCount 归零后进冷却期，<b>不</b>立即卸载。</summary>
+        /// <summary>未知 Key/重复释放记警告；refCount 归零进冷却期，不立即卸载</summary>
         public static void Release(string key)
         {
             if (!_initialized || string.IsNullOrEmpty(key))
@@ -216,8 +201,7 @@ namespace DeepseaOil.Data
                 Debug.LogWarning($"[Asset] Release unknown or over-released key: {key}");
         }
 
-        /// <summary>预加载资源并标记为常驻：不创建 AsyncHandle（没有调用方在 await）；完成后 isPreloaded = true，永不淘汰、不计入引用计数；用 typeof(UnityEngine.Object) 做类型，不约束具体类型。
-        /// 已知待验证项：Resources.LoadAsync 传基类时类型过滤是否生效（见 Docs/待办.md）。</summary>
+        /// <summary>预加载并标记常驻，永不淘汰、不计引用计数；类型用 typeof(UnityEngine.Object)。待验证：传基类时 LoadAsync 类型过滤是否生效（见 Docs/待办.md）</summary>
         public static void Preload(string key)
         {
             if (!_initialized || string.IsNullOrEmpty(key))
@@ -231,7 +215,6 @@ namespace DeepseaOil.Data
                 return;
             }
 
-            // 在途：挂一个升格回调，不重复入队
             if (_pendingLoads.TryGetValue(key, out var waiters))
             {
                 waiters.Add(asset =>
@@ -264,7 +247,7 @@ namespace DeepseaOil.Data
             });
         }
 
-        /// <summary>Data 层不创建资源，由业务传入（URP 下占位 Sprite 需 Sprite.Create，属于业务细节）。</summary>
+        /// <summary>降级资源由业务注册，Data 层不创建</summary>
         public static void RegisterFallback<T>(T fallback) where T : UnityEngine.Object
         {
             if (!_initialized)

@@ -5,9 +5,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.World
 {
-    /// <summary>喷泉：玩家站在触发区里时，按间隔产出一颗水球掉落物。</summary>
-    // 由组合根每帧推进（CombatRoot 遍历接线上的喷泉），不是自驱 Update。节拍与落点散布归本类，
-    // 掉落物怎么飞、被领走时给什么归掉落物实体与 DropDirector；本类只认识 IDropSpawner 一个方法。
+    // 由组合根每帧推进，不是自驱 Update；只认识 IDropSpawner 一个方法
     public sealed class Fountain : MonoBehaviour
     {
         [Header("产出")]
@@ -24,7 +22,7 @@ namespace DeepseaOil.Presentation.World
         [Tooltip("落点离喷泉的最小距离（世界单位）：避免水球落在喷泉正中心")]
         [SerializeField] private float minLandingDistance = 0.8f;
 
-        // 掉落物生成口；为 null 时不产出。Attach 由组合根调一次。
+        // 为 null 时不产出；Attach 由组合根调一次
         private IDropSpawner _spawner;
 
         private bool _playerInside;
@@ -35,7 +33,7 @@ namespace DeepseaOil.Presentation.World
             _spawner = spawner;
         }
 
-        // 推进一个渲染帧（由组合根驱动）；deltaTime 暂停时为 0，节拍自然冻结。
+        // 推进一个渲染帧；deltaTime 暂停时为 0，节拍自然冻结
         public void Tick(float deltaTime)
         {
             if (!_playerInside) return;
@@ -49,7 +47,6 @@ namespace DeepseaOil.Presentation.World
             SpawnOne();
         }
 
-        // 用 Enter 而不是 Stay：函数体只在首次进入那一帧做事，挂在每帧回调上会让人以为节拍在这里推进。
         private void OnTriggerEnter2D(Collider2D collision)
         {
             if (collision.GetComponentInParent<PlayerController>() == null) return;
@@ -58,7 +55,6 @@ namespace DeepseaOil.Presentation.World
 
             _playerInside = true;
 
-            // 进门立刻给一颗（若已经攒够一个间隔）：站一下就走也应该拿到东西。
             if (_spawnTimer >= spawnInterval)
             {
                 SpawnOne();
@@ -77,7 +73,7 @@ namespace DeepseaOil.Presentation.World
             if (radiusView != null) radiusView.SetActive(false);
         }
 
-        // 没接线时不产出、也不刷错误：那是装配问题，CombatRoot 的装配日志已经说过一次。
+        // 没接线时不产出也不报错，装配日志已由 CombatRoot 报过
         private void SpawnOne()
         {
             if (_spawner == null) return;
@@ -88,9 +84,7 @@ namespace DeepseaOil.Presentation.World
             _spawner.TrySpawn(new DropSpawnRequest(DropType.Water, center, landing));
         }
 
-        // 单位圆内随机 × 半径，滤掉太靠近中心的那一圈。
-        // 最多试 MaxLandingAttempts 次：最小距离大于最大半径时理论上永远试不出来，
-        // 次数上限把"配置写错"变成"落点近一点"，而不是死循环。
+        // 上限 MaxLandingAttempts 次，避免最小距离>最大半径时死循环
         private Vector2 RandomLandingOffset()
         {
             const int MaxLandingAttempts = 8;

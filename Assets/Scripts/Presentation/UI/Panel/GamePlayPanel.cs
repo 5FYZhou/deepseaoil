@@ -17,7 +17,6 @@ namespace DeepseaOil.Presentation.UI
 
             txtCountdown = GetComponent<TMP_Text>("TxtCountdown");
 
-            // 子物体的名字是 TxtNextWave（prefab 里就这么写的）；按 TxtWave 取会拿不到、只留一条 BasePanel 警告。
             txtNextWave = GetComponent<TMP_Text>("TxtNextWave");
         }
 

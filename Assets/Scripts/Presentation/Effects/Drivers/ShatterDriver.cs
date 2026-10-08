@@ -6,9 +6,9 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>敌人碎裂驱动：耐久归零时飞出的几块碎片，沿 <c>ctx.Direction</c> 扇形散开。<b>程序生成，不需要资源</b>。</summary>
+    /// <summary>敌人碎裂驱动，耐久归零时飞出 3 块碎片，沿 ctx.Direction 扇形散开，程序生成不需要资源</summary>
     /// <remarks>
-    /// 碎片形状确定性算出、不读随机数：三块每次都落在同样的相对位置上（随机数会让"同一个现象能否再出现一次"变成赌博，而排查全靠重现）。一次碎裂占 <see cref="PieceCount"/> 个对象，归还时逐个还。
+    /// 碎片形状确定性算出、不读随机数：三块每次都落在同样的相对位置，便于重现。一次碎裂占 PieceCount 个对象，归还时逐个还。
     /// </remarks>
     public sealed class ShatterDriver : IEffectDriver
     {
@@ -24,7 +24,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
         private const float MaxDuration = 5f;
 
-        /// <summary>单帧最多回收几个碎裂（防尖峰）。</summary>
+        /// <summary>单帧最多回收几个碎裂（防尖峰）</summary>
         private const int MaxRecyclePerTick = 16;
 
         private sealed class Shard
@@ -52,12 +52,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private int _epoch;
         private bool _disposed;
 
-        /// <summary>由装配表构造（<c>EffectDriverFactory</c> 用）。</summary>
+        /// <summary>构造碎裂效果</summary>
         internal ShatterDriver(in EffectSpec spec, Transform root) : this(root, spec.MaxSize)
         {
         }
 
-        /// <param name="maxSize">同屏碎裂次数上限；<c>&le; 0</c> 视为 1。</param>
         public ShatterDriver(Transform root, int maxSize = 16)
         {
             _root = root;
@@ -73,27 +72,20 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 onDestroy: null);
         }
 
-        /// <inheritdoc />
         public bool IsSingleton => false;
 
-        /// <inheritdoc />
         public string AssetKey => string.Empty;
 
-        /// <inheritdoc />
         public bool IsAssetReady => true;
 
-        /// <inheritdoc />
         public int ActiveInstanceCount => _active.Count;
 
-        /// <inheritdoc />
         public int PooledObjectCount => _piecePool != null ? _piecePool.IdleCount : 0;
 
-        /// <inheritdoc />
         public void OnAssetLoaded(Object asset)
         {
         }
 
-        /// <inheritdoc />
         public EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (_disposed) return EffectHandle.None;
@@ -108,7 +100,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             Vector2 forward = ctx.Direction;
 
-            // 受击方向为零时 <c>ctx.Direction</c> 已在上游归一为 up，这里只需要角度。
             float baseAngle = Mathf.Atan2(forward.y, forward.x);
 
             float spread = SpreadDegrees;
@@ -121,7 +112,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             {
                 if (!_piecePool.TryGet(out GameObject go) || go == null)
                 {
-                    // 池满：已经借出的碎片照常飞完，本次少几块 —— 不抛异常、不吞掉整次播放。
+                    // 池满：已借出的碎片照常飞完，本次少几块，不抛异常
                     Debug.LogWarning($"[Effect] EnemyShatter 碎片池已满（上限 {_maxSize * PieceCount}），本次少飞 {count - i} 块。");
                     break;
                 }
@@ -136,7 +127,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
                 if (renderer != null)
                 {
-                    // 用正圆而不是贴地形状：碎片是**飞在空中**的物体，压扁它会让它看起来像躺在地上。
+                    // 用正圆而非贴地形状：碎片飞在空中，压扁会像躺在地上
                     PrimitiveSprites.Configure(
                         renderer,
                         PrimitiveSprites.Circle,
@@ -155,7 +146,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             return new EffectHandle(burst.Id, burst.Epoch, this);
         }
 
-        /// <inheritdoc />
         public void Stop(EffectHandle handle)
         {
             if (!handle.IsValid) return;
@@ -171,7 +161,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             }
         }
 
-        /// <inheritdoc />
         public void CleanAll()
         {
             _epoch++;
@@ -184,7 +173,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _active.Clear();
         }
 
-        /// <inheritdoc />
         public void Tick(float dt)
         {
             if (_disposed || _active.Count == 0) return;
@@ -217,7 +205,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             }
         }
 
-        /// <inheritdoc />
         public void Dispose()
         {
             if (_disposed) return;
@@ -229,7 +216,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _piecePool.Dispose();
         }
 
-        /// <summary>碎片直线飞行，恒速、不衰减 —— 碎片是"散出去"，不是"滑出去"。</summary>
+        /// <summary>碎片直线飞行，恒速不衰减</summary>
         private static void MoveShards(Burst burst, float dt)
         {
             for (int i = 0; i < burst.Shards.Count; i++)

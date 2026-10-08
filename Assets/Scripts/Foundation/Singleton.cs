@@ -1,12 +1,5 @@
 ﻿using UnityEngine;
 
-
-/*
- * 本文件有部分参考祝老师（项目《恶龙与律师》）
- * 用途：仅用于学习与非商业Game Jam作品
- */
-
-
 namespace DeepseaOil.Foundation
 {
     public class Singleton<T> : MonoBehaviour where T : MonoBehaviour

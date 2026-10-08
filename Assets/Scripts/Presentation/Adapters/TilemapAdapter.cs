@@ -8,10 +8,8 @@ using cfg.demo;
 
 namespace DeepseaOil.Presentation.Adapters
 {
-    /// <summary>格子系统与 Unity Tilemap 之间的适配器：把地板的格子与几何灌进逻辑层，把状态变化画出来。</summary>
-    /// <remarks><b>它是唯一认识 <c>Tilemap</c> 的地方</b>（逻辑层零引擎类型）：几何折算只在这一处发生，于是整套格子行为可以在 EditMode 里喂 dt 复现。它一半是数据源（几何与合法格灌进逻辑层）、一半是表现（状态 → 贴图）。
-    /// 订阅时机由组合根收口：装配期 <see cref="Attach"/>、销毁期 <see cref="Detach"/>，不自己 <c>OnEnable</c> 订阅。两张 Tilemap 的分工：地板层（格集合与几何，也是"这里能不能站"的依据）与效果层（叠在地板上的状态贴图）。
-    /// 效果贴图<b>不改地板</b>：改了地板就分不清"这一格本来是泥"还是"被打成泥"。状态 → 贴图是一张表（<c>stateTiles</c>）：新增一种格子状态只需在 Inspector 里加一行，不用改这个文件。</remarks>
+    /// <summary>格子系统与 Unity Tilemap 的适配器，把地板格子与几何灌进逻辑层，把状态变化画出来</summary>
+    /// <remarks>本文件是唯一认识 Tilemap 的地方，逻辑层零引擎类型，几何折算只在这里发生。订阅时机由组合根收口（Attach/Detach），不自己 OnEnable 订阅。地板层提供格集合与几何，效果层盖状态贴图。效果贴图不改地板，否则分不清"本来是泥"还是"被打成泥"。状态 → 贴图查 stateTiles，新增状态在 Inspector 加一行即可。</remarks>
     public sealed class TilemapAdapter : MonoBehaviour
     {
         [Serializable]
@@ -33,27 +31,24 @@ namespace DeepseaOil.Presentation.Adapters
         [Tooltip("状态 → 贴图。新增状态在这里加一行，不用改代码。")]
         [SerializeField] private StateTileBinding[] stateTiles = new StateTileBinding[0];
 
-        /// <summary>效果层上被覆盖过的格 → <b>被覆盖之前的那张图</b>；原值取自 <c>effectTilemap</c>（两层是两个独立的格子空间，拿地板图还原会抹掉效果层的装饰、并永久留下一张地板副本）。</summary>
-        /// <remarks><b>只记第一次</b>（见 <c>Show</c> 里的 <c>if (!ContainsKey)</c>）：否则第二次覆盖会把"泥浆"当成原值，这一格永远回不到原样，而且不报错。依赖不变量"效果层只有 <c>Show</c> / <c>Restore</c> 两个写者"——别处改动会被还原盖掉，<c>effectTilemap</c> 被换掉时旧记录会贴到新层上。</remarks>
+        /// <remarks>只记第一次覆盖，否则第二次覆盖会把"泥浆"当原值，这一格永远回不到原样且不报错。前提：效果层只有 Show/Restore 两个写者，别处改动会被还原盖掉；effectTilemap 被换掉时旧记录会贴到新层上。原值取自 effectTilemap，拿地板图还原会抹掉效果层装饰。</remarks>
         private readonly Dictionary<Vector3Int, TileBase> _previousTiles = new();
 
-        /// <summary>是否已接线（未接线时所有操作是 no-op，不报错刷屏）。</summary>
         public bool IsWired => groundTilemap != null;
 
-        /// <summary>开始听"格子状态变了"；<b>由组合根在装配期调一次</b>，必须在灌入初始状态之前 —— 否则那批初始泥浆不会被画出来。</summary>
+        /// <summary>开始听"格子状态变了"，必须在灌入初始状态之前调，否则那批初始泥浆不会被画出来</summary>
         public void Attach()
         {
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
         }
 
-        /// <summary>停止听（由组合根在销毁期调）。</summary>
         public void Detach()
         {
             EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
         }
 
-        /// <summary>读一次格子几何。</summary>
-        /// <remarks><b>角点语义必须与 <c>GridGeometry</c> 对齐</b>：<c>CellToWorld(zero)</c> 是格 (0,0) 的左下角、<c>GetCellCenterWorld(zero)</c> 是它的中心，差半个格 —— 用错会让全场落点整体偏半格，而那种偏差看起来"只是有点歪"、很难倒推；所以这里对齐之后会自检一次并报错。</remarks>
+        /// <summary>读一次格子几何</summary>
+        /// <remarks>角点语义必须与 GridGeometry 对齐：CellToWorld(zero) 是格 (0,0) 左下角、GetCellCenterWorld(zero) 是格心，差半格，用错会让全场落点整体偏半格且难倒推，故对齐后自检一次并报错。</remarks>
         public GridGeometry ReadGeometry()
         {
             if (groundTilemap == null) return default;
@@ -76,8 +71,7 @@ namespace DeepseaOil.Presentation.Adapters
             return geometry;
         }
 
-        /// <summary>把地板层的全部格子登记进逻辑层。<b>只有登记过的格才能被砸出状态、被减速。</b></summary>
-        /// <returns>登记的格数；未接线时为 0。</returns>
+        /// <summary>把地板层全部格子登记进逻辑层，只有登记过的格才能被砸出状态、被减速</summary>
         public int RegisterCells(GridLogic grid)
         {
             if (grid == null || groundTilemap == null) return 0;
@@ -106,7 +100,7 @@ namespace DeepseaOil.Presentation.Adapters
 
         private void Awake()
         {
-            // 接线自检：这三条错误的共同点是**不报错也能跑**，只是"什么都没发生"（拖错层、忘拖贴图最容易发生）。
+            // 接线自检：这三条错误的共同点是不报错也能跑
             if (groundTilemap == null)
             {
                 Debug.LogError(
@@ -129,24 +123,15 @@ namespace DeepseaOil.Presentation.Adapters
         }
 
 #if UNITY_EDITOR
-        /// <remarks>接线属于"在 Inspector 里一眼可查"的错，不该等到进 Play 才发现：这里也跑一遍自检。
-        /// 它不写任何序列化字段（只读 <c>stateTiles</c> 并打日志），所以不会和 Unity 的 Inspector 抢值。运行期也会被调到（编辑器里开着 Inspector 时），
-        /// 但自检是幂等的：重复跑只是把同一条错再说一遍，不会改变状态。</remarks>
+        /// <remarks>接线属于一眼可查的错，不该等进 Play 才发现，这里也跑一遍自检。只读 stateTiles 并打日志，不写序列化字段；幂等，重复跑不改变状态。</remarks>
         private void OnValidate()
         {
             ValidateStateTiles();
         }
 #endif
 
-        /// <summary>校验 <c>stateTiles</c> 这张"状态 → 贴图"表：<see cref="TileStateType.Normal"/> 与重复状态都必须报出来。</summary>
-        /// <remarks>
-        /// 两条都是"不报错也能跑、但一定画错"的配置事故：
-        /// <list type="bullet">
-        /// <item><b>Normal</b>：<c>OnTileStateChanged</c> 把 <see cref="TileStateType.Normal"/> 当"擦除"（<c>Restore</c>），所以给它绑贴图是自相矛盾的 ——
-        /// 库里那条绑定永远不会被当成"画这张图"来用；而真正想画的那个状态反而查不到贴图，表现为"投了球、地上什么也没变"。</item>
-        /// <item><b>重复状态</b>：<c>TileFor</c> 取第一条命中，后面的行静默失效。改错行修不出效果，是最难查的一类"改了没用"。</item>
-        /// </list>
-        /// </remarks>
+        /// <summary>校验 stateTiles 这张"状态 → 贴图"表，Normal 与重复状态都必须报出来</summary>
+        /// <remarks>两条都不报错也能跑但一定画错：Normal 在 OnTileStateChanged 里当擦除，绑贴图自相矛盾，真正想画的状态反而查不到贴图；重复状态只取第一条命中，后面的静默失效。</remarks>
         private void ValidateStateTiles()
         {
             if (stateTiles == null || stateTiles.Length == 0)
@@ -198,7 +183,6 @@ namespace DeepseaOil.Presentation.Adapters
             Show(evt.Cell, TileFor(evt.State));
         }
 
-        /// <returns>返回 <c>null</c> 表示"这个状态没有美术"：逻辑照常生效、只是看不见，<b>不报错</b>（状态是逻辑概念，先有逻辑后有美术是常态）。</returns>
         private TileBase TileFor(TileStateType state)
         {
             if (stateTiles == null) return null;
@@ -232,7 +216,6 @@ namespace DeepseaOil.Presentation.Adapters
             effectTilemap.SetTile(cell, original);
         }
 
-        /// <remarks>自检：角点 + 半格必须等于"格心"。只在开发期发现，不抛异常也不停用：几何错了会让落点整体偏半个格，而这件事在屏幕上看起来只是"有点歪"，没有报错就永远查不出来。</remarks>
         private void VerifyGeometry(in GridGeometry geometry)
         {
             Vector3 center = groundTilemap.GetCellCenterWorld(Vector3Int.zero);
