@@ -27,6 +27,7 @@ using DeepseaOil.Data;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using cfg.dso;
 
 namespace DeepseaOil.Tests
 {
@@ -49,12 +50,19 @@ namespace DeepseaOil.Tests
             //   所以紧接着的 Init() 一定能成功。
             //   ConfigModule 没有重置入口（见 Docs/待办.md），只能靠 IsReady 守卫跳过；
             //   上一个 run 留下的 holder 仍在这个域里有效。
+            //   BindAssets 是幂等的（第二次起是 no-op），所以这里无条件调一次也安全。
             AssetModule.Dispose();
 
             if (!ConfigModule.IsReady)
                 ConfigModule.InitFromStreamingAssets();
 
             AssetModule.Init();
+
+            // 🔴 必须补这一段：GameRoot 的装配顺序是 Init → AssetModule.Init → BindAssets（三段），
+            //    只做前两段时 ConfigModule 的玩法取值口（GetBall / GetPlayer / GetEnemy …）一律抛
+            //    "在 BindAssets 之前被读取"。A1 的断言正是打在这些取值口上的。
+            //    走的是 Resources（PlayerConfig.asset / tuning/*.asset），与 PlayMode 同一条路。
+            ConfigModule.BindAssets();
         }
 
         [OneTimeTearDown]
@@ -74,13 +82,20 @@ namespace DeepseaOil.Tests
 
             // ⚠️ 这里**不断言任何策划填的值**（名字 / 数值 / 行数）——那些会随填表变化，
             //    断它们等于把"表变了"报成"代码坏了"。本用例只断**链路形态**：
-            //    生成物读得出来、外键真的解析过、观测面与手写清单一致。
-            //    "表里的资源路径能不能真的加载出来"由 A3 用真实加载验收。
-            Assert.IsNotNull(ConfigModule.GetWeapon(1), "GetWeapon(1) 为 null");
+            //    生成物读得出来、包装件真的折算出值、观测面与手写清单一致。
+            //    表列 → 资源 Key 那条链的验收在 PlayMode（见 A3 末尾注释）。
+            Assert.IsNotNull(ConfigModule.GetPlayer(), "玩家行读不出来");
+            Assert.IsNotNull(ConfigModule.GetEnemy(), "敌人行读不出来");
+            Assert.IsNotNull(ConfigModule.GetWave(), "波次行读不出来");
 
-            // 外键链：Fish.best_weapon → Weapon.icon_item → Item。它非空即证明 ResolveRef 真的跑过。
-            Assert.IsNotNull(ConfigModule.GetWeapon(1).IconItem_Ref, "外键 Weapon.icon_item → Item 未解析");
-            Assert.IsNotNull(ConfigModule.GetFish(1002), "GetFish(1002) 为 null");
+            // 包装件真的要能折算：投掷手感已全部搬到 ThrowTuning SO，
+            // 这四个值非 0 / 非 NaN 即证明 SO 与表行的合并链路是通的。
+            var ball = ConfigModule.GetBall(BallType.Water);
+            Assert.IsNotNull(ball, "水球行读不出来");
+            Assert.Greater(ball.FlightDuration, 0f, "FlightDuration 未从 ThrowTuning 折算出正值");
+            Assert.Greater(ball.MaxThrowDistance, 0f, "MaxThrowDistance 未从 ThrowTuning 折算出正值");
+            Assert.Greater(ball.MaxHeight, 0f, "MaxHeight 未从 ThrowTuning 折算出正值");
+            Assert.Greater(ball.MinThrowDistance, 0f, "MinThrowDistance 未从 ThrowTuning 折算出正值");
 
             // 逃生舱与表清单（手写）必须与生成物一致：`TablesMeta.Count` 是那份清单自己的长度，
             // 而 `Tables` 属性访问会触发验证器按同一份清单反射查表 —— 两者不一致会在 Init 阶段炸。
@@ -129,21 +144,11 @@ namespace DeepseaOil.Tests
 
             AssetModule.Release(PanelKey);
 
-            // ── 第二段：表里真实的 icon 能不能**真的**加载出来 ──
-            // 这是 A1 不敢断言字面量的那一项的**真实验收**：走完整链路
-            // 表值 → AssetRegistry.ResolvePath → Resources.LoadAsync<Sprite>。
-            // icon 必须同时满足「存在」与「在 Assets/Resources/ 下」两个条件；
-            // 只满足前者（例如历史上填过的 "Settings/Renderer2D.asset"）要到运行时才暴露，
-            // 就是这条要防的。若加载失败，Data 层会打一条 Error → 本用例失败，这是预期行为。
-            string icon = ConfigModule.GetWeapon(1).Icon;
-            var iconHandle = AssetModule.LoadAsync<Sprite>(icon);
-
-            yield return WaitDone(iconHandle, "A3_表内 icon 加载");
-
-            Assert.IsNotNull(iconHandle.Asset,
-                "表里的 icon 加载失败：应为 Sprite 且位于 Assets/Resources/ 下。Key = " + icon);
-
-            AssetModule.Release(icon);
+            // ── 这里原本还有第二段：「表里真实的 icon 能不能真的加载出来」──
+            // 已删。表里的资源路径列（`icon`）连同那三张示范表
+            // 一起下架了，现在 8 张表**一个 `#path=unity` 列都没有**，这条链路没有真值可测。
+            // 表列 → 资源 Key 这条约定本身仍有活消费者（TilemapAdapter 的 `tiles/Tile_<状态>`），
+            // 它的验收在 PlayMode：Editor 下 Resources.LoadAsync 的完成回调本来就不触发（见 A4 注释）。
         }
 
         // ================================================================

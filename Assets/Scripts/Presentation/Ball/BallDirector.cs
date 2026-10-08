@@ -4,7 +4,7 @@ using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Projectile;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation.Ball
 {

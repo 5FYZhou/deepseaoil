@@ -1,5 +1,5 @@
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Logic.Combat
 {

@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Data
 {
     /// <summary>地块效果取值边界，持有 tile_effect 表行，在数据层完成档位解析</summary>
-    /// <remarks>档位是配置概念，多档在此选好，Logic 只见已定值 TileEffectValue，ITileResolver.Apply 签名不随效果数增长。取档口径 pos 为 1-based（同 effectValuePos 列），越界夹到第 1 档并报 Warning。持生成行 cfg.demo.TileEffect，产出已定值 TileEffectValue</remarks>
+    /// <remarks>档位是配置概念，多档在此选好，Logic 只见已定值 TileEffectValue，ITileResolver.Apply 签名不随效果数增长。取档口径 pos 为 1-based（同 effectValuePos 列），越界夹到第 1 档并报 Warning。持生成行 cfg.dso.TileEffect，产出已定值 TileEffectValue</remarks>
     public sealed class TileEffectSpec
     {
-        private readonly cfg.demo.TileEffect _row;
+        private readonly cfg.dso.TileEffect _row;
 
-        public TileEffectSpec(cfg.demo.TileEffect row)
+        public TileEffectSpec(cfg.dso.TileEffect row)
         {
             _row = row;
         }
@@ -22,20 +22,13 @@ namespace DeepseaOil.Data
         /// <summary>表内注释原文，排错用</summary>
         public string Tip => _row.Tip;
 
-        /// <summary>声明了几档，取四列长度最小值</summary>
+        /// <summary>声明了几档：只认 value1 的条目数</summary>
+        /// <remarks>value2 / interval / flag 是修饰列，单档效果（击退、打滑）本就只填一条。按四列取最小值会把表里写明的第 2 档判成越界：既逐条报 Warning，又把 2 格静默降回 1 格。修饰列短于档数时沿用最后一档（见 Value），不塌成 0。</remarks>
         public int LevelCount
         {
             get
             {
-                if (_row.Value1 == null) return 0;
-
-                int count = _row.Value1.Count;
-
-                if (_row.Value2 != null && _row.Value2.Count < count) count = _row.Value2.Count;
-                if (_row.Interval != null && _row.Interval.Count < count) count = _row.Interval.Count;
-                if (_row.Flag != null && _row.Flag.Count < count) count = _row.Flag.Count;
-
-                return count;
+                return _row.Value1?.Count ?? 0;
             }
         }
 
@@ -62,7 +55,7 @@ namespace DeepseaOil.Data
 
             if (count == 0)
             {
-                // 四列一档都没有=这行还没填，给 default 表示效果不存在
+                // value1 一档都没有=这行还没填，给 default 表示效果不存在
                 return default;
             }
 
@@ -108,11 +101,12 @@ namespace DeepseaOil.Data
             }
         }
 
+        /// <summary>取第 index 项；该列没写到这一档时沿用最后一档（返回 0 会让 DoT 间隔变成"每帧一次"）</summary>
         private static float Value(IReadOnlyList<float> values, int index)
         {
-            if (values == null || index < 0 || index >= values.Count) return 0f;
+            if (values == null || values.Count == 0 || index < 0) return 0f;
 
-            return values[index];
+            return values[index < values.Count ? index : values.Count - 1];
         }
     }
 }

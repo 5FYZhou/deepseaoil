@@ -1,6 +1,6 @@
 namespace DeepseaOil.Data
 {
-    /// <summary>地块效果种类，取值与 cfg.demo.TileEffectType 表号一一对应</summary>
+    /// <summary>地块效果种类，取值与 cfg.dso.TileEffectType 表号一一对应</summary>
     /// <remarks>Skid(2)/Block(5)/Fixed(7) 保留枚举位与表行但本轮不实现。</remarks>
     public enum TileEffectKind
     {

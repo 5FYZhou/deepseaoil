@@ -1,5 +1,5 @@
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 using DeepseaOil.Data;
 
 namespace DeepseaOil.Logic.Grid

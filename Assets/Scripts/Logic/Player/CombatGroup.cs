@@ -3,7 +3,7 @@ using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Logic.Player
 {

@@ -12,7 +12,11 @@ namespace DeepseaOil.Presentation.Diagnostics
     {
         [SerializeField] private PlayerController controller = default;
         [SerializeField] private Vector2 panelOrigin = new Vector2(8f, 8f);
-        [SerializeField] private Vector2 panelSize = new Vector2(440f, 190f);
+        [SerializeField] private Vector2 panelSize = new Vector2(380f, 180f);
+
+        [Tooltip("面板放大倍数（相对 IMGUI 默认 12px 字号）。实际倍数还会按屏幕收口，保证面板不过屏幕中线；0/负数按 2 倍兜底。")]
+        [SerializeField] private float guiScale = 2f;
+
         [SerializeField] private bool isPanelVisible = true;
 
         private MovementStateTag _previous;
@@ -40,6 +44,20 @@ namespace DeepseaOil.Presentation.Diagnostics
         {
             if (!isPanelVisible) return;
 
+            Matrix4x4 saved = GUI.matrix;
+            float scale = HarnessGui.Scale(guiScale, panelSize);
+
+            // 整体缩放：控件坐标仍按设计值写，屏幕占位与字号一起放大（倍数按屏幕收口，见 HarnessGui）
+            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
+
+            // 拆一层：矩阵恢复只有一处，下面"未接线"那条 return 不会漏掉恢复
+            DrawPanel();
+
+            GUI.matrix = saved;
+        }
+
+        private void DrawPanel()
+        {
             GUILayout.BeginArea(new Rect(panelOrigin.x, panelOrigin.y, panelSize.x, panelSize.y), GUI.skin.box);
 
             PlayerLogic logic = controller == null ? null : controller.Logic;

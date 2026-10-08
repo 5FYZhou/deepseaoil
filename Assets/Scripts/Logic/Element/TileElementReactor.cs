@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 using DeepseaOil.Data;
 
 namespace DeepseaOil.Logic.Element
@@ -12,7 +12,7 @@ namespace DeepseaOil.Logic.Element
 
         public readonly IReadOnlyList<TileEffectValue> Effects;
 
-        /// <summary>是否有规则真的命中，false = 走的是规则表最后一条兜底行</summary>
+        /// <summary>是否有规则真的命中，false = 无规则命中（结果恒为 None、效果恒为 null）</summary>
         public readonly bool Matched;
 
         public ElementReaction(TileStateType next, IReadOnlyList<TileEffectValue> effects, bool matched)
@@ -80,22 +80,27 @@ namespace DeepseaOil.Logic.Element
         }
 
         /// <summary>结算一次落地并写回该格元素</summary>
-        /// <remarks>规则未命中且状态不变时调用方不刷新初值，须自行收尾。</remarks>
+        /// <remarks>规则未命中且状态不变时调用方不刷新初值，须自行收尾。合成后的元素先写回再匹配：命中的规则会把该状态的元素初值重新刷上，未命中则由调用方收回。</remarks>
         public ElementReaction React(Vector3Int cell, in ElementValue ballElement, in TileStateSpec currentSpec)
         {
-            ElementValue combined = ElementCombiner.Combine(in ballElement, GetElement(cell));
+            ElementValue old = GetElement(cell);
+
+            ElementValue combined = ElementCombiner.Combine(in ballElement, in old);
 
             SetElement(cell, in combined);
 
-            bool matched = ReactionResolver.Match(_rules, in combined, out TileStateType next, out IReadOnlyList<TileEffectValue> effects);
+            ReactionMatch match = ReactionResolver.Match(_rules, in combined);
 
-            if (!matched && (effects == null || effects.Count == 0))
+            // 诊断通道：开关关着时不构造字符串，热路径零分配。
+            ReactionResolver.LogTrace(new ReactionTrace(in old, in ballElement, in combined, in match));
+
+            if (!match.Matched)
             {
-                // 规则表为空（或最后一条也没有效果）：什么都不做，元素改动由调用方按"状态没变"收尾。
+                // 没有规则命中：什么都不做，元素改动由调用方按"状态没变"收尾。
                 return new ElementReaction(TileStateType.None, null, false);
             }
 
-            return new ElementReaction(next, effects, matched);
+            return new ElementReaction(match.Result, match.Effects, true);
         }
 
         /// <summary>清空全部元素记录，随格子复位</summary>
