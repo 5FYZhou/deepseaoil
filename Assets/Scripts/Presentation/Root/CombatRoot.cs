@@ -263,7 +263,14 @@ namespace DeepseaOil.Presentation
             gridView.Attach();
 
             int cells = gridView.RegisterCells(_grid);
-            int initialStates = _grid.LoadInitialStates(ConfigModule.GetTileInitials());
+
+            // 关卡初始地块优先从场景里的 InitialSetup 笔刷层读（策划在编辑器里画）；没画才退回表驱动
+            int initialStates = gridView.LoadInitialSetupTiles(_grid);
+
+            if (initialStates == 0)
+            {
+                initialStates = _grid.LoadInitialStates(ConfigModule.GetTileInitials());
+            }
 
             _highlight = CreateHighlightView(geometry);
             _highlight.Attach();
