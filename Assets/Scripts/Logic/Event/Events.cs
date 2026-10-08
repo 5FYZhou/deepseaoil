@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DeepseaOil.Data;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Logic.Events
 {

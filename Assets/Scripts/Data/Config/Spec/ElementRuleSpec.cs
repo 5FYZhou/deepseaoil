@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Data
 {

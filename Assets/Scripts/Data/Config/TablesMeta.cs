@@ -6,9 +6,6 @@ namespace DeepseaOil.Data
     {
         public static readonly string[] Names =
         {
-            "TbWeapon",
-            "TbItem",
-            "TbFish",
             "TbProjectile",
             "TbEnemy",
             "TbTileState",

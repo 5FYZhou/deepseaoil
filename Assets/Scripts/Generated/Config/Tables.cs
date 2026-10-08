@@ -15,71 +15,53 @@ namespace cfg
 public partial class Tables
 {
     /// <summary>
-    /// 武器表
-    /// </summary>
-    public demo.TbWeapon TbWeapon {get; }
-    /// <summary>
-    /// 道具表
-    /// </summary>
-    public demo.TbItem TbItem {get; }
-    /// <summary>
-    /// 鱼表
-    /// </summary>
-    public demo.TbFish TbFish {get; }
-    /// <summary>
     /// 投掷物表
     /// </summary>
-    public demo.TbProjectile TbProjectile {get; }
+    public dso.TbProjectile TbProjectile {get; }
     /// <summary>
     /// 敌人表
     /// </summary>
-    public demo.TbEnemy TbEnemy {get; }
+    public dso.TbEnemy TbEnemy {get; }
     /// <summary>
     /// 格子状态表
     /// </summary>
-    public demo.TbTileState TbTileState {get; }
+    public dso.TbTileState TbTileState {get; }
     /// <summary>
     /// 玩家数值表
     /// </summary>
-    public demo.TbPlayer TbPlayer {get; }
+    public dso.TbPlayer TbPlayer {get; }
     /// <summary>
     /// 波次表
     /// </summary>
-    public demo.TbWave TbWave {get; }
+    public dso.TbWave TbWave {get; }
     /// <summary>
     /// 关卡初始格子状态
     /// </summary>
-    public demo.TbTileInitial TbTileInitial {get; }
+    public dso.TbTileInitial TbTileInitial {get; }
     /// <summary>
     /// 元素反应规则
     /// </summary>
-    public demo.TbElementRule TbElementRule {get; }
+    public dso.TbElementRule TbElementRule {get; }
     /// <summary>
     /// 反应效果
     /// </summary>
-    public demo.TbTileEffect TbTileEffect {get; }
+    public dso.TbTileEffect TbTileEffect {get; }
 
     public Tables(System.Func<string, JSONNode> loader)
     {
-        TbWeapon = new demo.TbWeapon(loader("demo_tbweapon"));
-        TbItem = new demo.TbItem(loader("demo_tbitem"));
-        TbFish = new demo.TbFish(loader("demo_tbfish"));
-        TbProjectile = new demo.TbProjectile(loader("demo_tbprojectile"));
-        TbEnemy = new demo.TbEnemy(loader("demo_tbenemy"));
-        TbTileState = new demo.TbTileState(loader("demo_tbtilestate"));
-        TbPlayer = new demo.TbPlayer(loader("demo_tbplayer"));
-        TbWave = new demo.TbWave(loader("demo_tbwave"));
-        TbTileInitial = new demo.TbTileInitial(loader("demo_tbtileinitial"));
-        TbElementRule = new demo.TbElementRule(loader("demo_tbelementrule"));
-        TbTileEffect = new demo.TbTileEffect(loader("demo_tbtileeffect"));
+        TbProjectile = new dso.TbProjectile(loader("dso_tbprojectile"));
+        TbEnemy = new dso.TbEnemy(loader("dso_tbenemy"));
+        TbTileState = new dso.TbTileState(loader("dso_tbtilestate"));
+        TbPlayer = new dso.TbPlayer(loader("dso_tbplayer"));
+        TbWave = new dso.TbWave(loader("dso_tbwave"));
+        TbTileInitial = new dso.TbTileInitial(loader("dso_tbtileinitial"));
+        TbElementRule = new dso.TbElementRule(loader("dso_tbelementrule"));
+        TbTileEffect = new dso.TbTileEffect(loader("dso_tbtileeffect"));
         ResolveRef();
     }
     
     private void ResolveRef()
     {
-        TbWeapon.ResolveRef(this);
-        TbItem.ResolveRef(this);
-        TbFish.ResolveRef(this);
         TbProjectile.ResolveRef(this);
         TbEnemy.ResolveRef(this);
         TbTileState.ResolveRef(this);

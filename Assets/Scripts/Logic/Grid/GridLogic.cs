@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Element;

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Data
 {
@@ -285,41 +285,11 @@ namespace DeepseaOil.Data
             return new DropSpec(_dropTuning);
         }
 
-        // 示范表查询（白模时代的教学链）
-
-        public static Weapon GetWeapon(int id)
-        {
-            EnsureReady();
-
-            return _holder.Tables.TbWeapon.Get(id);
-        }
-
-        public static Item GetItem(int id)
-        {
-            EnsureReady();
-
-            return _holder.Tables.TbItem.Get(id);
-        }
-
-        public static Fish GetFish(int id)
-        {
-            EnsureReady();
-
-            return _holder.Tables.TbFish.Get(id);
-        }
-
-        public static IReadOnlyList<Weapon> GetAllWeapons()
-        {
-            EnsureReady();
-
-            return _holder.Tables.TbWeapon.DataList;
-        }
-
         // 逃生舱：特殊情况直接访问原始 Tables
         // 边界：只读；调用方不得跨帧持有该引用；新增消费必须登记在本注释里
 
         /// <summary>原始生成表（cfg.Tables），只给诊断用，正常取值一律走上面的 GetXxx</summary>
-        /// <remarks>登记在案的破例只有 Presentation/Diagnostics/ConfigLoader.cs 数 TbWeapon/TbItem/TbFish 三张示范表的行数，拿到的只是表对象不能读列；新增破例必须先登记在这里</remarks>
+        /// <remarks>登记在案的破例只有 Presentation/Diagnostics/ConfigLoader.cs：它只遍历表对象数行数、不读列。新增破例必须先登记在这里</remarks>
         public static cfg.Tables Tables
         {
             get
@@ -343,7 +313,7 @@ namespace DeepseaOil.Data
         {
             if (_tileEffects != null) return;
 
-            IReadOnlyList<cfg.demo.TileEffect> rows = _holder.Tables.TbTileEffect.DataList;
+            IReadOnlyList<cfg.dso.TileEffect> rows = _holder.Tables.TbTileEffect.DataList;
 
             _tileEffects = new Dictionary<TileEffectType, TileEffectSpec>(rows.Count);
 

@@ -12,7 +12,7 @@ namespace DeepseaOil.Presentation.Projectile
         private ProjectileTrajectory _data;
         private BallView _view;
         private BallShadow _shadow;
-        private Action<Vector2, cfg.demo.BallType> _onLanded;
+        private Action<Vector2, cfg.dso.BallType> _onLanded;
 
         private float _originHeight;
 
@@ -24,7 +24,7 @@ namespace DeepseaOil.Presentation.Projectile
             BallView view,
             BallShadow shadow,
             float originHeight,
-            Action<Vector2, cfg.demo.BallType> onLanded)
+            Action<Vector2, cfg.dso.BallType> onLanded)
         {
             _data = data;
             _view = view;

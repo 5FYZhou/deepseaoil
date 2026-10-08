@@ -1,5 +1,5 @@
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Data
 {
@@ -32,6 +32,9 @@ namespace DeepseaOil.Data
 
         [Tooltip("踩在减速格里、且正在闪")]
         public Color enemyFlashSlowed = new(0.62f, 0.42f, 0.40f, 1f);
+
+        [Tooltip("敌人受击闪烁频率（Hz）")]
+        public float enemyFlashHz = 4f;
 
         [Header("瞄准高亮 · 两态")]
         [Tooltip("可投时（白，半透明：它是提示不是物体）")]

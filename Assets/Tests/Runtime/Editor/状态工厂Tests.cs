@@ -32,7 +32,7 @@ using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
 using NUnit.Framework;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Tests
 {

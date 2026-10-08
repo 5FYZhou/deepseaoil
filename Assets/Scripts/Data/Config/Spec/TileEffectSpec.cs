@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Data
 {
     /// <summary>地块效果取值边界，持有 tile_effect 表行，在数据层完成档位解析</summary>
-    /// <remarks>档位是配置概念，多档在此选好，Logic 只见已定值 TileEffectValue，ITileResolver.Apply 签名不随效果数增长。取档口径 pos 为 1-based（同 effectValuePos 列），越界夹到第 1 档并报 Warning。持生成行 cfg.demo.TileEffect，产出已定值 TileEffectValue</remarks>
+    /// <remarks>档位是配置概念，多档在此选好，Logic 只见已定值 TileEffectValue，ITileResolver.Apply 签名不随效果数增长。取档口径 pos 为 1-based（同 effectValuePos 列），越界夹到第 1 档并报 Warning。持生成行 cfg.dso.TileEffect，产出已定值 TileEffectValue</remarks>
     public sealed class TileEffectSpec
     {
-        private readonly cfg.demo.TileEffect _row;
+        private readonly cfg.dso.TileEffect _row;
 
-        public TileEffectSpec(cfg.demo.TileEffect row)
+        public TileEffectSpec(cfg.dso.TileEffect row)
         {
             _row = row;
         }
