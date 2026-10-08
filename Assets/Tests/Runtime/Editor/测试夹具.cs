@@ -2,7 +2,7 @@
 // 测试夹具 · 共享底座
 //
 // 【为什么单独一个文件】
-//   `cfg.demo.*` 的生成行**只有 `JSONNode` 构造**（字段 `readonly`，没有参数构造、没有可续写的
+//   `cfg.dso.*` 的生成行**只有 `JSONNode` 构造**（字段 `readonly`，没有参数构造、没有可续写的
 //   第二个构造点），而收口后的取值口径是"包装中间类持有生成行引用"。于是"造一行"这件事在测试里
 //   绕不开拼 JSON —— 把它收在这一个文件里，schema 耦合就只有一个落点（改表时改这里）。
 //
@@ -20,12 +20,12 @@ using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using Luban.SimpleJSON;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Tests
 {
     /// <summary>
-    /// 生成行的工厂：用 JSON 字面量造 <c>cfg.demo.*</c> 行。
+    /// 生成行的工厂：用 JSON 字面量造 <c>cfg.dso.*</c> 行。
     /// </summary>
     /// <remarks>
     /// <b>每个键都必须出现。</b>缺键时 Luban 的 <c>JSONObject</c> 索引器返回一个惰性占位，
@@ -34,25 +34,29 @@ namespace DeepseaOil.Tests
     /// </remarks>
     internal static class RowFactory
     {
-        /// <summary>一行水球：飞行 0.6 秒、弧高 2、射程 5、最近 0.4；元素四件 = 纯水（type 0 / temp 0 / wet 3 / cond 1 / tags 0）。</summary>
-        /// <remarks>落地切成什么状态由 <c>element_rule</c> 与地形元素合成后决定，<b>不再有 <c>tile_state</c> 列</b>（旧链路已作废）。</remarks>
+        /// <summary>一行水球：元素四件 = 纯水（type 0 / temp 0 / wet 3 / cond 1 / tags 0）。</summary>
+        /// <remarks>
+        /// 抛物线与投掷距离（flight_duration / max_height / max_*_throw_distance）已从表移交
+        /// <c>ThrowTuning</c> SO，表里不再有这四列 —— 用它们请给 <c>ProjectileSpec</c> 传真的调参实例。
+        /// 落地切成什么状态由 <c>element_rule</c> 与地形元素合成后决定，<b>不再有 <c>tile_state</c> 列</b>（旧链路已作废）。
+        /// </remarks>
         public static Projectile WaterRow()
             => new Projectile(JSON.Parse(
-                "{\"id\":0,\"name\":\"纯水\",\"flight_duration\":0.6,\"max_height\":2," +
-                "\"max_throw_distance\":5,\"min_throw_distance\":0.4," +
+                "{\"id\":0,\"name\":\"纯水\"," +
                 "\"type\":0,\"temp\":0,\"wet\":3,\"conductive\":1,\"tags\":0}"));
 
-        /// <summary>一行敌人：半径 0.45、满速 3.6、加速 14、击退衰减 10、停止 0.6、追击 60、耐久 3、闪 4Hz。</summary>
+        /// <summary>一行敌人：半径 0.45、满速 3.6、加速 14、击退衰减 10、停止 0.6、追击 60、耐久 3。</summary>
+        /// <remarks>stun_seconds 与 flash_hz 两列已删（前者无消费者，后者改由 <c>VisualPalette</c> 管辖）。</remarks>
         public static Enemy EnemyRow()
             => new Enemy(JSON.Parse(
                 "{\"id\":1,\"name\":\"测试敌人\",\"radius\":0.45,\"max_speed\":3.6," +
                 "\"acceleration\":14,\"knockback_decay\":10,\"stop_distance\":0.6," +
-                "\"chase_range\":60,\"stun_seconds\":0.24,\"hp\":3,\"flash_hz\":4}"));
+                "\"chase_range\":60,\"hp\":3}"));
 
-        /// <summary>一行玩家：血量 100、接触伤害 10、无敌 0.8、重试 1.2、攻击间隔 0.5、击退 12/12、接触半径 1。</summary>
+        /// <summary>一行玩家：血量 3、接触伤害 1、无敌 0.8、重试 1.2、攻击间隔 0.5、击退 12/12、接触半径 1。</summary>
         public static Player PlayerRow()
             => new Player(JSON.Parse(
-                "{\"id\":1,\"name\":\"玩家\",\"max_hp\":100,\"contact_damage\":10," +
+                "{\"id\":1,\"name\":\"玩家\",\"max_hp\":3,\"contact_damage\":1," +
                 "\"invulnerable_duration\":0.8,\"retry_delay\":1.2,\"attack_interval\":0.5," +
                 "\"knockback_impulse\":12,\"knockback_speed_limit\":12,\"contact_radius\":1}"));
 

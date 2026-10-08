@@ -16,6 +16,18 @@ namespace DeepseaOil.Data
         [Tooltip("屏幕点投到世界平面时给的相机深度（世界单位）。正交相机下给足量正值即可")]
         public float cameraPlaneDepth = 100f;
 
+        [Tooltip("从出手到落点的基准飞行时长（秒）")]
+        public float flightDuration = 0.6f;
+
+        [Tooltip("抛物线视觉最高点（世界单位）")]
+        public float maxHeight = 2f;
+
+        [Tooltip("最远投掷距离（世界单位）")]
+        public float maxThrowDistance = 5f;
+
+        [Tooltip("最小投掷距离（世界单位）")]
+        public float minThrowDistance = 0.4f;
+
         [Header("球的视觉")]
         [Tooltip("球本体的视觉半径（世界单位）")]
         public float ballRadiusMeters = 0.22f;

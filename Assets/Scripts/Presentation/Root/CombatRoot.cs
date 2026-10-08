@@ -14,7 +14,7 @@ using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation
 {

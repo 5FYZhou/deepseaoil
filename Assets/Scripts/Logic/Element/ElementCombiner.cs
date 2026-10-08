@@ -1,5 +1,5 @@
 using UnityEngine;
-using cfg.demo;
+using cfg.dso;
 using DeepseaOil.Data;
 
 namespace DeepseaOil.Logic.Element
@@ -25,7 +25,7 @@ namespace DeepseaOil.Logic.Element
 
             ElementTag tags = a.Tags | b.Tags;
 
-            return new ElementValue(cfg.demo.ElementType.Environment, tags, temperature, wet, conductivity);
+            return new ElementValue(cfg.dso.ElementType.Environment, tags, temperature, wet, conductivity);
         }
     }
 }

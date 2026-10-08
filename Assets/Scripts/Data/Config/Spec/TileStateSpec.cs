@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using cfg.demo;
+using cfg.dso;
 
 namespace DeepseaOil.Data
 {
@@ -46,8 +46,8 @@ namespace DeepseaOil.Data
         /// <summary>持续时间（秒），&lt;=0=永久（只能被别的状态顶掉）</summary>
         public float Duration => _row.Duration;
 
-        /// <summary>是否把自身传播给相邻格；本轮只读不做</summary>
-        public bool WillSpread => _row.WillSpread;
+        /// <summary>是否把自身传播给相邻格；本轮只读不做，恒为 false（表已删掉这一列）</summary>
+        public bool WillSpread => false;
 
         /// <summary>是否参与元素反应；本轮只读</summary>
         public bool CanReact => _row.CanReact;

@@ -8,7 +8,7 @@ using DeepseaOil.Logic.Player;
 using DeepseaOil.Presentation.Adapters;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.Visual;
-using cfg.demo;
+using cfg.dso;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation
