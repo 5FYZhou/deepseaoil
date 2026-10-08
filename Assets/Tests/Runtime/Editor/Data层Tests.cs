@@ -1,13 +1,11 @@
 // ---------------------------------------------------------------------------
 // Data 层 · 运行期测试
 //
-// 【为什么在这里】Assets/Tests/Runtime/Editor/ —— 末级 Editor 是 Unity 的**硬要求**，
-// 不能改名：
-//   Assets/Tests/Tools/ 被 DeepseaOil.EditorTools.Tests.asmdef 覆盖，
-//   而 asmdef 程序集**无法**引用预定义程序集 Assembly-CSharp —— Data 层就在 Assembly-CSharp 里，
-//   所以那个目录下的测试「看不到 DeepseaOil.Data」。
-//   本目录没有 asmdef，靠「路径里有名为 Editor 的目录」落 Assembly-CSharp-Editor，
-//   它既能引用 Assembly-CSharp，又被 Test Framework 自动引用 NUnit。
+// 【为什么在这里】Assets/Tests/Runtime/Editor/ 被 DeepseaOil.Tests.EditMode.asmdef 覆盖
+//   （includePlatforms: [Editor] ＋ defineConstraints: [UNITY_INCLUDE_TESTS]），各层的被测代码
+//   由该 asmdef 的 references 显式引用 —— 不再是「落 Assembly-CSharp-Editor 才白拿得到
+//   Assembly-CSharp（被测代码）」那套。目录里的 `Editor` 现在只是目录约定，平台由 asmdef 声明。
+//   （Assets/Tests/Tools/ 仍是 DeepseaOil.EditorTools.Tests，看不见各层，本文件不能放那儿。）
 //
 // 【只留 4 项】判据是「错了会静默出事」：
 //   A1 配置链路      —— 整层存在的理由；表没读进来，一切上层查询都是 null

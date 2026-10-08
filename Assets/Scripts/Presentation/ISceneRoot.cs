@@ -1,6 +1,6 @@
 namespace DeepseaOil.Presentation
 {
-    // 命名空间约定：一个子目录一个命名空间（本工程没有 asmdef，命名空间是层与组之间唯一的边界表达）。三处刻意平坦的例外：Presentation/Root/、Presentation/UI/Panel/、本层根下两个接口文件；其余新增目录必须带自己的命名空间。
+    // 命名空间约定：一个子目录一个命名空间（层与层之间已有 asmdef 边界，命名空间继续管**层内各组**之间的边界）。三处刻意平坦的例外：Presentation/Root/、Presentation/UI/Panel/、本层根下两个接口文件；其余新增目录必须带自己的命名空间。
     // 反例留档：Presentation/Debug/ 曾按目录取名为 DeepseaOil.Presentation.Debug，会让本层所有 Debug.LogError(...) 变成 CS0234，故目录改名 Diagnostics/。
 
     public static class SceneOrder

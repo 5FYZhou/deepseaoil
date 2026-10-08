@@ -18,7 +18,7 @@
 //      而不是泥浆。判据：RegisterCell 之后该格元素 == 表里 Normal 那一行的元素四件。
 //
 // 【跑法】Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
-// 【为什么要在 SetUp 里自己 Init】本目录没有 asmdef、也不进 PlayMode，Init 链的调用方
+// 【为什么要在 SetUp 里自己 Init】测试是独立的 EditMode 程序集、也不进 PlayMode，Init 链的调用方
 //   GameRoot 在 EditMode 里根本不跑；不自己初始化就会撞 ConfigModule 的 EnsureAssets 守卫
 //   （"玩法数值在 BindAssets 之前被读取"）。口径与 Data层Tests 的 OneTimeSetUp 一致。
 // ---------------------------------------------------------------------------

@@ -1,0 +1,19 @@
+{
+    "name": "DeepseaOil.Tests.Scene",
+    "rootNamespace": "DeepseaOil.Tests.Scene",
+    "references": [
+        "DeepseaOil.Foundation",
+        "DeepseaOil.Data",
+        "DeepseaOil.Logic",
+        "DeepseaOil.Presentation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
