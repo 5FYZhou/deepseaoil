@@ -139,14 +139,8 @@ namespace DeepseaOil.Presentation.Adapters
         /// <remarks>两条都不报错也能跑但一定画错：Normal 在 OnTileStateChanged 里当擦除，绑贴图自相矛盾，真正想画的状态反而查不到贴图；重复状态只取第一条命中，后面的静默失效。行内贴图留空是**合法**的（= 该状态不上贴图）。</remarks>
         private void ValidateStateTiles()
         {
-            if (stateTiles == null || stateTiles.Length == 0)
-            {
-                Debug.LogWarning(
-                    "[Grid] TilemapAdapter.stateTiles 是空的：将全部按 `tiles/Tile_<状态>` 的约定懒加载。" +
-                    "如果贴图不在这套路径上（或想给某个状态单独换皮），再往这张表里填特例行。", this);
-
-                return;
-            }
+            // 空表是合法配置（= 全部走 `tiles/Tile_<状态>` 约定），不是接线错误：不报日志，取不到贴图时由 TileFor 单独出声。
+            if (stateTiles == null || stateTiles.Length == 0) return;
 
             for (int i = 0; i < stateTiles.Length; i++)
             {

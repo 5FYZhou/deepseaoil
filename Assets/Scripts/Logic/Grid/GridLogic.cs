@@ -46,6 +46,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>结算时目标快照缓冲，受害方可能在结算里死亡并注销自己</summary>
         private readonly List<IEffectTarget> _dealScratch = new();
 
+        /// <summary>已告警过的（格, 效果号）：状态每帧重新提交清单，不设闸门会把 Console 刷爆</summary>
+        private readonly HashSet<(int X, int Y, int Z, int Kind)> _warnedEffects = new();
+
         private float _now;
         private float _deltaTime;
 
@@ -203,7 +206,8 @@ namespace DeepseaOil.Logic.Grid
             _pending[cell] = next;
         }
 
-        /// <remarks>按目标能力分流：受伤/减速/击退/麻痹各吃各的；玩家不在归属表里（D7），泥浆不减速玩家。</remarks>
+        /// <summary>效果总出口：对格上目标结算一次效果，改格子自身的效果按种类转交 ApplyToCell</summary>
+        /// <remarks>按目标能力分流：受伤/减速/击退/麻痹各吃各的；玩家不在归属表里（D7），泥浆不减速玩家。未实现的效果种类必须出声（WarnUnsupported），不许 default: return 吞掉。瞬时伤害/DoT/减速/击退/麻痹五条分支零分配。</remarks>
         public void Apply(Vector3Int cell, in TileEffectValue effect)
         {
             switch (effect.Kind)
@@ -240,13 +244,27 @@ namespace DeepseaOil.Logic.Grid
                     ApplyStun(cell, effect.Seconds);
                     return;
 
-                // Slide 本轮未实现（缺滑行能力接口）；None/Skid/Block/Fixed 本轮不做。
+                // 这两条是"改格子自身"的效果，本就该走 ApplyToCell；状态的效果清单只有一个提交口
+                // （TableTileState.SubmitAll 与 ApplyEnterImpact 都调 Apply），故在这里按种类转交，
+                // 否则它们会落进 default 被当成"未实现"逐格告警 —— 反应配了没效果的最坏形态。
+                case TileEffectKind.InheritElement:
+                case TileEffectKind.ClearPlants:
+                    ApplyToCell(cell, in effect);
+                    return;
+
+                // 无效果是合法取值（表里没填 / 解析成 None），不是"未实现"，静默跳过。
+                case TileEffectKind.None:
+                    return;
+
+                // Slide 本轮未实现（缺滑行能力接口）；Skid/Block/Fixed 连枚举位都还没有，走到这里说明有人把表号硬塞了进来。
                 default:
+                    WarnUnsupported(cell, effect.Kind);
                     return;
             }
         }
 
-        /// <remarks>只改 cell 自身（D4：状态实现不许碰别的格）；温湿度继承与清除植物都走这里。</remarks>
+        /// <summary>地形改写通道：只改 cell 自身（D4：状态实现不许碰别的格）；温湿度继承与清除植物都走这里</summary>
+        /// <remarks>注意与 D9 的顺序：切状态时本口在 SwitchState 的 OnEnter 里先跑，随后 SwitchState 会把新状态表的元素初值刷到格上（FlushStateElement），因此"继承小球属性"的结果会被状态初值覆盖。要让继承真的留在格上，需要把进格效果挪到 flush 之后 —— 那是格→元素链的口径变更，不在本轮范围内。</remarks>
         public void ApplyToCell(Vector3Int cell, in TileEffectValue effect)
         {
             if (_element == null) return;
@@ -282,7 +300,12 @@ namespace DeepseaOil.Logic.Grid
                     return;
                 }
 
+                case TileEffectKind.None:
+                    return;
+
+                // 伤害/减速/击退这类效果该走 Apply（对格上目标），走到本格口说明调用方选错了口。
                 default:
+                    WarnUnsupported(cell, effect.Kind);
                     return;
             }
         }
@@ -292,9 +315,22 @@ namespace DeepseaOil.Logic.Grid
             _element?.SetElement(cell, in element);
         }
 
+        /// <summary>未实现 / 未完全支持的地块效果：必须出声，严禁 default: return 静默吞掉</summary>
+        /// <remarks>按（格, 效果号）只报一次：同一格的状态每帧都会重新提交清单，逐帧报会把 Console 刷爆，而报过一次已足够定位配置事故。字符串只在首次命中时构造，Supported 效果不受影响（那些分支直接 return，无分配）。</remarks>
+        private void WarnUnsupported(Vector3Int cell, TileEffectKind kind)
+        {
+            if (!_warnedEffects.Add((cell.x, cell.y, cell.z, (int)kind))) return;
+
+            Debug.LogWarning($"[Grid] 收到未完全支持的地块效果: {kind}（位于格 {cell}），当前跳过执行。");
+        }
+
         /// <summary>续一次减速修饰，不做快照；离开泥浆⇒不再续命⇒修饰自然过期。</summary>
+        /// <remarks>表里持续时长没填（seconds&lt;=0）时按"只本帧有效"处理：状态每个 Tick 都会重新提交清单，站在格上就一直续、走开一帧即过期。若直接 return，泥浆会静默地一点都不减速。</remarks>
         private void ApplySlow(Vector3Int cell, float speedScale, float seconds)
         {
+            if (seconds <= 0f) seconds = _deltaTime;
+
+            // 暂停帧 Δt=0：不续命（暂停时"持续"就不该推进）。
             if (seconds <= 0f) return;
 
             if (!_registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets.Count == 0) return;

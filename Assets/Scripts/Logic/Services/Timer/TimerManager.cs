@@ -36,7 +36,9 @@ namespace DeepseaOil.Logic.Services
         {
             if (_scaledWheel == null) return;
 
-            if (unscaledDeltaTime > 0.5f)
+            // 只有"游戏时间"也跳了才值得出声：编辑器域重载 / 资源导入 / 暂停恢复会让 unscaled 跳到几秒，
+            // 而 deltaTime 仍是正常帧长（Console 里恒成对出现 3.1s / 0.02s），逐次告警不可修且纯噪音。
+            if (unscaledDeltaTime > 0.5f && deltaTime > 0.5f)
             {
                 Debug.LogWarning(
                     $"[Timer] LARGE DELTA! " +

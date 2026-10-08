@@ -54,6 +54,9 @@ namespace DeepseaOil.Presentation.Actor
         public bool IsHurt => Stats != null && Stats.IsAlive && _logic != null && _logic.IsHurt;
         public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
+        /// <summary>本帧生效的减速乘数（1=没被减速）：诊断面板读数用，与身体颜色读的是同一份数据</summary>
+        public float SlowMultiplier => _slowMultiplier;
+
         /// <summary>组装一只敌人，依赖全部由参数给出；target=null 则随即滑停，registry=null 则不登记</summary>
         public void Initialize(
             Vector2 position,
