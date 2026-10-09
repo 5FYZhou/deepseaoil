@@ -28,7 +28,7 @@ namespace DeepseaOil.Presentation.UI
                 case "BtnStart":
                 case "BtnContinue":
                 case "BtnExit":
-                    return ButtonStyle.Default;
+                    return ButtonStyle.Normal;
                 case "BtnSetting":
                     return ButtonStyle.None;
             }

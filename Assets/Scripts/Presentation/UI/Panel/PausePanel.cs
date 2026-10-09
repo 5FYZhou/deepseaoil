@@ -13,7 +13,7 @@ namespace DeepseaOil.Presentation.UI
 
         protected override ButtonStyle SetBtnStyle(string name)
         {
-            return ButtonStyle.Default;
+            return ButtonStyle.Normal;
         }
 
         protected override void OnButtonClicked(string name)

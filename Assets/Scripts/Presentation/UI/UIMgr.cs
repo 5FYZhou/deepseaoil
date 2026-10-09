@@ -71,6 +71,9 @@ namespace DeepseaOil.Presentation.UI
         private const string UI_CANVAS_KEY    = "ui/Canvas";
         private const string UI_EVENT_SYS_KEY = "ui/EventSystem";
         private const string UI_PANEL_PREFIX  = "ui/Panel/";
+        private const string UI_CONFIG_KEY = "config/UIConfig";
+
+        private  UIConfig _uiConfig;
 
         private readonly Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
 
@@ -109,6 +112,12 @@ namespace DeepseaOil.Presentation.UI
 
             uiEventSystem = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_EVENT_SYS_KEY)).GetComponent<EventSystem>();
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
+
+            _uiConfig = AssetModule.Load<UIConfig>(UI_CONFIG_KEY);
+            if(_uiConfig == null)
+            {
+                Debug.Log("SSSS");
+            }
 
             IsReady = true;
         }
@@ -264,6 +273,8 @@ namespace DeepseaOil.Presentation.UI
             GameObject panelObj = GameObject.Instantiate(prefab, middleLayer, false);
 
             T panel = panelObj.GetComponent<T>();
+            // 添加UI配置
+            panel.InitUIStyle(_uiConfig);
             Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);

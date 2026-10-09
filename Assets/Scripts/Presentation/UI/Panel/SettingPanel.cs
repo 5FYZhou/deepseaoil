@@ -41,7 +41,7 @@ namespace DeepseaOil.Presentation.UI
                 case "BtnReturnMenu":
                 case "BtnSave":
                 case "BtnLoad":
-                    return ButtonStyle.Default;
+                    return ButtonStyle.Normal;
             }
             return ButtonStyle.None;
         }
