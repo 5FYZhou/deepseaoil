@@ -54,10 +54,16 @@ namespace DeepseaOil.Presentation.UI
             {
                 case "BtnPause":
                     GameRoot.Instance.Game.ChangeState(GameState.Paused);
+                    GameRoot.Instance.UI.ShowPanel<PausePanel>();
                     break;
 
                 case "BtnSetting":
-                    // GameRoot.Instance.Game.ChangeState(GameState.Paused);
+                    // 跟已有的：暂停游戏时打开暂停面板逻辑打架
+                    // Esc暂停时，需要通过GameManager打开暂停面板
+                    // 打开设置时，游戏状态又要变为暂停
+                    // 结论：改策划案
+                    //GameRoot.Instance.Game.ChangeState(GameState.Paused);
+                    //GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
             }
         }

@@ -1,4 +1,4 @@
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -10,6 +10,11 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe() { }
 
         public override void HideMe() { }
+
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            return ButtonStyle.Default;
+        }
 
         protected override void OnButtonClicked(string name)
         {

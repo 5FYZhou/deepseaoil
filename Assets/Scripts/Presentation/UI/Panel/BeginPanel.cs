@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,6 +20,21 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe()
         {
         }
+
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            switch (name)
+            {
+                case "BtnStart":
+                case "BtnContinue":
+                case "BtnExit":
+                    return ButtonStyle.Default;
+                case "BtnSetting":
+                    return ButtonStyle.None;
+            }
+            return ButtonStyle.None;
+        }
+
         protected override void OnButtonClicked(string btnName)
         {
             switch (btnName)
@@ -28,6 +43,7 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.Game.ChangeState(GameState.Running);
                     break;
                 case "BtnContinue":
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
                     break;
                 case "BtnSetting":
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
