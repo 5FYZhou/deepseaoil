@@ -30,13 +30,8 @@ namespace DeepseaOil.Presentation
             switch (newState)
             {
                 case GameState.Menu:
+                    _ui.CloseAllPanels();
                     _ui.ShowPanel<BeginPanel>();
-
-                    if (CurState == GameState.Paused)
-                        _ui.HidePanel<PausePanel>();
-
-                    _ui.HidePanel<HudPanel>();
-                    _ui.HidePanel<GamePlayPanel>();
 
                     // 请求暂停；PlayerController 监听它并在暂停时关掉输入
                     EventBus<RequestPause>.Publish(new RequestPause());
@@ -44,12 +39,7 @@ namespace DeepseaOil.Presentation
 
                 case GameState.Running:
                     EventBus<RequestResume>.Publish(new RequestResume());
-
-                    if (CurState == GameState.Menu)
-                        _ui.HidePanel<BeginPanel>();
-                    if (CurState == GameState.Paused)
-                        _ui.HidePanel<PausePanel>();
-
+                    _ui.CloseAllPanels();
                     _ui.ShowPanel<HudPanel>();
                     _ui.ShowPanel<GamePlayPanel>();
                     break;

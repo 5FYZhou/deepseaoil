@@ -32,7 +32,19 @@ namespace DeepseaOil.Presentation.UI
         public override void HideMe()
         {
         }
-
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            switch (name)
+            {
+                case "BtnClose":
+                    return ButtonStyle.None;
+                case "BtnReturnMenu":
+                case "BtnSave":
+                case "BtnLoad":
+                    return ButtonStyle.Default;
+            }
+            return ButtonStyle.None;
+        }
         protected override void OnButtonClicked(string name)
         {
             switch (name)
@@ -41,8 +53,14 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     break;
                 case "BtnReturnMenu":
-                    // 切换到开始场景
+                    // 切换到开始界面
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
+                    break;
+                case "BtnSave":
+                    // 保存进度
+                    break;
+                case "BtnLoad":
+                    // 读取存档
                     break;
             }
         }

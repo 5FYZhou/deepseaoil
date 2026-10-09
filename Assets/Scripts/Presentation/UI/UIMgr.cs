@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -82,9 +82,7 @@ namespace DeepseaOil.Presentation.UI
             { E_UILayer.System, new Stack<BasePanelInfo>() }
         };
 
-        public UIMgr()
-        {
-        }
+        public UIMgr() { }
 
         /// <summary>装配 UI 三件套，唯一调用点是 GameRoot.Assemble</summary>
         public void Init()
@@ -383,6 +381,27 @@ namespace DeepseaOil.Presentation.UI
         public void OpenExitConfirmPanel()
         {
             ShowPanel<ExitConfirmPanel>();
+        }
+
+
+        /// <summary>
+        /// 强制关闭所有已打开面板。
+        /// 不受 CanBeHideByKey 限制。
+        /// </summary>
+        public void CloseAllPanels()
+        {
+            foreach (Stack<BasePanelInfo> stack in openPanels.Values)
+            {
+                while (stack.Count > 0)
+                {
+                    BasePanelInfo info = stack.Pop();
+
+                    if (info.Panel == null || info.isHide)
+                        continue;
+
+                    info.Hide(false);
+                }
+            }
         }
     }
 }

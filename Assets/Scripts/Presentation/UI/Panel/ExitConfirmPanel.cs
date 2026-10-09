@@ -1,4 +1,4 @@
-using DeepseaOil.Presentation.UI;
+﻿using DeepseaOil.Presentation.UI;
 using DeepseaOil.Logic;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,6 +19,11 @@ namespace DeepseaOil.Presentation
         public override void HideMe()
         {
             GameRoot.Instance.Game.ChangeState(GameState.Menu);
+        }
+
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            return ButtonStyle.Default;
         }
 
         protected override void OnButtonClicked(string name)
