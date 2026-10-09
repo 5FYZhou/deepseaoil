@@ -23,15 +23,6 @@ namespace DeepseaOil.Presentation.UI
 
         protected override ButtonStyle SetBtnStyle(string name)
         {
-            switch (name)
-            {
-                case "BtnStart":
-                case "BtnContinue":
-                case "BtnExit":
-                    return ButtonStyle.Normal;
-                case "BtnSetting":
-                    return ButtonStyle.None;
-            }
             return ButtonStyle.None;
         }
 

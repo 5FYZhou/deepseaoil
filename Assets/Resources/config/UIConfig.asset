@@ -12,4 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 0}
   m_Name: UIConfig
   m_EditorClassIdentifier: DeepseaOil.Presentation:DeepseaOil.Presentation:UIConfig
-  buttonStyles: []
+  buttonStyles:
+  - buttonStyle: 1
+    path: art/UI/ui_panel_tongyong
+    normalName: ui_panel_tongyong_0
+    highlightedName: ui_panel_tongyong_2
+    pressedName: ui_panel_tongyong_3
+    selectedName: ui_panel_tongyong_1
+    disabledName: ui_panel_tongyong_0
+    size: {x: 465, y: 112}

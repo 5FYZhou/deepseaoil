@@ -28,18 +28,6 @@ namespace DeepseaOil.Presentation
         public string selectedName;
         public string disabledName;
         public Vector2 size;
-
-        public ButtonStyleInfo(ButtonStyle style, string p, string normal, string highlighted, string pressed, string selected, string disabled, Vector2 s)
-        {
-            buttonStyle = style;
-            path = p;
-            normalName = normal;
-            highlightedName = highlighted;
-            pressedName = pressed;
-            selectedName = selected;
-            disabledName = disabled;
-            size = s;
-        }
     }
 
     [CreateAssetMenu(fileName = "UIConfig", menuName = "DeepseaOil/Settings/UIConfig")]
