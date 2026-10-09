@@ -114,10 +114,6 @@ namespace DeepseaOil.Presentation.UI
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
 
             _uiConfig = AssetModule.Load<UIConfig>(UI_CONFIG_KEY);
-            if(_uiConfig == null)
-            {
-                Debug.Log("SSSS");
-            }
 
             IsReady = true;
         }

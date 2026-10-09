@@ -13,18 +13,21 @@ namespace DeepseaOil.Presentation.UI
 
         protected override ButtonStyle SetBtnStyle(string name)
         {
-            return ButtonStyle.Normal;
+            return ButtonStyle.None;
         }
 
         protected override void OnButtonClicked(string name)
         {
             switch (name)
             {
+                case "BtnSetting":
+                    GameRoot.Instance.UI.ShowPanel<SettingPanel>();
+                    break;
                 case "BtnContinue":
                     GameRoot.Instance.Game.ChangeState(GameState.Running);
                     break;
-                case "BtnSetting":
-                    GameRoot.Instance.UI.ShowPanel<SettingPanel>();
+                case "BtnRestart":
+                    // 重新开始关卡
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);

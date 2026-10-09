@@ -97,6 +97,17 @@ namespace DeepseaOil.Presentation.UI
                 {
                     text.text = SetInitialTxt(component.name);
                 }
+                else if (component is Image image)
+                {
+                    // 图片透明区域不作射线检测
+                    // 默认值为0 不进行 Alpha 过滤，矩形区域都可以触发 Raycast
+                    // 0.01 ~ 0.05   更容易把半透明边缘算进去
+                    // 0.1           一般推荐
+                    // 0.5           只有比较实的像素才算点击
+                    // 1：只有完全不透明（Alpha = 1）的像素才触发
+                    // 失败了调了之后老在两个按钮间闪来闪去，我再看看其他办法
+                    image.alphaHitTestMinimumThreshold = 0f;
+                }
                 else if (component is Graphic)
                 {
                     // 纯图形不自动绑定也不告警，已注册进 components 字典可按名字取。必须静默：每个 Image 都走到这里（面板底图、层级父对象、按钮身上那张底图），实测 BeginPanel 一次刷 11 条告警。
@@ -147,10 +158,6 @@ namespace DeepseaOil.Presentation.UI
             if (style == ButtonStyle.None) return;
 
             // 尝试拿对应按钮样式的图片路径和尺寸
-            if (_config == null)
-            {
-                Debug.Log("AAAA");
-            }
             if (!_config.TryGetBtnStylePath(style, out ButtonStyleInfo info)) return;
             // 设置 RectTransform 尺寸
             if (info.size != Vector2.zero)
