@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using DeepseaOil.Data;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,22 +14,25 @@ namespace DeepseaOil.Presentation
         /// <summary>
         /// 开始界面等
         /// </summary>
-        Default
+        Normal
     }
 
-    public readonly struct ButtonStyleInfo
+    [Serializable]
+    public struct ButtonStyleInfo
     {
-        public readonly string path;
-        public readonly string normalName;
-        public readonly string highlightedName;
-        public readonly string pressedName;
-        public readonly string selectedName;
-        public readonly string disabledName;
-        public readonly Vector2 size;
+        public ButtonStyle buttonStyle;
+        public string path;
+        public string normalName;
+        public string highlightedName;
+        public string pressedName;
+        public string selectedName;
+        public string disabledName;
+        public Vector2 size;
 
-        public ButtonStyleInfo(string p, string normal, string highlighted, string pressed, string selected, string disabled, Vector2 s)
+        public ButtonStyleInfo(ButtonStyle style, string p, string normal, string highlighted, string pressed, string selected, string disabled, Vector2 s)
         {
-            this.path = p;
+            buttonStyle = style;
+            path = p;
             normalName = normal;
             highlightedName = highlighted;
             pressedName = pressed;
@@ -38,23 +42,23 @@ namespace DeepseaOil.Presentation
         }
     }
 
-    public static class UIStylePath
+    [CreateAssetMenu(fileName = "UIConfig", menuName = "DeepseaOil/Settings/UIConfig")]
+    public class UIConfig : BaseConfig
     {
-        public static ButtonStyleInfo GetBtnStylePath(ButtonStyle style)
-        {
-            return style switch
-            {
-                ButtonStyle.Default => new ButtonStyleInfo(
-                    "art/UI/ui_panel_tongyong",
-                    "ui_panel_tongyong_0",
-                    "ui_panel_tongyong_2",
-                    "ui_panel_tongyong_3",
-                    "ui_panel_tongyong_1",
-                    "ui_panel_tongyong_0",
-                    new Vector2(465, 112)),
+        public List<ButtonStyleInfo> buttonStyles;
 
-                _ => new ButtonStyleInfo()
-            };
+        public bool TryGetBtnStylePath(ButtonStyle style, out ButtonStyleInfo styleInfo)
+        {
+            foreach (ButtonStyleInfo info in buttonStyles)
+            {
+                if(info.buttonStyle == style)
+                {
+                    styleInfo = info;
+                    return true;
+                }
+            }
+            styleInfo = default;
+            return false;
         }
     }
 }

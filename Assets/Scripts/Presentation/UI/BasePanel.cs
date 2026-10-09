@@ -24,9 +24,9 @@ namespace DeepseaOil.Presentation.UI
         public abstract E_UILayer Layer { get; }
         public abstract bool CanBeHideByKey { get; }
 
+        private UIConfig _config;
         // 存加载过的UI图片路径
         private readonly HashSet<string> _assetKeys = new();
-
 
         protected virtual void Awake()
         {
@@ -34,6 +34,18 @@ namespace DeepseaOil.Presentation.UI
             FindComponentsOnChildren();
         }
 
+        public void InitUIStyle(UIConfig config)
+        {
+            _config = config;
+
+            foreach(var(name, type)  in components)
+            {
+                if(type is Button button)
+                {
+                    ApplyBtnStyle(button, SetBtnStyle(name));
+                }
+            }
+        }
 
         #region 基础行为
         public virtual void ShowMe()
@@ -80,8 +92,6 @@ namespace DeepseaOil.Presentation.UI
                     {
                         OnButtonClicked(buttonName);
                     });
-                    // 设置按钮样式
-                    ApplyBtnStyle(button, SetBtnStyle(buttonName));
                 }
                 else if (component is TMP_Text text)
                 {
@@ -136,8 +146,12 @@ namespace DeepseaOil.Presentation.UI
             // 不设置样式
             if (style == ButtonStyle.None) return;
 
-            // 拿对应按钮样式的图片路径和尺寸
-            var info = UIStylePath.GetBtnStylePath(style);
+            // 尝试拿对应按钮样式的图片路径和尺寸
+            if (_config == null)
+            {
+                Debug.Log("AAAA");
+            }
+            if (!_config.TryGetBtnStylePath(style, out ButtonStyleInfo info)) return;
             // 设置 RectTransform 尺寸
             if (info.size != Vector2.zero)
             {
