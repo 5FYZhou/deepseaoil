@@ -35,7 +35,7 @@ namespace DeepseaOil.Data
     {
         public List<ButtonStyleInfo> buttonStyles;
 
-        public bool TryGetBtnStylePath(ButtonStyle style, out ButtonStyleInfo styleInfo)
+        public bool TryGetBtnStyleInfo(ButtonStyle style, out ButtonStyleInfo styleInfo)
         {
             foreach (ButtonStyleInfo info in buttonStyles)
             {
