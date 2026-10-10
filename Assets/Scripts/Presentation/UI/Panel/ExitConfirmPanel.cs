@@ -1,8 +1,7 @@
-﻿using DeepseaOil.Presentation.UI;
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
 using DeepseaOil.Data;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.UI
 {
     public class ExitConfirmPanel : BasePanel
     {
