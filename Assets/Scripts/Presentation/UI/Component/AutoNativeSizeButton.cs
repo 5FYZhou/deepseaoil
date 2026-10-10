@@ -1,6 +1,6 @@
 ﻿using UnityEngine.UI;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.UI
 {
     /// <summary>
     /// 神秘代码之让按钮切换图片时调用SetNativeSize()改RectTransform适应图片宽高
