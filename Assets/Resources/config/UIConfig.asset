@@ -16,7 +16,7 @@ MonoBehaviour:
   - buttonStyle: 1
     path: art/UI/ui_panel_tongyong
     normalName: ui_panel_tongyong_0
-    highlightedName: ui_panel_tongyong_2
+    highlightedName: ui_panel_tongyong_3
     pressedName: ui_panel_tongyong_3
     selectedName: ui_panel_tongyong_1
     disabledName: ui_panel_tongyong_0

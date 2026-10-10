@@ -287,6 +287,7 @@ namespace DeepseaOil.Presentation.UI
             string panelName = typeof(T).Name;
             if (panelDic.ContainsKey(panelName))
             {
+                ClearUISelection();
                 PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
                 if (panelInfo.panel == null)
                 {
@@ -409,6 +410,14 @@ namespace DeepseaOil.Presentation.UI
                     info.Hide(false);
                 }
             }
+        }
+
+        /// <summary>
+        /// 关闭面板时，清除当前被选中的按钮
+        /// </summary>
+        private void ClearUISelection()
+        {
+            uiEventSystem?.SetSelectedGameObject(null);
         }
     }
 }
