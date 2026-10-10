@@ -71,9 +71,6 @@ namespace DeepseaOil.Presentation.UI
         private const string UI_CANVAS_KEY    = "ui/Canvas";
         private const string UI_EVENT_SYS_KEY = "ui/EventSystem";
         private const string UI_PANEL_PREFIX  = "ui/Panel/";
-        private const string UI_CONFIG_KEY = "config/UIConfig";
-
-        private  UIConfig _uiConfig;
 
         private readonly Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
 
@@ -112,8 +109,6 @@ namespace DeepseaOil.Presentation.UI
 
             uiEventSystem = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_EVENT_SYS_KEY)).GetComponent<EventSystem>();
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
-
-            _uiConfig = AssetModule.Load<UIConfig>(UI_CONFIG_KEY);
 
             IsReady = true;
         }
@@ -208,6 +203,7 @@ namespace DeepseaOil.Presentation.UI
             string panelName = typeof(T).Name;
             if (panelDic.ContainsKey(panelName))
             {
+                ClearUISelection();
                 PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
                 if (panelInfo.panel == null)
                 {
@@ -270,7 +266,7 @@ namespace DeepseaOil.Presentation.UI
 
             T panel = panelObj.GetComponent<T>();
             // 添加UI配置
-            panel.InitUIStyle(_uiConfig);
+            panel.InitUIStyle(ConfigModule.GetUIConfig());
             Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);
@@ -413,7 +409,7 @@ namespace DeepseaOil.Presentation.UI
         }
 
         /// <summary>
-        /// 关闭面板时，清除当前被选中的按钮
+        /// 面板开关时，清除当前被选中的按钮
         /// </summary>
         private void ClearUISelection()
         {

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Data
 {
     public enum ButtonStyle
     {

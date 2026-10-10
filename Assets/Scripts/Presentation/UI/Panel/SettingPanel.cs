@@ -1,10 +1,6 @@
 ﻿using DeepseaOil.Logic;
-using DeepseaOil.Logic.Events;
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
-using UnityEngine;
-using UnityEngine.UIElements;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Presentation.UI
 {

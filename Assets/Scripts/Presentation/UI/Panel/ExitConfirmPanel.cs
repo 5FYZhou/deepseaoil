@@ -1,8 +1,6 @@
 ﻿using DeepseaOil.Presentation.UI;
 using DeepseaOil.Logic;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Presentation
 {
