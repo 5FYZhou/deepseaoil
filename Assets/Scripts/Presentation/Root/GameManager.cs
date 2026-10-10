@@ -36,7 +36,10 @@ namespace DeepseaOil.Presentation
                     // 请求暂停；PlayerController 监听它并在暂停时关掉输入
                     EventBus<RequestPause>.Publish(new RequestPause());
                     break;
-
+                case GameState.CG:
+                    _ui.CloseAllPanels();
+                    _ui.ShowPanel<CGPanel>();
+                    break;
                 case GameState.Running:
                     EventBus<RequestResume>.Publish(new RequestResume());
                     _ui.CloseAllPanels();

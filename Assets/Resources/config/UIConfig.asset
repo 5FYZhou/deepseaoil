@@ -12,4 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5ca316d09b7faf442b63408f39c8ff9e, type: 3}
   m_Name: UIConfig
   m_EditorClassIdentifier: 
-  buttonStyles: []
+  buttonStyles:
+  - buttonStyle: 1
+    path: art/UI/ui_panel_tongyong
+    normalName: ui_panel_tongyong_0
+    highlightedName: ui_panel_tongyong_3
+    pressedName: ui_panel_tongyong_3
+    selectedName: ui_panel_tongyong_3
+    disabledName: ui_panel_tongyong_0
+    size: {x: 465, y: 112}

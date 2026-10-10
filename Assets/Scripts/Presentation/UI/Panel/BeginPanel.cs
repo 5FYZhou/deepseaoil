@@ -27,7 +27,7 @@ namespace DeepseaOil.Presentation.UI
             switch (btnName)
             {
                 case "BtnStart":
-                    GameRoot.Instance.Game.ChangeState(GameState.Running);
+                    GameRoot.Instance.Game.ChangeState(GameState.CG);
                     break;
                 case "BtnContinue":
                     GameRoot.Instance.UI.ShowPanel<SavePanel>();
