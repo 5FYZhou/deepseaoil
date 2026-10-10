@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using cfg.dso;
@@ -9,6 +9,8 @@ namespace DeepseaOil.Data
     public static class ConfigModule
     {
         private const string PlayerConfigKey = "config/PlayerConfig";
+        private const string UIConfigKey = "config/UIConfig";
+        private const string AudioConfigKey = "config/AudioConfig";
 
         /// <summary>关键表主键默认值</summary>
         public static class Ids
@@ -28,6 +30,8 @@ namespace DeepseaOil.Data
         private static ThrowTuning _throwTuning;
         private static DropTuning _dropTuning;
         private static VisualPalette _visuals;
+        private static UIConfig _uiConfig;
+        private static AudioConfig _audioConfig;
 
         /// <summary>地块效果缓存，效果号→包装件；装配期装一次，此后只读</summary>
         private static Dictionary<TileEffectType, TileEffectSpec> _tileEffects;
@@ -104,6 +108,22 @@ namespace DeepseaOil.Data
             _throwTuning = ThrowTuning.LoadOrDefault();
             _dropTuning = DropTuning.LoadOrDefault();
             _visuals = VisualPalette.LoadOrDefault();
+
+            _uiConfig = AssetModule.Load<UIConfig>(UIConfigKey);
+            if (_uiConfig == null)
+            {
+                Debug.LogError(
+                    $"[Config] 取不到 {_uiConfig}（期望 Assets/Resources/{UIConfigKey}.asset）：" +
+                    "ui配置参数会全部是字段默认值（字段级默认值不是策划填的那一套）。");
+            }
+
+            _audioConfig = AssetModule.Load<AudioConfig>(AudioConfigKey);
+            if (_audioConfig == null)
+            {
+                Debug.LogError(
+                    $"[Config] 取不到 {_audioConfig}（期望 Assets/Resources/{AudioConfigKey}.asset）：" +
+                    "ui配置参数会全部是字段默认值（字段级默认值不是策划填的那一套）。");
+            }
 
             _bound = true;
 
@@ -283,6 +303,18 @@ namespace DeepseaOil.Data
             EnsureAssets();
 
             return new DropSpec(_dropTuning);
+        }
+
+        public static UIConfig GetUIConfig()
+        {
+            EnsureAssets();
+            return _uiConfig;
+        }
+
+        public static AudioConfig GetAudioConfig()
+        {
+            EnsureAssets();
+            return _audioConfig;
         }
 
         // 逃生舱：特殊情况直接访问原始 Tables

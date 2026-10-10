@@ -1,9 +1,5 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.UI;
-using DeepseaOil.Logic.Events;
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Presentation.UI
 {
