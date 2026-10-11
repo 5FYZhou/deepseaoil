@@ -11,6 +11,10 @@ namespace DeepseaOil.Presentation.Effects
         Highlight = 2,
 
         Flash = 3,
+
+        ScreenShake = 4,
+
+        Tint = 5,
     }
 
     internal readonly struct EffectSpec
@@ -51,7 +55,7 @@ namespace DeepseaOil.Presentation.Effects
     }
 
     /// <summary>特效装配表：加一行即新增一个特效</summary>
-    /// <remarks>未登记的 EffectId（Shake/ScreenShake）Play 打 LogError 返回 None；EffectId.None=这次不播，合法值，不查表不报错，与未登记不同。</remarks>
+    /// <remarks>未登记的 EffectId（只剩 Shake）Play 打 LogError 返回 None；EffectId.None=这次不播，合法值，不查表不报错，与未登记不同。</remarks>
     internal static class EffectCatalog
     {
         internal const string KeyPrefix = "effects/";
@@ -68,12 +72,15 @@ namespace DeepseaOil.Presentation.Effects
 
             new EffectSpec(EffectId.SteamBlast,EffectDriverKind.Particle,isSingleton: false, maxSize: 16, prewarm:4),
 
-            new EffectSpec(EffectId.Flash, EffectDriverKind.Flash, isSingleton: false, maxSize: 32, prewarm: 0),
+            new EffectSpec(EffectId.Flash,    EffectDriverKind.Tint, isSingleton: false, maxSize: 32, prewarm: 0),
 
-            // 大水池同帧爆发：池小会丢
+            new EffectSpec(EffectId.SlowTint, EffectDriverKind.Tint, isSingleton: false, maxSize: 32, prewarm: 0),
+
             new EffectSpec(EffectId.ChainShock, EffectDriverKind.Particle, isSingleton: false, maxSize: 64, prewarm: 32),
 
             new EffectSpec(EffectId.FlameEmbers, EffectDriverKind.Particle, isSingleton: false, maxSize: 64, prewarm: 16),
+
+            new EffectSpec(EffectId.ScreenShake, EffectDriverKind.ScreenShake, isSingleton: true),
         };
 
         internal static IReadOnlyList<EffectSpec> All => Specs;

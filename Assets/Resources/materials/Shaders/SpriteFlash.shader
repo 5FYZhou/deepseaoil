@@ -1,0 +1,80 @@
+Shader "DeepseaOil/2D/SpriteFlash"
+{
+    Properties
+    {
+        [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        _Color ("Tint", Color) = (1,1,1,1)
+        _FlashAmount ("Flash Amount", Range(0.0, 1.0)) = 0.0
+        _FlashColor ("Flash Color", Color) = (1,1,1,1)
+    }
+
+    SubShader
+    {
+        Tags
+        {
+            "RenderType" = "Transparent"
+            "Queue" = "Transparent"
+            "RenderPipeline" = "UniversalPipeline"
+            "IgnoreProjector" = "True"
+        }
+
+        Blend SrcAlpha OneMinusSrcAlpha
+        ZWrite Off
+        Cull Off
+
+        Pass
+        {
+            Name "Unlit"
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float4 color : COLOR;
+                float2 uv : TEXCOORD0;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+                float4 color : COLOR;
+                float2 uv : TEXCOORD0;
+            };
+
+            Texture2D _MainTex;
+            SamplerState sampler_MainTex;
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _Color;
+                float4 _FlashColor;
+                float _FlashAmount;
+            CBUFFER_END
+
+            Varyings vert(Attributes input)
+            {
+                Varyings output;
+                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                output.color = input.color * _Color;
+                output.uv = input.uv;
+                return output;
+            }
+
+            // 闪白必须靠插值：SpriteRenderer.color 是逐像素乘法，乘以纯白等于原画，深色像素永远不可能变白
+            half4 frag(Varyings input) : SV_Target
+            {
+                half4 finalColor = _MainTex.Sample(sampler_MainTex, input.uv) * input.color;
+
+                finalColor.rgb = lerp(finalColor.rgb, _FlashColor.rgb, _FlashAmount);
+
+                finalColor.rgb *= finalColor.a;
+
+                return finalColor;
+            }
+            ENDHLSL
+        }
+    }
+}

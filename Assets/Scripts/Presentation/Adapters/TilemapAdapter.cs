@@ -148,8 +148,6 @@ namespace DeepseaOil.Presentation.Adapters
             // 关层：初始地块只是编辑期输入，留着白吃一次渲染
             initialSetupTilemap.gameObject.SetActive(false);
 
-            Debug.Log($"[Grid] 从 InitialSetup 层成功载入 {count} 个初始特殊地块。");
-
             return count;
         }
 

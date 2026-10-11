@@ -24,7 +24,6 @@ using cfg.dso;
 namespace DeepseaOil.Presentation
 {
     /// 战斗切片的组合根：装配一次，每帧驱动
-    // 无 Update；渲染帧=格子→球→落物→喷泉，物理帧=冲量→敌人→波次→玩家受击
     public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
     {
         /// 世界侧排在玩家侧之后
@@ -177,7 +176,7 @@ namespace DeepseaOil.Presentation
             UpdatePlayerContact(now);
         }
 
-        // 播种：E 键把手上的种子落成环境地貌
+        // 播种：E 键把手上的种子落成地貌
         private void TickPlanting()
         {
             InputProvider input = player != null ? player.Input : null;
@@ -289,11 +288,20 @@ namespace DeepseaOil.Presentation
 
             if (!logic.TakeDamage(in damage, now)) return;
 
+            // 受创反馈：世界侧只报事实，播什么由玩家侧与特效模块决定
+            EffectContext hitShake = EffectContext.At(position);
+            hitShake.Intensity = 1f;
+            hitShake.Duration = 0.14f;
+
+            EffectModule.Play(EffectId.ScreenShake, in hitShake);
+
+            player.OnHurt(in damage);
+
             if (!logic.IsAlive)
             {
                 _retryAt = now + spec.RetryDelay;
 
-                // 只报事实，怎么播由玩家侧翻译（表现细节不外泄到世界侧）
+                // 只报事实，怎么播由玩家侧翻译
                 player.OnDeathTriggered();
             }
         }
@@ -476,14 +484,6 @@ namespace DeepseaOil.Presentation
 
             IsReady = true;
 
-            Debug.Log(
-                $"[Combat] 装配完成：格子 {cells} 个（初始状态 {initialStates} 个），" +
-                $"球种 {balls.Count} 个，泉眼 {fountains.Length} 个（生命神泉 {(_lifeFountain != null ? 1 : 0)} 个），" +
-                $"反应规则 {elementRules.Count} 条，二级反应 {duo.Count} 条，" +
-                (_lifeFountain != null
-                    ? $"回血静止 {_lifeFountain.HealInterval} 秒，"
-                    : "（未接线生命神泉：本局没有回血站，请在场景里放一个 kind=Life 的 Fountain）") +
-                (enableWaves ? "敌人 启用" : "敌人 关闭（「是否刷敌人」未勾选）"));
         }
 
         private void EnsureOverlayDirector(in GridGeometry geometry)
@@ -628,8 +628,14 @@ namespace DeepseaOil.Presentation
             ctx.Radius = evt.Radius;
             ctx.Scale = evt.Radius; // ParticleDriver 会将预制体缩放与 Scale 相乘，使扩散范围与半径对齐
             ctx.Tint = new Color(0.92f, 0.96f, 1f, 0.85f);
-
             EffectModule.Play(EffectId.SteamBlast, in ctx);
+
+            // 半径映射到 0.4..1：EffectContext.Intensity 读时 Clamp01，塞原始半径会被拍成恒定满档
+            EffectContext shakeCtx = EffectContext.At(evt.Center);
+            shakeCtx.Intensity = Mathf.Lerp(0.4f, 1f, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
+            shakeCtx.Duration = 0.16f;
+
+            EffectModule.Play(EffectId.ScreenShake, in shakeCtx);
         }
 
         // 逐格报点：整网同帧各播一次
@@ -643,7 +649,7 @@ namespace DeepseaOil.Presentation
                 EffectModule.Play(EffectId.ChainShock, in ctx);
         }
 
-        // 装配期扫一次场景预摆怪（运行时拖入的由 EnemyActor.Start 报到）
+        // 装配期扫一次场景预摆怪（运行时拖入的由 Start 报到）
         private void AssembleSceneEnemies()
         {
             if (actorRoot != null)

@@ -53,7 +53,7 @@ namespace DeepseaOil.Presentation.Actor
         /// 视觉适配器（挂在子节点 View 上）
         private ActorAnimationView _animView;
 
-        /// 身体渲染器（颜色与排序的唯一写入口），来自 View 的 SpriteRenderer
+        /// 身体渲染器（只写排序），来自 View 的 SpriteRenderer
         private SpriteRenderer _body;
 
         private Transform _target;
@@ -63,20 +63,26 @@ namespace DeepseaOil.Presentation.Actor
         private bool _registered;
         private Vector3Int _currentCell;
 
-        /// 格子系统未接线只报一次：逐帧报会刷爆 Console，不报则是"踩地块毫无反应"的静默缺陷
+        /// 格子系统未接线只报一次：逐帧报会刷爆 Console，不报则静默
         private bool _gridWiringWarned;
 
         private float _slowMultiplier = 1f;
 
-        /// <summary>贴身伤害，取自 enemy 表；ContactProbe 经 IContactDamager 读它</summary>
+        /// 贴身伤害，取自 enemy 表；ContactProbe 经 IContactDamager 读
         public int ContactDamage => _spec != null ? _spec.ContactDamage : 0;
 
-        /// <summary>死亡回调，只触发一次；战利品与读数刷新由 CombatDirector 接</summary>
+        /// 死亡回调，只触发一次
         public System.Action<EnemyActor> Died;
 
         private bool _deathFired;
 
-        /// 麻痹到期时刻（Time.time 口径），0=没被麻痹过；只记不改移动
+        /// 减速垫色的句柄：减速期间持有，离开减速格 Stop
+        private EffectHandle _slowTintHandle;
+
+        /// 上一物理帧是否减速：只在跨阶时通知 EffectModule，不逐帧重发
+        private bool _slowOn;
+
+        /// 麻痹到期时刻（Time.time 口径）
         private float _stunnedUntil;
 
         public bool IsAlive => Stats != null && Stats.IsAlive;
@@ -89,6 +95,7 @@ namespace DeepseaOil.Presentation.Actor
         public int Hp => Stats != null ? Stats.Hp : 0;
 
         public bool IsHurt => Stats != null && Stats.IsAlive && _logic != null && _logic.IsHurt;
+
         public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
         /// 本帧生效的减速乘数（1=没被减速）：诊断面板读数，与身体颜色读同一份数据
@@ -99,7 +106,7 @@ namespace DeepseaOil.Presentation.Actor
             BindPrefabParts();
         }
 
-        /// 抓预制体上的执行器与视效，一律不新增组件
+        /// 抓预制体上的执行器与视效
         /// 补空不覆盖：Awake 与 Initialize 都会调，编辑器装配路径不跑 Awake
         private void BindPrefabParts()
         {
@@ -121,7 +128,7 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 组装一只敌人，依赖全由参数给出；target=null 则滑停，registry=null 则不登记
         /// IsScenePlaced 为真才吃 Inspector 打靶配置与复活；权属由 CombatRoot 的接管入口置位
-        /// 预制体缺 EnemyMotor 是本类唯一当场作废生成的装配错误：留着只会在后续帧炸成空引用
+        /// 预制体缺 EnemyMotor 是本类唯一当场作废生成的装配错误
         public void Initialize(
             Vector2 position,
             in EnemySpec spec,
@@ -173,10 +180,6 @@ namespace DeepseaOil.Presentation.Actor
 
             UpdateCell(force: true);
 
-            if (IsScenePlaced)
-            {
-                Debug.Log($"[Enemy] 场景木桩 {name} 已接管：enemy 行 {spec.Id}，AI {aiType}，复活 {respawnDelay} 秒", this);
-            }
         }
 
         /// Play 模式下拖入的怪由此报到：靠 Unity 原生生命周期，不轮询场景树
@@ -199,7 +202,7 @@ namespace DeepseaOil.Presentation.Actor
                 // 耐久是整数，伤害舍入到整数
                 Stats.ApplyDamage(damage.Amount);
 
-                // 闪白全程靠 Follow 找渲染器：不给 Follow 等于不播
+                // 实体只报告事实：Follow 给 Root，真身渲染器由驱动自己下探（会跳过 ShadowView）
                 EffectContext flash = EffectContext.OnTarget(transform);
                 flash.Duration = 0.12f;
                 flash.Tint = Color.white;
@@ -210,6 +213,9 @@ namespace DeepseaOil.Presentation.Actor
                 EffectContext spark = EffectContext.At(Position, damage.Direction);
 
                 EffectModule.Play(EffectId.BurstSparks, in spark);
+
+                // 受击顿帧：定格动画 0.06 秒
+                StartCoroutine(CoHitStop(0.06f));
             }
 
             if (damage.HasKnockback && _logic != null)
@@ -236,10 +242,10 @@ namespace DeepseaOil.Presentation.Actor
             UpdateHpText();
         }
 
-        /// <summary>格 → 世界单位的换算；与 GridGeometry.cellSize 同值，格边长不是 1 时要跟</summary>
+        /// <summary>格 → 世界单位换算；与 GridGeometry.cellSize 同值，格边长不是 1 时要跟</summary>
         private const float CellsToWorldUnit = 1f;
 
-        /// <summary>受击滑停减速度：hurtDecay 非法/未填即落回 moveAcceleration</summary>
+        /// <summary>滑停减速度：hurtDecay 非法/未填即落回 moveAcceleration</summary>
         private float HurtDeceleration()
         {
             float decay = _spec != null ? _spec.Config.hurtDecay : 0f;
@@ -251,8 +257,8 @@ namespace DeepseaOil.Presentation.Actor
             return accel > 0f && !float.IsNaN(accel) ? accel : 10f;
         }
 
-        /// 头顶耐久数字（临时调试件）；只在数值变了才写，0 显示空串
-        /// 数字挂 Root 下，朝左时 localScale.x 为负，文字会跟着镜像；调试可读即可
+        /// 头顶耐久数字（临时调试件）；只在数值变了才写
+        /// 数字挂 Root 下，朝左时 localScale.x 为负，文字会跟着镜像
         private void UpdateHpText()
         {
             if (hpText == null) return;
@@ -274,8 +280,8 @@ namespace DeepseaOil.Presentation.Actor
 
             _slowMultiplier = _logic.Status.SlowScale;
 
+            ApplySlowTint();
             UpdateCell(force: false);
-            UpdateBodyColor();
             UpdateSortingOrder();
 
             // 运动学快照与移动同频提交：动画与物理体必须看到同一帧真值
@@ -326,12 +332,26 @@ namespace DeepseaOil.Presentation.Actor
             if (_registry != null && _registered) _registry.Unregister(this);
         }
 
-        /// <summary>只写减速色：受击闪白由 EffectModule 的 Flash 驱动接管</summary>
-        private void UpdateBodyColor()
+        /// <summary>只在减速状态跨阶时通知 EffectModule；本类不写身体颜色</summary>
+        private void ApplySlowTint()
         {
-            if (_body == null) return;
+            bool slowed = _slowMultiplier < 1f;
 
-            _body.color = ConfigModule.Visuals.EnemyBodyColor(_slowMultiplier);
+            if (slowed == _slowOn) return;
+
+            _slowOn = slowed;
+
+            if (slowed)
+            {
+                EffectContext ctx = EffectContext.OnTarget(transform);
+                ctx.Tint = ConfigModule.Visuals.enemyBodySlowed;
+
+                _slowTintHandle = EffectModule.Play(EffectId.SlowTint, in ctx);
+
+                return;
+            }
+
+            EffectModule.Stop(_slowTintHandle);
         }
 
         /// 基准取物理体 y 而非 View：View 的 localPosition 会被特效改写，拿它排序会让敌人随抖动乱插队
@@ -364,7 +384,7 @@ namespace DeepseaOil.Presentation.Actor
                 _registered = true;
             }
 
-            // 跨格报一次进格：进格的瞬时伤害/击退由格子系统补给这一个目标，持续效果由格状态自己的节拍提交
+            // 跨格报一次进格：瞬时伤害/击退由格子系统补给，持续效果由格状态自己的节拍提交
             _grid.OnActorEnterCell(cell, this);
         }
 
@@ -463,6 +483,19 @@ namespace DeepseaOil.Presentation.Actor
             _respawnRoutine = null;
 
             ResetToSpawn();
+        }
+
+        private System.Collections.IEnumerator CoHitStop(float seconds)
+        {
+            if (_animView != null && _animView.Animator != null)
+            {
+                _animView.Animator.speed = 0f;
+                yield return new WaitForSeconds(seconds);
+                if (_animView != null && _animView.Animator != null)
+                {
+                    _animView.Animator.speed = 1f;
+                }
+            }
         }
     }
 }
