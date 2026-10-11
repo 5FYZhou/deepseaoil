@@ -422,7 +422,8 @@ namespace DeepseaOil.Logic.Grid
 
             if (target is not IKnockBackable knockbackable) return;
 
-            float magnitude = cells * Mathf.Max(_geometry.CellSize, 0f) * KnockbackDecayPerSecond;
+            float targetDistance = cells * Mathf.Max(_geometry.CellSize, 1f);
+            float magnitude = Mathf.Sqrt(2f * KnockbackDecayPerSecond * targetDistance);
 
             if (magnitude <= 0f) return;
 

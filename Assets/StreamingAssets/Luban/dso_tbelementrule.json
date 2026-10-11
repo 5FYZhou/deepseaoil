@@ -100,6 +100,39 @@
   },
   {
     "id": 10,
+    "source_tile": 18,
+    "ball_type": 1,
+    "result_tile": 6,
+    "impact_damage": 0,
+    "impact_knockback": 1,
+    "impact_stun": 0,
+    "impact_radius": 1,
+    "trigger_chain": false
+  },
+  {
+    "id": 11,
+    "source_tile": 19,
+    "ball_type": 1,
+    "result_tile": 6,
+    "impact_damage": 0,
+    "impact_knockback": 1,
+    "impact_stun": 0,
+    "impact_radius": 1,
+    "trigger_chain": false
+  },
+  {
+    "id": 12,
+    "source_tile": 17,
+    "ball_type": 1,
+    "result_tile": 5,
+    "impact_damage": 0,
+    "impact_knockback": 2,
+    "impact_stun": 0,
+    "impact_radius": 1.5,
+    "trigger_chain": false
+  },
+  {
+    "id": 13,
     "source_tile": 1,
     "ball_type": 0,
     "result_tile": 14,
@@ -110,7 +143,7 @@
     "trigger_chain": false
   },
   {
-    "id": 11,
+    "id": 14,
     "source_tile": 1,
     "ball_type": 1,
     "result_tile": 15,
