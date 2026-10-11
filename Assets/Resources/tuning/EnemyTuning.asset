@@ -12,8 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7c4e9b21d6a34f5e8b0c1d2e3f4a5b60, type: 3}
   m_Name: EnemyTuning
   m_EditorClassIdentifier: 
-  radius: 0.45
-  acceleration: 5
-  knockbackDecay: 30
-  stopDistance: 0.6
-  chaseRange: 60
+  entries:
+  - id: 1
+    radius: 0.3
+    acceleration: 5
+    knockbackDecay: 30
+    stopDistance: 0.6
+    chaseRange: 60
+  - id: 2
+    radius: 0.5
+    acceleration: 8
+    knockbackDecay: 30
+    stopDistance: 0.6
+    chaseRange: 60

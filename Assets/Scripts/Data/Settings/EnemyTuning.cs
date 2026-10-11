@@ -1,29 +1,59 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>敌人运动学调参：enemy 表退役物理列落点</summary>
-    // 唯一读取口 ConfigModule.GetEnemy()；缺失时抛 ConfigLoadException，不静默退回默认值
+    // 敌人运动学调参：enemy 表退役物理列的落点
+    // 缺行即警告，不逐帧刷屏
     [CreateAssetMenu(fileName = "EnemyTuning", menuName = "DeepseaOil/Tuning/Enemy")]
     public sealed class EnemyTuning : ScriptableObject
     {
         public const string ResourceKey = "tuning/EnemyTuning";
 
-        [Header("体型")]
-        [Tooltip("判定半径（世界单位，原 enemy 表的 radius 列）：Gizmo 圈读它；预制体上的 CircleCollider2D 半径必须与它一致")]
-        public float radius = 0.45f;
+        [Header("怪种条目")]
+        [Tooltip("每个 enemy.id 一行，参数不共用；查不到落到第一条并警告")]
+        public List<EnemyTuningEntry> entries = new List<EnemyTuningEntry>();
 
-        [Header("运动")]
-        [Tooltip("加速度（单位/秒²，原 enemy 表的 acceleration 列）：起步与击退滑停的斜率")]
-        public float acceleration = 14f;
+        // 未命中缓存：警告只发一次，不逐帧刷屏
+        private readonly HashSet<int> _warned = new HashSet<int>();
 
-        [Tooltip("击退衰减率（1/秒，原 enemy 表的 knockback_decay 列）：同时喂转向衰减与受击滑停")]
-        public float knockbackDecay = 10f;
+        // 唯一读取口 ConfigModule.GetEnemy()；id 查不到落到第一条
+        public bool TryGet(int id, out EnemyTuningEntry entry)
+        {
+            if (entries != null)
+            {
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    EnemyTuningEntry candidate = entries[i];
 
-        [Tooltip("贴到这个距离就停住，不再压上（世界单位，原 enemy 表的 stop_distance 列）")]
-        public float stopDistance = 0.6f;
+                    if (candidate != null && candidate.id == id)
+                    {
+                        entry = candidate;
 
-        [Tooltip("超出这个距离就放弃追击（世界单位，原 enemy 表的 chase_range 列）")]
-        public float chaseRange = 60f;
+                        return true;
+                    }
+                }
+            }
+
+            entry = Fallback(id);
+
+            return false;
+        }
+
+        private EnemyTuningEntry Fallback(int id)
+        {
+            EnemyTuningEntry first = entries != null && entries.Count > 0 ? entries[0] : null;
+
+            if (first == null) first = new EnemyTuningEntry();
+
+            if (_warned.Add(id))
+            {
+                Debug.LogWarning(
+                    $"[Config] EnemyTuning 里没有 enemy.id={id} 的条目，已退回第一条（id={first.id}）。" +
+                    $"请在 Assets/Resources/{ResourceKey}.asset 里为每个怪种补一行。", this);
+            }
+
+            return first;
+        }
     }
 }

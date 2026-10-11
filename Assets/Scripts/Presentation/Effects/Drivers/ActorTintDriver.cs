@@ -231,10 +231,10 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         {
             if (state.Renderer == null) return;
 
-            // 没换材质时只能靠顶点色乘法，不写就不出现
+            // 乘法无渐变：整段瞬态写满白，到点还原
             if (!state.FlashOn)
             {
-                state.Renderer.color = Color.Lerp(Color.white, state.FlashColor, amount) * state.BaseColor;
+                state.Renderer.color = amount > 0f ? Color.white : state.PersistentTint * state.BaseColor;
 
                 return;
             }

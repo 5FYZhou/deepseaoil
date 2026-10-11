@@ -110,15 +110,15 @@ namespace DeepseaOil.Tests
             }
         }
 
-        /// <summary>生产同款消费者：EnemyLogic 内部建的那一份 StatusGroup（配置来自表＋EnemyTuning 默认值）。</summary>
+        /// <summary>生产同款消费者：EnemyLogic 内部建的那一份 StatusGroup。</summary>
         private static StatusGroup NewStatus()
         {
-            var spec = new EnemySpec(RowFactory.EnemyRow(), ScriptableObject.CreateInstance<EnemyTuning>());
+            var spec = new EnemySpec(RowFactory.EnemyRow(), TuningFactory.EnemyEntry());
 
             return new EnemyLogic(new MotorProbe(), spec).Status;
         }
 
-        /// <summary>与 CombatRoot.Assemble 同一条装配：状态清单、状态工厂、二级反应查询表都来自表。</summary>
+        /// <summary>与 CombatRoot.Assemble 同一条装配：清单与工厂都来自表。</summary>
         private static GridLogic NewGrid(EnemyCellRegistry registry, Vector3Int cell)
         {
             ReactionResolver.Initialize(ConfigModule.GetElementRules());

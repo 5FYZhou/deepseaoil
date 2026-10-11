@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using cfg.dso;
 
 namespace DeepseaOil.Data
@@ -6,10 +7,13 @@ namespace DeepseaOil.Data
     public sealed class WaveSpec
     {
         private readonly Wave _row;
+        private readonly IReadOnlyList<WaveEnemySpec> _enemies;
 
-        public WaveSpec(Wave row)
+
+        public WaveSpec(Wave row, IReadOnlyList<WaveEnemySpec> enemies)
         {
             _row = row;
+            _enemies = enemies;
         }
 
         public int Id => _row.Id;
@@ -22,7 +26,8 @@ namespace DeepseaOil.Data
 
         public float SettleTime => _row.SettleTime;
 
-        public int EnemiesPerWave => _row.EnemiesPerWave;
+
+        public IReadOnlyList<WaveEnemySpec> Enemies => _enemies;
 
         public float SpawnInterval => _row.SpawnInterval;
 

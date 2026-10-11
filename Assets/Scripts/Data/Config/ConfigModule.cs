@@ -5,8 +5,8 @@ using cfg.dso;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>数值配置模块，Data 层唯一取值入口：调用方只用 GetXxx 与包装件，数据来自表还是 SO 不外露</summary>
-    // 生成行不出 Data 层：Projectile/Enemy/Player/Wave/TileState/TileInitial 只准出现在 Data/Config/**，破例须登记
+        /// <summary>数值配置模块，Data 层唯一取值入口：调用方只用 GetXxx 与包装件</summary>
+        // 生成行只准出现在 Data/Config/**，破例须登记
     public static class ConfigModule
     {
         private const string PlayerConfigKey = "config/PlayerConfig";
@@ -40,11 +40,17 @@ namespace DeepseaOil.Data
         /// <summary>种子基建配置，种子号→包装件；装配期装一次，此后只读</summary>
         private static Dictionary<SeedType, SeedSpec> _seeds;
 
+        /// <summary>波次→敌种清单，装配期折一次（值按子表行序）；此后只读</summary>
+        private static Dictionary<int, List<WaveEnemySpec>> _waveEnemies;
+
+        /// <summary>没配敌种的波共用这一份，避免"查不到"也要每次分配新空表</summary>
+        private static readonly List<WaveEnemySpec> EmptyWaveEnemies = new List<WaveEnemySpec>();
+
         public static bool IsReady => _ready;
 
         public static bool AreAssetsBound => _bound;
 
-        /// <summary>初始化第一段只读表：必须早于 AssetModule.Init，重复调用抛异常，jsonRoot 是 Luban 导出的 JSON 目录</summary>
+        /// <summary>初始化第一段只读表：必须早于 AssetModule.Init，重复调用抛异常</summary>
         public static void Init(string jsonRoot)
         {
             if (_ready)
@@ -81,7 +87,7 @@ namespace DeepseaOil.Data
         }
 
         /// <summary>绑定 SO 资产第二段：必须在 AssetModule.Init 之后，重复调用是 no-op</summary>
-        /// <remarks>资产缺失炸在启动期：PlayerConfig 缺失是硬错误（否则玩家速度为 0），三份观感调参缺失只报警告并走字段默认值</remarks>
+        /// <remarks>PlayerConfig 缺失是硬错误（否则玩家速度为 0），观感调参缺失只报警告</remarks>
         public static void BindAssets()
         {
             EnsureReady();
@@ -139,11 +145,24 @@ namespace DeepseaOil.Data
 
             // 精英怪是预留行：表里有就必须折得出来（多敌种刷怪接上前不能静默缺数据）
             _ = GetEnemy(2);
+
+            // 每一波的敌种清单也在启动期走一遍：wave_enemy 少一行、enemy_id 写错在这里炸，而不是等那一波开打
+            IReadOnlyList<Wave> waveRows = _holder.Tables.TbWave.DataList;
+
+            for (int i = 0; i < waveRows.Count; i++)
+            {
+                IReadOnlyList<WaveEnemySpec> enemies = GetWaveEnemies(waveRows[i].Id);
+
+                for (int j = 0; j < enemies.Count; j++)
+                {
+                    _ = GetEnemy(enemies[j].EnemyId);
+                }
+            }
         }
 
-        // 玩法数值查询（包装件：表行 ＋ SO）。边界：id 不存在时 Luban 的 Get 抛异常这里不 catch —— 配置事故应在启动期炸出来
+        // 玩法数值查询（包装件：表行 ＋ SO）；id 不存在时 Luban 的 Get 抛异常，这里不 catch
 
-        /// <summary>读一个球种（表行＋投掷调参），表中不存在时返回 null</summary>
+        /// <summary>读一个球种，表中不存在时返回 null</summary>
         public static ProjectileSpec GetBall(BallType type)
         {
             EnsureAssets();
@@ -169,7 +188,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>读一个格子状态，表里没有这一行时抛异常：配置事故应在启动期炸出来</summary>
+        /// <summary>读一个格子状态，表里没有这一行时抛异常</summary>
         public static TileStateSpec GetTileState(TileStateType id)
         {
             EnsureAssets();
@@ -177,7 +196,7 @@ namespace DeepseaOil.Data
             return new TileStateSpec(_holder.Tables.TbTileState.Get(id));
         }
 
-        /// <summary>读一个格子状态，表里没有这一行时返回 null 不抛异常：给按 ID 造状态的工厂判断该 ID 有没有实现</summary>
+        /// <summary>读一个格子状态，表里没有这一行时返回 null 不抛异常</summary>
         public static TileStateSpec TryGetTileState(TileStateType id)
         {
             EnsureAssets();
@@ -203,7 +222,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>全部元素反应规则（element_rule 表）；顺序无语义，查询由 ReactionResolver 的哈希表负责</summary>
+        /// <summary>全部元素反应规则；顺序无语义，查询由 ReactionResolver 负责</summary>
         public static IReadOnlyList<ElementRuleSpec> GetElementRules()
         {
             EnsureAssets();
@@ -224,7 +243,7 @@ namespace DeepseaOil.Data
             return _elementRules;
         }
 
-        /// <summary>二级元素跨界反应查询表；装配期建一次此后只读，调表后须重启</summary>
+        /// <summary>二级元素跨界反应查询表；装配期建一次，调表后须重启</summary>
         public static DuoReactionCatalog GetDuoReactions()
         {
             EnsureAssets();
@@ -255,7 +274,7 @@ namespace DeepseaOil.Data
             return _seeds.TryGetValue(id, out SeedSpec spec) ? spec : null;
         }
 
-        /// <summary>全部种子配置；返回新列表，装配期用一次即可</summary>
+        /// <summary>全部种子配置，装配期用一次即可</summary>
         public static IReadOnlyList<SeedSpec> GetAllSeeds()
         {
             EnsureAssets();
@@ -272,16 +291,28 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>读一个敌人种类：耐久来自 enemy 表，运动学与半径来自 EnemyTuning</summary>
+        /// <summary>读一个敌人种类：耐久来自 enemy 表，运动学来自 EnemyTuning 该 id 条目</summary>
         public static EnemySpec GetEnemy(int id = Ids.Enemy)
         {
             EnsureAssets();
 
-            return new EnemySpec(_holder.Tables.TbEnemy.Get(id), _enemyTuning);
+            _enemyTuning.TryGet(id, out EnemyTuningEntry entry);
+
+            return new EnemySpec(_holder.Tables.TbEnemy.Get(id), entry);
+        }
+
+        /// <summary>某波的敌种清单，按 wave_enemy 行序；这一波没配返回空表不抛异常</summary>
+        public static IReadOnlyList<WaveEnemySpec> GetWaveEnemies(int waveId)
+        {
+            EnsureAssets();
+
+            EnsureWaveEnemies();
+
+            return _waveEnemies.TryGetValue(waveId, out List<WaveEnemySpec> list) ? list : EmptyWaveEnemies;
         }
 
         /// <summary>观感颜色表（SO），观感取值的唯一权威入口</summary>
-        /// <remarks>永不返回 null：丢资产时给字段默认值实例＋Warning；球种色/敌人四态色/瞄准高亮两态色/贴地阴影色都从这里出去</remarks>
+        /// <remarks>永不返回 null：丢资产时给字段默认值实例＋Warning</remarks>
         public static VisualPalette Visuals
         {
             get
@@ -307,7 +338,7 @@ namespace DeepseaOil.Data
         {
             EnsureAssets();
 
-            return new WaveSpec(_holder.Tables.TbWave.Get(id));
+            return new WaveSpec(_holder.Tables.TbWave.Get(id), GetWaveEnemies(id));
         }
 
         /// <summary>全部波次配置，按表内顺序；WaveLogic 逐波推进，跑完循环回第 1 行</summary>
@@ -321,13 +352,13 @@ namespace DeepseaOil.Data
 
             for (int i = 0; i < rows.Count; i++)
             {
-                result.Add(new WaveSpec(rows[i]));
+                result.Add(new WaveSpec(rows[i], GetWaveEnemies(rows[i].Id)));
             }
 
             return result;
         }
 
-        /// <summary>全部关卡初始格子状态，返回生成行供一次性遍历；表当前 0 行，不要因表空删链</summary>
+        /// <summary>全部关卡初始格子状态；表当前 0 行，不要因表空删链</summary>
         public static IReadOnlyList<TileInitial> GetTileInitials()
         {
             EnsureAssets();
@@ -335,7 +366,7 @@ namespace DeepseaOil.Data
             return _holder.Tables.TbTileInitial.DataList;
         }
 
-        /// <summary>取一种掉落物的数值；种类没有独立数值行，全部共用 DropTuning，差异只在颜色与载荷</summary>
+        /// <summary>取一种掉落物的数值；种类没有独立数值行，全部共用 DropTuning</summary>
         public static DropSpec GetDrop(DropType type = DropType.Water)
         {
             EnsureAssets();
@@ -346,7 +377,7 @@ namespace DeepseaOil.Data
         // 逃生舱：特殊情况直接访问原始 Tables
         // 边界：只读；调用方不得跨帧持有该引用；新增消费必须登记在本注释里
 
-        /// <summary>原始生成表（cfg.Tables），只给诊断用，正常取值一律走上面的 GetXxx</summary>
+        /// <summary>原始生成表，只给诊断用，正常取值一律走 GetXxx</summary>
         /// <remarks>当前无登记破例。新增破例必须先登记在这里</remarks>
         public static cfg.Tables Tables
         {
@@ -379,7 +410,31 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <remarks>刻意分开报错：只报"没 Init"会把"忘了调 BindAssets"掩盖成同一现象，而两种装配错误的修法完全不同</remarks>
+        /// <summary>波次敌种表缓存，首次访问折一次</summary>
+        private static void EnsureWaveEnemies()
+        {
+            if (_waveEnemies != null) return;
+
+            IReadOnlyList<WaveEnemy> rows = _holder.Tables.TbWaveEnemy.DataList;
+
+            _waveEnemies = new Dictionary<int, List<WaveEnemySpec>>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                WaveEnemy row = rows[i];
+
+                if (!_waveEnemies.TryGetValue(row.WaveId, out List<WaveEnemySpec> list))
+                {
+                    list = new List<WaveEnemySpec>(4);
+
+                    _waveEnemies[row.WaveId] = list;
+                }
+
+                list.Add(new WaveEnemySpec(row));
+            }
+        }
+
+        /// <remarks>刻意分开报错：只报"没 Init"会把"忘了调 BindAssets"掩盖成同一现象</remarks>
         private static void EnsureAssets()
         {
             EnsureReady();

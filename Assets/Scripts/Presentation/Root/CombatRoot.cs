@@ -49,6 +49,9 @@ namespace DeepseaOil.Presentation
         [Tooltip("是否刷敌人。关掉可以只验投掷链路。")]
         [SerializeField] private bool enableWaves = true;
 
+        [Tooltip("算屏幕外出生点用的相机。留空则由 EnemyDirector 回落 Camera.main。")]
+        [SerializeField] private Camera spawnCamera = default;
+
         [SerializeField] private TileOverlayDirector overlayDirector = default;
 
         private GameRoot _root;
@@ -342,13 +345,13 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// 场景木桩入口：吃自身 Inspector 的打靶配置
+        /// 场景木桩入口：吃自身打靶配置（enemyId 定行）
         public void AdoptSceneEnemy(EnemyActor actor)
         {
             // 世界未接线就丢弃：Start 可能早于 Assemble
             if (actor == null || actor.IsInitialized || player == null || _grid == null) return;
 
-            EnemySpec spec = ConfigModule.GetEnemy();
+            EnemySpec spec = ConfigModule.GetEnemy(actor.EnemyId);
 
             actor.IsScenePlaced = true;
 
@@ -563,8 +566,10 @@ namespace DeepseaOil.Presentation
                 this,
                 player,
                 ConfigModule.GetWaves(),
-                ConfigModule.GetEnemy(),
+                ConfigModule.GetEnemy,
                 actorRoot,
+                spawnCamera,
+                player.World.Bounds,
                 OnEnemyKilled);
 
             return director;

@@ -6,8 +6,7 @@
 //      找不到只打一条 LogError 并取消生成 —— 预制体放错目录 / 改错文件名，编译期完全无感。
 //   ② 预制体装配：物理参数、碰撞体、View 三件全归预制体，代码只抓不补挂
 //      —— 少挂一个组件要到 Play 才炸。
-//   ③ 两处半径的约定：判定半径在 EnemyTuning（Gizmo 读它），碰撞体在预制体（物理读它）；
-//      两边不一致不报错，只表现成"圈与实际碰撞体不是一个大小"。
+//   ③ 两处半径：Gizmo 读 EnemyTuning 资产、物理读预制体碰撞体；不一致不报错，只表现成两个尺寸。
 //   另加一条策略缝：EnemyLogic 只认 IEnemyBrain，状态层只读 EnemyLogic.Intent。
 //
 // 【覆盖边界，写在明处】只用 Resources.Load 读资产 ＋ 纯逻辑装一次 EnemyLogic：
@@ -45,10 +44,10 @@ namespace DeepseaOil.Tests
             }
         }
 
-        /// <summary>调参资产：字段默认值就是迁移前的表值（半径 0.45 等），故下面的断言比的是"生产默认值"。</summary>
-        private static EnemyTuning Tuning()
+        /// <summary>调参条目：只喂不读资产的用例；半径以资产为准，由 P3 校验。</summary>
+        private static EnemyTuningEntry Tuning()
         {
-            return ScriptableObject.CreateInstance<EnemyTuning>();
+            return TuningFactory.EnemyEntry();
         }
 
         /// <summary>按生产代码的同一条约定寻址预制体（不写死路径，免得两处约定漂开）。</summary>
@@ -89,7 +88,6 @@ namespace DeepseaOil.Tests
         [Test]
         public void P3_碰撞体半径与调参资产的radius一致()
         {
-            var spec = new EnemySpec(RowFactory.EnemyRow(), Tuning());
             GameObject prefab = LoadPrefab();
 
             Assert.IsNotNull(prefab, "先要有预制体");
@@ -97,11 +95,23 @@ namespace DeepseaOil.Tests
             var collider = prefab.GetComponent<CircleCollider2D>();
 
             Assert.IsNotNull(collider, "Root 必须有 CircleCollider2D：碰撞体半径以预制体为准，代码读调参资产画 Gizmo");
+
+            // 比的是真资产，不是类默认值：默认值只兜"资产没配"，比它等于什么都没守
+            var asset = Resources.Load<EnemyTuning>(EnemyTuning.ResourceKey);
+
+            Assert.IsNotNull(asset, "Assets/Resources/tuning/EnemyTuning.asset 必须在：Gizmo 圈读的是它");
+
+            int id = RowFactory.EnemyRow().Id;
+
+            Assert.IsTrue(
+                asset.TryGet(id, out EnemyTuningEntry entry),
+                $"调参资产必须为 enemy.id={id} 配一行：缺行会静默退回第一条并只发一次警告");
+
             Assert.AreEqual(
-                spec.Radius,
+                entry.radius,
                 collider.radius,
                 1e-4f,
-                "EnemyTuning.radius 与预制体碰撞体半径必须一致，否则 Gizmo 圈与实际碰撞体是两个答案且不报错");
+                "EnemyTuning.asset 的 radius 与预制体碰撞体半径必须一致，否则 Gizmo 圈与实际碰撞体是两个答案且不报错");
         }
 
         [Test]
