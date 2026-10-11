@@ -34,6 +34,11 @@ namespace DeepseaOil.Presentation.UI
             FindComponentsOnChildren();
         }
 
+        protected virtual void OnDestroy()
+        {
+            ReleaseAssets();
+        }
+
         public void InitUIStyle(UIConfig config)
         {
             _config = config;
@@ -129,6 +134,7 @@ namespace DeepseaOil.Presentation.UI
 
             return null;
         }
+
         #endregion
 
         #region UI样式
@@ -194,9 +200,5 @@ namespace DeepseaOil.Presentation.UI
         }
         #endregion
 
-        protected virtual void OnDestroy()
-        {
-            ReleaseAssets();
-        }
     }
 }

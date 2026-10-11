@@ -33,12 +33,10 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
-            Debug.Log("Show");
         }
 
         public override void HideMe()
         {
-            Debug.Log("hide");
         }
 
         /// <summary>

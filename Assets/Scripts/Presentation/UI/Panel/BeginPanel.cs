@@ -14,7 +14,6 @@ namespace DeepseaOil.Presentation.UI
 
         public override void HideMe()
         {
-
         }
 
         public override void ShowMe()
@@ -32,29 +31,25 @@ namespace DeepseaOil.Presentation.UI
             {
                 case "BtnStart":
                     GameRoot.Instance.Game.ChangeState(GameState.CG);
-                    GameRoot.Instance.UI.ShowPanel<TransitionPanel>((transition) =>
+                    GameRoot.Instance.UI.GetPanel<TransitionPanel>((transition) =>
                     {
                         GameRoot.Instance.UI.ShowPanel<CGPanel>((cgPanel) =>
                         {
-                            GameRoot.Instance.UI.GetPanel<BeginPanel>((beginPanel) => 
-                            {
-                                transition.SetMaskPos(beginPanel.maskStart.localPosition);
-                                transition.Play(
-                                    beginPanel, cgPanel,
-                                    () =>
-                                    {
-                                        GameRoot.Instance.UI.HidePanel<BeginPanel>();
-                                        GameRoot.Instance.UI.HidePanel<TransitionPanel>();
-                                        cgPanel.StartTimeLine();
-                                        // 预先加载游戏场景
-                                        EventBus<RequestLoadScene>.Publish(new RequestLoadScene("EmptyTest", true));
-                                    }
-                                );
-                            });
-                            
+                            transition.SetMaskPos(this.maskStart.localPosition);
+                            transition.Play(
+                                this, cgPanel,
+                                () =>
+                                {
+                                    GameRoot.Instance.UI.HidePanel<BeginPanel>();
+                                    GameRoot.Instance.UI.HidePanel<TransitionPanel>();
+                                    cgPanel.StartTimeLine();
+                                    // 预先加载游戏场景
+                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene("EmptyTest", true));
+                                }
+                            );
                         });
                     });
-                    // 预先打开游戏场景的面板
+                    // 预先打开游戏场景中的面板
                     GameRoot.Instance.UI.ShowPanel<HudPanel>();
                     GameRoot.Instance.UI.ShowPanel<GamePlayPanel>();
                     break;
