@@ -46,6 +46,7 @@ namespace DeepseaOil.Presentation.UI
         /// <param name="panelA">被遮罩的旧面板（Outside）</param>
         /// <param name="panelB">新面板（Inside）</param>
         /// <param name="onComplete">动画结束后的回调</param>
+        /// <remarks>unity的Mask组件 即使在不是AB的其他面板 也会影响遮罩效果？</remarks>
         public void Play(BasePanel panelA, BasePanel panelB, Action onComplete = null)
         {
             if (panelA == null || panelB == null)

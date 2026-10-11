@@ -4,6 +4,7 @@ using DeepseaOil.Data;
 using UnityEngine.UI;
 using UnityEngine;
 using UnityEngine.Playables;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -24,13 +25,14 @@ namespace DeepseaOil.Presentation.UI
             _img2 = GetComponent<Image>("Img2");
             _director = GetComponent<PlayableDirector>();
             _director.stopped += OnTimelineStopped;
+            EventBus<SceneActivated>.Subscribe(Hide);
         }
 
         protected override void OnDestroy()
         {
             if (_director != null)
                 _director.stopped -= OnTimelineStopped;
-
+            EventBus<SceneActivated>.Unsubscribe(Hide);
             base.OnDestroy();
         }
 
@@ -55,7 +57,14 @@ namespace DeepseaOil.Presentation.UI
                 return;
 
             // Timeline 播放完成
+            // 正式激活新场景
+            EventBus<RequestActiveScene>.Publish(new RequestActiveScene("EmptyTest"));
             GameRoot.Instance.Game.ChangeState(GameState.Running);
+        }
+
+        public void Hide(SceneActivated evt)
+        {
+            GameRoot.Instance.UI.HidePanel<CGPanel>();
         }
     }
 }

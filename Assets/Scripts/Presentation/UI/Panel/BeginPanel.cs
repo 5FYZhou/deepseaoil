@@ -1,12 +1,13 @@
 ﻿using DeepseaOil.Logic;
 using DeepseaOil.Data;
 using UnityEngine;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
     public class BeginPanel : BasePanel
     {
-        public override E_UILayer Layer => E_UILayer.Bottom;
+        public override E_UILayer Layer => E_UILayer.Middle;
         public override bool CanBeHideByKey => false;
 
         public RectTransform maskStart;
@@ -31,6 +32,26 @@ namespace DeepseaOil.Presentation.UI
             {
                 case "BtnStart":
                     GameRoot.Instance.Game.ChangeState(GameState.CG);
+                    GameRoot.Instance.UI.ShowPanel<TransitionPanel>((transition) =>
+                    {
+                        GameRoot.Instance.UI.ShowPanel<CGPanel>((cgPanel) =>
+                        {
+                            transition.SetMaskPos(this.maskStart.localPosition);
+                            transition.Play(
+                                this, cgPanel,
+                                () =>
+                                {
+                                    GameRoot.Instance.UI.HidePanel<BeginPanel>();
+                                    GameRoot.Instance.UI.HidePanel<TransitionPanel>();
+                                    cgPanel.StartTimeLine();
+                                    // 预先加载游戏场景
+                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene("EmptyTest", true));
+                                }
+                            );
+                        });
+                    });
+                    GameRoot.Instance.UI.ShowPanel<HudPanel>();
+                    GameRoot.Instance.UI.ShowPanel<GamePlayPanel>();
                     break;
                 case "BtnContinue":
                     GameRoot.Instance.UI.ShowPanel<SavePanel>();
