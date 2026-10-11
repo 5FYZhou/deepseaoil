@@ -22,11 +22,11 @@ namespace DeepseaOil.Data
         public Color unknownBall = Color.white;
 
         [Header("敌人身体 · 两态")]
-        [Tooltip("正常（偏暖的红，与玩家黄、水球蓝、土球棕一眼分开）")]
-        public Color enemyBodyNormal = new(0.86f, 0.30f, 0.28f, 1f);
+        [Tooltip("正常态：真身渲染器的颜色乘数。白色＝美术原色不变；美术有自带配色时改这里即可，不用动预制体")]
+        public Color enemyBodyNormal = Color.white;
 
-        [Tooltip("踩在减速格里（比正常色明显更深，色相不变）")]
-        public Color enemyBodySlowed = new(0.34f, 0.12f, 0.11f, 1f);
+        [Tooltip("踩在减速格里：整体压暗（色相不变）；真身是彩色美术时不要用有色乘数，否则连红眼一起改色")]
+        public Color enemyBodySlowed = new(0.45f, 0.45f, 0.45f, 1f);
 
         [Header("瞄准高亮 · 两态")]
         [Tooltip("可投时（白，半透明：它是提示不是物体）")]

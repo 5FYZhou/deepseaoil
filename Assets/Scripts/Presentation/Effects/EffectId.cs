@@ -24,5 +24,7 @@ namespace DeepseaOil.Presentation.Effects
         ChainShock,
 
         FlameEmbers,
+
+        SlowTint,
     }
 }

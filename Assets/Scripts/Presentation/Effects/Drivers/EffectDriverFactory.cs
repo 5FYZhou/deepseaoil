@@ -16,8 +16,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 case EffectDriverKind.Highlight:
                     return new HighlightDriver(spec, root);
 
-                case EffectDriverKind.Flash:
-                    return new FlashDriver(spec);
+                case EffectDriverKind.Tint:
+                    return new ActorTintDriver(spec);
+
+                case EffectDriverKind.ScreenShake:
+                    return new ScreenShakeDriver();
 
                 default:
                     return new ParticleDriver(spec, root);

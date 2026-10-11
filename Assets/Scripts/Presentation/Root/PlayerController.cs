@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
+using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Presentation.Adapters;
+using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.Visual;
 using cfg.dso;
@@ -28,7 +30,7 @@ namespace DeepseaOil.Presentation
         [Tooltip("地图活动区域：拖入覆盖可行走区域的 BoxCollider2D。不接则不钳位（不报错，调试面板会显示未接线）")]
         [SerializeField] private BoxCollider2D boundsArea = default;
 
-        [Tooltip("视觉适配器，必须挂在子节点 View 上（Root 只放物理与逻辑）。留空则 Awake 自愈：先找子节点，找不到就地造一个 View")]
+        [Tooltip("视觉适配器，必须挂在子节点 View 上（Root 只放物理与逻辑）。留空则 Awake 自愈")]
         [SerializeField] private ActorAnimationView animView = default;
 
         private const float DirectionEpsilon = 1e-6f;
@@ -62,13 +64,13 @@ namespace DeepseaOil.Presentation
 
         public WorldInfo World => _world;
 
-        /// <summary>输入采样器；战斗组合根据此读播种键与移动输入</summary>
+        /// <summary>输入采样器，战斗组合据此读播种键与移动输入</summary>
         public InputProvider Input => inputProvider;
 
-        /// <summary>引擎回读速度，滞后一个物理步</summary>
+        /// <summary>引擎回读速度，滞后一物理步</summary>
         public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.EngineVelocity;
 
-        /// <summary>原始输入吸附到 8 向并归一化</summary>
+        /// <summary>输入吸附到 8 向并归一化</summary>
         public static Vector2 SnapMoveToEightDirections(Vector2 move, bool snapToEightDirections)
         {
             if (move.sqrMagnitude <= DirectionEpsilon) return Vector2.zero;
@@ -98,7 +100,7 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>回出生点并满血</summary>
-        /// <remarks>出生点越界时钳回来，否则会回到地图外。</remarks>
+        /// <remarks>出生点越界时钳回。</remarks>
         public void RespawnToSpawn()
         {
             if (Logic == null) return;
@@ -113,14 +115,28 @@ namespace DeepseaOil.Presentation
             _animView?.ResetToDefault();
         }
 
-        /// <summary>已死、进入重生等待：由世界侧裁决出死亡时调</summary>
+        /// <summary>已死、进入重生等待：世界侧裁决死亡时调</summary>
         public void OnDeathTriggered()
         {
             _animView?.TriggerDie();
         }
 
+        /// <summary>玩家受击表现：真身刷白，到点由 ActorTintDriver 还原</summary>
+        public void OnHurt(in Damage damage)
+        {
+            SpriteRenderer body = _animView != null ? _animView.Renderer : null;
+
+            if (body == null) return;
+
+            EffectContext ctx = EffectContext.OnTarget(body.transform);
+            ctx.Duration = 0.12f;
+            ctx.Tint = Color.white;
+
+            EffectModule.Play(EffectId.Flash, in ctx);
+        }
+
         /// <summary>本类自愈装配视觉子节点 View</summary>
-        /// <remarks>兜底造出来的 View 照抄 Root 上渲染器的 sprite/颜色/排序层，老预制体自愈后视觉不跳变。</remarks>
+        /// <remarks>兜底造出的 View 照抄 Root 渲染器的 sprite/颜色/排序层，老预制体自愈后视觉不跳变。</remarks>
         private void EnsureAnimationView()
         {
             if (animView == null) animView = GetComponentInChildren<ActorAnimationView>(true);
@@ -188,7 +204,7 @@ namespace DeepseaOil.Presentation
             if (_root != null) _root.UnregisterSceneRoot(this);
         }
 
-        /// <summary>装配玩家逻辑，由 GameRoot 在第一个被驱动的帧调</summary>
+        /// <summary>装配玩家逻辑</summary>
         /// <remarks>读表必须放这里：ConfigModule 由 GameRoot.Awake 装配，组件 Awake 顺序不保证，写在 Awake 里会抛。</remarks>
         public void Attach()
         {
@@ -207,7 +223,7 @@ namespace DeepseaOil.Presentation
             Logic = new PlayerLogic(motor, _spec, _buffer);
         }
 
-        /// <summary>物理帧，由 GameRoot.FixedUpdate 按 Order 驱动</summary>
+        /// <summary>物理帧</summary>
         public void FixedTick(float deltaTime)
         {
             if (Logic == null) return;
@@ -239,7 +255,7 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>渲染帧：瞄准与开火意图，由 GameRoot.Update 按 Order 驱动</summary>
+        /// <summary>渲染帧：瞄准与开火意图</summary>
 
         public void RenderTick(float deltaTime)
         {
@@ -298,7 +314,7 @@ namespace DeepseaOil.Presentation
             return new Vector2(world.x, world.y);
         }
 
-        /// <summary>活动区域碰撞体折算成纯数据矩形，Awake 读一次即可（地图尺寸运行期不变）</summary>
+        /// <summary>活动区域碰撞体折算成纯数据矩形</summary>
         private BoundsArea ReadBounds()
         {
             if (boundsArea == null || !boundsArea.enabled) return default;

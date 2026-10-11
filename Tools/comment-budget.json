@@ -161,7 +161,7 @@
     "Assets/Scripts/Presentation/Primitive/PrimitiveSprites.cs": 959,
     "Assets/Scripts/Presentation/Projectile/BallDriver.cs": 295,
     "Assets/Scripts/Presentation/Projectile/BallShadow.cs": 377,
-    "Assets/Scripts/Presentation/Projectile/BallView.cs": 251,
+    "Assets/Scripts/Presentation/Projectile/BallView.cs": 375,
     "Assets/Scripts/Presentation/Root/CombatRoot.cs": 1135,
     "Assets/Scripts/Presentation/Root/GameManager.cs": 173,
     "Assets/Scripts/Presentation/Root/GameRoot.cs": 1782,

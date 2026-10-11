@@ -73,7 +73,6 @@ namespace DeepseaOil.Data
             }
 
             _ready = true;
-            Debug.Log($"[Config] initialized, tables loaded from: {jsonRoot}");
         }
 
         public static void InitFromStreamingAssets()

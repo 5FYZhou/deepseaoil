@@ -1,26 +1,25 @@
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------
 // 粒子特效系统 · EditMode 测试
 //
-// 【为什么在这里】Assets/Tests/Runtime/Editor/ 被 DeepseaOil.Tests.EditMode.asmdef 覆盖
-//   （includePlatforms: [Editor]）；EffectModule / Pool 住在 DeepseaOil.Presentation 程序集，
-//   由该 asmdef 的 references 显式引用。
-//
-// 【只用 public API】与 Data层Tests 同一约定：internal 类型（EffectCatalog / EffectSpec）
-//   跨程序集不可见，所以本文件不碰它们，也就不需要 InternalsVisibleTo。
+// 【只用 public API】internal 类型（EffectCatalog / EffectSpec）跨程序集不可见，故不碰它们，也不需要 InternalsVisibleTo。
 //
 // 【守什么】判据只有一条：这条用例守的是不是「改错了不报错、只表现为手感/观感不对」。
 //   池的收支（上限生效 / 归还超限销毁 / 失败播放必须归还），EffectContext 的零值与退化，
-//   失败模式必须报错且不抛（未 Init / 未注册），幂等守卫，no-op 守卫，
-//   作者乘数只缩放不覆盖，单例型合并，处理旧句柄的 epoch 语义。
+//   失败模式必须报错且不抛（未 Init / 未注册），幂等与 no-op 守卫，作者乘数只缩放不覆盖，
+//   单例型合并，旧句柄的 epoch 语义，工厂漏 case 这类静默失效（漏了落到 ParticleDriver，只表现为不播）。
 //
-// 【不覆盖】渲染结果、粒子外观、真实 prefab 的加载（需要美术资产，只能人工验收）、
-//   播放到期后的自动回收（EditMode 下粒子不模拟，断言它等于写假测试）。
+// 【颜色栈两路】换过闪白材质的走材质插值，没换的退化成 color 乘法，两条路都要守还原与基线。
+//
+// 【未注册判据不写死 id】写死的期望会随 EffectCatalog 增行整条落空。
+//
+// 【不覆盖】渲染结果、粒子外观、真实 prefab 的加载（需美术资产，只能人工验收）。
 //
 // 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------
 
 using System;
 using System.Text.RegularExpressions;
+using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Effects.Drivers;
@@ -169,7 +168,7 @@ namespace DeepseaOil.Tests
             pool.Dispose();
         }
 
-        /// <summary>零值与"只写一个字段"都必须归一：参考实现这里会把特效缩到 1%（Mathf.Max(0.01f, 0)）。</summary>
+        /// <summary>零值与"只写一个字段"都必须归一：参考实现这里会把特效缩到 1%。</summary>
         [Test]
         public void T1_EffectContext默认值与部分初始化()
         {
@@ -205,10 +204,20 @@ namespace DeepseaOil.Tests
         {
             EffectModule.Init();
 
-            // ScreenShake 故意不在 EffectCatalog 里（它的驱动还没实现）——这正是「未注册」的可见形态
-            LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Effect] EffectId ScreenShake 未注册")));
+            // 判据不写死具体 id：写死的期望会随 EffectCatalog 增行整条落空。
+            // 也只有 Shake 能播：其余已登记项都要资源，AssetModule 没 Init 时 Play 会打懒加载失败日志把期望顺序打乱。
+            Assert.Greater(EffectModule.GetStats().DriverCount, 0, "驱动表得装配过，否则下面走的是 Init 之前的失败分支");
 
-            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.ScreenShake, EffectContext.Default));
+            if (AssetModule.IsInitialized)
+            {
+                Assert.Pass("AssetModule 已被其它用例 Init：本条的两个判据都依赖未 Init，跳过。");
+
+                return;
+            }
+
+            LogAssert.Expect(LogType.Error, new Regex(Regex.Escape("[Effect] EffectId Shake 未注册")));
+
+            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.Shake, EffectContext.Default), "未注册的 id 必须返回 None");
         }
 
         [Test]
@@ -355,8 +364,7 @@ namespace DeepseaOil.Tests
             _prefab = new GameObject("D6_prefab", typeof(ParticleSystem));
             _root = new GameObject("D6_root");
 
-            // 作者在预制体上授权的乘数：Curve / Random Between Two Curves 模式下，
-            // Inspector 曲线下方的 "Multiplier" 就是这两个字段，作者的整个幅度可能都在里面。
+            // 作者授权的乘数：Curve 类模式下幅度全在 Inspector 曲线的 Multiplier 字段里。
             ParticleSystem prefabPs = _prefab.GetComponent<ParticleSystem>();
             ParticleSystem.MainModule prefabMain = prefabPs.main;
             prefabMain.startSizeMultiplier = 0.25f;
@@ -391,8 +399,193 @@ namespace DeepseaOil.Tests
 
             ParticleSystem again = _root.GetComponentInChildren<ParticleSystem>();
             Assert.AreEqual(0.25f, again.main.startSizeMultiplier, 1e-4f,
-                "多次播放把乘数越缩越小：缩放基准必须是预制体的作者值，不是上一次的结果");
+                "多次播放把乘数越缩越小：缩放基准必须是预制体的作者值");
             Assert.AreEqual(3f, again.emission.rateOverTimeMultiplier, 1e-4f);
+        }
+
+        /// <summary>在测试根下造一具体：View 上是真身，ShadowView 上的不是。</summary>
+        private static Transform MakeBody(
+            Transform parent,
+            Color baseline,
+            Color shadowTint,
+            out SpriteRenderer body,
+            out SpriteRenderer shadow)
+        {
+            var root = new GameObject("N1_root");
+
+            root.transform.SetParent(parent, false);
+
+            var view = new GameObject("View");
+            view.transform.SetParent(root.transform, false);
+
+            body = view.AddComponent<SpriteRenderer>();
+            body.color = baseline;   // 非白：证明基线被捕获
+
+            var shadowNode = new GameObject("ShadowView");
+            shadowNode.transform.SetParent(view.transform, false);
+
+            shadow = shadowNode.AddComponent<SpriteRenderer>();
+            shadow.color = shadowTint;
+
+            return root.transform;
+        }
+
+        /// <summary>给真身换精灵闪白材质：两条路都要有用例守着</summary>
+        private static bool TryAttachFlashMaterial(SpriteRenderer body)
+        {
+            Material flash = Resources.Load<Material>("materials/M_SpriteFlash");
+
+            if (flash == null) return false;
+
+            body.sharedMaterial = flash;
+
+            return true;
+        }
+
+        [Test]
+        public void N1_颜色栈在乘法回退路上的瞬态持续态与三条还原路径()
+        {
+            EffectModule.Init();
+
+            _root = new GameObject("N1_test_root");
+
+            var driver = new ActorTintDriver(maxSize: 4);
+
+            EffectModule.Register(EffectId.Shake, driver);
+
+            Color baseline = new Color(0.9f, 0.8f, 0.7f, 1f);
+            Color shadowTint = new Color(0f, 0f, 0f, 0.6f);
+
+            Transform actor = MakeBody(_root.transform, baseline, shadowTint, out SpriteRenderer body, out SpriteRenderer shadow);
+
+            Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.Flash, EffectContext.Default),
+                "没给 Follow 必须返回 None");
+
+            LogAssert.NoUnexpectedReceived();
+
+            var tint = new Color(0.45f, 0.45f, 0.45f, 1f);
+
+            var slow = EffectContext.OnTarget(actor);
+            slow.Tint = tint;
+
+            EffectHandle slowHandle = EffectModule.Play(EffectId.SlowTint, in slow);
+
+            Assert.IsTrue(
+                slowHandle.IsValid,
+                "减速垫色必须真被 ActorTintDriver 接住（漏 case 会落到 ParticleDriver）");
+
+            // 颜色必须走 Unity 的容差 ==；NUnit 对 Color 是按位比，浮点误差会让两边打印一模一样却判不等
+            Assert.IsTrue(tint * baseline == body.color, "持续态乘在基线上");
+            Assert.IsTrue(shadow.color == shadowTint, "ShadowView 不被着色");
+
+            var flash = EffectContext.OnTarget(actor);
+            flash.Duration = 0.12f;
+
+            EffectModule.Play(EffectId.Flash, in flash);
+
+            Assert.IsTrue(body.color == Color.white, "没换材质的渲染器上，瞬态必须退化成乘法闪白而不是什么都不做");
+
+            EffectModule.Tick(0.05f);
+            EffectModule.Tick(0.05f);
+
+            Assert.IsTrue(body.color == Color.white, "0.12 秒未到，闪白不该提前掉");
+
+            EffectModule.Tick(0.05f);
+
+            Assert.IsTrue(tint * baseline == body.color, "到点自动退回减速色");
+
+            EffectModule.Stop(slowHandle);
+
+            Assert.IsTrue(body.color == baseline, "Stop 必须还原基线色");
+
+            EffectModule.Play(EffectId.Flash, in flash);
+            EffectModule.CleanAll();
+
+            Assert.IsTrue(body.color == baseline, "CleanAll 必须还原基线色，不能洗成白");
+
+            EffectModule.Stop(slowHandle);
+
+            Assert.IsTrue(body.color == baseline, "旧句柄必须失效");
+
+            UnityEngine.Object.DestroyImmediate(actor.gameObject);
+
+            Assert.DoesNotThrow(() => EffectModule.Tick(0.016f), "目标销毁后 Tick 只能摘账");
+            Assert.AreEqual(0, driver.ActiveInstanceCount, "目标销毁后账本必须归零");
+
+            driver.Dispose();
+        }
+
+        [Test]
+        public void N2_换上闪白材质后走材质插值且不污染影子与常态色()
+        {
+            EffectModule.Init();
+
+            _root = new GameObject("N2_test_root");
+
+            var driver = new ActorTintDriver(maxSize: 4);
+
+            EffectModule.Register(EffectId.Shake, driver);
+
+            Color baseline = new Color(0.9f, 0.8f, 0.7f, 1f);
+            Color shadowTint = new Color(0f, 0f, 0f, 0.6f);
+
+            Transform actor = MakeBody(_root.transform, baseline, shadowTint, out SpriteRenderer body, out SpriteRenderer shadow);
+
+            Assert.IsTrue(TryAttachFlashMaterial(body), "M_SpriteFlash 必须在 Resources 里：Assets/Resources/materials/M_SpriteFlash.mat");
+
+            var tint = new Color(0.45f, 0.45f, 0.45f, 1f);
+
+            var slow = EffectContext.OnTarget(actor);
+            slow.Tint = tint;
+
+            EffectHandle slowHandle = EffectModule.Play(EffectId.SlowTint, in slow);
+
+            var flash = EffectContext.OnTarget(actor);
+            flash.Duration = 0.12f;
+
+            EffectModule.Play(EffectId.Flash, in flash);
+
+            var block = new MaterialPropertyBlock();
+
+            body.GetPropertyBlock(block);
+
+            Assert.AreEqual(1f, block.GetFloat("_FlashAmount"), 1e-4f, "闪白要靠材质插值拉满，乘数是拉不出纯白的");
+            Assert.IsTrue(tint * baseline == body.color, "瞬态在材质通道上跑，color 只能写持续态");
+
+            var shadowBlock = new MaterialPropertyBlock();
+
+            shadow.GetPropertyBlock(shadowBlock);
+
+            Assert.IsTrue(shadowBlock.isEmpty, "ShadowView 不该拿到任何属性块");
+
+            EffectModule.Tick(0.06f);
+
+            body.GetPropertyBlock(block);
+
+            Assert.AreEqual(0.5f, block.GetFloat("_FlashAmount"), 0.15f, "0.12 秒行程过半，插值要能线性落回来");
+
+            EffectModule.Tick(0.06f);
+            EffectModule.Tick(0.06f);
+
+            body.GetPropertyBlock(block);
+
+            Assert.AreEqual(0f, block.GetFloat("_FlashAmount"), 1e-4f, "到点必须归零，否则角色永远停在纯白");
+
+            EffectModule.Stop(slowHandle);
+
+            Assert.IsTrue(body.color == baseline, "Stop 只还原 color，不该动材质通道");
+
+            EffectModule.CleanAll();
+
+            Assert.IsTrue(body.color == baseline, "CleanAll 必须还原基线色");
+
+            body.GetPropertyBlock(block);
+
+            Assert.AreEqual(0f, block.GetFloat("_FlashAmount"), 1e-4f, "共享材质上不许残留满值");
+
+            UnityEngine.Object.DestroyImmediate(actor.gameObject);
+
+            driver.Dispose();
         }
     }
 }

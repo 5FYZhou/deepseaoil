@@ -44,8 +44,7 @@ namespace DeepseaOil.Presentation.Ball
             _root.transform.position = new Vector3(data.Start.x, data.Start.y + originHeight, 0f);
 
             var view = _root.AddComponent<BallView>();
-
-            view.Initialize(definition.BallRadius * 2f, definition.BallColor);
+            view.Initialize(data.Type, definition.BallRadius * 2.2f, definition.BallColor);
 
             // 先 view 再 shadow：AddComponent 会立刻跑子物体 Awake，顺序写死。
             var shadowGo = new GameObject("Shadow");
