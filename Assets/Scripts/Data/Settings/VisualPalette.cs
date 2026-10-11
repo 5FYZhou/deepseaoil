@@ -3,8 +3,8 @@ using cfg.dso;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>战斗表现件颜色表；观感参数一律走 SO，不对策划暴露</summary>
-    // 球种色只有一份，三个消费者共用；敌人四态色显式写出，不做插值
+    /// <summary>战斗表现件颜色表；观感参数一律走 SO</summary>
+    // 球种色只有一份，三个消费者共用；敌人两态色显式写出，不做插值
 
     [CreateAssetMenu(fileName = "VisualPalette", menuName = "DeepseaOil/Settings/VisualPalette")]
     public sealed class VisualPalette : ScriptableObject
@@ -21,21 +21,12 @@ namespace DeepseaOil.Data
         [Tooltip("未知球种的兜底色（不会看不见，也不会误导成某一颗球）")]
         public Color unknownBall = Color.white;
 
-        [Header("敌人身体 · 四态")]
-        [Tooltip("正常（偏暖的红，与玩家黄、水球蓝、土球棕都能一眼分开）")]
+        [Header("敌人身体 · 两态")]
+        [Tooltip("正常（偏暖的红，与玩家黄、水球蓝、土球棕一眼分开）")]
         public Color enemyBodyNormal = new(0.86f, 0.30f, 0.28f, 1f);
 
         [Tooltip("踩在减速格里（比正常色明显更深，色相不变）")]
         public Color enemyBodySlowed = new(0.34f, 0.12f, 0.11f, 1f);
-
-        [Tooltip("受击闪烁的亮色（比正常色亮，但仍是暖色，不像换了个敌人）")]
-        public Color enemyFlash = new(1f, 0.92f, 0.90f, 1f);
-
-        [Tooltip("踩在减速格里、且正在闪")]
-        public Color enemyFlashSlowed = new(0.62f, 0.42f, 0.40f, 1f);
-
-        [Tooltip("敌人受击闪烁频率（Hz）")]
-        public float enemyFlashHz = 4f;
 
         [Header("瞄准高亮 · 两态")]
         [Tooltip("可投时（白，半透明：它是提示不是物体）")]
@@ -45,11 +36,11 @@ namespace DeepseaOil.Data
         public Color highlightBlocked = new(1f, 0.25f, 0.2f, 0.42f);
 
         [Header("贴地件")]
-        [Tooltip("球阴影色：贴地件的“存在感”来自它，不走球种色（阴影是光，不是材质）")]
+        [Tooltip("球阴影色：存在感来自它，不走球种色（阴影是光不是材质）")]
         public Color shadow = new(0f, 0f, 0f, 0.35f);
 
         /// <summary>取观感颜色表；缺失时返回字段默认值实例</summary>
-        /// <remarks>调用方只有 ConfigModule.BindAssets；消费者经 ConfigModule.Visuals 取，观感唯一权威入口</remarks>
+        /// <remarks>消费者经 ConfigModule.Visuals 取，观感唯一权威入口</remarks>
         internal static VisualPalette LoadOrDefault()
         {
             if (Cached != null) return Cached;
@@ -97,14 +88,10 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <remarks>slowMultiplier 本帧减速系数，小于 1 即被减速；减速与受击是两个独立 debuff</remarks>
-        public Color EnemyBodyColor(float slowMultiplier, bool flashOn)
+        /// <remarks>slowMultiplier 本帧减速系数，小于 1 即被减速；受击闪白不在这里，由 EffectId.Flash 覆盖</remarks>
+        public Color EnemyBodyColor(float slowMultiplier)
         {
-            bool slowed = slowMultiplier < 1f;
-
-            if (slowed) return flashOn ? enemyFlashSlowed : enemyBodySlowed;
-
-            return flashOn ? enemyFlash : enemyBodyNormal;
+            return slowMultiplier < 1f ? enemyBodySlowed : enemyBodyNormal;
         }
     }
 }

@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_SteamPuff
-  m_Shader: {fileID: 4800000, guid: b61e584b8b2cff7439d84f97d01ddfe4, type: 3}
+  m_Shader: {fileID: 4800000, guid: 1249583ec79b78740a64f809c2882681, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []

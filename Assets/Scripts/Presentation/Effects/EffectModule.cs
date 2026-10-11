@@ -16,7 +16,8 @@ namespace DeepseaOil.Presentation.Effects
             EffectId.MudSplash,
         };
 
-        private const int MaxQueuedPlaysPerEffect = 8;
+        // 一次同帧爆发最多能有多少个请求：按池子整片泛洪的量级给，8 会悄悄丢掉大半
+        private const int MaxQueuedPlaysPerEffect = 64;
 
         private const string RootName = "[Effects]";
 
@@ -192,7 +193,7 @@ namespace DeepseaOil.Presentation.Effects
         }
 
         /// <summary>更新一次已在播的实例（持续型：位置/颜色/半径）</summary>
-        /// <remarks>返回值只代表句柄有效；未 Init、句柄为 None、句柄过期都是安全 no-op，不支持的驱动也是 no-op。</remarks>
+        // 返回值只代表句柄有效，不代表驱动做了事
         public static bool Update(EffectHandle handle, in EffectContext ctx)
         {
             if (!_initialized) return false;

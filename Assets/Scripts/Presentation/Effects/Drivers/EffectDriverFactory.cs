@@ -16,6 +16,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 case EffectDriverKind.Highlight:
                     return new HighlightDriver(spec, root);
 
+                case EffectDriverKind.Flash:
+                    return new FlashDriver(spec);
+
                 default:
                     return new ParticleDriver(spec, root);
             }

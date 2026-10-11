@@ -11,12 +11,15 @@
 // 【为什么自己 Init】EditMode 里 GameRoot 不跑，不自己初始化就撞 EnsureAssets 守卫。
 // ---------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Element;
+using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
+using DeepseaOil.Logic.World;
 using NUnit.Framework;
 using UnityEngine;
 using cfg.dso;
@@ -91,7 +94,7 @@ namespace DeepseaOil.Tests
             return spec != null ? new TableTileState(spec) : null;
         }
 
-        /// <summary>登记一条从 origin 起沿 +x 的水线，长度 count。</summary>
+        /// <summary>登记一条从 origin 起沿 +x 的水线</summary>
         private static void BuildWaterLine(GridLogic grid, Vector3Int origin, int count)
         {
             for (int i = 0; i < count; i++)
@@ -100,6 +103,17 @@ namespace DeepseaOil.Tests
 
                 grid.RegisterCell(cell);
                 grid.SwitchTileState(cell, TileStateType.BasicWater);
+            }
+        }
+
+        /// <summary>按 1/60 步长推进网格与火海前沿。</summary>
+        private static void Advance(GridLogic grid, ref float now, float seconds)
+        {
+            for (float t = 0f; t < seconds; t += 1f / 60f)
+            {
+                now += 1f / 60f;
+
+                grid.Tick(now, 1f / 60f);
             }
         }
 
@@ -147,10 +161,10 @@ namespace DeepseaOil.Tests
 
             var origin = new Vector3Int(0, 0, 0);
 
-            // 造一个 8×8 的水面（64 格），远超 MaxChainSteps=32
-            for (int y = 0; y < 8; y++)
+            // 12×12=144 格，超过 MaxChainSteps=128
+            for (int y = 0; y < 12; y++)
             {
-                for (int x = 0; x < 8; x++)
+                for (int x = 0; x < 12; x++)
                 {
                     var cell = new Vector3Int(x, y, 0);
 
@@ -164,9 +178,9 @@ namespace DeepseaOil.Tests
             // 把替身铺满整片：任何一格被重复电击都会被数出来
             var targets = new List<ChainTarget>();
 
-            for (int y = 0; y < 8; y++)
+            for (int y = 0; y < 12; y++)
             {
-                for (int x = 0; x < 8; x++)
+                for (int x = 0; x < 12; x++)
                 {
                     var target = new ChainTarget { Position = grid.Geometry.CellCenter(new Vector3Int(x, y, 0)) };
 
@@ -191,6 +205,69 @@ namespace DeepseaOil.Tests
                 $"连锁波及格数必须被 MaxChainSteps={TileChainReactor.MaxChainSteps} 截断：环状水网会无限扩散");
 
             Assert.Greater(hitCells, 1, "连锁至少要走几步：一格就停说明泛洪根本没启动");
+
+            Assert.Greater(hitCells, 64, "波及格数没过老上限 32，等于 MaxChainSteps 没扩容：大水池会只通电半截");
+        }
+
+        /// <summary>⑦ 逐格报点：漏一格玩家就少一道电弧。</summary>
+        [Test]
+        public void 整片水面每格都报逐格特效()
+        {
+            TileChainReactor.Clear();
+
+            var registry = new EnemyCellRegistry();
+
+            GridLogic grid = NewGrid(registry);
+
+            var origin = new Vector3Int(2, 4, 0);
+
+            var pool = new List<Vector3Int>();
+
+            for (int y = 0; y < 9; y++)
+            {
+                for (int x = 0; x < 5; x++)
+                {
+                    var cell = new Vector3Int(x, y, 0);
+
+                    grid.RegisterCell(cell);
+                    grid.SwitchTileState(cell, TileStateType.BasicWater);
+
+                    pool.Add(cell);
+                }
+            }
+
+            grid.SwitchTileState(origin, TileStateType.BasicElectricity);
+
+            var reported = new List<Vector2>();
+
+            Action<GridPointVfxOccurred> probe = evt => reported.Add(evt.Point);
+
+            EventBus<GridPointVfxOccurred>.Subscribe(probe);
+
+            try
+            {
+                Assert.IsTrue(grid.OnBallHit(origin, BallType.Water), "水砸基础电源必须产生变化");
+            }
+            finally
+            {
+                EventBus<GridPointVfxOccurred>.Unsubscribe(probe);
+            }
+
+            Assert.AreEqual(pool.Count, reported.Count, "每格都要报一次");
+
+            for (int i = 0; i < pool.Count; i++)
+            {
+                Vector2 center = grid.Geometry.CellCenter(pool[i]);
+
+                bool found = false;
+
+                for (int j = 0; j < reported.Count; j++)
+                {
+                    if ((reported[j] - center).sqrMagnitude <= 1e-6f) found = true;
+                }
+
+                Assert.IsTrue(found, $"水面格 {pool[i]} 没有报逐格特效：这一格在水里却不出电弧");
+            }
         }
 
         /// <summary>③ 燎原爆燃：按 0.2s 步长逐圈蔓延，烧穿后回空地。</summary>
@@ -287,6 +364,79 @@ namespace DeepseaOil.Tests
             // 钉 4 而不是 ≥4：蒸汽既不可燃也不导通，这一行的 trigger_chain 已改为 FALSE，
             // 多出来的那 1 点只可能来自"泛洪落在非导体起点上"的那次凭空电击。
             Assert.AreEqual(4f, target.DamageTotal, 1e-3f, "等离子爆轰的瞬发伤害是 4 点，不多不少");
+        }
+
+        /// <summary>⑤ 触碰即激发：在火池旁的空地播种，不投球也要当帧燎原，并由前沿烧穿邻格植物。</summary>
+        [Test]
+        public void 播种落地当帧激发燎原()
+        {
+            TileChainReactor.Clear();
+
+            var registry = new EnemyCellRegistry();
+
+            GridLogic grid = NewGrid(registry);
+
+            var fire = new Vector3Int(0, 0, 0);
+            var dirt = new Vector3Int(1, 0, 0);
+            var fuel = new Vector3Int(2, 0, 0);
+
+            grid.RegisterCell(fire);
+            grid.RegisterCell(dirt);
+            grid.RegisterCell(fuel);
+
+            grid.SwitchTileState(fire, TileStateType.BasicFire);
+            grid.SwitchTileState(fuel, TileStateType.BasicPlant);
+
+            SeedSpec plantSeed = ConfigModule.GetSeed(SeedType.Plant);
+
+            Assert.IsNotNull(plantSeed, "seed 表必须有植物种子：缺了这条链就没有发生器可播");
+
+            bool planted = SeedPlanter.ExecutePlant(grid, dirt, SeedType.Plant, plantSeed, ConfigModule.GetDuoReactions());
+
+            Assert.IsTrue(planted, "空地上播种必须成功（地貌真的改了才算成功）");
+            Assert.AreEqual(TileStateType.FlameField, grid.StateOf(dirt), "植物 × 火 → 燎原火海：落地当帧就该质变，不能等投球");
+            Assert.AreEqual(TileStateType.BasicPlant, grid.StateOf(fuel), "邻格不在当帧变：二级反应只改发起格，邻格归火海自己的 0.2s 蔓延步");
+
+            float now = 0f;
+
+            Advance(grid, ref now, TileChainReactor.FlameSpreadStep);
+
+            Assert.AreEqual(TileStateType.FlameField, grid.StateOf(fuel), "火海前沿必须烧穿一圈可燃面：不蔓延等于「燎原」只是文案");
+            Assert.AreEqual(TileStateType.BasicFire, grid.StateOf(fire), "火池是永久发生器，只能被元素反应顶掉：0.2s 蔓延步不许把它顶成 3 秒的火海");
+        }
+
+        /// <summary>⑥ 冲击即激发：投球要用**未改写**原状态裁决，二级激发后跳过一级覆盖。</summary>
+        [Test]
+        public void 投掷命中用未改写状态激发并跳过一级覆盖()
+        {
+            TileChainReactor.Clear();
+
+            var registry = new EnemyCellRegistry();
+
+            GridLogic grid = NewGrid(registry);
+
+            var fire = new Vector3Int(0, 0, 0);
+            var plant = new Vector3Int(1, 0, 0);
+
+            grid.RegisterCell(fire);
+            grid.RegisterCell(plant);
+
+            grid.SwitchTileState(fire, TileStateType.BasicFire);
+            grid.SwitchTileState(plant, TileStateType.BasicPlant);
+
+            grid.OnBallHit(fire, BallType.Water);
+
+            Assert.AreEqual(
+                TileStateType.FlameField,
+                grid.StateOf(fire),
+                "火池旁有植物时，水球必须走「二级先判」：按原状态激发燎原，并跳过一级覆盖。"
+                + "换回先改地貌再判的旧顺序，这里必是蒸汽");
+
+            float now = 0f;
+
+            Advance(grid, ref now, TileChainReactor.FlameSpreadStep);
+
+            Assert.AreEqual(TileStateType.FlameField, grid.StateOf(plant), "燎原火海必须烧穿相邻的植物区");
         }
     }
 }

@@ -98,21 +98,31 @@ Shader "DeepseaOil/Particles/ProceduralSteam"
                 float2 centered = (uv - 0.5) * 2.0;
                 float dist = length(centered);
 
-                // 随时间微弱滚动的热气流噪波
-                float timeOffset = _Time.y * _NoiseSpeed;
-                float noise = fbm(uv * _NoiseScale + float2(timeOffset * 0.2, timeOffset * 0.4));
+                // 各向同性微弱热对流翻滚
+                float time = _Time.y * _NoiseSpeed;
+                float2 noiseUV = uv * _NoiseScale + float2(sin(time * 0.6) * 0.08, cos(time * 0.5) * 0.08);
+                float noise = fbm(noiseUV);
 
-                // 核心：用噪波扰动打破死板正圆边界，使圆盘边缘撕裂成云絮状
-                float distortedDist = dist + (noise - 0.5) * _EdgeSoftness;
-                float radialMask = smoothstep(1.0, 1.0 - _EdgeSoftness, distortedDist);
+                // 中心核心区（dist < 0.35）强制封实，噪波仅作用于外圈，彻底消除低频下的空心环
+                float coreProtection = smoothstep(0.0, 0.45, dist);
+                float distortedDist = dist + (noise - 0.5) * _EdgeSoftness * coreProtection;
 
-                // 核心：在粒子寿命后半段，根据透明度衰减逐层侵蚀瓦解成缕缕青烟，拒绝整块暴毙
+                // 柔和羽化衰减
+                float radialFalloff = saturate(1.0 - distortedDist);
+                radialFalloff = smoothstep(0.0, 0.75, radialFalloff);
+
+                // 连续消散侵蚀
                 float lifeAlpha = input.color.a;
-                float erode = smoothstep(1.0 - lifeAlpha * (1.0 + _ErosionStrength), 1.0, noise + lifeAlpha);
+                // 中心基底密度保底为 0.75，向外自然受噪波调制
+                float densityMod = lerp(0.85, 0.5 + noise * 0.7, coreProtection);
+                float density = radialFalloff * densityMod;
+                float finalAlpha = saturate(density * lifeAlpha * 1.6);
 
-                float finalAlpha = radialMask * erode * saturate(lifeAlpha * 1.3);
+                // 假体积光感
+                // 浓厚雾核略微增亮 + 边缘薄雾略微透光，赋予 2D 贴图以 3D 厚度感
+                half3 volumetricColor = lerp(input.color.rgb * 0.94, input.color.rgb * 1.15, radialFalloff * radialFalloff);
 
-                return half4(input.color.rgb, finalAlpha);
+                return half4(volumetricColor, finalAlpha);
             }
             ENDHLSL
         }

@@ -49,8 +49,6 @@ namespace DeepseaOil.Data
         /// <summary>贴身一次对玩家造成的伤害；敌人伤害的唯一权威，玩家表的 contact_damage 不用在这条链上</summary>
         public int ContactDamage => _row.ContactDamage;
 
-        public float FlashHz => ConfigModule.Visuals != null ? ConfigModule.Visuals.enemyFlashHz : 4f;
-
         /// <remarks>每种类一份、每只各持一份；只装配链消费</remarks>
         public CharacterConfig Config { get; }
     }

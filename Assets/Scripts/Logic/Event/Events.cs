@@ -67,7 +67,6 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    /// <summary>玩家二元弹药与战备种子变了</summary>
     public readonly struct PlayerAmmoChanged
     {
         public readonly int Water;
@@ -103,7 +102,6 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    // WaveIndex 从 1 起
     public readonly struct WaveChanged
     {
         public readonly int WaveIndex;
@@ -142,7 +140,6 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    /// <summary>中心为格心世界坐标</summary>
     public readonly struct GridBlastOccurred
     {
         public readonly Vector2 Center;
@@ -156,6 +153,20 @@ namespace DeepseaOil.Logic.Events
             Center = center;
             Radius = radius;
             ResultTile = resultTile;
+        }
+    }
+
+    /// <summary>逐格瞬时特效：IsFire 为真＝火花，为假＝电弧</summary>
+    public readonly struct GridPointVfxOccurred
+    {
+        public readonly Vector2 Point;
+
+        public readonly bool IsFire;
+
+        public GridPointVfxOccurred(Vector2 point, bool isFire)
+        {
+            Point = point;
+            IsFire = isFire;
         }
     }
 }

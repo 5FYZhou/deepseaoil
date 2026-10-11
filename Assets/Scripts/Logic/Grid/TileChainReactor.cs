@@ -9,8 +9,8 @@ namespace DeepseaOil.Logic.Grid
     // <remarks>纯 C#：时间与 Δt 由 GridLogic 注入，不读 Time</remarks>
     public static class TileChainReactor
     {
-        // <summary>单次连锁最多波及的格数：超限即截断并只告警一次</summary>
-        public const int MaxChainSteps = 32;
+        // <summary>单次连锁最多波及的格数：128 才够整片大水池泛洪，超限即截断并只告警一次</summary>
+        public const int MaxChainSteps = 128;
 
         /// <summary>燎原火海每步蔓延的间隔（秒）</summary>
         public const float FlameSpreadStep = 0.2f;
@@ -34,11 +34,12 @@ namespace DeepseaOil.Logic.Grid
 
         private static readonly List<Vector3Int> _dueFront = new List<Vector3Int>(16);
 
-        // <summary>火海蔓延前沿：(格, 下次蔓延时刻)；</summary>
+        // <summary>火海蔓延前沿：(格, 下次蔓延时刻)</summary>
         private static readonly List<(Vector3Int Cell, float At)> _flameFront = new List<(Vector3Int, float)>(16);
 
-        // <summary>本轮连锁是否已报过超限告警（只报一次）</summary>
         private static bool _warnedOverflow;
+
+        private static int _shocked;
 
         private static float _now;
 
@@ -92,12 +93,15 @@ namespace DeepseaOil.Logic.Grid
         }
 
         // <summary>二级元素反应入口：两个发生器地貌被导通体连通时触发</summary>
-        // <remarks>发起格必须真的属于元素发生器地貌，否则不触发</remarks>
         public static void TriggerDuo(GridLogic grid, Vector3Int origin, DuoReactionCatalog catalog)
         {
-            if (grid == null || catalog == null || !grid.HasCell(origin)) return;
+            TriggerDuo(grid, origin, grid != null ? grid.StateOf(origin) : TileStateType.Normal, catalog);
+        }
 
-            TileStateType self = grid.StateOf(origin);
+        // <summary>二级元素反应入口：self 取发起那刻的未改写地貌，改后再判就凑不齐配对了</summary>
+        public static bool TriggerDuo(GridLogic grid, Vector3Int origin, TileStateType self, DuoReactionCatalog catalog)
+        {
+            if (grid == null || catalog == null || !grid.HasCell(origin)) return false;
 
             GridQuery.GetNeighbors4(origin, _neighbors);
 
@@ -111,8 +115,10 @@ namespace DeepseaOil.Logic.Grid
 
                 CommitDuo(grid, origin, duo);
 
-                return;
+                return true;
             }
+
+            return false;
         }
 
         // <summary>连锁导电：沿 is_conductor 网格泛洪，全网同帧结算</summary>
@@ -124,18 +130,23 @@ namespace DeepseaOil.Logic.Grid
             _queue.Clear();
             _visited.Clear();
 
+            _shocked = 0;
+
             _queue.Enqueue(origin);
             _visited.Add(origin);
 
             while (_queue.Count > 0)
             {
-                if (_visited.Count > MaxChainSteps)
+                Vector3Int current = _queue.Dequeue();
+
+                // 排队那格还没电到，算进预算会提前截
+                if (_shocked >= MaxChainSteps)
                 {
                     WarnOverflowOnce(origin);
                     break;
                 }
 
-                Vector3Int current = _queue.Dequeue();
+                _shocked++;
 
                 grid.ApplyInstantShock(current, ShockDamage, ShockStunSeconds);
 
@@ -149,7 +160,7 @@ namespace DeepseaOil.Logic.Grid
 
                     if (!grid.HasCell(next)) continue;
 
-                    // 只有"导通体"能把电传下去：水、泥浆
+                    // 只有"导通体"能把电传下去
                     if (!grid.IsConductor(next)) continue;
 
                     _visited.Add(next);
@@ -235,6 +246,9 @@ namespace DeepseaOil.Logic.Grid
                 StartFlame(grid, origin, result);
                 return;
             }
+
+            // 导体产物同样要通路：火海/荆棘之外，导电结果也得接着扩散
+            if (!grid.IsConductor(origin)) return;
 
             Propagate(grid, origin);
         }
