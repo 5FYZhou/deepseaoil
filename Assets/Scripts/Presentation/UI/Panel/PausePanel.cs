@@ -1,5 +1,6 @@
 ﻿using DeepseaOil.Data;
 using DeepseaOil.Logic;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -25,6 +26,7 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
                 case "BtnContinue":
+                    GameRoot.Instance.UI.HidePanel<PausePanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Running);
                     break;
                 case "BtnRestart":
@@ -32,6 +34,8 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
+                    // 开始场景直接同步加载
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene("Begin", false));
                     break;
             }
         }

@@ -34,37 +34,14 @@ namespace DeepseaOil.Presentation
                     _ui.ShowPanel<BeginPanel>();
 
                     // 请求暂停；PlayerController 监听它并在暂停时关掉输入
+                    // ？好像没在监听了
                     EventBus<RequestPause>.Publish(new RequestPause());
                     break;
                 case GameState.CG:
-                    _ui.ShowPanel<TransitionPanel>((transition) =>
-                    {
-                        _ui.ShowPanel<CGPanel>((cgPanel) =>
-                        {
-                            _ui.GetPanel<BeginPanel>((beginPanel) =>
-                            {
-                                transition.SetMaskPos(beginPanel.maskStart.localPosition);
-                                transition.Play(
-                                    beginPanel,
-                                    cgPanel,
-                                    () =>
-                                    {
-                                        // 关闭开始面板
-                                        _ui.HidePanel<BeginPanel>();
-                                        _ui.HidePanel<TransitionPanel>();
-                                        cgPanel.StartTimeLine();
-                                        // 恢复UI输入
-                                    }
-                                );
-                            }); 
-                        });
-                    });
+                    // 关闭UI输入
                     break;
                 case GameState.Running:
                     EventBus<RequestResume>.Publish(new RequestResume());
-                    _ui.CloseAllPanels();
-                    _ui.ShowPanel<HudPanel>();
-                    _ui.ShowPanel<GamePlayPanel>();
                     break;
 
                 case GameState.Paused:

@@ -8302,6 +8302,7 @@ MonoBehaviour:
   stateTiles:
   - State: 2
     Tile: {fileID: 11400000, guid: f6bd7aa43d0b563498d2d1af900d3951, type: 2}
+  initialSetupTilemap: {fileID: 0}
 --- !u!4 &478400895
 Transform:
   m_ObjectHideFlags: 0
@@ -8333,7 +8334,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &544939642
 MonoBehaviour:
   m_ObjectHideFlags: 0
