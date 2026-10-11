@@ -36,20 +36,25 @@ namespace DeepseaOil.Presentation.UI
                     {
                         GameRoot.Instance.UI.ShowPanel<CGPanel>((cgPanel) =>
                         {
-                            transition.SetMaskPos(this.maskStart.localPosition);
-                            transition.Play(
-                                this, cgPanel,
-                                () =>
-                                {
-                                    GameRoot.Instance.UI.HidePanel<BeginPanel>();
-                                    GameRoot.Instance.UI.HidePanel<TransitionPanel>();
-                                    cgPanel.StartTimeLine();
-                                    // 预先加载游戏场景
-                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene("EmptyTest", true));
-                                }
-                            );
+                            GameRoot.Instance.UI.GetPanel<BeginPanel>((beginPanel) => 
+                            {
+                                transition.SetMaskPos(beginPanel.maskStart.localPosition);
+                                transition.Play(
+                                    beginPanel, cgPanel,
+                                    () =>
+                                    {
+                                        GameRoot.Instance.UI.HidePanel<BeginPanel>();
+                                        GameRoot.Instance.UI.HidePanel<TransitionPanel>();
+                                        cgPanel.StartTimeLine();
+                                        // 预先加载游戏场景
+                                        EventBus<RequestLoadScene>.Publish(new RequestLoadScene("EmptyTest", true));
+                                    }
+                                );
+                            });
+                            
                         });
                     });
+                    // 预先打开游戏场景的面板
                     GameRoot.Instance.UI.ShowPanel<HudPanel>();
                     GameRoot.Instance.UI.ShowPanel<GamePlayPanel>();
                     break;

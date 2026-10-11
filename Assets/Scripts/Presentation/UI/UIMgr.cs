@@ -4,6 +4,7 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -114,6 +115,8 @@ namespace DeepseaOil.Presentation.UI
             uiEventSystem = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_EVENT_SYS_KEY)).GetComponent<EventSystem>();
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
 
+            EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
+
             IsReady = true;
         }
 
@@ -124,6 +127,8 @@ namespace DeepseaOil.Presentation.UI
             if (!IsReady) return;
 
             IsReady = false;
+
+            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
 
             foreach (KeyValuePair<string, BasePanelInfo> kv in panelDic)
             {
@@ -420,6 +425,32 @@ namespace DeepseaOil.Presentation.UI
         private void ClearUISelection()
         {
             uiEventSystem?.SetSelectedGameObject(null);
+        }
+
+        /// <summary>
+        /// 控制按钮点击等UI输入
+        /// </summary>
+        private void SetUIInputEnabled(bool enabled)
+        {
+            if (uiEventSystem == null) return;
+
+            // 关闭输入模块 → 按钮点不了、滑条拖不了、点击/拖拽事件都不派发
+            var module = uiEventSystem.GetComponent<BaseInputModule>();
+            if (module != null) module.enabled = enabled;
+
+            if (!enabled) uiEventSystem.SetSelectedGameObject(null);
+        }
+
+        public void OnGameStateChanged(GameStateChanged evt)
+        {
+            if(evt.state == Logic.GameState.CG)
+            {
+                SetUIInputEnabled(false);
+            }
+            else
+            {
+                SetUIInputEnabled(true);
+            }
         }
     }
 }
