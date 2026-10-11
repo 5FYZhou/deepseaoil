@@ -2,7 +2,7 @@ Shader "DeepseaOil/2D/SpriteFlash"
 {
     Properties
     {
-        [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
         _FlashAmount ("Flash Amount", Range(0.0, 1.0)) = 0.0
         _FlashColor ("Flash Color", Color) = (1,1,1,1)
@@ -45,8 +45,9 @@ Shader "DeepseaOil/2D/SpriteFlash"
                 float2 uv : TEXCOORD0;
             };
 
-            Texture2D _MainTex;
-            SamplerState sampler_MainTex;
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+            float4 _MainTex_ST;
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
@@ -59,7 +60,7 @@ Shader "DeepseaOil/2D/SpriteFlash"
                 Varyings output;
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.color = input.color * _Color;
-                output.uv = input.uv;
+                output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 return output;
             }
 

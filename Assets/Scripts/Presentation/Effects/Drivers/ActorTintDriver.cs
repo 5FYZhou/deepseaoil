@@ -4,7 +4,7 @@ using UnityEngine;
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
     /// <summary>实体颜色栈驱动：color 只写「持续态 × 基线」，瞬态闪白改走材质插值</summary>
-    /// <remarks>基线是首次抓到渲染器时记下的现值：纯白乘数在乘法法则下永远变不白。句柄 Id 自增，不复用目标实例 ID，也从不返回 0。目标销毁按 Unity 假 null 摘账，不抛异常。</remarks>
+            /// <remarks>基线是首次抓到渲染器时记下的现值：纯白乘数在乘法法则下永远变不白。目标销毁直接摘账，不抛异常。</remarks>
     public sealed class ActorTintDriver : IEffectDriver
     {
         private const float DefaultDuration = 0.12f;
@@ -13,7 +13,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
         private static readonly int FlashColorId = Shader.PropertyToID("_FlashColor");
 
-        /// <summary>一个目标的色栈账本；BaseColor 捕获自渲染器现值，裸写 Color.white 会洗掉美术上的色</summary>
+            /// <summary>一个目标的色栈账本</summary>
         private sealed class ColorState
         {
             public SpriteRenderer Renderer;
@@ -28,12 +28,15 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             public float FlashRemaining;
 
-            /// <summary>材质上有没有 _FlashAmount：没有就退化成乘法闪白，别把闪白悄悄吞掉</summary>
+            /// <summary>材质上没有 _FlashAmount 就退化成乘法闪白</summary>
             public bool FlashOn;
+
+            /// <summary>上一次钉进材质的精灵贴图；逐帧只做一次引用比较</summary>
+            public Texture BoundTexture;
 
             public readonly MaterialPropertyBlock Block = new MaterialPropertyBlock();
 
-            /// <summary>持续态是否在生效：白乘数也是合法垫色，光看颜色判不出"有没有"</summary>
+            /// <summary>持续态是否在生效：白乘数也是合法垫色，判不出"有没有"</summary>
             public bool SlowOn;
 
             public int SlowHandleId;
@@ -60,21 +63,21 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
         public bool IsSingleton => false;
 
-        /// <summary>空串 = "不需要资源"：既不预加载也不懒加载，也不会被判为缺失</summary>
+        /// <summary>空串 = 不需要资源：不预加载、不懒加载、不算缺失</summary>
         public string AssetKey => string.Empty;
 
         public bool IsAssetReady => true;
 
         public int ActiveInstanceCount => _states.Count;
 
-        /// <summary>本驱动不持有 GameObject，池恒为空</summary>
+        /// <summary>不持有 GameObject，池恒为空</summary>
         public int PooledObjectCount => 0;
 
         public void OnAssetLoaded(Object asset)
         {
         }
 
-        /// <summary>ctx.Follow 为空、或目标上抓不到 SpriteRenderer 时返回 None：给错目标只静默不播，不报错</summary>
+        /// <summary>ctx.Follow 空、或抓不到 SpriteRenderer 时返回 None：给错目标只静默不播</summary>
         public EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (_disposed) return EffectHandle.None;
@@ -93,10 +96,14 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 state.FlashDuration = ctx.Duration > 0f ? ctx.Duration : DefaultDuration;
                 state.FlashRemaining = state.FlashDuration;
 
+                EnsureSpriteTexture(state);
                 ApplyFlash(state, 1f);
             }
             else if (id == EffectId.SlowTint)
             {
+                // 重复 Play 必须复用旧句柄：发新句柄的话调用方手里那个就永远 Stop 不掉
+                if (state.SlowOn && state.PersistentTint == ctx.Tint) return new EffectHandle(state.SlowHandleId, _epoch, this);
+
                 state.PersistentTint = ctx.Tint;
                 state.SlowOn = true;
                 state.SlowHandleId = ++_nextId;
@@ -110,7 +117,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 return EffectHandle.None;
             }
 
-            // 闪白与持续态用同一个自增空间：编号不撞车，Stop 就不会误停对方的账
+            // 闪白与持续态共用一个自增空间：编号不撞车，Stop 不会误停对方的账
             return new EffectHandle(++_nextId, _epoch, this);
         }
 
@@ -148,7 +155,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 Transform target = kv.Key;
                 ColorState state = kv.Value;
 
-                // 目标被销毁（Unity 假 null）：无从还原，直接摘账，不抛异常
+                // 目标被销毁（Unity 假 null）：无从还原，直接摘账
                 if (target == null || state.Renderer == null)
                 {
                     _recycleScratch.Add(target);
@@ -156,13 +163,16 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                     continue;
                 }
 
+                // 动画换帧会换精灵：不跟着换贴图的话闪白会画成上一帧的剪影
+                EnsureSpriteTexture(state);
+
                 if (state.FlashRemaining > 0f)
                 {
                     state.FlashRemaining -= dt;
 
                     bool expired = state.FlashRemaining <= 0f;
 
-                    // 必须逐帧重提交：只写一次的话会一直挂在纯白不淡出
+                    // 必须逐帧重提交：只写一次会一直挂在纯白不淡出
                     ApplyFlash(state, expired ? 0f : state.FlashRemaining / state.FlashDuration);
 
                     if (expired) ApplyPersistentTint(state);
@@ -193,7 +203,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
                 renderer.color = kv.Value.BaseColor;
 
-                // 材质是共享的，属性块却按渲染器隔离：不清这一块，下一个用同材质的角色会永久纯白
+                // 属性块按渲染器隔离：不清这一块，下一个用同材质的角色会永久纯白
                 if (kv.Value.FlashOn) ApplyFlash(kv.Value, 0f);
             }
 
@@ -213,22 +223,44 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         {
             if (state.Renderer == null) return;
 
-            Color effective = !state.FlashOn && state.FlashRemaining > 0f ? state.FlashColor : state.PersistentTint;
-
-            state.Renderer.color = effective * state.BaseColor;
+            state.Renderer.color = state.PersistentTint * state.BaseColor;
         }
 
         /// <summary>闪白强度写进属性块；无 _FlashAmount 的材质退回 color 乘法</summary>
         private void ApplyFlash(ColorState state, float amount)
         {
-            if (!state.FlashOn || state.Renderer == null) return;
+            if (state.Renderer == null) return;
+
+            // 没换材质时只能靠顶点色乘法，不写就不出现
+            if (!state.FlashOn)
+            {
+                state.Renderer.color = Color.Lerp(Color.white, state.FlashColor, amount) * state.BaseColor;
+
+                return;
+            }
 
             state.Block.SetFloat(FlashAmountId, amount);
             state.Block.SetColor(FlashColorId, state.FlashColor);
             state.Renderer.SetPropertyBlock(state.Block);
         }
 
-        /// <summary>抓一次真身渲染器并缓存：不缓存的话每次瞬态都要重下探子树；抓不到返回 null 表示这一拍不播、不记账</summary>
+        /// <summary>把精灵贴图钉进材质：_MainTex 留空时 Shader 采到的是默认白，闪白会变成一整块白剪影</summary>
+        /// <remarks>必须写 renderer.material：写 sharedMaterial 会把贴图共享给同材质角色。</remarks>
+        private static void EnsureSpriteTexture(ColorState state)
+        {
+            Sprite sprite = state.Renderer.sprite;
+
+            if (sprite == null) return;
+
+            Texture texture = sprite.texture;
+
+            if (state.BoundTexture == texture) return;
+
+            state.Renderer.material.mainTexture = texture;
+            state.BoundTexture = texture;
+        }
+
+        /// <summary>抓一次真身渲染器并缓存：不缓存的话每次瞬态都要重下探子树</summary>
         private ColorState GetOrCreateState(Transform target)
         {
             if (_states.TryGetValue(target, out ColorState state))
@@ -238,7 +270,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             SpriteRenderer renderer = target.GetComponent<SpriteRenderer>();
 
-            // 自身没有才下探子树，且跳过影子件：写的是真身渲染器，脚底的 ShadowView 不能跟着变白
+            // 自身没有才下探子树，且跳过影子件：脚底的 ShadowView 不能跟着变白
             if (renderer == null)
             {
                 SpriteRenderer[] children = target.GetComponentsInChildren<SpriteRenderer>(true);
@@ -275,7 +307,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 _states[target] = state;
             }
 
-            // 渲染器是新建的就重立基线，别把上一具身体的颜色带过来；垫色状态原样保留
+            // 渲染器是新建的就重立基线，别把上一具身体的颜色带过来
             state.Renderer = renderer;
             state.BaseColor = renderer.color;
 
