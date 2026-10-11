@@ -1,6 +1,7 @@
 ﻿using DeepseaOil.Logic;
 using TMPro;
 using DeepseaOil.Data;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -49,8 +50,10 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     break;
                 case "BtnReturnMenu":
-                    // 切换到开始界面
+                    GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
+                    // 开始场景直接同步加载
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene("Begin", false));
                     break;
                 case "BtnSave":
                     // 保存进度

@@ -32,6 +32,7 @@ namespace DeepseaOil.Presentation
                 case GameState.Menu:
                     _ui.CloseAllPanels();
                     _ui.ShowPanel<BeginPanel>();
+                    _ui.ShowPanel<TransitionPanel>();
 
                     // 请求暂停；PlayerController 监听它并在暂停时关掉输入
                     // ？好像没在监听了
@@ -41,12 +42,15 @@ namespace DeepseaOil.Presentation
                     // UI自己关闭输入
                     break;
                 case GameState.Running:
+                    _ui.CloseAllPanels();
+                    _ui.ShowPanel<HudPanel>();
+                    _ui.ShowPanel<GamePlayPanel>();
                     EventBus<RequestResume>.Publish(new RequestResume());
                     break;
 
                 case GameState.Paused:
-                    EventBus<RequestPause>.Publish(new RequestPause());
                     _ui.ShowPanel<PausePanel>();
+                    EventBus<RequestPause>.Publish(new RequestPause());
                     break;
 
                 case GameState.BeforeExit:

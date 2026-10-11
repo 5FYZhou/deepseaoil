@@ -309,6 +309,7 @@ namespace DeepseaOil.Presentation
 
             EffectModule.Dispose();
             UI?.Dispose();
+            _uiInputProvider?.Dispose();
 
             for (int i = _services.Count - 1; i >= 0; i--)
             {

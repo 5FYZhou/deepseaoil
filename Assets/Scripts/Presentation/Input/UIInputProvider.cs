@@ -15,7 +15,6 @@ namespace DeepseaOil.Presentation.Input
         public UIInputProvider()
         {
             _input = new InputSys();
-            Init();
         }
 
         public void Init()
@@ -50,6 +49,7 @@ namespace DeepseaOil.Presentation.Input
 
         public void SetInputEnabled(bool enabled)
         {
+            if(_inputEnabled == enabled) return;
             _inputEnabled = enabled;
 
             if (!enabled)

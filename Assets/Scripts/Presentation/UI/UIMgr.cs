@@ -359,7 +359,7 @@ namespace DeepseaOil.Presentation.UI
 
         public bool TryCloseTopmostPanel()
         {
-            E_UILayer[] layers = { E_UILayer.Transition, E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom};
+            E_UILayer[] layers = { E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom, E_UILayer.Transition };
 
             foreach (var layer in layers)
             {
@@ -436,7 +436,11 @@ namespace DeepseaOil.Presentation.UI
 
             // 关闭输入模块 → 按钮点不了、滑条拖不了、点击/拖拽事件都不派发
             var module = uiEventSystem.GetComponent<BaseInputModule>();
-            if (module != null) module.enabled = enabled;
+            if (module != null)
+            {
+                if(module.enabled != enabled)
+                    module.enabled = enabled;
+            }
 
             if (!enabled) uiEventSystem.SetSelectedGameObject(null);
         }
