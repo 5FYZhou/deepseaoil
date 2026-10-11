@@ -20,8 +20,7 @@ namespace DeepseaOil.Presentation.UI
 
         [Tooltip("归一化进度(0~1) → 归一化缩放(0~1)，默认线性")]
         [SerializeField]
-        private AnimationCurve progressCurve =
-            AnimationCurve.Linear(0f, 0f, 1f, 1f);
+        private AnimationCurve progressCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
 
         private Image _imgMask;
         private Coroutine _playCoroutine;
@@ -34,10 +33,12 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
+            Debug.Log("Show");
         }
 
         public override void HideMe()
         {
+            Debug.Log("hide");
         }
 
         /// <summary>

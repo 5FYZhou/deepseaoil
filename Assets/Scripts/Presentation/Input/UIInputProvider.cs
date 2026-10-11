@@ -1,4 +1,5 @@
-using DeepseaOil.Generated;
+﻿using DeepseaOil.Generated;
+using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using UnityEngine;
 
@@ -20,6 +21,13 @@ namespace DeepseaOil.Presentation.Input
         public void Init()
         {
             _input.UI.Enable();
+            EventBus<GameStateChanged>.Subscribe(OnGameStateChange);
+        }
+
+        public void Dispose()
+        {
+            _input.UI.Disable();
+            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChange);
         }
 
         public void Sample()
@@ -48,9 +56,17 @@ namespace DeepseaOil.Presentation.Input
                 Clear();
         }
 
-        public void Dispose()
+        private void OnGameStateChange(GameStateChanged evt)
         {
-            _input.UI.Disable();
+            if(evt.state == Logic.GameState.CG)
+            {
+                SetInputEnabled(false);
+            }
+            else
+            {
+                SetInputEnabled(true);
+            }
         }
+
     }
 }

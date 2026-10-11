@@ -52,6 +52,12 @@ namespace DeepseaOil.Logic.Events
 
     public readonly struct GameResumed { }
 
+    public readonly struct GameStateChanged
+    {
+        public readonly GameState state;
+        public GameStateChanged(GameState state) { this.state = state; }
+    }
+
     // 某一格状态变了，表现层据此换 Tilemap 贴图，也是"格子状态"唯一的对外出口。
     public readonly struct TileStateChanged
     {

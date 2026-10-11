@@ -38,7 +38,7 @@ namespace DeepseaOil.Presentation
                     EventBus<RequestPause>.Publish(new RequestPause());
                     break;
                 case GameState.CG:
-                    // 关闭UI输入
+                    // UI自己关闭输入
                     break;
                 case GameState.Running:
                     EventBus<RequestResume>.Publish(new RequestResume());
@@ -59,6 +59,7 @@ namespace DeepseaOil.Presentation
             }
 
             CurState = newState;
+            EventBus<GameStateChanged>.Publish(new GameStateChanged(CurState));
         }
     }
 }
