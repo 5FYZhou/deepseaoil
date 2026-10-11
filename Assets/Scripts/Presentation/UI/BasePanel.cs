@@ -192,11 +192,11 @@ namespace DeepseaOil.Presentation.UI
 
             _assetKeys.Clear();
         }
+        #endregion
 
         protected virtual void OnDestroy()
         {
             ReleaseAssets();
         }
-        #endregion
     }
 }

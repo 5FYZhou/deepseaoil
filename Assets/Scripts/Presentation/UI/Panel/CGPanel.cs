@@ -28,19 +28,25 @@ namespace DeepseaOil.Presentation.UI
 
         protected override void OnDestroy()
         {
+            if (_director != null)
+                _director.stopped -= OnTimelineStopped;
+
             base.OnDestroy();
-            _director.stopped -= OnTimelineStopped;
         }
 
         public override void ShowMe()
         {
-            _director.time = 0;
-            _director.Play();
         }
 
         public override void HideMe()
         {
             _director.Stop();
+        }
+
+        public void StartTimeLine()
+        {
+            _director.time = 0;
+            _director.Play();
         }
 
         private void OnTimelineStopped(PlayableDirector director)

@@ -9,6 +9,7 @@ namespace DeepseaOil.Presentation.UI
 {
     public enum E_UILayer
     {
+        Transition,
         Bottom,
         Middle,
         Top,
@@ -61,6 +62,7 @@ namespace DeepseaOil.Presentation.UI
         /// <summary>重复 EventSystem 是否已报过一次（防刷屏）</summary>
         private bool _warnedDuplicateEventSystem;
 
+        private Transform transitionLayer;
         private Transform bottomLayer;
         private Transform middleLayer;
         private Transform topLayer;
@@ -75,7 +77,8 @@ namespace DeepseaOil.Presentation.UI
         private readonly Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
 
         private readonly Dictionary<E_UILayer, Stack<BasePanelInfo>> openPanels = new()
-        {
+        { 
+            { E_UILayer.Transition, new Stack<BasePanelInfo>() },
             { E_UILayer.Bottom, new Stack<BasePanelInfo>() },
             { E_UILayer.Middle, new Stack<BasePanelInfo>() },
             { E_UILayer.Top, new Stack<BasePanelInfo>() },
@@ -100,6 +103,7 @@ namespace DeepseaOil.Presentation.UI
             uiCanvas.worldCamera = uiCamera;
             GameObject.DontDestroyOnLoad(uiCanvas.gameObject);
 
+            transitionLayer = uiCanvas.transform.Find("Transition");
             bottomLayer = uiCanvas.transform.Find("Bottom");
             middleLayer = uiCanvas.transform.Find("Middle");
             topLayer = uiCanvas.transform.Find("Top");
@@ -184,6 +188,8 @@ namespace DeepseaOil.Presentation.UI
         {
             switch (layer)
             {
+                case E_UILayer.Transition:
+                    return transitionLayer;
                 case E_UILayer.Bottom:
                     return bottomLayer;
                 case E_UILayer.Middle:
@@ -348,7 +354,7 @@ namespace DeepseaOil.Presentation.UI
 
         public bool TryCloseTopmostPanel()
         {
-            E_UILayer[] layers = {E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom};
+            E_UILayer[] layers = { E_UILayer.Transition, E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom};
 
             foreach (var layer in layers)
             {
