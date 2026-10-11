@@ -13,9 +13,6 @@ namespace DeepseaOil.Logic.Grid
     /// <remarks>伤害全由格子产生（Apply）。Tick 请求双缓冲：本帧提交、下帧消费；状态转换进待处理表、Tick 后结算。</remarks>
     public sealed class GridLogic : ITileScheduler, ITileResolver
     {
-        /// <summary>击退衰减率（1/秒）；与 EnemyTuning.knockbackDecay 同源，改了要跟</summary>
-        private const float KnockbackDecayPerSecond = 10f;
-
         public GridGeometry Geometry => _geometry;
 
         public EnemyCellRegistry Registry => _registry;
@@ -160,9 +157,14 @@ namespace DeepseaOil.Logic.Grid
 
             TileStateType current = StateOf(cell);
 
+            // 二级先判且用未改写状态：一级若先改格子，配对（如植物×火）就再也凑不齐
+            bool duoTriggered = TileChainReactor.TriggerDuo(this, cell, current, _duo);
+
             ReactionOutcome outcome = ReactionResolver.Resolve(current, ball);
 
-            bool changed = outcome.NextTile != current
+            // 二级已质变地貌时跳过一级覆盖，否则火海会被反手顶掉
+            bool changed = !duoTriggered
+                && outcome.NextTile != current
                 && SwitchTileState(cell, outcome.NextTile, 0f);
 
             bool impacted = ApplyImpact(cell, in outcome);
@@ -170,9 +172,6 @@ namespace DeepseaOil.Logic.Grid
             if (changed || impacted)
             {
                 ScheduleTick(cell);
-
-                // 二级元素反应只在"地貌真的变了"之后判：否则每次投球都要扫一遍四邻
-                if (changed) TileChainReactor.TriggerDuo(this, cell, _duo);
 
                 return true;
             }
@@ -185,7 +184,7 @@ namespace DeepseaOil.Logic.Grid
         {
             bool any = false;
 
-            // 范围判定：半径 > 1.0 格时走广域冲击（覆盖九宫格敌人，并自动广播波及事件与匹配特效）
+            // 范围判定：半径 > 1.0 格时走广域冲击
             if (outcome.ImpactRadius > 1.0f)
             {
                 if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f)
@@ -202,15 +201,9 @@ namespace DeepseaOil.Logic.Grid
             }
             else // 单格判定：<= 1.0 格走原版精准单格
             {
-                if (outcome.InstantDamage > 0)
+                if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f)
                 {
-                    DealCell(cell, outcome.InstantDamage);
-                    any = true;
-                }
-
-                if (outcome.KnockbackCells > 0f)
-                {
-                    ApplyKnockback(cell, outcome.KnockbackCells);
+                    DealCell(cell, outcome.InstantDamage, outcome.KnockbackCells);
                     any = true;
                 }
 
@@ -247,10 +240,16 @@ namespace DeepseaOil.Logic.Grid
             _pending[cell] = next;
         }
 
-        /// <summary>对格上目标造成一次伤害</summary>
+        /// <summary>对格上目标造成一次伤害；残留伤害也走同一份结算规则，走这条即不带击退</summary>
         public void DealCell(Vector3Int cell, float amount)
         {
-            if (amount <= 0f) return;
+            DealCell(cell, amount, 0f);
+        }
+
+        /// <summary>对格上目标结算一次：伤害与击退打包进同一份 Damage，方向在此只算一次</summary>
+        public void DealCell(Vector3Int cell, float amount, float knockbackCells)
+        {
+            if (amount <= 0f && knockbackCells <= 0f) return;
 
             if (!_registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets.Count == 0) return;
 
@@ -261,8 +260,26 @@ namespace DeepseaOil.Logic.Grid
 
             for (int i = 0; i < _dealScratch.Count; i++)
             {
-                DealOne(_dealScratch[i], center, amount);
+                DealTarget(_dealScratch[i], center, amount, knockbackCells);
             }
+        }
+
+        /// <summary>对单个目标结算一次：与 DealCell 同一份打包规则，供只作用于该目标的入口用</summary>
+        private static void DealTarget(IEffectTarget target, Vector2 center, float amount, float knockbackCells)
+        {
+            if (target == null || !target.IsAlive) return;
+
+            Vector2 delta = target.Position - center;
+
+            // 格心方向为零：与 Damage.At 同纪律，给"上"
+            Vector2 direction = delta.sqrMagnitude > 1e-6f ? delta.normalized : Vector2.up;
+
+            Damage damage = Damage.At(center, target.Position, amount, DamageSource.Tile, knockbackCells);
+
+            // 不可受伤者仍可被减速/击退，只是不吃伤害
+            if (amount > 0f && target is IDamageable damageable) damageable.TakeDamage(in damage);
+
+            if (knockbackCells > 0f && target is IKnockBackable knockbackable) knockbackable.ApplyKnockback(direction * damage.KnockbackCells);
         }
 
         /// <summary>对格上目标续一次减速；状态实现按帧调它，seconds 就是本帧窗口</summary>
@@ -298,6 +315,10 @@ namespace DeepseaOil.Logic.Grid
             DealCell(cell, damage);
 
             ApplyStunCell(cell, stunSeconds);
+
+            bool isFlame = stunSeconds <= 0f;
+
+            EventBus<GridPointVfxOccurred>.Publish(new GridPointVfxOccurred(_geometry.CellCenter(cell), isFlame));
         }
 
         /// <summary>径向范围冲击：对半径内每格的伙伴结算一次伤害与击退，用于二级反应的波及</summary>
@@ -334,11 +355,7 @@ namespace DeepseaOil.Logic.Grid
 
             for (int i = 0; i < _blastCells.Count; i++)
             {
-                Vector3Int cell = _blastCells[i];
-
-                if (damage > 0) DealCell(cell, damage);
-
-                if (knockbackCells > 0f) ApplyKnockback(cell, knockbackCells);
+                DealCell(_blastCells[i], damage, knockbackCells);
             }
 
             // 二级反应激发广域冲击时广播事实
@@ -399,54 +416,7 @@ namespace DeepseaOil.Logic.Grid
             if (spec.DotDamage <= 0) return;
 
             // DoT 的首跳放在这：走进去那一下要立刻痛，不能等满一秒
-            DealOne(target, _geometry.CellCenter(cell), spec.DotDamage);
-        }
-
-        private void ApplyKnockback(Vector3Int cell, float cells)
-        {
-            if (cells <= 0f) return;
-
-            if (!_registry.TryGetIn(cell, out List<IEffectTarget> targets) || targets.Count == 0) return;
-
-            Vector2 center = _geometry.CellCenter(cell);
-
-            for (int i = 0; i < targets.Count; i++)
-            {
-                KnockOne(targets[i], center, cells);
-            }
-        }
-
-        private void KnockOne(IEffectTarget target, Vector2 center, float cells)
-        {
-            if (cells <= 0f || target == null || !target.IsAlive) return;
-
-            if (target is not IKnockBackable knockbackable) return;
-
-            float targetDistance = cells * Mathf.Max(_geometry.CellSize, 1f);
-            float magnitude = Mathf.Sqrt(2f * KnockbackDecayPerSecond * targetDistance);
-
-            if (magnitude <= 0f) return;
-
-            Vector2 delta = target.Position - center;
-
-            // 格心方向为零：与 Damage.At 同纪律，给"上"。
-            Vector2 direction = delta.sqrMagnitude > 1e-6f ? delta.normalized : Vector2.up;
-
-            knockbackable.ApplyKnockback(direction * magnitude);
-        }
-
-        private static void DealOne(IEffectTarget target, Vector2 center, float amount)
-        {
-            if (amount <= 0f) return;
-
-            if (target == null) return;
-
-            if (!target.IsAlive) return;
-
-            // 不可受伤者仍可被减速/击退，只是不吃伤害。
-            if (target is not IDamageable damageable) return;
-
-            damageable.TakeDamage(Damage.At(center, target.Position, amount, DamageSource.Tile));
+            DealTarget(target, _geometry.CellCenter(cell), spec.DotDamage, 0f);
         }
 
         private void DrainPendingTransitions()

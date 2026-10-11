@@ -50,7 +50,6 @@ namespace DeepseaOil.Presentation
         [Tooltip("是否刷敌人。关掉可以只验投掷链路。")]
         [SerializeField] private bool enableWaves = true;
 
-        [Tooltip("贴图覆盖管理器，留空自愈")]
         [SerializeField] private TileOverlayDirector overlayDirector = default;
 
         private GameRoot _root;
@@ -113,6 +112,7 @@ namespace DeepseaOil.Presentation
             EventBus<DropCollected>.Subscribe(OnDropCollected);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Subscribe(OnGridBlastOccurred);
+            EventBus<GridPointVfxOccurred>.Subscribe(OnGridPointVfxOccurred);
         }
 
         private void OnDisable()
@@ -122,6 +122,7 @@ namespace DeepseaOil.Presentation
             EventBus<DropCollected>.Unsubscribe(OnDropCollected);
             EventBus<RequestHudRefresh>.Unsubscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Unsubscribe(OnGridBlastOccurred);
+            EventBus<GridPointVfxOccurred>.Unsubscribe(OnGridPointVfxOccurred);
         }
 
         public void RenderTick(float deltaTime)
@@ -177,7 +178,6 @@ namespace DeepseaOil.Presentation
         }
 
         // 播种：E 键把手上的种子落成环境地貌
-        // 合法性判据在 Logic 层（SeedPlanter），本类只转发与报错
         private void TickPlanting()
         {
             InputProvider input = player != null ? player.Input : null;
@@ -198,7 +198,13 @@ namespace DeepseaOil.Presentation
 
             if (!logic.Stats.TryConsumeSeed()) return;
 
-            _grid.SwitchTileState(cell, seed.SpawnTile);
+            if (!SeedPlanter.ExecutePlant(_grid, cell, seed.Id, seed, ConfigModule.GetDuoReactions()))
+            {
+                // 执行失败必须原样退回：种子已扣，静默少一颗是看不出来的
+                logic.Stats.GrantSeed(seed.Id);
+
+                return;
+            }
 
             EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(cell));
 
@@ -624,6 +630,17 @@ namespace DeepseaOil.Presentation
             ctx.Tint = new Color(0.92f, 0.96f, 1f, 0.85f);
 
             EffectModule.Play(EffectId.SteamBlast, in ctx);
+        }
+
+        // 逐格报点：整网同帧各播一次
+        private void OnGridPointVfxOccurred(GridPointVfxOccurred evt)
+        {
+            EffectContext ctx = EffectContext.At(evt.Point);
+
+            if (evt.IsFire)
+                EffectModule.Play(EffectId.FlameEmbers, in ctx);
+            else
+                EffectModule.Play(EffectId.ChainShock, in ctx);
         }
 
         // 装配期扫一次场景预摆怪（运行时拖入的由 EnemyActor.Start 报到）

@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   radius: 0.45
   acceleration: 5
-  knockbackDecay: 10
+  knockbackDecay: 30
   stopDistance: 0.6
   chaseRange: 60

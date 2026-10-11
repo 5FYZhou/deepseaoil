@@ -196,14 +196,31 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasDamage)
             {
-                // 耐久是整数、伤害是浮点数，四舍五入到整数
+                // 耐久是整数，伤害舍入到整数
                 Stats.ApplyDamage(damage.Amount);
+
+                // 闪白全程靠 Follow 找渲染器：不给 Follow 等于不播
+                EffectContext flash = EffectContext.OnTarget(transform);
+                flash.Duration = 0.12f;
+                flash.Tint = Color.white;
+
+                EffectModule.Play(EffectId.Flash, in flash);
+
+                // 换 transform.position 会错开
+                EffectContext spark = EffectContext.At(Position, damage.Direction);
+
+                EffectModule.Play(EffectId.BurstSparks, in spark);
             }
 
             if (damage.HasKnockback && _logic != null)
             {
-                // 只递交，下个逻辑帧才变成"进入受击"；撞多远归 hurtDecay
-                _logic.ApplyKnockback(damage.Impulse, damage.Direction);
+                // 只递交，下个逻辑帧才"进入受击"：v0 由本节拍位移与本节阻尼反解，与 HurtState 同源
+                float targetDistance = damage.KnockbackCells * CellsToWorldUnit;
+
+                float v0 = Mathf.Sqrt(2f * HurtDeceleration() * targetDistance);
+
+                // 非数/无穷会被账本原样写进刚体，整段位移直接作废
+                if (!float.IsNaN(v0) && !float.IsInfinity(v0)) _logic.ApplyKnockback(v0, damage.Direction);
             }
 
             if (!Stats.IsAlive)
@@ -217,6 +234,21 @@ namespace DeepseaOil.Presentation.Actor
             _animView?.TriggerHurt();
 
             UpdateHpText();
+        }
+
+        /// <summary>格 → 世界单位的换算；与 GridGeometry.cellSize 同值，格边长不是 1 时要跟</summary>
+        private const float CellsToWorldUnit = 1f;
+
+        /// <summary>受击滑停减速度：hurtDecay 非法/未填即落回 moveAcceleration</summary>
+        private float HurtDeceleration()
+        {
+            float decay = _spec != null ? _spec.Config.hurtDecay : 0f;
+
+            if (decay > 0f && !float.IsNaN(decay) && !float.IsInfinity(decay)) return decay;
+
+            float accel = _spec != null ? _spec.Config.moveAcceleration : 0f;
+
+            return accel > 0f && !float.IsNaN(accel) ? accel : 10f;
         }
 
         /// 头顶耐久数字（临时调试件）；只在数值变了才写，0 显示空串
@@ -294,23 +326,12 @@ namespace DeepseaOil.Presentation.Actor
             if (_registry != null && _registered) _registry.Unregister(this);
         }
 
-        /// 闪烁是相位而非状态；hz=频率（Hz），非法值不闪
-        /// 用 Sin 而非取模：取模在 hz=0 时除零，Sin 恒为 0
-        public static bool IsFlashOn(float time, float hz)
-        {
-            if (float.IsNaN(hz) || hz <= 0f) return false;
-
-            return Mathf.Sin(time * 2f * Mathf.PI * hz) > 0f;
-        }
-
-        /// 闪白相位用 Time.time 而非累加，故每帧刷 color
+        /// <summary>只写减速色：受击闪白由 EffectModule 的 Flash 驱动接管</summary>
         private void UpdateBodyColor()
         {
             if (_body == null) return;
 
-            bool flashOn = IsHurt && IsFlashOn(Time.time, _spec.FlashHz);
-
-            _body.color = ConfigModule.Visuals.EnemyBodyColor(_slowMultiplier, flashOn);
+            _body.color = ConfigModule.Visuals.EnemyBodyColor(_slowMultiplier);
         }
 
         /// 基准取物理体 y 而非 View：View 的 localPosition 会被特效改写，拿它排序会让敌人随抖动乱插队

@@ -71,16 +71,34 @@ namespace DeepseaOil.Logic.Player
 
             if (damage.HasKnockback)
             {
-                Vector2 impulse = damage.Direction * damage.Impulse;
                 float limit = _stats.Spec.KnockbackSpeedLimit;
+                float speed = _stats.Spec.KnockbackImpulse;
 
-                // 上限非法（0/非数）按不限：ClampMagnitude 遇 0 吃掉整个冲量
-                _pendingKnockback = limit > 0f && !float.IsNaN(limit)
-                    ? Vector2.ClampMagnitude(impulse, limit)
-                    : impulse;
+                // 上限非法（0/非数）按不限：取小值等价于 ClampMagnitude 掐速度
+                if (limit > 0f && !float.IsNaN(limit)) speed = Mathf.Min(speed, limit);
+
+                _pendingKnockback = KnockbackVelocity(speed, damage.Direction);
             }
 
             return true;
+        }
+
+        /// <summary>Damage 带的是位移格数，player 表的这一列是速度，故在此折算成初速度</summary>
+        /// <remarks>减速段位移 d = v²/(2a)，即 v = √(2ad)；无惯性（a=0）解不出这条积分，按当帧到位的表值走</remarks>
+        private Vector2 KnockbackVelocity(float speed, Vector2 direction)
+        {
+            float deceleration = Motor.Motion.HurtDecay > 0f
+                ? Motor.Motion.HurtDecay
+                : Motor.Motion.MoveAcceleration;
+
+            if (float.IsNaN(speed) || speed <= 0f) return Vector2.zero;
+
+            // 零惯性：SpeedScale 也不作用于外力，退一格就等于跑满整段
+            if (deceleration <= 0f) return direction * speed;
+
+            float cells = speed * speed / (2f * deceleration);
+
+            return direction * Mathf.Sqrt(2f * deceleration * cells);
         }
 
         /// <summary>瞬移到指定位置并回满血</summary>

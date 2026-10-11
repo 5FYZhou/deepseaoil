@@ -60,7 +60,7 @@ namespace DeepseaOil.Tests
         }
 
         /// <summary>格上目标替身：只记次数；减速转发给**真** StatusGroup，读到的 SlowScale 就是运行时那一份。</summary>
-        private sealed class GridTarget : IDamageable, ISlowable, IKnockBackable, IStunnable
+        private sealed class GridTarget : IDamageable, ISlowable, IStunnable
         {
             private readonly StatusGroup _status;
 
@@ -81,9 +81,8 @@ namespace DeepseaOil.Tests
 
             public float DamageTotal;
 
-            public int KnockHits;
-
-            public float KnockImpulse;
+            /// <summary>累计收到的击退格数：位移意图只经 TakeDamage 这一条路进来。</summary>
+            public float KnockbackTotal;
 
             public int StunHits;
 
@@ -101,12 +100,7 @@ namespace DeepseaOil.Tests
             {
                 DamageHits++;
                 DamageTotal += damage.Amount;
-            }
-
-            public void ApplyKnockback(Vector2 impulse)
-            {
-                KnockHits++;
-                KnockImpulse = impulse.magnitude;
+                KnockbackTotal += damage.KnockbackCells;
             }
 
             public void ApplyStun(float seconds)
@@ -329,7 +323,7 @@ namespace DeepseaOil.Tests
                 "落地瞬间伤害必须在 OnBallHit 返回前结算，且只结算一次："
                 + "等下一次 Tick 就是「生成蒸汽后怪站着不掉血」的静默 Bug，多打一次则是重复结算");
             Assert.AreEqual(2f, target.DamageTotal, 1e-3f, "element_rule #4 的瞬伤是 2 点");
-            Assert.Greater(target.KnockImpulse, 0f, "element_rule 里这一行配了击退，必须折算成冲量打出去");
+            Assert.AreEqual(1.5f, target.KnockbackTotal, 1e-3f, "element_rule #4 的击退是 1.5 格，必须原样进 Damage 让受击者换算");
 
             // 蒸汽既不可燃也不导通 ⇒ 这一行不该有连锁方向，更不该凭空补一次电击
             Assert.AreEqual(0, target.StunHits, "蒸汽不导电：连锁泛洪的起点必须自己也是导通体");
