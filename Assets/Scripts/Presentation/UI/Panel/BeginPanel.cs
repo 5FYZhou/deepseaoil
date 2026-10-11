@@ -1,5 +1,6 @@
 ﻿using DeepseaOil.Logic;
 using DeepseaOil.Data;
+using UnityEngine;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -7,6 +8,8 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Bottom;
         public override bool CanBeHideByKey => false;
+
+        public RectTransform maskStart;
 
         public override void HideMe()
         {

@@ -37,8 +37,28 @@ namespace DeepseaOil.Presentation
                     EventBus<RequestPause>.Publish(new RequestPause());
                     break;
                 case GameState.CG:
-                    _ui.CloseAllPanels();
-                    _ui.ShowPanel<CGPanel>();
+                    _ui.ShowPanel<TransitionPanel>((transition) =>
+                    {
+                        _ui.ShowPanel<CGPanel>((cgPanel) =>
+                        {
+                            _ui.GetPanel<BeginPanel>((beginPanel) =>
+                            {
+                                transition.SetMaskPos(beginPanel.maskStart.localPosition);
+                                transition.Play(
+                                    beginPanel,
+                                    cgPanel,
+                                    () =>
+                                    {
+                                        // 关闭开始面板
+                                        _ui.HidePanel<BeginPanel>();
+                                        _ui.HidePanel<TransitionPanel>();
+                                        cgPanel.StartTimeLine();
+                                        // 恢复UI输入
+                                    }
+                                );
+                            }); 
+                        });
+                    });
                     break;
                 case GameState.Running:
                     EventBus<RequestResume>.Publish(new RequestResume());
