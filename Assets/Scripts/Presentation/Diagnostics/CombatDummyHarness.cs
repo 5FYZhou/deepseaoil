@@ -23,8 +23,11 @@ namespace DeepseaOil.Presentation.Diagnostics
         /// 预制体找不到后的重试间隔（秒）
         private const float PrefabRetryInterval = 2f;
 
-        [Tooltip("木桩。场景里摆了敌人预制体实例就拖进来；留空则按 enemies/Enemy_{id} 约定实例化一只。")]
+        [Tooltip("木桩。场景里摆了敌人预制体实例就拖进来；留空则按 enemies/Enemy_{spawnEnemyId} 约定实例化一只。")]
         [SerializeField] private EnemyActor enemy = default;
+
+        [Tooltip("自动补桩时用 enemy 表的哪一行；拖了场景实例就改那个预制体上的 EnemyActor.enemyId")]
+        [SerializeField] private int spawnEnemyId = 1;
 
         [Tooltip("地板层适配器（可选）。接了才能验「脚下刷泥」：格子要是不登记，格上效果找不到木桩。")]
         [SerializeField] private TilemapAdapter adapter = default;
@@ -238,7 +241,7 @@ namespace DeepseaOil.Presentation.Diagnostics
 
             Vector2 position = enemy.transform.position;
 
-            EnemySpec spec = ConfigModule.GetEnemy();
+            EnemySpec spec = ConfigModule.GetEnemy(enemy.EnemyId);
 
             enemy.Initialize(
                 position,
@@ -253,7 +256,7 @@ namespace DeepseaOil.Presentation.Diagnostics
             _reportedSlow = enemy.SlowMultiplier;
             _reportedHp = enemy.Hp;
 
-            Debug.Log($"[Harness] 木桩初始化：位置 {position}，耐久 {enemy.Hp}，移速 {_spawnMaxSpeed:F2}，格子系统 {(_grid == null ? "未接" : "已接")}。");
+            Debug.Log($"[Harness] 木桩初始化：enemy.id {spec.Id}，位置 {position}，耐久 {enemy.Hp}，移速 {_spawnMaxSpeed:F2}，格子系统 {(_grid == null ? "未接" : "已接")}。");
 
             return enemy;
         }
@@ -264,7 +267,7 @@ namespace DeepseaOil.Presentation.Diagnostics
         {
             if (Time.time < _prefabRetryAt) return null;
 
-            string prefabKey = $"enemies/Enemy_{ConfigModule.GetEnemy().Id}";
+            string prefabKey = $"enemies/Enemy_{spawnEnemyId}";
 
             GameObject prefab = AssetModule.IsInitialized ? AssetModule.Load<GameObject>(prefabKey) : null;
 

@@ -50,6 +50,10 @@ public partial class Tables
     /// 二级元素跨界反应表
     /// </summary>
     public dso.TbElementDuoReaction TbElementDuoReaction {get; }
+    /// <summary>
+    /// 波次与敌人对应表
+    /// </summary>
+    public dso.TbWaveEnemy TbWaveEnemy {get; }
 
     public Tables(System.Func<string, JSONNode> loader)
     {
@@ -62,6 +66,7 @@ public partial class Tables
         TbElementRule = new dso.TbElementRule(loader("dso_tbelementrule"));
         TbSeed = new dso.TbSeed(loader("dso_tbseed"));
         TbElementDuoReaction = new dso.TbElementDuoReaction(loader("dso_tbelementduoreaction"));
+        TbWaveEnemy = new dso.TbWaveEnemy(loader("dso_tbwaveenemy"));
         ResolveRef();
     }
     
@@ -76,6 +81,7 @@ public partial class Tables
         TbElementRule.ResolveRef(this);
         TbSeed.ResolveRef(this);
         TbElementDuoReaction.ResolveRef(this);
+        TbWaveEnemy.ResolveRef(this);
     }
 }
 

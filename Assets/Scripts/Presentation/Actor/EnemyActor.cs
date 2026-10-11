@@ -18,13 +18,16 @@ namespace DeepseaOil.Presentation.Actor
 
     /// 一只敌人的组合根：抓预制体上的执行器与视效、推进逻辑层、结算伤害与死亡
     [DisallowMultipleComponent]
-    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor
     {
         [Header("死亡反馈")]
         [Tooltip("死亡时播放的特效；由预制体配置")]
         [SerializeField] private EffectId deathEffect = EffectId.Shatter;
 
         [Header("AI 与打靶")]
+        [Tooltip("enemy 表的 id：只对场景摆放的木桩生效（波次怪的 id 由 wave_enemy.enemy_id 定）；填错只会用到别的怪种的数值，不报错")]
+        [SerializeField] private int enemyId = 1;
+
         [Tooltip("AI行为模式：Chase 正常追人，Stand 原地站桩木桩；只对场景木桩生效，波次怪恒为 Chase")]
         [SerializeField] private EnemyAIType aiType = EnemyAIType.Chase;
 
@@ -42,6 +45,9 @@ namespace DeepseaOil.Presentation.Actor
         /// 权属：true = 场景木桩（吃 Inspector 打靶配置，清场归位）
         public bool IsScenePlaced { get; set; }
 
+        /// 本预制体对应 enemy 表的哪一行；场景接管路径读它，波次路径用注入的 spec
+        public int EnemyId => enemyId;
+
         [Header("临时调试件")]
         [Tooltip("头顶耐久数字（预制体上的 Hp_txt 节点）。留空则自取子节点；这是可视化调试件，正式表现应做进预制体美术")]
         [SerializeField] private TextMesh hpText = default;
@@ -53,7 +59,7 @@ namespace DeepseaOil.Presentation.Actor
         /// 视觉适配器（挂在子节点 View 上）
         private ActorAnimationView _animView;
 
-        /// 身体渲染器（只写排序），来自 View 的 SpriteRenderer
+        /// 身体渲染器（受击暂停与复活时开关显隐），来自 View 的 SpriteRenderer
         private SpriteRenderer _body;
 
         private Transform _target;
@@ -89,6 +95,8 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 取执行器物理体位置而非 transform.position，两者迟早有一帧对不上且不报错
         public Vector2 Position => _motor != null ? _motor.Position : (Vector2)transform.position;
+
+        Vector2 IYSortAnchor.SortAnchor => Position;
 
         public EnemyStats Stats { get; private set; }
 
@@ -282,7 +290,6 @@ namespace DeepseaOil.Presentation.Actor
 
             ApplySlowTint();
             UpdateCell(force: false);
-            UpdateSortingOrder();
 
             // 运动学快照与移动同频提交：动画与物理体必须看到同一帧真值
             _animView?.SetMotion(EngineVelocity, _motor.Facing, EngineVelocity.magnitude);
@@ -352,14 +359,6 @@ namespace DeepseaOil.Presentation.Actor
             }
 
             EffectModule.Stop(_slowTintHandle);
-        }
-
-        /// 基准取物理体 y 而非 View：View 的 localPosition 会被特效改写，拿它排序会让敌人随抖动乱插队
-        private void UpdateSortingOrder()
-        {
-            if (_body == null) return;
-
-            _body.sortingOrder = RenderOrder.ActorOrder(Position.y);
         }
 
         private void UpdateCell(bool force)

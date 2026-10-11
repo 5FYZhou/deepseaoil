@@ -17,20 +17,21 @@ namespace DeepseaOil.Logic.Wave
         Settle = 2,
     }
 
-    // 波次状态机：只算何时刷/刷几只/刷在哪，不建物体；存活数由驱动方喂入，本类不认识敌人
+        // 波次状态机：只算何时刷、刷哪个怪种、刷几只，不建物体也不认识相机
     public sealed class WaveLogic
     {
         public readonly struct SpawnRequest
         {
-            public readonly Vector2 Position;
+            // 要刷的怪种；出生点由表现层算
+            public readonly int EnemyId;
 
             public readonly int WaveIndex;
 
             public readonly int Remaining;
 
-            public SpawnRequest(Vector2 position, int waveIndex, int remaining)
+            public SpawnRequest(int enemyId, int waveIndex, int remaining)
             {
-                Position = position;
+                EnemyId = enemyId;
                 WaveIndex = waveIndex;
                 Remaining = remaining;
             }
@@ -40,7 +41,13 @@ namespace DeepseaOil.Logic.Wave
 
         private readonly IReadOnlyList<WaveSpec> _waves;
 
+        // 本波待刷序列：开战那刻按 count 展开
+        private readonly List<WaveEnemySpec> _pending = new List<WaveEnemySpec>();
+
         private int _cursor;
+
+        // 游标等于 Count 即本波刷完
+        private int _pendingCursor;
 
         private int _waveIndex = 1;
 
@@ -64,7 +71,7 @@ namespace DeepseaOil.Logic.Wave
 
         public float PhaseRemaining => _timer > 0f ? _timer : 0f;
 
-        public bool IsSpawning => _phase == WavePhase.Battle && _remaining > 0;
+        public bool IsSpawning => _phase == WavePhase.Battle && _pendingCursor < _pending.Count;
 
         public SeedType PendingSeedGrant => _pendingSeed;
 
@@ -89,6 +96,9 @@ namespace DeepseaOil.Logic.Wave
             _phase = WavePhase.Prep;
             _phaseEntered = false;
             _pendingSeed = SeedType.None;
+
+            _pending.Clear();
+            _pendingCursor = 0;
         }
 
         public SeedType ConsumeSeedGrant()
@@ -100,12 +110,10 @@ namespace DeepseaOil.Logic.Wave
             return seed;
         }
 
-        // now 与 dt 单位秒；dt 暂停时为 0，节拍自然冻结；anyEnemyAlive 由驱动方数
+        // dt 暂停时为 0，节拍自然冻结
         public void Tick(
-            float now,
             float dt,
             bool anyEnemyAlive,
-            Vector2 playerPosition,
             List<SpawnRequest> output)
         {
             if (output == null) return;
@@ -133,7 +141,7 @@ namespace DeepseaOil.Logic.Wave
 
             if (_phase != WavePhase.Battle) return;
 
-            SpawnDue(now, playerPosition, spec, dt, output);
+            SpawnDue(spec, dt, output);
         }
 
         private bool AdvancePhase(WaveSpec spec, bool anyEnemyAlive)
@@ -142,7 +150,6 @@ namespace DeepseaOil.Logic.Wave
             {
                 case WavePhase.Prep:
                     EnterPhase(WavePhase.Battle);
-                    _remaining = SanitizeCount(spec.EnemiesPerWave);
                     return true;
 
                 case WavePhase.Battle:
@@ -186,14 +193,42 @@ namespace DeepseaOil.Logic.Wave
 
                 _spawnTimer = 0f;
             }
+            else if (phase == WavePhase.Battle)
+            {
+                FillPending(Current);
+            }
 
-            // 每个阶段都要播：HUD 的阶段文案与倒计时靠它刷新
+            // 每个阶段都要播：HUD 文案与倒计时靠它刷新
             PublishPhase();
         }
 
+        // <=0 的行跳过，不当成刷 0 只
+        private void FillPending(WaveSpec spec)
+        {
+            _pending.Clear();
+
+            IReadOnlyList<WaveEnemySpec> source = spec != null ? spec.Enemies : null;
+
+            int sourceCount = source != null ? source.Count : 0;
+
+            for (int i = 0; i < sourceCount; i++)
+            {
+                WaveEnemySpec row = source[i];
+
+                if (row == null) continue;
+
+                int count = row.Count;
+
+                if (count <= 0) continue;
+
+                for (int n = 0; n < count; n++) _pending.Add(row);
+            }
+
+            _pendingCursor = 0;
+            _remaining = _pending.Count;
+        }
+
         private void SpawnDue(
-            float now,
-            Vector2 playerPosition,
             WaveSpec spec,
             float dt,
             List<SpawnRequest> output)
@@ -204,40 +239,21 @@ namespace DeepseaOil.Logic.Wave
 
             if (_spawnTimer > 0f) return;
 
-            if (_remaining <= 0) return;
+            if (_pendingCursor >= _pending.Count) return;
 
             _spawnTimer = interval;
 
+            int enemyId = _pending[_pendingCursor].EnemyId;
+
+            _pendingCursor++;
             _remaining--;
 
-            output.Add(new SpawnRequest(
-                SpawnPosition(now, playerPosition, spec.SpawnRadius),
-                _waveIndex,
-                _remaining));
-        }
-
-        // 出生点：以玩家为圆心按波次错开角度；不判地形，越界由刚体撞墙兜住
-        private Vector2 SpawnPosition(float now, Vector2 playerPosition, float radius)
-        {
-            float baseAngle = now * 0.7f + _waveIndex * 1.3f;
-
-            float radians = baseAngle + _remaining * Mathf.PI * 0.5f;
-
-            float r = radius > 0f ? radius : 1f;
-
-            var offset = new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)) * r;
-
-            return playerPosition + offset;
+            output.Add(new SpawnRequest(enemyId, _waveIndex, _remaining));
         }
 
         private static float Sanitize(float seconds)
         {
             return float.IsNaN(seconds) || seconds < 0f ? 0f : seconds;
-        }
-
-        private static int SanitizeCount(int count)
-        {
-            return count < 0 ? 0 : count;
         }
 
         private void PublishPhase()

@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 1000000000000004}
   - component: {fileID: 1000000000000005}
   - component: {fileID: 1000000000000006}
+  - component: {fileID: 5239680467172299458}
   m_Layer: 0
   m_Name: Enemy_1
   m_TagString: Untagged
@@ -97,7 +98,7 @@ CircleCollider2D:
   m_UsedByComposite: 0
   m_Offset: {x: 0, y: 0}
   serializedVersion: 2
-  m_Radius: 0.45
+  m_Radius: 0.3
 --- !u!114 &1000000000000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -127,6 +128,22 @@ MonoBehaviour:
   aiType: 0
   respawnDelay: 0
   hpText: {fileID: 3000000000000004}
+--- !u!114 &5239680467172299458
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a8106154c344504797788c84527ef4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  layers:
+  - Target: {fileID: 2000000000000003}
+    Offset: 0
+  anchorOffsetY: 0
 --- !u!1 &2000000000000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -204,7 +221,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 500
-  m_Sprite: {fileID: 239820987, guid: 412db3176ac11fa4aad2248d486b8fa8, type: 3}
+  m_Sprite: {fileID: 1054664679, guid: 7cfd2fc4e71eeab428c1b0d09811c330, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -225,7 +242,7 @@ Animator:
   m_GameObject: {fileID: 2000000000000001}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 22c549ec1046d5e47ba359e5bf35a33e, type: 2}
+  m_Controller: {fileID: 9100000, guid: 47aaabbbe833a9447999640f3d99832b, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -278,7 +295,7 @@ Transform:
   m_GameObject: {fileID: 3000000000000001}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.7, z: 0}
+  m_LocalPosition: {x: 0, y: 1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -375,7 +392,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: -0.063, z: 0}
-  m_LocalScale: {x: 8, y: 1, z: 1}
+  m_LocalScale: {x: 6, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2000000000000002}

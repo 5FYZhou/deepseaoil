@@ -17,7 +17,7 @@ namespace DeepseaOil.Presentation
 {
     /// <summary>玩家组合根：组装执行器/配置/活动区域/输入缓冲</summary>
     /// <remarks>Push 先于 Tick，否则按下沿滞后一帧；WorldInfo 与缓冲快照必须共用同一份方向，否则斜向快 √2 倍。</remarks>
-    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked, IManagedActor
+    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked, IManagedActor, IYSortAnchor
     {
         public int Order => SceneOrder.Player;
 
@@ -59,6 +59,9 @@ namespace DeepseaOil.Presentation
         public PlayerLogic Logic { get; private set; }
 
         public Vector2 Position => motor == null ? Vector2.zero : motor.Position;
+
+        // 锚点取物理体位置：View 的 transform y 会被受击抖动与伪高度改写
+        Vector2 IYSortAnchor.SortAnchor => Position;
 
         public ActorAnimationView Visual => _animView;
 
@@ -261,9 +264,6 @@ namespace DeepseaOil.Presentation
         {
             if (Logic == null) return;
 
-            // 遮挡属观感与物理步无关；放暂停判断之前，暂停时也要保持档位正确。
-            UpdateSortingOrder();
-
             // 运动学快照每渲染帧推一次（含暂停帧）：插值出来的位置比物理帧平滑，动画不该跟着 50Hz 跳。
             _animView?.SetMotion(_world.MoveDirection, Logic.Motor.Facing, EngineVelocity.magnitude);
 
@@ -292,17 +292,6 @@ namespace DeepseaOil.Presentation
             {
                 _animView?.Trigger(PlayerAnimHashes.TriggerThrow);
             }
-        }
-
-        /// <summary>按 y 刷新本体排序档位，场景里填的 sortingOrder 只是初始值</summary>
-        /// <remarks>基准取 Root 的物理体 y 而非 View 的 transform y：后者会被受击抖动/伪高度改写。</remarks>
-        private void UpdateSortingOrder()
-        {
-            SpriteRenderer body = _animView != null ? _animView.Renderer : null;
-
-            if (body == null) return;
-
-            body.sortingOrder = RenderOrder.ActorOrder(Position.y);
         }
 
         private Vector2 AimWorldPoint(Camera camera)

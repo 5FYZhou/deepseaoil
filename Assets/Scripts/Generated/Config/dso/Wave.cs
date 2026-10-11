@@ -25,7 +25,6 @@ public sealed partial class Wave : Luban.BeanBase
         { if(!_buf["prep_time"].IsNumber) { throw new SerializationException(); }  PrepTime = _buf["prep_time"]; }
         { if(!_buf["battle_time"].IsNumber) { throw new SerializationException(); }  BattleTime = _buf["battle_time"]; }
         { if(!_buf["settle_time"].IsNumber) { throw new SerializationException(); }  SettleTime = _buf["settle_time"]; }
-        { if(!_buf["enemies_per_wave"].IsNumber) { throw new SerializationException(); }  EnemiesPerWave = _buf["enemies_per_wave"]; }
         { if(!_buf["spawn_interval"].IsNumber) { throw new SerializationException(); }  SpawnInterval = _buf["spawn_interval"]; }
         { if(!_buf["spawn_radius"].IsNumber) { throw new SerializationException(); }  SpawnRadius = _buf["spawn_radius"]; }
         { if(!_buf["grant_seed"].IsNumber) { throw new SerializationException(); }  GrantSeed = (dso.SeedType)_buf["grant_seed"].AsInt; }
@@ -57,10 +56,6 @@ public sealed partial class Wave : Luban.BeanBase
     /// </summary>
     public readonly float SettleTime;
     /// <summary>
-    /// 敌人数
-    /// </summary>
-    public readonly int EnemiesPerWave;
-    /// <summary>
     /// 刷怪间隔
     /// </summary>
     public readonly float SpawnInterval;
@@ -88,7 +83,6 @@ public sealed partial class Wave : Luban.BeanBase
         + "prepTime:" + PrepTime + ","
         + "battleTime:" + BattleTime + ","
         + "settleTime:" + SettleTime + ","
-        + "enemiesPerWave:" + EnemiesPerWave + ","
         + "spawnInterval:" + SpawnInterval + ","
         + "spawnRadius:" + SpawnRadius + ","
         + "grantSeed:" + GrantSeed + ","

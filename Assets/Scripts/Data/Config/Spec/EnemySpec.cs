@@ -4,13 +4,13 @@ using UnityEngine;
 namespace DeepseaOil.Data
 {
 
-    // 耐久与极速来自 enemy 表，半径/加速度/击退衰减/停距/追击范围退役归 EnemyTuning（世界单位、单位每秒）
+    // 耐久与极速来自 enemy 表，其余五项归 EnemyTuning 对应条目
     public sealed class EnemySpec
     {
         private readonly Enemy _row;
-        private readonly EnemyTuning _tuning;
+        private readonly EnemyTuningEntry _tuning;
 
-        public EnemySpec(Enemy row, EnemyTuning tuning)
+        public EnemySpec(Enemy row, EnemyTuningEntry tuning)
         {
             _row = row;
             _tuning = tuning;
