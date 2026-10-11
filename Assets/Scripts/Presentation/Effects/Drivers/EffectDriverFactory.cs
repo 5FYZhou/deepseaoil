@@ -22,6 +22,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 case EffectDriverKind.ScreenShake:
                     return new ScreenShakeDriver();
 
+                case EffectDriverKind.ScalePunch:
+                    return new ScalePunchDriver(spec);
+
                 default:
                     return new ParticleDriver(spec, root);
             }

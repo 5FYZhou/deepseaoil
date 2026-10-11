@@ -15,6 +15,8 @@ namespace DeepseaOil.Presentation.Effects
         ScreenShake = 4,
 
         Tint = 5,
+
+        ScalePunch = 6,
     }
 
     internal readonly struct EffectSpec
@@ -81,6 +83,10 @@ namespace DeepseaOil.Presentation.Effects
             new EffectSpec(EffectId.FlameEmbers, EffectDriverKind.Particle, isSingleton: false, maxSize: 64, prewarm: 16),
 
             new EffectSpec(EffectId.ScreenShake, EffectDriverKind.ScreenShake, isSingleton: true),
+
+            new EffectSpec(EffectId.Squash, EffectDriverKind.ScalePunch, maxSize: 32),
+
+            new EffectSpec(EffectId.Dust, EffectDriverKind.Particle, isSingleton: false, maxSize: 16, prewarm: 0),
         };
 
         internal static IReadOnlyList<EffectSpec> All => Specs;

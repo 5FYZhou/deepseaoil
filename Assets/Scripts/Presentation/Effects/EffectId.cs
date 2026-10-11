@@ -26,5 +26,9 @@ namespace DeepseaOil.Presentation.Effects
         FlameEmbers,
 
         SlowTint,
+
+        Squash,
+
+        Dust,
     }
 }
