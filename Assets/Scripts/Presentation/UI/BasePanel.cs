@@ -147,7 +147,7 @@ namespace DeepseaOil.Presentation.UI
             return ButtonStyle.None;
         }
 
-        private void ApplyBtnStyle(Button button, ButtonStyle style)
+        protected void ApplyBtnStyle(Button button, ButtonStyle style)
         {
             // 不设置样式
             if (style == ButtonStyle.None) return;
@@ -157,8 +157,8 @@ namespace DeepseaOil.Presentation.UI
             // 设置 RectTransform 尺寸
             if (info.size != Vector2.zero)
             {
-                RectTransform rect = button.GetComponent<RectTransform>();
-                rect.sizeDelta = info.size;
+                //RectTransform rect = button.GetComponent<RectTransform>();
+                //rect.sizeDelta = info.size;
             }
             var sprites = LoadSpriteAtlas(info.path);
             Sprite normal = sprites.GetSprite(info.normalName);

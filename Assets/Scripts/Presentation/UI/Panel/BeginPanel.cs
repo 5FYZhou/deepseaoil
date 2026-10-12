@@ -30,6 +30,7 @@ namespace DeepseaOil.Presentation.UI
             switch (btnName)
             {
                 case "BtnStart":
+                    GameRoot.Instance.UI.ShowPanel<TransitionPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.CG);
                     GameRoot.Instance.UI.GetPanel<TransitionPanel>((transition) =>
                     {
@@ -60,6 +61,7 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
                 case "BtnExit":
+                    GameRoot.Instance.UI.ShowPanel<ExitConfirmPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.BeforeExit);
                     break;
             }

@@ -227,7 +227,8 @@ namespace DeepseaOil.Presentation.UI
                 {
                     if (!panelInfo.panel.gameObject.activeSelf)
                         panelInfo.panel.gameObject.SetActive(true);
-
+                    // 放在层级最上方
+                    panelInfo.panel.gameObject.transform.SetAsLastSibling();
                     panelInfo.panel.ShowMe();
                     panelInfo.isHide = false;
                     callBack?.Invoke(panelInfo.panel);
@@ -281,7 +282,8 @@ namespace DeepseaOil.Presentation.UI
             Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);
-
+            // 放在层级最上方
+            panel.transform.SetAsLastSibling();
             panel.ShowMe();
             panelInfo.callBack?.Invoke(panel);
             panelInfo.callBack = null;

@@ -60,6 +60,7 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnLoad":
                     // 读取存档
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
                     break;
             }
         }
