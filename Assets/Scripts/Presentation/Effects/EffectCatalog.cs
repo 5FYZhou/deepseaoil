@@ -9,6 +9,14 @@ namespace DeepseaOil.Presentation.Effects
         Shatter = 1,
 
         Highlight = 2,
+
+        Flash = 3,
+
+        ScreenShake = 4,
+
+        Tint = 5,
+
+        ScalePunch = 6,
     }
 
     internal readonly struct EffectSpec
@@ -48,8 +56,8 @@ namespace DeepseaOil.Presentation.Effects
             => $"{Id}(kind={DriverKind} key={Key} singleton={IsSingleton} max={MaxSize} prewarm={Prewarm})";
     }
 
-    /// <summary>特效装配表，加一行=新增一个特效（+枚举一项+预制体）</summary>
-    /// <remarks>未登记的 EffectId（Flash/Shake/ScreenShake）Play 打 LogError 返回 None；EffectId.None=这次不播，合法值，不查表不报错，与未登记不同。</remarks>
+    /// <summary>特效装配表：加一行即新增一个特效</summary>
+    /// <remarks>未登记的 EffectId（只剩 Shake）Play 打 LogError 返回 None；EffectId.None=这次不播，合法值，不查表不报错，与未登记不同。</remarks>
     internal static class EffectCatalog
     {
         internal const string KeyPrefix = "effects/";
@@ -57,12 +65,28 @@ namespace DeepseaOil.Presentation.Effects
         private static readonly EffectSpec[] Specs =
         {
             new EffectSpec(EffectId.BurstSparks,  EffectDriverKind.Particle, isSingleton: false, maxSize: 32, prewarm: 8),
+
             new EffectSpec(EffectId.MudSplash, EffectDriverKind.Particle, isSingleton: false, maxSize: 16, prewarm: 4),
 
             new EffectSpec(EffectId.Shatter,  EffectDriverKind.Shatter,  maxSize: 16, prewarm: 0),
 
-            // 瞄准高亮（持续型）：Create 一次只 Update，始终单实例，池上限 1、不预热
             new EffectSpec(EffectId.Highlight, EffectDriverKind.Highlight, isSingleton: true, maxSize: 1, prewarm: 0),
+
+            new EffectSpec(EffectId.SteamBlast,EffectDriverKind.Particle,isSingleton: false, maxSize: 16, prewarm:4),
+
+            new EffectSpec(EffectId.Flash,    EffectDriverKind.Tint, isSingleton: false, maxSize: 32, prewarm: 0),
+
+            new EffectSpec(EffectId.SlowTint, EffectDriverKind.Tint, isSingleton: false, maxSize: 32, prewarm: 0),
+
+            new EffectSpec(EffectId.ChainShock, EffectDriverKind.Particle, isSingleton: false, maxSize: 64, prewarm: 32),
+
+            new EffectSpec(EffectId.FlameEmbers, EffectDriverKind.Particle, isSingleton: false, maxSize: 64, prewarm: 16),
+
+            new EffectSpec(EffectId.ScreenShake, EffectDriverKind.ScreenShake, isSingleton: true),
+
+            new EffectSpec(EffectId.Squash, EffectDriverKind.ScalePunch, maxSize: 32),
+
+            new EffectSpec(EffectId.Dust, EffectDriverKind.Particle, isSingleton: false, maxSize: 16, prewarm: 0),
         };
 
         internal static IReadOnlyList<EffectSpec> All => Specs;

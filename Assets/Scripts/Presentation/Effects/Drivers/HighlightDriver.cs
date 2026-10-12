@@ -94,7 +94,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _disposed = true;
             _active = false;
 
-            if (_go != null) Object.Destroy(_go);
+            if (_go != null)
+            {
+                if (Application.isPlaying) Object.Destroy(_go);
+                else Object.DestroyImmediate(_go);
+            }
 
             _go = null;
             _renderer = null;

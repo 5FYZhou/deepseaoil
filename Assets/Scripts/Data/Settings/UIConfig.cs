@@ -7,13 +7,9 @@ namespace DeepseaOil.Data
 {
     public enum ButtonStyle
     {
-        /// <summary>
         /// 代码不设置样式（在编辑器里设置）
-        /// </summary>
         None = 0,
-        /// <summary>
         /// 开始界面等
-        /// </summary>
         Normal
     }
 

@@ -4,29 +4,21 @@ namespace DeepseaOil.Presentation.Visual
 {
     public static class RenderOrder
     {
-        public const int Ground = 100;
-
-        public const int TileEffect = 300;
-
         /// <summary>贴地件固定层（310），不参与 Y-Sort</summary>
         public const int GroundShadow = 310;
 
         /// <summary>瞄准反馈层（320），压着格效果、被格上角色盖住</summary>
         public const int Aim = 320;
 
-        public const int YSortBandStart = 500;
+        public const int YSortBandStart = 400;
 
-        public const int YSortBandEnd = 559;
+        public const int YSortBandEnd = 1000;
 
-        /// <summary>每世界单位档数，改它须同步 YSort 频带</summary>
+        /// <summary>每世界单位档数，4 档表示每 0.25 米一个独立深度层级</summary>
         public const float YSortLevelsPerUnit = 4f;
-
-        /// <summary>须高于频带上沿</summary>
-        public const int ActorOverlay = 560;
 
         public const int ShatterPiece = 1200;
 
-        /// <summary>0=Default</summary>
         public const int OverlayLayer = 0;
 
         public static int ActorOrder(float y)

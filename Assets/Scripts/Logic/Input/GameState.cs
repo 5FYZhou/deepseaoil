@@ -8,7 +8,6 @@
 
         Menu,
 
-        /// <summary> 播放CG时的状态 </summary>
         CG,
 
         Paused,

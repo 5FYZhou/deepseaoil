@@ -13,7 +13,9 @@ namespace DeepseaOil.Data
             "TbWave",
             "TbTileInitial",
             "TbElementRule",
-            "TbTileEffect",
+            "TbSeed",
+            "TbElementDuoReaction",
+            "TbWaveEnemy",
         };
 
         public static int Count => Names.Length;

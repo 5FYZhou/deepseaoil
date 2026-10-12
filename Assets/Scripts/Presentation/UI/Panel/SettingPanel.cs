@@ -49,14 +49,11 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     break;
                 case "BtnReturnMenu":
-                    // 切换到开始界面
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
                     break;
                 case "BtnSave":
-                    // 保存进度
                     break;
                 case "BtnLoad":
-                    // 读取存档
                     break;
             }
         }

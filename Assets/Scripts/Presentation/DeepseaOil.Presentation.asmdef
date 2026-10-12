@@ -10,7 +10,8 @@
         "Luban.Runtime",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Cinemachine"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
