@@ -1,4 +1,4 @@
-namespace DeepseaOil.Logic
+﻿namespace DeepseaOil.Logic
 {
     /// <summary>游戏状态，逻辑层概念，执行在表现层</summary>
     public enum GameState
@@ -7,6 +7,8 @@ namespace DeepseaOil.Logic
         None = 0,
 
         Menu,
+
+        CG,
 
         Paused,
 

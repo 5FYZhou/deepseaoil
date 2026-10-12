@@ -72,8 +72,9 @@ namespace DeepseaOil.Presentation.UI
             Unsubscribe();
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             // 静态事件总线不会因物体销毁自动解除引用，必须显式退订。
             Unsubscribe();
         }

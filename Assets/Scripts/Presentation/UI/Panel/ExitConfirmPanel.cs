@@ -1,10 +1,7 @@
-using DeepseaOil.Presentation.UI;
-using DeepseaOil.Logic;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using DeepseaOil.Logic;
+using DeepseaOil.Data;
 
-namespace DeepseaOil.Presentation
+namespace DeepseaOil.Presentation.UI
 {
     public class ExitConfirmPanel : BasePanel
     {
@@ -19,6 +16,11 @@ namespace DeepseaOil.Presentation
         public override void HideMe()
         {
             GameRoot.Instance.Game.ChangeState(GameState.Menu);
+        }
+
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            return ButtonStyle.Normal;
         }
 
         protected override void OnButtonClicked(string name)

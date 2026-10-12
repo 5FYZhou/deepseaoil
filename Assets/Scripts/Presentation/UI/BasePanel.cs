@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using DeepseaOil.Data;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.U2D;
 using UnityEngine.UI;
 
 
@@ -22,12 +24,29 @@ namespace DeepseaOil.Presentation.UI
         public abstract E_UILayer Layer { get; }
         public abstract bool CanBeHideByKey { get; }
 
+        private UIConfig _config;
+        private readonly HashSet<string> _assetKeys = new();
+
         protected virtual void Awake()
         {
             components.Clear();
             FindComponentsOnChildren();
         }
 
+        public void InitUIStyle(UIConfig config)
+        {
+            _config = config;
+
+            foreach(var(name, type)  in components)
+            {
+                if(type is Button button)
+                {
+                    ApplyBtnStyle(button, SetBtnStyle(name));
+                }
+            }
+        }
+
+        #region 基础行为
         public virtual void ShowMe()
         {
 
@@ -109,5 +128,67 @@ namespace DeepseaOil.Presentation.UI
 
             return null;
         }
+        #endregion
+
+        #region UI样式
+
+        protected virtual ButtonStyle SetBtnStyle(string name)
+        {
+            return ButtonStyle.None;
+        }
+
+        private void ApplyBtnStyle(Button button, ButtonStyle style)
+        {
+            if (style == ButtonStyle.None) return;
+
+            if (!_config.TryGetBtnStyleInfo(style, out ButtonStyleInfo info)) return;
+            if (info.size != Vector2.zero)
+            {
+                RectTransform rect = button.GetComponent<RectTransform>();
+                rect.sizeDelta = info.size;
+            }
+            var sprites = LoadSpriteAtlas(info.path);
+            Sprite normal = sprites.GetSprite(info.normalName);
+            Sprite highlighted = sprites.GetSprite(info.highlightedName);
+            Sprite pressed = sprites.GetSprite(info.pressedName);
+            Sprite selected = sprites.GetSprite(info.selectedName);
+            Sprite disabled = sprites.GetSprite(info.disabledName);
+
+            if (button.targetGraphic is Image image)
+                image.sprite = normal;
+            
+            button.transition = Selectable.Transition.SpriteSwap;
+            SpriteState state = button.spriteState;
+            state.highlightedSprite = highlighted;
+            state.pressedSprite = pressed;
+            state.selectedSprite = selected;
+            state.disabledSprite = disabled;
+
+            button.spriteState = state;
+        }
+
+        protected SpriteAtlas LoadSpriteAtlas(string key)
+        {
+            SpriteAtlas sprite = AssetModule.Load<SpriteAtlas>(key);
+
+            if (sprite != null)
+                _assetKeys.Add(key);
+
+            return sprite;
+        }
+
+        protected virtual void ReleaseAssets()
+        {
+            foreach (string key in _assetKeys)
+                AssetModule.Release(key);
+
+            _assetKeys.Clear();
+        }
+
+        protected virtual void OnDestroy()
+        {
+            ReleaseAssets();
+        }
+        #endregion
     }
 }

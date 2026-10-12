@@ -21,7 +21,7 @@ namespace DeepseaOil.Data
     }
 
 
-    [CreateAssetMenu(fileName = "AudioConfig", menuName = "音频文件名映射")]
+    [CreateAssetMenu(fileName = "AudioConfig", menuName = "DeepseaOil/Settings/AudioConfig")]
     public class AudioConfig : BaseConfig
     {
         [Header("初始音乐音量大小(0-1)")]

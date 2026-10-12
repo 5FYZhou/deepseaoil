@@ -1,10 +1,6 @@
 ﻿using DeepseaOil.Logic;
-using DeepseaOil.Logic.Events;
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
-using UnityEngine;
-using UnityEngine.UIElements;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -32,7 +28,19 @@ namespace DeepseaOil.Presentation.UI
         public override void HideMe()
         {
         }
-
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            switch (name)
+            {
+                case "BtnClose":
+                    return ButtonStyle.None;
+                case "BtnReturnMenu":
+                case "BtnSave":
+                case "BtnLoad":
+                    return ButtonStyle.Normal;
+            }
+            return ButtonStyle.None;
+        }
         protected override void OnButtonClicked(string name)
         {
             switch (name)
@@ -42,6 +50,10 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
+                    break;
+                case "BtnSave":
+                    break;
+                case "BtnLoad":
                     break;
             }
         }

@@ -1,9 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.UI;
-using DeepseaOil.Logic.Events;
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
+using DeepseaOil.Data;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -20,14 +16,21 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe()
         {
         }
+
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            return ButtonStyle.None;
+        }
+
         protected override void OnButtonClicked(string btnName)
         {
             switch (btnName)
             {
                 case "BtnStart":
-                    GameRoot.Instance.Game.ChangeState(GameState.Running);
+                    GameRoot.Instance.Game.ChangeState(GameState.CG);
                     break;
                 case "BtnContinue":
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
                     break;
                 case "BtnSetting":
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
