@@ -25,12 +25,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3689568640440355207}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: -0.05, z: 0}
   m_LocalScale: {x: 6, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1988912025621974445}
+  m_Father: {fileID: 4494982508919072969}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &3947239205289220313
 SpriteRenderer:
@@ -119,6 +119,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1988912025621974445}
+  - {fileID: 1490017544453661466}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &8444848036998131180
@@ -210,6 +211,9 @@ MonoBehaviour:
   aimCamera: {fileID: 0}
   boundsArea: {fileID: 0}
   animView: {fileID: 5991100114884656172}
+  dustSpeedThreshold: 2
+  dustInterval: 0.3
+  dustReferenceSpeed: 8
 --- !u!114 &882685705154491601
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -270,8 +274,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1490017544453661466}
+  m_Children: []
   m_Father: {fileID: 4494982508919072969}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &6960081904734054750
