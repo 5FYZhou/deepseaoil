@@ -4,44 +4,7 @@ using UnityEngine.UI;
 
 namespace DeepseaOil.Presentation.UI
 {
-    /// <summary>
-    /// Button 的多边形 Raycast 区域。
-    ///
-    /// 本组件继承自 Image，因此可以作为 Button 的 UI Graphic 使用。
-    ///
-    /// Button 本身负责：
-    /// - Hover / Highlighted
-    /// - Pressed
-    /// - Click
-    /// - Selected
-    /// - Transition
-    ///
-    /// PolygonRaycastArea 负责：
-    /// - 决定鼠标是否位于 Button 的有效区域
-    /// - 在 Scene 视图显示多边形
-    ///
-    /// 因此 Button 的 Hover 和 Click 范围都会受到 points 的限制。
-    ///
-    /// points 使用 0~1 的归一化坐标：
-    ///
-    /// (0,1) ---------------- (1,1)
-    ///   |                        |
-    ///   |        Polygon         |
-    ///   |                        |
-    /// (0,0) ---------------- (1,0)
-    ///
-    /// 例如：
-    ///
-    /// points:
-    ///
-    ///     (0.15, 0.85)
-    ///     (1.00, 1.00)
-    ///     (1.00, 0.00)
-    ///     (0.00, 0.15)
-    ///
-    /// 无论 RectTransform 如何改变大小，
-    /// Polygon 都会按照相同比例缩放。
-    /// </summary>
+    /// Button 的多边形 Raycast 区域：继承 Image，可作 Button 的 UI Graphic。Button 负责 Hover/Highlighted/Pressed/Click/Selected/Transition，本组件只决定鼠标是否落在有效区域内并在 Scene 视图画出多边形，故 Hover 与 Click 范围受 points 限制。points 用 0~1 归一化坐标（左下 (0,0)、右上 (1,1)），RectTransform 缩放时多边形同比缩放
     [AddComponentMenu("DeepseaOil/UI/Polygon Raycast Area")]
     [RequireComponent(typeof(PolygonRaycastSettings))]
     public class PolygonRaycastArea : Image
@@ -64,11 +27,7 @@ namespace DeepseaOil.Presentation.UI
                 GetComponent<PolygonRaycastSettings>();
         }
 
-        /// <summary>
-        /// 重写 UI Raycast。
-        ///
-        /// Button 的 Hover / Click 都会受到这里的判断限制。
-        /// </summary>
+        /// 重写 UI Raycast：Button 的 Hover / Click 都会受到这里的判断限制
         public override bool Raycast(
             Vector2 screenPoint,
             Camera eventCamera)
@@ -100,9 +59,7 @@ namespace DeepseaOil.Presentation.UI
                 rect);
         }
 
-        /// <summary>
-        /// 判断本地坐标点是否位于 Polygon 内。
-        /// </summary>
+        /// 判断本地坐标点是否位于 Polygon 内
         private static bool IsPointInPolygon(
             Vector2 point,
             IReadOnlyList<Vector2> normalizedPoints,
@@ -141,11 +98,7 @@ namespace DeepseaOil.Presentation.UI
             return inside;
         }
 
-        /// <summary>
-        /// 0~1 归一化坐标
-        /// →
-        /// RectTransform 本地坐标。
-        /// </summary>
+        /// 0~1 归一化坐标 → RectTransform 本地坐标
         public static Vector2 NormalizedToLocal(
             Vector2 normalized,
             Rect rect)

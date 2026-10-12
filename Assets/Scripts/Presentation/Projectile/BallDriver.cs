@@ -5,10 +5,15 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Projectile
 {
-    /// <remarks>每帧摆两个视效件：同一份贴地逻辑位置，高度不同（阴影=弧高，球=出手抬高量+弧高）。t≥1 回调落地。纯视觉不查碰撞体，Tick 由组合根每帧调，dt 由调用方给，暂停即冻结。</remarks>
+    /// <remarks>视效件位置由轨迹数据算出，从不读回 transform，故无累积漂移。</remarks>
     [DisallowMultipleComponent]
     public sealed class BallDriver : MonoBehaviour
     {
+        /// <summary>姿态折算系数与倾角上限</summary>
+        private const float PitchScale = 0.65f;
+
+        private const float PitchLimitDegrees = 35f;
+
         private ProjectileTrajectory _data;
         private BallView _view;
         private BallShadow _shadow;
@@ -16,7 +21,7 @@ namespace DeepseaOil.Presentation.Projectile
 
         private float _originHeight;
 
-        /// <summary>已飞比例，0..1；超过 1 的那一帧结算落地</summary>
+        /// <summary>已飞比例；超过 1 的那一帧结算落地</summary>
         private float _t;
 
         public void Initialize(
@@ -38,7 +43,7 @@ namespace DeepseaOil.Presentation.Projectile
 
         public void Tick(float deltaTime)
         {
-            // 时长为 0 只来自被构造成非数的输入，直接结算，不让它除出非数坐标
+            // 时长为 0 来自非数输入，直接结算，免得除出非数
             if (_data.Duration <= 0f)
             {
                 Land();
@@ -61,11 +66,23 @@ namespace DeepseaOil.Presentation.Projectile
             Vector2 ground = _data.SampleGround(t);
             float arc = _data.MaxHeight * ProjectileTrajectory.SampleHeight01(t);
 
+            // 抛物线切线速度分量：Vx 恒定，Vy 含弧高导数
+            float vx = _data.End.x - _data.Start.x;
+            float arcDerivative = 4f * (1f - 2f * Mathf.Clamp01(t));
+            float vy = (_data.End.y - _data.Start.y) + _data.MaxHeight * arcDerivative;
+
+            // 侧腹迎风：切线姿态会让瓶身尖头朝前扎
+            float flightAngle = Mathf.Atan2(vy, Mathf.Abs(vx)) * Mathf.Rad2Deg;
+            float pitchZ = Mathf.Clamp(flightAngle * PitchScale, -PitchLimitDegrees, PitchLimitDegrees);
+
+            // 倾角方向跟水平投掷方向走：BallView 靠它的符号翻瓶腹
+            float facingSign = vx < 0f ? -1f : 1f;
+
             _shadow.Apply(ground, arc, _data.MaxHeight);
-            _view.Apply(ground, arc + _originHeight);
+            _view.Apply(ground, arc + _originHeight, pitchZ * facingSign);
         }
 
-        /// <summary>结算落地：回调监听方，自己不做清理（回收权归 BallActor/BallDirector）；落点 t=1 采样，与指示器逐位一致</summary>
+        /// <summary>结算落地：回调监听方，自己不清理</summary>
         private void Land()
         {
             Vector2 landing = _data.SampleGround(1f);

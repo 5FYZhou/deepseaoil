@@ -3,18 +3,17 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>敌人种类取值边界，合并 enemy 表行与 CharacterConfig；行不出 Data 层</summary>
-    /// <remarks>
-    /// 半径=世界单位，速度=单位/秒，FlashHz=Hz；StopDistance=进入即不再压上，ChaseRange=超出即放弃追击。
-    /// 冲刺/8向吸附/外力显式清零，否则继承玩家默认值；受击滑停用 knockback_decay，喂 turnDecayRate/hurtDecay。
-    /// </remarks>
+
+    // 表给耐久与极速，运动学与形变走 EnemyTuning
     public sealed class EnemySpec
     {
         private readonly Enemy _row;
+        private readonly EnemyTuningEntry _tuning;
 
-        public EnemySpec(Enemy row)
+        public EnemySpec(Enemy row, EnemyTuningEntry tuning)
         {
             _row = row;
+            _tuning = tuning;
 
             var config = ScriptableObject.CreateInstance<CharacterConfig>();
 
@@ -22,9 +21,9 @@ namespace DeepseaOil.Data
             config.Name = row.Name;
             config.moveSpeed = row.MaxSpeed;
             config.snapToEightDirections = false;
-            config.moveAcceleration = row.Acceleration;
-            config.turnDecayRate = row.KnockbackDecay;
-            config.hurtDecay = row.KnockbackDecay;
+            config.moveAcceleration = tuning.acceleration;
+            config.turnDecayRate = tuning.knockbackDecay;
+            config.hurtDecay = tuning.knockbackDecay;
             config.extraForceScale = 0f;
             config.dashSpeed = 0f;
             config.dashDuration = 0f;
@@ -36,21 +35,23 @@ namespace DeepseaOil.Data
 
         public string Name => _row.Name;
 
-        public float Radius => _row.Radius;
+        public float Radius => _tuning.radius;
 
         public float MaxSpeed => _row.MaxSpeed;
 
-        public float StopDistance => _row.StopDistance;
+        public float StopDistance => _tuning.stopDistance;
 
-        public float ChaseRange => _row.ChaseRange;
+        public float ChaseRange => _tuning.chaseRange;
 
         public int Hp => _row.Hp;
 
-        /// <summary>受击闪烁频率（Hz）</summary>
-        /// <remarks>表已不再配这一列：频率是观感参数，取 VisualPalette.enemyFlashHz，改它不用导表</remarks>
-        public float FlashHz => ConfigModule.Visuals != null ? ConfigModule.Visuals.enemyFlashHz : 4f;
+        /// <summary>贴身一次对玩家造成的伤害；敌人伤害的唯一权威，玩家表的 contact_damage 不用在这条链上</summary>
+        public int ContactDamage => _row.ContactDamage;
 
-        /// <remarks>运行期按种类造一份、每只各持一份；只有装配链消费</remarks>
+        /// <summary>受击形变调参：EnemyTuning 行对象，改它当场生效</summary>
+        /// <remarks>永不返回 null：漏配就现造一份默认值，形变照旧而不是崩</remarks>
+        public SquashTuning Squash => _tuning.squash ?? (_tuning.squash = new SquashTuning());
+
         public CharacterConfig Config { get; }
     }
 }

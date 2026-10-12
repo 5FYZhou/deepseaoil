@@ -25,7 +25,6 @@ namespace DeepseaOil.Presentation.UI
         public abstract bool CanBeHideByKey { get; }
 
         private UIConfig _config;
-        // 存加载过的UI图片路径
         private readonly HashSet<string> _assetKeys = new();
 
         protected virtual void Awake()
@@ -133,9 +132,6 @@ namespace DeepseaOil.Presentation.UI
 
         #region UI样式
 
-        /// <summary>
-        /// 子类重写，子类控制自身的按钮样式
-        /// </summary>
         protected virtual ButtonStyle SetBtnStyle(string name)
         {
             return ButtonStyle.None;
@@ -143,12 +139,9 @@ namespace DeepseaOil.Presentation.UI
 
         private void ApplyBtnStyle(Button button, ButtonStyle style)
         {
-            // 不设置样式
             if (style == ButtonStyle.None) return;
 
-            // 尝试拿对应按钮样式的图片路径和尺寸
             if (!_config.TryGetBtnStyleInfo(style, out ButtonStyleInfo info)) return;
-            // 设置 RectTransform 尺寸
             if (info.size != Vector2.zero)
             {
                 RectTransform rect = button.GetComponent<RectTransform>();
@@ -164,7 +157,6 @@ namespace DeepseaOil.Presentation.UI
             if (button.targetGraphic is Image image)
                 image.sprite = normal;
             
-            // 设为图片模式，悬浮/按下时自动切换图片
             button.transition = Selectable.Transition.SpriteSwap;
             SpriteState state = button.spriteState;
             state.highlightedSprite = highlighted;

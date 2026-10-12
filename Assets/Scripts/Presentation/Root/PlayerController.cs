@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
+using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Presentation.Adapters;
+using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.Visual;
 using cfg.dso;
@@ -14,10 +16,9 @@ using UnityEngine;
 namespace DeepseaOil.Presentation
 {
     /// <summary>玩家组合根：组装执行器/配置/活动区域/输入缓冲</summary>
-    /// <remarks>Push 先于 Tick，否则按下沿滞后一帧。方向只归一化一次，WorldInfo 与缓冲快照必须是同一份，各留一份会导致斜向快 √2 倍。</remarks>
-    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked, IManagedActor
+    /// <remarks>Push 先于 Tick，否则按下沿滞后一帧；WorldInfo 与缓冲快照必须共用同一份方向，否则斜向快 √2 倍。</remarks>
+    public sealed class PlayerController : MonoBehaviour, ISceneRoot, IPhysicsTicked, IRenderTicked, IManagedActor, IYSortAnchor
     {
-        /// <summary>玩家侧早于世界侧</summary>
         public int Order => SceneOrder.Player;
 
         [SerializeField] private PlayerMotor motor = default;
@@ -29,13 +30,25 @@ namespace DeepseaOil.Presentation
         [Tooltip("地图活动区域：拖入覆盖可行走区域的 BoxCollider2D。不接则不钳位（不报错，调试面板会显示未接线）")]
         [SerializeField] private BoxCollider2D boundsArea = default;
 
-        /// <summary>方向判零容差，吸收摇杆漂移与浮点残渣</summary>
+        [Tooltip("视觉适配器，必须挂在子节点 View 上（Root 只放物理与逻辑）。留空则 Awake 自愈")]
+        [SerializeField] private ActorAnimationView animView = default;
+
+        [Header("脚下扬尘")]
+        [Tooltip("低于此速度（单位/秒）不扬尘；避免静止抖动时喷粒子")]
+        [SerializeField] private float dustSpeedThreshold = 0.8f;
+
+        [Tooltip("满速时的发射节拍（秒）")]
+        [SerializeField] private float dustInterval = 0.14f;
+
+        [Tooltip("节拍按速度缩放的基准速度（单位/秒），一般取 PlayerConfig.moveSpeed")]
+        [SerializeField] private float dustReferenceSpeed = 8f;
+
+        private float _dustTimer;
+
         private const float DirectionEpsilon = 1e-6f;
 
-        /// <summary>8 向吸附一档，45°</summary>
         private const float OctantRadians = 2f * Mathf.PI / 8f;
 
-        /// <summary>键为档位序号</summary>
         private static readonly Dictionary<int, Vector2> Snapped = BuildSnappedTable();
 
         private InputBuffer _buffer;
@@ -44,13 +57,12 @@ namespace DeepseaOil.Presentation
 
         private BoundsArea _bounds;
 
-        /// <summary>配置只在 Attach 取一次，不驻留表现层</summary>
         private PlayerSpec _spec;
 
         /// <summary>瞄准平面深度，世界单位，Attach 取一次</summary>
         private float _cameraPlaneDepth = 100f;
 
-        private SpriteRenderer _body;
+        private ActorAnimationView _animView;
 
         private Vector2 _spawnPoint;
 
@@ -58,15 +70,22 @@ namespace DeepseaOil.Presentation
 
         public PlayerLogic Logic { get; private set; }
 
-        /// <summary>碰撞用物理体位置，不是 transform</summary>
         public Vector2 Position => motor == null ? Vector2.zero : motor.Position;
+
+        // 锚点取物理体位置：View 的 transform y 会被受击抖动与伪高度改写
+        Vector2 IYSortAnchor.SortAnchor => Position;
+
+        public ActorAnimationView Visual => _animView;
+
         public WorldInfo World => _world;
 
-        /// <summary>引擎回读速度，滞后一个物理步，用于与逻辑层对照</summary>
+        /// <summary>输入采样器，战斗组合据此读播种键与移动输入</summary>
+        public InputProvider Input => inputProvider;
+
+        /// <summary>引擎回读速度，滞后一物理步</summary>
         public Vector2 EngineVelocity => motor == null ? Vector2.zero : motor.EngineVelocity;
 
-        /// <summary>原始输入吸附到 8 向并归一化</summary>
-        /// <remarks>零输入返回 Vector2.zero，否则模长恒为 1（WorldInfo 与逻辑层的契约）；吸附同时抹掉摇杆模拟幅度，轻推与推满同速。静态纯函数。</remarks>
+        /// <summary>输入吸附到 8 向并归一化</summary>
         public static Vector2 SnapMoveToEightDirections(Vector2 move, bool snapToEightDirections)
         {
             if (move.sqrMagnitude <= DirectionEpsilon) return Vector2.zero;
@@ -96,7 +115,7 @@ namespace DeepseaOil.Presentation
         }
 
         /// <summary>回出生点并满血</summary>
-        /// <remarks>时机由世界侧决定，本类只执行回哪、满血、停住；出生点越界时钳回来，否则会回到地图外。</remarks>
+        /// <remarks>出生点越界时钳回。</remarks>
         public void RespawnToSpawn()
         {
             if (Logic == null) return;
@@ -106,6 +125,61 @@ namespace DeepseaOil.Presentation
             if (_bounds.TryClamp(position, out Vector2 clamped)) position = clamped;
 
             Logic.RespawnTo(position);
+
+            // 死亡触发器未必已被消费，不清会补播一次倒地
+            _animView?.ResetToDefault();
+        }
+
+        /// <summary>已死、进入重生等待：世界侧裁决死亡时调</summary>
+        public void OnDeathTriggered()
+        {
+            _animView?.TriggerDie();
+        }
+
+        /// <summary>玩家受击表现：真身刷白，到点由 ActorTintDriver 还原</summary>
+        public void OnHurt(in Damage damage)
+        {
+            SpriteRenderer body = _animView != null ? _animView.Renderer : null;
+
+            if (body == null) return;
+
+            EffectContext ctx = EffectContext.OnTarget(body.transform);
+            ctx.Duration = 0.12f;
+            ctx.Tint = Color.white;
+
+            EffectModule.Play(EffectId.Flash, in ctx);
+        }
+
+        /// <summary>本类自愈装配视觉子节点 View</summary>
+        /// <remarks>兜底造出的 View 照抄 Root 渲染器的 sprite/颜色/排序层，老预制体自愈后视觉不跳变。</remarks>
+        private void EnsureAnimationView()
+        {
+            if (animView == null) animView = GetComponentInChildren<ActorAnimationView>(true);
+
+            if (animView == null)
+            {
+                var view = new GameObject("View");
+
+                view.transform.SetParent(transform, false);
+
+                var sprite = view.AddComponent<SpriteRenderer>();
+
+                // 老拓扑的渲染器在 Root 上：参数照搬，免得自愈之后玩家变白块
+                var legacy = GetComponent<SpriteRenderer>();
+
+                if (legacy != null)
+                {
+                    sprite.sprite = legacy.sprite;
+                    sprite.color = legacy.color;
+                    sprite.sortingLayerID = legacy.sortingLayerID;
+                    sprite.sortingOrder = legacy.sortingOrder;
+                }
+
+                animView = view.AddComponent<ActorAnimationView>();
+            }
+
+            // 两个字段各司其职：animView 是序列化接线，_animView 是运行期缓存
+            _animView = animView;
         }
 
         private void Awake()
@@ -118,8 +192,10 @@ namespace DeepseaOil.Presentation
                 return;
             }
 
+            EnsureAnimationView();
+
             _bounds = ReadBounds();
-            _world = new WorldInfo(Vector2.zero, in _bounds); // 首帧前也不留 default
+            _world = new WorldInfo(Vector2.zero, in _bounds);
             _spawnPoint = motor.Position;
 
             if (!_bounds.IsValid)
@@ -143,8 +219,8 @@ namespace DeepseaOil.Presentation
             if (_root != null) _root.UnregisterSceneRoot(this);
         }
 
-        /// <summary>装配玩家逻辑，由 GameRoot 在第一个被驱动的帧调</summary>
-        /// <remarks>读表必须放这里：ConfigModule 由 GameRoot.Awake 装配，组件 Awake 顺序不保证，写在 Awake 里 ConfigModule 未就绪会抛。缓冲先取 PlayerSpec 再建。</remarks>
+        /// <summary>装配玩家逻辑</summary>
+        /// <remarks>读表必须放这里：ConfigModule 由 GameRoot.Awake 装配，组件 Awake 顺序不保证，写在 Awake 里会抛。</remarks>
         public void Attach()
         {
             if (Logic != null || motor == null) return;
@@ -162,7 +238,7 @@ namespace DeepseaOil.Presentation
             Logic = new PlayerLogic(motor, _spec, _buffer);
         }
 
-        /// <summary>物理帧，由 GameRoot.FixedUpdate 按 Order 驱动</summary>
+        /// <summary>物理帧</summary>
         public void FixedTick(float deltaTime)
         {
             if (Logic == null) return;
@@ -194,14 +270,16 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>渲染帧：瞄准与开火意图，由 GameRoot.Update 按 Order 驱动</summary>
-        /// <remarks>瞄准不吃也不产物理量，故放渲染帧；屏幕→世界只有本类能做，算完把世界点交逻辑层算吸附格。暂停只认 InputProvider.IsInputEnabled 一个真值。</remarks>
+        /// <summary>渲染帧：瞄准与开火意图</summary>
+
         public void RenderTick(float deltaTime)
         {
             if (Logic == null) return;
 
-            // 遮挡属观感与物理步无关；放暂停判断之前，暂停时也要保持档位正确。
-            UpdateSortingOrder();
+            // 运动学快照每渲染帧推一次（含暂停帧）：插值出来的位置比物理帧平滑，动画不该跟着 50Hz 跳。
+            _animView?.SetMotion(_world.MoveDirection, Logic.Motor.Facing, EngineVelocity.magnitude);
+
+            TickFootDust(deltaTime);
 
             if (inputProvider == null || !inputProvider.IsInputEnabled)
             {
@@ -218,21 +296,48 @@ namespace DeepseaOil.Presentation
             Logic.UpdateAim(AimWorldPoint(camera), now);
 
             // 动作表无攻击动作：由 InputProvider 直读指针产出。主攻击=水球（耗弹药），副攻击=土球（不耗）。
-            if (inputProvider.AttackPressedThisFrame) Logic.RequestThrow(BallType.Water, now);
-            if (inputProvider.AltAttackPressedThisFrame) Logic.RequestThrow(BallType.Earth, now);
+            // 只有世界侧采纳了才播出手动作：否则空放/射程外也会抬手。
+            if (inputProvider.AttackPressedThisFrame && Logic.RequestThrow(BallType.Water, now))
+            {
+                _animView?.Trigger(PlayerAnimHashes.TriggerThrow);
+            }
+
+            if (inputProvider.AltAttackPressedThisFrame && Logic.RequestThrow(BallType.Earth, now))
+            {
+                _animView?.Trigger(PlayerAnimHashes.TriggerThrow);
+            }
         }
 
-        /// <summary>按 y 刷新本体渲染档位，场景里填的 sortingOrder 只是初始值</summary>
-        private void UpdateSortingOrder()
+        // 扬尘节拍；dt<=0（暂停）冻结，与输入是否启用无关
+        private void TickFootDust(float dt)
         {
-            if (_body == null) _body = GetComponent<SpriteRenderer>();
+            if (dt <= 0f) return;
 
-            if (_body == null) return;
+            float speed = EngineVelocity.magnitude;
 
-            _body.sortingOrder = RenderOrder.ActorOrder(Position.y);
+            if (speed < dustSpeedThreshold)
+            {
+                // 停下立刻归零：下次起步即发射，不用等半个节拍
+                _dustTimer = 0f;
+
+                return;
+            }
+
+            _dustTimer -= dt;
+
+            if (_dustTimer > 0f) return;
+
+            // 速度越快节拍越密：满速时取 dustInterval
+            float ratio = Mathf.Clamp(speed / dustReferenceSpeed, 0.5f, 2f);
+
+            _dustTimer = dustInterval / ratio;
+
+            EffectContext ctx = EffectContext.At(Position);
+            ctx.Intensity = Mathf.Clamp01(speed / dustReferenceSpeed);
+
+            EffectModule.Play(EffectId.Dust, in ctx);
         }
 
-        /// <summary>屏幕点→世界点；不读相机 z，它被 Cinemachine 每帧驱动，正交相机下用足够大的常量深度更稳，见 ThrowTuning.cameraPlaneDepth</summary>
         private Vector2 AimWorldPoint(Camera camera)
         {
             Vector2 screen = inputProvider.AimScreen;
@@ -242,7 +347,7 @@ namespace DeepseaOil.Presentation
             return new Vector2(world.x, world.y);
         }
 
-        /// <summary>活动区域碰撞体折算成纯数据矩形，Awake 读一次即可（地图尺寸运行期不变）</summary>
+        /// <summary>活动区域碰撞体折算成纯数据矩形</summary>
         private BoundsArea ReadBounds()
         {
             if (boundsArea == null || !boundsArea.enabled) return default;

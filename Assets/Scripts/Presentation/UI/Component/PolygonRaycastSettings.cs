@@ -3,12 +3,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.UI
 {
-    /// <summary>
-    /// Polygon Raycast 的配置数据。
-    ///
-    /// 单独拆出来是为了避免继承 Image 后，
-    /// Unity 内置 ImageEditor 隐藏自定义字段。
-    /// </summary>
+    /// Polygon Raycast 的配置数据。单独拆出来是为了避免继承 Image 后，Unity 内置 ImageEditor 隐藏自定义字段。
     [AddComponentMenu("DeepseaOil/UI/Polygon Raycast Settings")]
     public class PolygonRaycastSettings : MonoBehaviour
     {
