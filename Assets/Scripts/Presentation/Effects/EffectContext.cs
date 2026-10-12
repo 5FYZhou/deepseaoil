@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects
 {
-    /// <remarks>归一化均在读取处做：Direction 零向量=Vector2.up；Scale/Radius（世界单位）≤0=1；Intensity 读时 Clamp01；Tint alpha=0=白色；Duration（秒）不归一化，≤0 由驱动取默认时长。Intensity 语义由 Driver 解释（EffectModule 只传递）：ScreenShake 取最大值合并，HitSpark 缩放粒子量与大小，参考 ParticleDriver.ApplyIntensity。</remarks>
+    /// <remarks>归一化均在读取处做：Direction 零向量=Vector2.up；Scale/Radius ≤0=1；SquashRatio ≤0=0.6；SquashPower ≤0=2；Intensity 读时 Clamp01；Tint alpha=0=白色；Duration ≤0 由驱动取默认时长。Intensity 语义由 Driver 解释：ScreenShake 取最大值合并，HitSpark 缩放粒子量与大小，参考 ParticleDriver.ApplyIntensity。</remarks>
     public struct EffectContext
     {
         public Vector2 Position;
@@ -33,7 +33,7 @@ namespace DeepseaOil.Presentation.Effects
 
         private Color _tint;
 
-        /// <summary>着色，未设置（alpha=0）时读作白色</summary>
+        /// <summary>着色，未设置读作白</summary>
         public Color Tint
         {
             get => _tint.a > 0f ? _tint : Color.white;
@@ -46,6 +46,22 @@ namespace DeepseaOil.Presentation.Effects
         {
             get => _radius > 0f ? _radius : 1f;
             set => _radius = value;
+        }
+
+        private float _squashRatio;
+
+        public float SquashRatio
+        {
+            get => _squashRatio > 0f ? _squashRatio : 0.6f;
+            set => _squashRatio = value;
+        }
+
+        private float _squashPower;
+
+        public float SquashPower
+        {
+            get => _squashPower > 0f ? _squashPower : 2f;
+            set => _squashPower = value;
         }
 
         private float _duration;

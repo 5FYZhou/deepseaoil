@@ -17,3 +17,5 @@ MonoBehaviour:
   homingSpeed: 8
   reachDistance: 0.05
   amount: 1
+  bodyDiameter: 0.3
+  triggerRadius: 0.15

@@ -33,7 +33,6 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.Game.ChangeState(GameState.Running);
                     break;
                 case "BtnRestart":
-                    // 重新开始关卡
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);

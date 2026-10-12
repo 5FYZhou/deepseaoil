@@ -1,29 +1,38 @@
+using System.Collections.Generic;
 using cfg.dso;
 
 namespace DeepseaOil.Data
 {
+
     public sealed class WaveSpec
     {
         private readonly Wave _row;
+        private readonly IReadOnlyList<WaveEnemySpec> _enemies;
 
-        public WaveSpec(Wave row)
+
+        public WaveSpec(Wave row, IReadOnlyList<WaveEnemySpec> enemies)
         {
             _row = row;
+            _enemies = enemies;
         }
 
         public int Id => _row.Id;
 
-        public int EnemiesPerWave => _row.EnemiesPerWave;
+        public string Name => _row.Name;
 
-        /// <summary>同一波内两只敌人的间隔（秒）</summary>
+        public float PrepTime => _row.PrepTime;
+
+        public float BattleTime => _row.BattleTime;
+
+        public float SettleTime => _row.SettleTime;
+
+
+        public IReadOnlyList<WaveEnemySpec> Enemies => _enemies;
+
         public float SpawnInterval => _row.SpawnInterval;
 
-        /// <summary>开局到第一波的等待（秒）</summary>
-        public float InitialDelay => _row.InitialDelay;
-
-        /// <summary>清完一波到下一波的等待（秒）</summary>
-        public float RespawnDelay => _row.RespawnDelay;
-
         public float SpawnRadius => _row.SpawnRadius;
+
+        public SeedType GrantSeed => _row.GrantSeed;
     }
 }

@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c4e9b21d6a34f5e8b0c1d2e3f4a5b60, type: 3}
+  m_Name: EnemyTuning
+  m_EditorClassIdentifier: 
+  entries:
+  - id: 1
+    radius: 0.3
+    acceleration: 5
+    knockbackDecay: 30
+    stopDistance: 0.6
+    chaseRange: 60
+    squash:
+      amount: 0.3
+      normalDuration: 0.4
+      deathDuration: 0.5
+      compressRatio: 0.6
+      easePower: 2
+      maxAmount: 0.5
+  - id: 2
+    radius: 0.5
+    acceleration: 8
+    knockbackDecay: 30
+    stopDistance: 0.6
+    chaseRange: 60
+    squash:
+      amount: 0.3
+      normalDuration: 0.4
+      deathDuration: 0.5
+      compressRatio: 0.6
+      easePower: 2
+      maxAmount: 0.5

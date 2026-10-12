@@ -7,22 +7,11 @@ namespace DeepseaOil.Data
 {
     public enum ButtonStyle
     {
-        /// <summary>
         /// 代码不设置样式（在编辑器里设置）
-        /// </summary>
         None = 0,
-        /// <summary>
         /// 开始界面等
         /// </summary>
-        Normal,
-        /// <summary>
-        /// 空档按钮
-        /// </summary>
-        EmptySaveSlot,
-        /// <summary>
-        /// 有档按钮
-        /// </summary>
-        SaveSlot
+        Normal
     }
 
     [Serializable]
