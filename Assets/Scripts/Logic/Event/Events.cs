@@ -7,10 +7,7 @@ using cfg.dso;
 
 namespace DeepseaOil.Logic.Events
 {
-    public readonly struct RequestPause { }
-
-    public readonly struct RequestResume { }
-
+    #region 请求
     /// <summary> 请求加载某场景</summary>
     public readonly struct RequestLoadScene
     {
@@ -29,6 +26,9 @@ namespace DeepseaOil.Logic.Events
     // 请求 HUD 重新播报一次当前值：面板异步加载晚一帧，而事实事件只在变化时发布
     public readonly struct RequestHudRefresh { }
 
+    #endregion
+
+    #region 事实
     /// <summary> 某场景异步加载完毕，等待被激活 </summary>
     public readonly struct SceneLoaded
     {
@@ -44,10 +44,6 @@ namespace DeepseaOil.Logic.Events
         public readonly string sceneName;
         public SceneActivated(string n) { sceneName = n; }
     }
-
-    public readonly struct GamePaused { }
-
-    public readonly struct GameResumed { }
 
     public readonly struct GameStateChanged
     {
@@ -207,4 +203,6 @@ namespace DeepseaOil.Logic.Events
         public readonly CGType type;
         public CGCompleted(CGType t) { type = t; }
     }
+
+    #endregion
 }

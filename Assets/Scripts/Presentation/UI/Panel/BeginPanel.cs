@@ -45,7 +45,7 @@ namespace DeepseaOil.Presentation.UI
                                     GameRoot.Instance.UI.HidePanel<TransitionPanel>();
                                     cgPanel.StartTimeLine();
                                     // 预先加载游戏场景
-                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene("EmptyTest", true));
+                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Game, true));
                                 }
                             );
                         });
