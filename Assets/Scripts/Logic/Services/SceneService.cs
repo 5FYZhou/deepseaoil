@@ -22,7 +22,7 @@ namespace DeepseaOil.Logic.Service
 
         public void Init()
         {
-            EventBus<RequestLoadScene>.Subscribe(LoadAsync);
+            EventBus<RequestLoadScene>.Subscribe(Load);
             EventBus<RequestActiveScene>.Subscribe(Active);
         }
 
@@ -48,10 +48,7 @@ namespace DeepseaOil.Logic.Service
             }
         }
 
-        /// <summary>
-        /// 异步加载场景
-        /// </summary>
-        public void LoadAsync(RequestLoadScene evt)
+        public void Load(RequestLoadScene evt)
         {
             pauseService.SetPaused(false);
 
@@ -75,7 +72,7 @@ namespace DeepseaOil.Logic.Service
         }
 
         /// <summary>
-        /// 真正切换场景
+        /// 激活异步加载的场景，同步加载不调用
         /// </summary>
         public void Active(RequestActiveScene evt)
         {
@@ -97,7 +94,7 @@ namespace DeepseaOil.Logic.Service
 
         public void Dispose()
         {
-            EventBus<RequestLoadScene>.Unsubscribe(LoadAsync);
+            EventBus<RequestLoadScene>.Unsubscribe(Load);
             EventBus<RequestActiveScene>.Unsubscribe(Active);
         }
     }

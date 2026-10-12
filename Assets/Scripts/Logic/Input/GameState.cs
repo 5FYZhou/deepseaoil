@@ -14,9 +14,6 @@
 
         Running,
 
-        /// <summary>确认退出的那一态，真退出是 Exit</summary>
-        BeforeExit,
-
         Exit,
     }
 }

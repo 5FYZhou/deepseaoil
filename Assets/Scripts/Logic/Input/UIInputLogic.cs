@@ -7,7 +7,6 @@ namespace DeepseaOil.Logic.Input
     {
         bool TryCloseTopmostPanel();
         void OpenPausePanel();
-        void OpenExitConfirmPanel();
     }
 
     public interface IUIStateRequest
@@ -39,11 +38,6 @@ namespace DeepseaOil.Logic.Input
                 case GameState.Running:
                     _uiMgr.OpenPausePanel();
                     _states.RequestState(GameState.Paused);
-                    return;
-
-                case GameState.Menu:
-                    _uiMgr.OpenExitConfirmPanel();
-                    _states.RequestState(GameState.BeforeExit);
                     return;
 
                 case GameState.Paused:

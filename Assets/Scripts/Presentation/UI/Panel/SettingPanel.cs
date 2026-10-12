@@ -34,11 +34,10 @@ namespace DeepseaOil.Presentation.UI
             switch (name)
             {
                 case "BtnClose":
-                    return ButtonStyle.None;
                 case "BtnReturnMenu":
                 case "BtnSave":
                 case "BtnLoad":
-                    return ButtonStyle.Normal;
+                    return ButtonStyle.None;
             }
             return ButtonStyle.None;
         }
