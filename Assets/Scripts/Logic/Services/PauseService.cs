@@ -28,9 +28,13 @@ namespace DeepseaOil.Logic.Service {
 
             gameTime.SetTimeScale(1f);
 
-            EventBus<RequestPause>.Subscribe(OnRequestPause);
-            EventBus<RequestResume>.Subscribe(OnRequestResume);
             EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
+        }
+
+        public void Dispose()
+        {
+            gameTime.SetTimeScale(1f);
+            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
         }
 
         /// <remarks>用 unscaled 累加：暂停时 dt 已缩放到 0</remarks>
@@ -52,36 +56,23 @@ namespace DeepseaOil.Logic.Service {
             if (isPaused)
             {
                 gameTime.SetTimeScale(0f);
-
-                EventBus<GamePaused>.Publish(new GamePaused());
             }
             else
             {
                 gameTime.SetTimeScale(1f);
-
-                EventBus<GameResumed>.Publish(new GameResumed());
             }
-        }
-
-        private void OnRequestPause(RequestPause request)
-        {
-            SetPaused(true);
-        }
-
-        private void OnRequestResume(RequestResume request)
-        {
-            SetPaused(false);
-        }
-
-        public void Dispose()
-        {
-            gameTime.SetTimeScale(1f);
-            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
         }
 
         private void OnGameStateChanged(GameStateChanged evt)
         {
-
+            if(evt.state == GameState.Running)
+            {
+                SetPaused(false);
+            }
+            else
+            {
+                SetPaused(true);
+            }
         }
     }
 }

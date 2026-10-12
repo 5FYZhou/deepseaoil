@@ -394,12 +394,7 @@ namespace DeepseaOil.Presentation.UI
             ShowPanel<PausePanel>();
         }
 
-        public void OpenExitConfirmPanel()
-        {
-            ShowPanel<ExitConfirmPanel>();
-        }
-
-
+        
         public void CloseAllPanels()
         {
             foreach (Stack<BasePanelInfo> stack in openPanels.Values)

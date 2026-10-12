@@ -38,6 +38,7 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
                     // 开始场景直接同步加载
                     EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
+                    GameRoot.Instance.UI.CloseAllPanels();
                     break;
             }
         }

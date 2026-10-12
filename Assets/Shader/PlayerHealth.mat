@@ -43,7 +43,7 @@ Material:
     m_Floats:
     - _ColorMask: 15
     - _EnableExternalAlpha: 0
-    - _Health: 0.358
+    - _Health: 0.395
     - _Slope: 0.55
     - _Stencil: 0
     - _StencilComp: 8

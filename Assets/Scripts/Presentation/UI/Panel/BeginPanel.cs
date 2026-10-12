@@ -61,8 +61,8 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
                 case "BtnExit":
-                    GameRoot.Instance.UI.ShowPanel<ExitConfirmPanel>();
-                    GameRoot.Instance.Game.ChangeState(GameState.BeforeExit);
+                    GameRoot.Instance.Game.ChangeState(GameState.Exit);
+                    Application.Quit();
                     break;
             }
         }
