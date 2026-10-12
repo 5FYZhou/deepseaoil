@@ -15,10 +15,8 @@ MonoBehaviour:
   waterBall: {r: 0.2, g: 0.55, b: 1, a: 1}
   earthBall: {r: 0.55, g: 0.36, b: 0.18, a: 1}
   unknownBall: {r: 1, g: 1, b: 1, a: 1}
-  enemyBodyNormal: {r: 0.86, g: 0.3, b: 0.28, a: 1}
-  enemyBodySlowed: {r: 0.34, g: 0.12, b: 0.11, a: 1}
-  enemyFlash: {r: 1, g: 0.92, b: 0.9, a: 1}
-  enemyFlashSlowed: {r: 0.62, g: 0.42, b: 0.4, a: 1}
+  enemyBodyNormal: {r: 1, g: 1, b: 1, a: 1}
+  enemyBodySlowed: {r: 0.45, g: 0.45, b: 0.45, a: 1}
   highlightAvailable: {r: 1, g: 1, b: 1, a: 0.32}
   highlightBlocked: {r: 1, g: 0.25, b: 0.2, a: 0.42}
   shadow: {r: 0, g: 0, b: 0, a: 0.35}

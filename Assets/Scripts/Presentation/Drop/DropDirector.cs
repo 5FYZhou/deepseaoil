@@ -5,8 +5,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Drop
 {
-    /// <summary>掉落物调度器：造/持/驱/清，不判断掉落规则</summary>
-    /// <remarks>产出方只拿窄接口 IDropSpawner，由组合根驱动</remarks>
+    // 掉落物调度器：造/持/驱/清，不判断掉落规则
+    // 产出方只拿窄接口 IDropSpawner，由组合根驱动
     public sealed class DropDirector : IDropSpawner
     {
         private readonly List<DropActor> _drops = new List<DropActor>();
@@ -28,13 +28,12 @@ namespace DeepseaOil.Presentation.Drop
 
             _definitions.Clear();
 
-            // 加掉落物 = 加 DropType 成员 + 这一行 + CreateActor 一行
-            DropSpec water = ConfigModule.GetDrop();
-
-            _definitions[DropType.Water] = water;
+            _definitions[DropType.Water] = ConfigModule.GetDrop(DropType.Water);
+            _definitions[DropType.Earth] = ConfigModule.GetDrop(DropType.Earth);
+            _definitions[DropType.Seed] = ConfigModule.GetDrop(DropType.Seed);
         }
 
-        /// <remarks>只有没接线是静默拒绝，其余都记日志</remarks>
+        // 只有没接线是静默拒绝，其余都记日志
         public bool TrySpawn(in DropSpawnRequest request)
         {
             if (_player == null) return false;
@@ -97,6 +96,10 @@ namespace DeepseaOil.Presentation.Drop
             switch (type)
             {
                 case DropType.Water:
+                case DropType.Earth:
+                case DropType.Seed:
+                    // 三种掉落物运动学一致，只有颜色与载荷不同（载荷由 OnDropCollected 裁决）
+                    // 加一种掉落物 = DropType 成员 + 这一行 + CreateActor 一行
                     return go.AddComponent<WaterBallDrop>();
 
                 default:

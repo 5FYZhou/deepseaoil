@@ -6,11 +6,6 @@
 //   第二个构造点），而收口后的取值口径是"包装中间类持有生成行引用"。于是"造一行"这件事在测试里
 //   绕不开拼 JSON —— 把它收在这一个文件里，schema 耦合就只有一个落点（改表时改这里）。
 //
-// 【为什么需要 MotorProbe】
-//   审查已定"把 Motor 开放出来、让 Logic 退化为组合件"：速度账本与控制律现在住在
-//   `ActorLedger`（Logic 层）。本探针把它接到一个纯 C# 的速度字段上，于是
-//   **测试里验的账本与线上跑的是同一份代码**，而 EditMode 不需要造 Rigidbody2D。
-//
 // 【本目录的硬约束】Assets/Tests/Runtime/Editor/ 的末级 `Editor` 保留为目录约定；
 //   真正决定平台的是 DeepseaOil.Tests.EditMode.asmdef 的 includePlatforms: [Editor]。
 // ---------------------------------------------------------------------------
@@ -19,67 +14,164 @@ using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using Luban.SimpleJSON;
+using NUnit.Framework;
 using UnityEngine;
 using cfg.dso;
 
 namespace DeepseaOil.Tests
 {
-    /// <summary>
-    /// 生成行的工厂：用 JSON 字面量造 <c>cfg.dso.*</c> 行。
-    /// </summary>
-    /// <remarks>
-    /// <b>每个键都必须出现。</b>缺键时 Luban 的 <c>JSONObject</c> 索引器返回一个惰性占位，
-    /// 它的 <c>IsNumber</c> / <c>IsString</c> 都是 <c>false</c> ⇒ 行的构造会抛
-    /// <c>SerializationException</c>（不是留 <c>null</c>）。枚举键写**数字**，不是成员名。
-    /// </remarks>
+    /// <summary>生成行的工厂：用 JSON 字面量造 cfg.dso.* 行</summary>
+        /// <remarks>缺一个键就会抛 SerializationException：Luban 的惰性占位 IsNumber / IsString 都是 false，不是留 null。枚举键写数字，不是成员名。</remarks>
     internal static class RowFactory
     {
-        /// <summary>一行水球：元素四件 = 纯水（type 0 / temp 0 / wet 3 / cond 1 / tags 0）。</summary>
-        /// <remarks>
-        /// 抛物线与投掷距离（flight_duration / max_height / max_*_throw_distance）已从表移交
-        /// <c>ThrowTuning</c> SO，表里不再有这四列 —— 用它们请给 <c>ProjectileSpec</c> 传真的调参实例。
-        /// 落地切成什么状态由 <c>element_rule</c> 与地形元素合成后决定，<b>不再有 <c>tile_state</c> 列</b>（旧链路已作废）。
-        /// </remarks>
+        /// <summary>一行水球：id 本身就是球种，只有这两列。</summary>
+        /// <remarks>抛物线与投掷距离（flight_duration / max_height / max_*_throw_distance）已从表移交 ThrowTuning SO，用它们请给 ProjectileSpec 传真的调参实例。落地切成什么状态由 element_rule 决定。</remarks>
         public static Projectile WaterRow()
-            => new Projectile(JSON.Parse(
-                "{\"id\":0,\"name\":\"纯水\"," +
-                "\"type\":0,\"temp\":0,\"wet\":3,\"conductive\":1,\"tags\":0}"));
+            => new Projectile(JSON.Parse("{\"id\":0,\"name\":\"纯水\"}"));
 
-        /// <summary>一行敌人：半径 0.45、满速 3.6、加速 14、击退衰减 10、停止 0.6、追击 60、耐久 3。</summary>
-        /// <remarks>stun_seconds 与 flash_hz 两列已删（前者无消费者，后者改由 <c>VisualPalette</c> 管辖）。</remarks>
-        public static Enemy EnemyRow()
+
+        public static Enemy EnemyRow(int id = 1, int hp = 3, int contactDamage = 1)
             => new Enemy(JSON.Parse(
-                "{\"id\":1,\"name\":\"测试敌人\",\"radius\":0.45,\"max_speed\":3.6," +
-                "\"acceleration\":14,\"knockback_decay\":10,\"stop_distance\":0.6," +
-                "\"chase_range\":60,\"hp\":3}"));
+                $"{{\"id\":{id},\"name\":\"测试敌人\",\"max_speed\":3.6,\"hp\":{hp},\"contact_damage\":{contactDamage}}}"));
 
-        /// <summary>一行玩家：血量 3、接触伤害 1、无敌 0.8、重试 1.2、攻击间隔 0.5、击退 12/12、接触半径 1。</summary>
+        /// <summary>一行玩家：受击 / 投掷 / 回血三条链用到的列全在。</summary>
         public static Player PlayerRow()
             => new Player(JSON.Parse(
                 "{\"id\":1,\"name\":\"玩家\",\"max_hp\":3,\"contact_damage\":1," +
-                "\"invulnerable_duration\":0.8,\"retry_delay\":1.2,\"attack_interval\":0.5," +
-                "\"knockback_impulse\":12,\"knockback_speed_limit\":12,\"contact_radius\":1}"));
+                "\"invulnerable_duration\":0.8,\"retry_delay\":1.2,\"attack_interval\":0.35," +
+                "\"knockback_impulse\":12,\"knockback_speed_limit\":12,\"contact_radius\":1," +
+                "\"water_capacity\":5,\"water_start\":5,\"earth_capacity\":5,\"earth_start\":5," +
+                "\"life_heal_interval\":3}"));
 
-        /// <summary>一行波次：4 只一波、间隔 0.25、开局等 1.5、清完等 2.5、出生半径 5。</summary>
-        public static Wave WaveRow()
+        /// <summary>一行波次：三阶段时长与出生参数；出哪些怪由 wave_enemy 配。</summary>
+        public static Wave WaveRow(int id = 1, int grantSeed = 1)
             => new Wave(JSON.Parse(
-                "{\"id\":1,\"name\":\"默认\",\"enemies_per_wave\":4,\"spawn_interval\":0.25," +
-                "\"initial_delay\":1.5,\"respawn_delay\":2.5,\"spawn_radius\":5}"));
+                $"{{\"id\":{id},\"name\":\"测试波次\",\"prep_time\":10,\"battle_time\":30,\"settle_time\":8," +
+                $"\"spawn_interval\":0.4,\"spawn_radius\":5,\"grant_seed\":{grantSeed}}}"));
+
+        /// <summary>一行波次敌种：某一波出某个怪种几只；顺序即刷怪顺序。</summary>
+        public static WaveEnemy WaveEnemyRow(int id, int waveId, int enemyId, int count)
+            => new WaveEnemy(JSON.Parse(
+                $"{{\"id\":{id},\"wave_id\":{waveId},\"enemy_id\":{enemyId},\"count\":{count}}}"));
+
+        /// <summary>一行地块状态；默认是一个"永久、不减速、无伤害、不导通"的空地。</summary>
+        public static TileState TileStateRow(
+            int id,
+            float duration = -1f,
+            float slowRate = 1f,
+            int dotDamage = 0,
+            bool isObstacle = false,
+            bool isConductor = false,
+            string name = "测试地块")
+            => new TileState(JSON.Parse(
+                $"{{\"id\":{id},\"name\":\"{name}\",\"duration\":{duration},\"slow_rate\":{slowRate}," +
+                $"\"dot_damage\":{dotDamage},\"is_obstacle\":{(isObstacle ? "true" : "false")}," +
+                $"\"is_conductor\":{(isConductor ? "true" : "false")}}}"));
+
+        /// <summary>一行元素反应规则：原格 + 球种 → 结果与冲击；radius 默认 1 格。</summary>
+        public static ElementRule ElementRuleRow(
+            int id,
+            int sourceTile,
+            int ballType,
+            int resultTile,
+            int damage = 0,
+            float knockback = 0f,
+            float stun = 0f,
+            bool triggerChain = false,
+            float radius = 1f)
+            => new ElementRule(JSON.Parse(
+                $"{{\"id\":{id},\"source_tile\":{sourceTile},\"ball_type\":{ballType}," +
+                $"\"result_tile\":{resultTile},\"impact_damage\":{damage},\"impact_knockback\":{knockback}," +
+                $"\"impact_stun\":{stun},\"impact_radius\":{radius}," +
+                $"\"trigger_chain\":{(triggerChain ? "true" : "false")}}}"));
+
+        /// <summary>一行二级元素反应：两个发生器地貌 → 激发的产物与波及。</summary>
+        public static ElementDuoReaction DuoRow(
+            int id,
+            int elemA,
+            int elemB,
+            int resultTile,
+            int damage = 0,
+            float knockback = 0f,
+            float duration = 3f,
+            float radius = 1f,
+            bool triggerChain = true)
+            => new ElementDuoReaction(JSON.Parse(
+                $"{{\"id\":{id},\"elem_a\":{elemA},\"elem_b\":{elemB},\"result_tile\":{resultTile}," +
+                $"\"impact_damage\":{damage},\"impact_knockback\":{knockback}," +
+                $"\"result_duration\":{duration},\"effect_radius\":{radius}," +
+                $"\"trigger_chain\":{(triggerChain ? "true" : "false")}}}"));
+
+        /// <summary>一行种子基建配置。</summary>
+        public static Seed SeedRow(int id, int spawnTile, string name = "测试种子", string iconKey = "Icons/Seed_Test")
+            => new Seed(JSON.Parse(
+                $"{{\"id\":{id},\"name\":\"{name}\",\"spawn_tile\":{spawnTile},\"icon_key\":\"{iconKey}\"}}"));
 
         /// <summary>一行关卡初始格（状态 1 = 空地）。</summary>
         public static TileInitial TileInitialRow(int cellX, int cellY, int stateId)
             => new TileInitial(JSON.Parse(
                 $"{{\"id\":1,\"cell_x\":{cellX},\"cell_y\":{cellY},\"state_id\":{stateId}}}"));
+
+        // 下面两个是**包装件**工厂：求解器与二级反应查询表只吃 Spec，不吃生成行
+
+        /// <summary>一条元素反应规则（已包装）。</summary>
+        public static ElementRuleSpec ElementRuleSpecOf(
+            int id,
+            int sourceTile,
+            int ballType,
+            int resultTile,
+            int damage = 0,
+            float knockback = 0f,
+            float stun = 0f,
+            bool triggerChain = false,
+            float radius = 1f)
+            => new ElementRuleSpec(
+                ElementRuleRow(id, sourceTile, ballType, resultTile, damage, knockback, stun, triggerChain, radius));
+
+        /// <summary>一条二级元素反应（已包装）。</summary>
+        public static DuoReactionSpec DuoSpecOf(
+            int id,
+            int elemA,
+            int elemB,
+            int resultTile,
+            int damage = 0,
+            float knockback = 0f,
+            float duration = 3f,
+            float radius = 1f,
+            bool triggerChain = true)
+            => new DuoReactionSpec(
+                DuoRow(id, elemA, elemB, resultTile, damage, knockback, duration, radius, triggerChain));
     }
 
-    /// <summary>
-    /// 不碰引擎的移动执行器探针：速度只存在一个字段里，账本与控制律复用生产实现。
-    /// </summary>
-    /// <remarks>
-    /// <b>为什么它必须实现整个 <see cref="IActorMotor"/></b>：审查已定状态层与移动层注入的是执行器，
-    /// 而账本住在执行器上 —— 于是"塞一个假执行器"就顺带把账本送进测试，
-    /// 这正是控制律可被 EditMode 直接测的原因（<see cref="ActorLedger"/> 是 Logic 层的纯数学）。
-    /// </remarks>
+    // 调参条目工厂：EnemyTuning.entries 是手写在 SO 里的，测试按同一条路造条目
+    internal static class TuningFactory
+    {
+        /// <summary>一条怪种调参：字段默认值即迁移前的表值。</summary>
+        public static EnemyTuningEntry EnemyEntry(int id = 1)
+            => new EnemyTuningEntry { id = id };
+    }
+
+    /// <summary>夹具自检：表加了列而这里没跟上时先红</summary>
+    public class 夹具自检Tests
+    {
+        [Test]
+        public void 每个夹具行都合当前表结构()
+        {
+            Assert.DoesNotThrow(() => RowFactory.WaterRow(), "projectile 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.EnemyRow(), "enemy 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.PlayerRow(), "player 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.WaveRow(), "wave 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.WaveEnemyRow(1, 1, 1, 1), "wave_enemy 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.TileStateRow(1), "tile_state 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.ElementRuleRow(1, 1, 0, 2), "element_rule 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.DuoRow(1, 2, 3, 8), "element_duo_reaction 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.SeedRow(1, 15), "seed 行没跟上生成 schema");
+            Assert.DoesNotThrow(() => RowFactory.TileInitialRow(0, 0, 1), "tile_initial 行没跟上生成 schema");
+        }
+    }
+
+    /// <summary>不碰引擎的移动执行器探针：账本与控制律复用生产实现</summary>
+    /// <remarks>必须实现整个 IActorMotor：账本住在执行器上，"塞一个假执行器"就顺带把账本送进测试。</remarks>
     internal class MotorProbe : IActorMotor
     {
         private Vector2 _velocity;
@@ -99,7 +191,7 @@ namespace DeepseaOil.Tests
             set => _velocity = value;
         }
 
-        /// <summary>引擎侧速度（<c>IMovementMotor.Velocity</c>：回读口）。</summary>
+        /// <summary>引擎侧速度（回读口）。</summary>
         public Vector2 Velocity => _velocity;
 
         public Vector2 Position { get; set; }
@@ -120,10 +212,10 @@ namespace DeepseaOil.Tests
 
         // ── IActorLedger：全部转发给真账本 ──
 
-        /// <summary>角色共用运动参数（只写不读：状态机读的是 <see cref="Motion"/>）。</summary>
+        /// <summary>角色共用运动参数（只写不读：状态机读的是 Motion）。</summary>
         public CharacterConfig Config => _ledger.Config;
 
-        /// <summary>运动标量（<c>IStateHost</c> 的取数口；执行器折算的那一份）。</summary>
+        /// <summary>运动标量（IStateHost 的取数口；执行器折算的那一份）。</summary>
         public MotionParams Motion => _ledger.Motion;
 
         public Vector2 FrameStartVelocity => _ledger.FrameStartVelocity;
@@ -149,12 +241,6 @@ namespace DeepseaOil.Tests
         public void AddForce(Vector2 acceleration) => _ledger.AddForce(acceleration);
 
         public void SetVelocity(Vector2 velocity) => _ledger.SetVelocity(velocity);
-
-        public void ClampSpeed(float maxSpeed) => _ledger.ClampSpeed(maxSpeed);
-
-        public void SetExtraForceScale(float scale) => _ledger.SetExtraForceScale(scale);
-
-        public void ApplyExtraForce(Vector2 force) => _ledger.ApplyExtraForce(force);
 
         // ── 控制律 ──
 

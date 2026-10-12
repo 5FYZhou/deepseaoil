@@ -1,70 +1,95 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Foundation;
+using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
-using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Wave;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Actor
 {
-    /// <summary>战斗调度：按波次生成敌人、逐只驱动、清场</summary>
-    /// <remarks>敌人组合根；世界信息全经 Initialize 注入，计时与分支交给 WaveLogic。不挂 FixedUpdate，由组合根每物理帧调 FixedTick。存活数与波次唯一权威：HUD 读的 WaveChanged 由此发布。</remarks>
+        // 战斗调度：按波次三阶段生成与清场
+        // 波次与存活数的唯一权威；预制体与 enemy 表缺件是硬错误
     public sealed class CombatDirector : MonoBehaviour
     {
+        // 出生点抽样上限，超了接受当前点：相机跟随会让刚采的点又进屏
+        private const int MaxSpawnTries = 8;
+
+        private CombatRoot _combatRoot;
         private WaveLogic _logic;
-        private EnemySpec _enemySpec;
         private Transform _player;
         private Transform _actorRoot;
-        private GridLogic _grid;
-        private EnemyCellRegistry _registry;
+
+        // 怪种取值口，组合根注入
+        private System.Func<int, EnemySpec> _specOf;
+
+        private System.Action<EnemySpec, Vector2> _onKilled;
+
+        [Tooltip("用来算屏幕外出生点的相机。留空则在装配时回落 Camera.main。")]
+        [SerializeField] private Camera spawnCamera = default;
+
+        [Tooltip("出生点离可见区边缘再往外推的距离（世界单位）")]
+        [SerializeField] private float spawnScreenMargin = 0.5f;
+
+        [Tooltip("出生环上界 = (可见区外接半径 + margin) × 本系数；小于 1 会被抬成 1")]
+        [SerializeField] private float spawnRadiusMultiplier = 1.4f;
 
         private readonly List<EnemyActor> _enemies = new List<EnemyActor>();
         private readonly List<WaveLogic.SpawnRequest> _spawnBuffer = new List<WaveLogic.SpawnRequest>();
+
+        private BoundsArea _bounds;
 
         private int _publishedWave = -1;
         private int _publishedAlive = -1;
 
         public int AliveCount { get; private set; }
 
-        /// <summary>列表里第一只存活敌人离玩家多远；无敌人时 -1</summary>
+        public WaveLogic Logic => _logic;
+
         public float FirstAliveEnemyDistance { get; private set; } = -1f;
 
         public Vector2 FirstAliveEnemyVelocity { get; private set; }
 
-        /// <summary>组装调度器</summary>
         public void Initialize(
+            CombatRoot combatRoot,
             PlayerController player,
-            in WaveSpec waveSpec,
-            EnemySpec enemySpec,
-            GridLogic grid,
-            EnemyCellRegistry registry,
-            Transform actorRoot)
+            IReadOnlyList<WaveSpec> waves,
+            System.Func<int, EnemySpec> specOf,
+            Transform actorRoot,
+            Camera camera,
+            in BoundsArea bounds,
+            System.Action<EnemySpec, Vector2> onKilled = null)
         {
-            if (player == null || player.Logic == null)
+            if (combatRoot == null || player == null || player.Logic == null)
             {
-                Debug.LogError("CombatDirector 没有玩家引用（或玩家逻辑层没装配好），敌人不会生成，已停用。", this);
+                Debug.LogError("CombatDirector 没有战斗根或玩家引用（或玩家逻辑层没装配好），敌人不会生成，已停用。", this);
                 enabled = false;
                 return;
             }
 
+            if (specOf == null)
+            {
+                Debug.LogError("CombatDirector 没有怪种取值口，敌人不会生成，已停用。", this);
+                enabled = false;
+                return;
+            }
+
+            _combatRoot = combatRoot;
             _player = player.transform;
-            _enemySpec = enemySpec;
-            _grid = grid;
-            _registry = registry;
+            _specOf = specOf;
             _actorRoot = actorRoot;
-            _logic = new WaveLogic(in waveSpec);
+            _bounds = bounds;
+            _onKilled = onKilled;
+            _logic = new WaveLogic(waves);
+
+            ResolveSpawnCamera(camera);
 
             PublishIfChanged();
         }
 
-        /// <summary>清空全场敌人并停当前波次：不清则玩家复活立刻被原地敌人再打一次</summary>
         public void ClearAll()
         {
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                if (_enemies[i] != null) Destroy(_enemies[i].gameObject);
-            }
-
+            // 销毁权归 CombatRoot 的权属分流，本类只清自己的账
             _enemies.Clear();
 
             _logic?.Reset();
@@ -73,33 +98,25 @@ namespace DeepseaOil.Presentation.Actor
             FirstAliveEnemyDistance = -1f;
             FirstAliveEnemyVelocity = Vector2.zero;
 
+            _publishedWave = -1;
+            _publishedAlive = -1;
+
             PublishIfChanged();
 
-            // 不静默：敌人全没了必须能追溯到一次清场。
             Debug.Log("[Combat] 敌人清场，等待下一波");
         }
 
-        /// <summary>推进一个物理帧：驱动敌人→刷读数→跑波次</summary>
-        /// <remarks>暂停时 timeScale 与 deltaTime 均 0；恢复那帧不补暂停期间欠的生成量</remarks>
+        // 暂停时 deltaTime 为 0；恢复那帧不补欠的生成量
         public void FixedTick(float now, float deltaTime)
         {
             if (_logic == null || _player == null) return;
 
             ClearDestroyed();
 
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                EnemyActor enemy = _enemies[i];
-
-                if (enemy == null || !enemy.IsAlive) continue;
-
-                enemy.FixedTick(now, deltaTime);
-            }
-
             AliveCount = CountAlive();
             UpdateReadouts();
 
-            _logic.Tick(now, deltaTime, AliveCount > 0, PlayerPosition(), _spawnBuffer);
+            _logic.Tick(deltaTime, AliveCount > 0, _spawnBuffer);
 
             for (int i = 0; i < _spawnBuffer.Count; i++)
             {
@@ -111,27 +128,132 @@ namespace DeepseaOil.Presentation.Actor
 
         private void SpawnOne(in WaveLogic.SpawnRequest request)
         {
-            var go = new GameObject($"Enemy_{request.WaveIndex}_{request.Remaining}");
+            EnemySpec spec = _specOf(request.EnemyId);
 
-            if (_actorRoot != null) go.transform.SetParent(_actorRoot, false);
+            if (spec == null)
+            {
+                Debug.LogError(
+                    $"[Combat] enemy 表里没有 id={request.EnemyId}（本波 spawn 请求已取消）。" +
+                    "wave_enemy.enemy_id 与 enemy.id 必须逐项对得上。");
 
-            var actor = go.AddComponent<EnemyActor>();
+                return;
+            }
 
-            actor.Initialize(
-                request.Position,
-                in _enemySpec,
-                _player,
-                PlayerPosition() - request.Position,
-                _grid,
-                _registry,
-                _actorRoot);
+            string prefabKey = $"enemies/Enemy_{request.EnemyId}";
+
+            GameObject prefab = AssetModule.IsInitialized ? AssetModule.Load<GameObject>(prefabKey) : null;
+
+            if (prefab == null)
+            {
+                Debug.LogError($"[Combat] 严重阻断：未找到敌人预制体 Assets/Resources/{prefabKey}.prefab！本次生成已取消。请先在 Unity 中创建该预制体。");
+                return;
+            }
+
+            Vector2 position = SpawnPosition();
+
+            GameObject go = Instantiate(prefab, position, Quaternion.identity, _actorRoot);
+            go.name = $"Enemy_{request.WaveIndex}_{request.Remaining}";
+
+            EnemyActor actor = go.GetComponent<EnemyActor>();
+
+            if (actor == null)
+            {
+                Debug.LogError($"[Combat] 预制体 {prefabKey} 根节点未挂载 EnemyActor 组件！生成已作废。");
+                Destroy(go);
+                return;
+            }
+
+            if (_onKilled != null) actor.Died = OnEnemyDied;
+
+            _combatRoot.AdoptWaveEnemy(actor, position, in spec, PlayerPosition() - position);
 
             _enemies.Add(actor);
         }
 
+        // 屏幕外出生点：可见区外接半径起算的外环上按角度取点
+        // 每只现采一次，不跨帧缓存相机位置（相机由 Cinemachine 带）
+        private Vector2 SpawnPosition()
+        {
+            Vector2 center;
+
+            float halfWidth;
+            float halfHeight;
+
+            if (!TryReadView(out center, out halfWidth, out halfHeight)) return PlayerPosition();
+
+            float inner = Mathf.Max(halfWidth, halfHeight) + Mathf.Max(0f, spawnScreenMargin);
+            float multiplier = spawnRadiusMultiplier > 1f ? spawnRadiusMultiplier : 1f;
+
+            Vector2 candidate = center;
+
+            for (int tryIndex = 0; tryIndex < MaxSpawnTries; tryIndex++)
+            {
+                float angle = Rng.Value01() * 2f * Mathf.PI;
+
+                float distance = Mathf.Lerp(inner, inner * multiplier, Rng.Value01());
+
+                candidate = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * distance;
+
+                if (!IsInsideView(candidate, center, halfWidth, halfHeight)) break;
+            }
+
+            // 边界优先于"绝对不可见"：钳回后落进屏内也接受
+            if (_bounds.TryClamp(candidate, out Vector2 clamped)) candidate = clamped;
+
+            return candidate;
+        }
+
+        // 正交可见区中心与半尺寸；相机缺失返回 false
+        private bool TryReadView(out Vector2 center, out float halfWidth, out float halfHeight)
+        {
+            if (spawnCamera == null)
+            {
+                center = Vector2.zero;
+                halfWidth = 0f;
+                halfHeight = 0f;
+
+                return false;
+            }
+
+            halfHeight = Mathf.Abs(spawnCamera.orthographicSize);
+            halfWidth = halfHeight * spawnCamera.aspect;
+            center = spawnCamera.transform.position;
+
+            return true;
+        }
+
+        private bool IsInsideView(Vector2 position, Vector2 center, float halfWidth, float halfHeight)
+        {
+            float margin = Mathf.Max(0f, spawnScreenMargin);
+
+            return Mathf.Abs(position.x - center.x) <= halfWidth + margin
+                && Mathf.Abs(position.y - center.y) <= halfHeight + margin;
+        }
+
+        // 相机缺失只报一条错并退化成默认，不停摆
+        private void ResolveSpawnCamera(Camera fallback)
+        {
+            if (spawnCamera == null) spawnCamera = fallback;
+
+            if (spawnCamera == null) spawnCamera = Camera.main;
+
+            if (spawnCamera == null)
+            {
+                Debug.LogError(
+                    "[Combat] 没有可用相机（spawnCamera 未接线且找不到 MainCamera）：出生点已退化成静态默认值。", this);
+            }
+        }
+
+        private void OnEnemyDied(EnemyActor enemy)
+        {
+            EnemySpec spec = enemy != null && enemy.Stats != null ? enemy.Stats.Spec : null;
+
+            if (spec != null) _onKilled?.Invoke(spec, enemy.Position);
+        }
+
         private void ClearDestroyed()
         {
-            // 倒序删：正序会跳过紧挨的下一个元素，漏删不报错、表现为列表变长。
+            // 倒序删：正序会跳过下一个元素
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
                 if (_enemies[i] == null) _enemies.RemoveAt(i);
@@ -170,7 +292,6 @@ namespace DeepseaOil.Presentation.Actor
             }
         }
 
-        /// <summary>只在波次或存活数真的变了时发布，免每帧刷事件</summary>
         private void PublishIfChanged()
         {
             int wave = _logic != null ? _logic.WaveIndex : 0;

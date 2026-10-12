@@ -24,12 +24,12 @@ namespace DeepseaOil.Logic.Combat
         /// <summary>伤害值，0=纯效果不扣血</summary>
         public readonly float Amount;
 
-        /// <summary>击退冲量，速度(单位/秒)，0=不击退，不乘 Δt</summary>
-        public readonly float Impulse;
+        /// <summary>击退位移，格；0=不击退。v0 由受击者按自身阻尼折算</summary>
+        public readonly float KnockbackCells;
 
         public readonly DamageSource Source;
 
-        public bool HasKnockback => Impulse > 0f && Direction.sqrMagnitude > 0f;
+        public bool HasKnockback => KnockbackCells > 0f && Direction.sqrMagnitude > 0f;
 
         public bool HasDamage => Amount > 0f;
 
@@ -38,13 +38,13 @@ namespace DeepseaOil.Logic.Combat
             float amount,
             DamageSource source,
             Vector2 direction = default,
-            float impulse = 0f)
+            float knockbackCells = 0f)
         {
             Point = point;
             Amount = amount;
             Source = source;
             Direction = direction;
-            Impulse = impulse;
+            KnockbackCells = knockbackCells;
         }
 
         /// <remarks>正中命中给"上"，避免方向为零时归一化出 NaN</remarks>
@@ -53,13 +53,13 @@ namespace DeepseaOil.Logic.Combat
             Vector2 victim,
             float amount,
             DamageSource source,
-            float impulse = 0f)
+            float knockbackCells = 0f)
         {
             Vector2 delta = victim - point;
 
             Vector2 direction = delta.sqrMagnitude > 1e-6f ? delta.normalized : Vector2.up;
 
-            return new Damage(point, amount, source, direction, impulse);
+            return new Damage(point, amount, source, direction, knockbackCells);
         }
     }
 }
