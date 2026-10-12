@@ -45,7 +45,7 @@ public sealed partial class Enemy : Luban.BeanBase
     /// </summary>
     public readonly float MaxSpeed;
     /// <summary>
-    /// 耐久
+    /// 生命值
     /// </summary>
     public readonly int Hp;
     /// <summary>
