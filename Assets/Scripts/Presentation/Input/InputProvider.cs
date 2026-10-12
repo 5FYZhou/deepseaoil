@@ -1,4 +1,5 @@
-using DeepseaOil.Generated;
+﻿using DeepseaOil.Generated;
+using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -50,6 +51,8 @@ namespace DeepseaOil.Presentation.Input
             _input = new InputSys();
 
             Bind();
+
+            EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
         }
 
         /// <summary>按路径取动作；取不到当场报出来，不静默变成"按键没反应"</summary>
@@ -83,6 +86,7 @@ namespace DeepseaOil.Presentation.Input
 
         private void OnDestroy()
         {
+            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
             // 用 Start 抓住的引用，不能再写 GameRoot.Instance：退出 Play/切场景时它可能已销毁，getter 会再 new 一个
             if (_root != null) _root.UnregisterInputProvider(this);
         }
@@ -166,10 +170,23 @@ namespace DeepseaOil.Presentation.Input
 
         public void SetInputEnabled(bool enabled)
         {
+            if (_inputEnabled == enabled) return; 
             _inputEnabled = enabled;
 
             if (!enabled)
                 Clear();
+        }
+
+        public void OnGameStateChanged(GameStateChanged evt)
+        {
+            if(evt.state == Logic.GameState.Running)
+            {
+                SetInputEnabled(true);
+            }
+            else
+            {
+                SetInputEnabled(false);
+            }
         }
     }
 }

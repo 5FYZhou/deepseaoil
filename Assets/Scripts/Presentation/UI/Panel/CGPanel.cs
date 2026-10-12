@@ -58,7 +58,7 @@ namespace DeepseaOil.Presentation.UI
 
             // Timeline 播放完成
             // 正式激活新场景
-            EventBus<RequestActiveScene>.Publish(new RequestActiveScene("EmptyTest"));
+            EventBus<RequestActiveScene>.Publish(new RequestActiveScene(SceneName.Game));
             GameRoot.Instance.Game.ChangeState(GameState.Running);
         }
 

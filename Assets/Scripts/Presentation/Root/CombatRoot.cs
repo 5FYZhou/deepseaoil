@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Drop;
@@ -486,7 +486,8 @@ namespace DeepseaOil.Presentation
             }
 
             IsReady = true;
-
+            // 加载完毕，先通知面板刷新一次
+            OnRequestHudRefresh(new RequestHudRefresh());
         }
 
         private void EnsureOverlayDirector(in GridGeometry geometry)
