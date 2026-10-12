@@ -1,11 +1,11 @@
-using DeepseaOil.Logic;
+﻿using DeepseaOil.Logic;
 
 namespace DeepseaOil.Presentation.UI
 {
     public class SavePanel : BasePanel
     {
         public override E_UILayer Layer => E_UILayer.Top;
-        public override bool CanBeHideByKey => false;
+        public override bool CanBeHideByKey => true;
 
         public override void ShowMe() { }
 

@@ -10,6 +10,8 @@ namespace DeepseaOil.Data
     public static class ConfigModule
     {
         private const string PlayerConfigKey = "config/PlayerConfig";
+        private const string UIConfigKey = "config/UIConfig";
+        private const string AudioConfigKey = "config/AudioConfig";
 
         /// <summary>关键表主键默认值</summary>
         public static class Ids
@@ -30,6 +32,8 @@ namespace DeepseaOil.Data
         private static DropTuning _dropTuning;
         private static VisualPalette _visuals;
         private static EnemyTuning _enemyTuning;
+        private static UIConfig _uiConfig;
+        private static AudioConfig _audioConfig;
 
         /// <summary>元素反应规则，装配期折成 (原格, 球种) 哈希表；此后只读</summary>
         private static IReadOnlyList<ElementRuleSpec> _elementRules;
@@ -123,6 +127,22 @@ namespace DeepseaOil.Data
                 throw new ConfigLoadException(
                     $"[Config] 取不到 {EnemyTuning.ResourceKey}（期望 Assets/Resources/{EnemyTuning.ResourceKey}.asset）：" +
                     "敌人的判定半径 / 加速度 / 击退衰减 / 停止距离 / 脱战距离全在这份 SO 里，表里已经没有这些值可退。");
+            }
+
+            _uiConfig = AssetModule.Load<UIConfig>(UIConfigKey);
+            if (_uiConfig == null)
+            {
+                Debug.LogError(
+                    $"[Config] 取不到 {_uiConfig}（期望 Assets/Resources/{UIConfigKey}.asset）：" +
+                    "ui配置参数会全部是字段默认值（字段级默认值不是策划填的那一套）。");
+            }
+
+            _audioConfig = AssetModule.Load<AudioConfig>(AudioConfigKey);
+            if (_audioConfig == null)
+            {
+                Debug.LogError(
+                    $"[Config] 取不到 {_audioConfig}（期望 Assets/Resources/{AudioConfigKey}.asset）：" +
+                    "ui配置参数会全部是字段默认值（字段级默认值不是策划填的那一套）。");
             }
 
             _bound = true;
@@ -372,6 +392,18 @@ namespace DeepseaOil.Data
             EnsureAssets();
 
             return new DropSpec(_dropTuning, type);
+        }
+
+        public static UIConfig GetUIConfig()
+        {
+            EnsureAssets();
+            return _uiConfig;
+        }
+
+        public static AudioConfig GetAudioConfig()
+        {
+            EnsureAssets();
+            return _audioConfig;
         }
 
         // 逃生舱：特殊情况直接访问原始 Tables

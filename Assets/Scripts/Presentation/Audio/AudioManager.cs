@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Service;
@@ -308,7 +308,7 @@ namespace DeepseaOil.Presentation
 
         private void LoadConfig(string key)
         {
-            var config = AssetModule.Load<AudioConfig>(key);
+            var config = ConfigModule.GetAudioConfig();
 
             if (config == null)
             {

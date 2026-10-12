@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -82,9 +82,7 @@ namespace DeepseaOil.Presentation.UI
             { E_UILayer.System, new Stack<BasePanelInfo>() }
         };
 
-        public UIMgr()
-        {
-        }
+        public UIMgr() { }
 
         /// 装配 UI 三件套，唯一调用点是 GameRoot.Assemble
         public void Init()
@@ -205,6 +203,7 @@ namespace DeepseaOil.Presentation.UI
             string panelName = typeof(T).Name;
             if (panelDic.ContainsKey(panelName))
             {
+                ClearUISelection();
                 PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
                 if (panelInfo.panel == null)
                 {
@@ -266,6 +265,7 @@ namespace DeepseaOil.Presentation.UI
             GameObject panelObj = GameObject.Instantiate(prefab, middleLayer, false);
 
             T panel = panelObj.GetComponent<T>();
+            panel.InitUIStyle(ConfigModule.GetUIConfig());
             Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);
@@ -282,6 +282,7 @@ namespace DeepseaOil.Presentation.UI
             string panelName = typeof(T).Name;
             if (panelDic.ContainsKey(panelName))
             {
+                ClearUISelection();
                 PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
                 if (panelInfo.panel == null)
                 {
@@ -383,6 +384,28 @@ namespace DeepseaOil.Presentation.UI
         public void OpenExitConfirmPanel()
         {
             ShowPanel<ExitConfirmPanel>();
+        }
+
+
+        public void CloseAllPanels()
+        {
+            foreach (Stack<BasePanelInfo> stack in openPanels.Values)
+            {
+                while (stack.Count > 0)
+                {
+                    BasePanelInfo info = stack.Pop();
+
+                    if (info.Panel == null || info.isHide)
+                        continue;
+
+                    info.Hide(false);
+                }
+            }
+        }
+
+        private void ClearUISelection()
+        {
+            uiEventSystem?.SetSelectedGameObject(null);
         }
     }
 }
