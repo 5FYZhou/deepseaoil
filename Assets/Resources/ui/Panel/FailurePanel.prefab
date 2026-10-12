@@ -236,7 +236,7 @@ GameObject:
   - component: {fileID: 4234507922688421578}
   - component: {fileID: 765366244681004479}
   - component: {fileID: 4961797757978878826}
-  - component: {fileID: 6395628157311776646}
+  - component: {fileID: 5117042333243605297}
   m_Layer: 5
   m_Name: BtnRestart
   m_TagString: Untagged
@@ -302,7 +302,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &6395628157311776646
+--- !u!114 &5117042333243605297
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -311,7 +311,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 5255142526590114254}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: 92da22fcad349a64b80d4d98f953a6f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -357,7 +357,7 @@ GameObject:
   - component: {fileID: 1338280205761336719}
   - component: {fileID: 7839477571132424106}
   - component: {fileID: 5575259091333055379}
-  - component: {fileID: 8253657332922892361}
+  - component: {fileID: 1461669117996929036}
   m_Layer: 5
   m_Name: BtnReturnMenu
   m_TagString: Untagged
@@ -423,7 +423,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &8253657332922892361
+--- !u!114 &1461669117996929036
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -432,7 +432,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 6219772900016308347}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: 92da22fcad349a64b80d4d98f953a6f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:

@@ -37,10 +37,12 @@ namespace DeepseaOil.Logic.Input
             switch (ctx.gameState)
             {
                 case GameState.Running:
+                    _uiMgr.OpenPausePanel();
                     _states.RequestState(GameState.Paused);
                     return;
 
                 case GameState.Menu:
+                    _uiMgr.OpenExitConfirmPanel();
                     _states.RequestState(GameState.BeforeExit);
                     return;
 

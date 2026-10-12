@@ -7,11 +7,14 @@ namespace DeepseaOil.Presentation.UI
     public class PausePanel : BasePanel
     {
         public override E_UILayer Layer => E_UILayer.Middle;
-        public override bool CanBeHideByKey => false;
+        public override bool CanBeHideByKey => true;
 
         public override void ShowMe() { }
 
-        public override void HideMe() { }
+        public override void HideMe()
+        {
+            GameRoot.Instance.Game.ChangeState(GameState.Running);
+        }
 
         protected override ButtonStyle SetBtnStyle(string name)
         {

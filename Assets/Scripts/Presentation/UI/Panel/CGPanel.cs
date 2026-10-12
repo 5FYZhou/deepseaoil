@@ -11,7 +11,7 @@ namespace DeepseaOil.Presentation.UI
     [RequireComponent(typeof(PlayableDirector))]
     public class CGPanel : BasePanel
     {
-        public override E_UILayer Layer => E_UILayer.Top;
+        public override E_UILayer Layer => E_UILayer.System;
         public override bool CanBeHideByKey => false;
 
         private PlayableDirector _director;

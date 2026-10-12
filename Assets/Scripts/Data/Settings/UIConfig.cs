@@ -14,7 +14,15 @@ namespace DeepseaOil.Data
         /// <summary>
         /// 开始界面等
         /// </summary>
-        Normal
+        Normal,
+        /// <summary>
+        /// 空档按钮
+        /// </summary>
+        EmptySaveSlot,
+        /// <summary>
+        /// 有档按钮
+        /// </summary>
+        SaveSlot
     }
 
     [Serializable]

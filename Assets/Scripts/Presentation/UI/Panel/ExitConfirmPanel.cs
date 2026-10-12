@@ -5,7 +5,7 @@ namespace DeepseaOil.Presentation.UI
 {
     public class ExitConfirmPanel : BasePanel
     {
-        public override E_UILayer Layer => E_UILayer.Top;
+        public override E_UILayer Layer => E_UILayer.System;
         public override bool CanBeHideByKey => true;
 
         public override void ShowMe()
