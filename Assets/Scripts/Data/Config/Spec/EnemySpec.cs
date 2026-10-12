@@ -4,7 +4,7 @@ using UnityEngine;
 namespace DeepseaOil.Data
 {
 
-    // 耐久与极速来自 enemy 表，其余五项归 EnemyTuning 对应条目
+    // 表给耐久与极速，运动学与形变走 EnemyTuning
     public sealed class EnemySpec
     {
         private readonly Enemy _row;
@@ -35,7 +35,6 @@ namespace DeepseaOil.Data
 
         public string Name => _row.Name;
 
-        /// <remarks>预制体 CircleCollider2D 半径须与它一致</remarks>
         public float Radius => _tuning.radius;
 
         public float MaxSpeed => _row.MaxSpeed;
@@ -49,7 +48,10 @@ namespace DeepseaOil.Data
         /// <summary>贴身一次对玩家造成的伤害；敌人伤害的唯一权威，玩家表的 contact_damage 不用在这条链上</summary>
         public int ContactDamage => _row.ContactDamage;
 
-        /// <remarks>每种类一份、每只各持一份；只装配链消费</remarks>
+        /// <summary>受击形变调参：EnemyTuning 行对象，改它当场生效</summary>
+        /// <remarks>永不返回 null：漏配就现造一份默认值，形变照旧而不是崩</remarks>
+        public SquashTuning Squash => _tuning.squash ?? (_tuning.squash = new SquashTuning());
+
         public CharacterConfig Config { get; }
     }
 }

@@ -217,13 +217,20 @@ namespace DeepseaOil.Presentation.Actor
 
                 EffectModule.Play(EffectId.Flash, in flash);
 
-                // 写 View 不写 Root：Root.localScale.x 是朝向镜像，叠乘会变胖；致死一击时长更长
-                EffectContext punch = EffectContext.OnTarget(
-                    _animView != null ? _animView.transform : transform);
-                punch.Duration = !Stats.IsAlive ? 0.14f : 0.10f;
-                punch.Intensity = 0.18f;
+                // 写 View 不写 Root：Root.localScale.x 是朝向镜像，叠乘会变胖；旋钮在 EnemyTuning 行
+                if (_spec != null && _spec.Squash.amount > 0f)
+                {
+                    SquashTuning squash = _spec.Squash;
 
-                EffectModule.Play(EffectId.Squash, in punch);
+                    EffectContext punch = EffectContext.OnTarget(
+                        _animView != null ? _animView.transform : transform);
+                    punch.Duration = Stats.IsAlive ? squash.normalDuration : squash.deathDuration;
+                    punch.Intensity = Mathf.Min(squash.amount, squash.maxAmount);
+                    punch.SquashRatio = squash.compressRatio;
+                    punch.SquashPower = squash.easePower;
+
+                    EffectModule.Play(EffectId.Squash, in punch);
+                }
 
                 // 换 transform.position 会错开
                 EffectContext spark = EffectContext.At(Position, damage.Direction);

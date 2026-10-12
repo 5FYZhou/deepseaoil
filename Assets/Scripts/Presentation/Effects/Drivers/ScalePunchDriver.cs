@@ -3,17 +3,11 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>受击挤压驱动：目标 Transform 的 localScale 按 Y 拉伸、X 压缩，二次缓出回弹</summary>
-    /// <remarks>不像 Tint 那样下探渲染器：ctx.Follow 必须是 View 节点，给 Root 会把朝向镜像一起缩。挂在 View 下的子节点（影子/血条）会继承这份缩放，是节点拓扑决定的。连续受击重置不叠加，目标销毁自动摘账。</remarks>
+    /// <summary>受击挤压驱动：目标 Transform 的 localScale 按 Y 拉伸、X 压缩，按幂次缓出回弹</summary>
+    /// <remarks>不像 Tint 那样下探渲染器：ctx.Follow 必须是 View 节点，给 Root 会把朝向镜像一起缩。挂在 View 下的子节点（影子/血条）会继承这份缩放，是节点拓扑决定的。连续受击重置不叠加，目标销毁自动摘账。压缩比与回弹曲线由 ctx 带进来（EnemyTuning 那一行），驱动自己不留硬编码手感。</remarks>
     public sealed class ScalePunchDriver : IEffectDriver
     {
         private const float DefaultDuration = 0.1f;
-
-        /// <summary>X 压缩量相对 Y 拉伸量的比例，小于 1 才会显瘦而不是显胖</summary>
-        private const float CompressRatio = 0.6f;
-
-        /// <summary>强度上限：手滑配 3.0 会把角色拉成针</summary>
-        private const float MaxAmount = 0.5f;
 
         private sealed class PunchState
         {
@@ -27,6 +21,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             public float Elapsed;
             public float Duration;
             public float Amount;
+
+            /// <summary>本次形变的胖瘦与回弹曲线：逐目标存，免得两次播放互相串</summary>
+            public float Ratio;
+
+            public float Power;
         }
 
         private readonly Dictionary<Transform, PunchState> _states = new Dictionary<Transform, PunchState>();
@@ -79,7 +78,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             state.Elapsed = 0f;
             state.Duration = ctx.Duration > 0f ? ctx.Duration : DefaultDuration;
-            state.Amount = Mathf.Clamp(ctx.Intensity, 0f, MaxAmount);
+
+            // 上限与兜底都在这里收口：调用方给什么，驱动就只信一段合法区间
+            state.Amount = Mathf.Clamp(ctx.Intensity, 0f, 1f);
+            state.Ratio = Mathf.Clamp(ctx.SquashRatio, 0.05f, 3f);
+            state.Power = Mathf.Clamp(ctx.SquashPower, 0.25f, 8f);
             state.HandleId = ++_nextId;
 
             ApplyAt(state, 0f);
@@ -174,13 +177,13 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             CleanAll();
         }
 
-        /// <summary>二次缓出：t=0 满力、t=1 归零，先快后慢</summary>
+        /// <summary>幂次缓出：t=0 满力、t=1 归零；Power 越大回弹越脆</summary>
         private static void ApplyAt(PunchState state, float t)
         {
-            float ease = (1f - t) * (1f - t);
+            float ease = Mathf.Pow(1f - t, state.Power);
 
             float sy = state.BaseScale.y * (1f + state.Amount * ease);
-            float sx = state.BaseScale.x * (1f - state.Amount * CompressRatio * ease);
+            float sx = state.BaseScale.x * (1f - state.Amount * state.Ratio * ease);
 
             state.Target.localScale = new Vector3(sx, sy, state.BaseScale.z);
         }

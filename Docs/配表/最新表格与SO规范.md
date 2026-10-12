@@ -164,9 +164,10 @@
 2. **`ThrowTuning.cs`**：
    - 包含：抛物线基准时长 `flightDuration`、弧高 `arcHeight`、投掷最大/小距离、瞄准环压扁比例与透视。
 3. **`EnemyTuning.cs`**：
-   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`、脱战距离 `chaseRange`。**资产缺失即抛 `ConfigLoadException`**（不退回默认值）。
+   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`、脱战距离 `chaseRange`。
+   - 每行还带一组**受击形变**调参 `squash`：强度 `amount`、普通一击时长 `normalDuration`、致死一击时长 `deathDuration`、X 压扁比 `compressRatio`、回弹曲线指数 `easePower`、强度硬上限 `maxAmount`。改这里即改观感，不用碰 `ScalePunchDriver`；`amount = 0` 即关掉该怪种的形变。**资产缺失即抛 `ConfigLoadException`**（不退回默认值）。
 4. **`VisualPalette.cs`**：
-   - 包含：受击闪烁频率 `enemyFlashHz`、球种颜色、敌人 4 态颜色、高亮提示色。
+   - 包含：球种颜色、敌人两态颜色（`enemyBodyNormal` / `enemyBodySlowed`）、高亮提示色、贴地件阴影色。**受击闪白不吃色值**：它走材质属性块（见 `Docs/表现/粒子特效系统.md` §8），本表只管颜色乘数。
 
 ---
 

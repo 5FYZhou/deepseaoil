@@ -25,5 +25,31 @@ namespace DeepseaOil.Data
 
         [Tooltip("超出这个距离就放弃追击（世界单位）")]
         public float chaseRange = 60f;
+
+        [Tooltip("受击形变：一怪一套，改这里即改观感，不用碰代码")]
+        public SquashTuning squash = new SquashTuning();
+    }
+
+    // 受击形变调参：形变量是 localScale 的增量比例，不是像素
+    [Serializable]
+    public sealed class SquashTuning
+    {
+        [Tooltip("强度 0~1：0.18 = 垂直拉高 18%。0 即关闭该怪种的形变")]
+        public float amount = 0.18f;
+
+        [Tooltip("普通受击时长（秒）")]
+        public float normalDuration = 0.1f;
+
+        [Tooltip("致死一击时长（秒）：比普通长一点，看得见")]
+        public float deathDuration = 0.14f;
+
+        [Tooltip("X 压缩量相对 Y 拉伸量的比例：0.6 = 只压六成")]
+        public float compressRatio = 0.6f;
+
+        [Tooltip("回弹曲线指数：1 = 线性，2 = 二次缓出（先快后慢），越大回弹越脆")]
+        public float easePower = 2f;
+
+        [Tooltip("强度硬上限：手滑把 amount 配成 3.0 会把角色拉成针")]
+        public float maxAmount = 0.5f;
     }
 }
