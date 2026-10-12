@@ -24,8 +24,8 @@ namespace DeepseaOil.Presentation.Grid
         public float ExtraOffsetY;
     }
 
-    /// <summary>纵深立面覆盖物管理器：独立对象池驱动，脚底深度对齐 Y-Sort 频带</summary>
-    /// <remarks>贴地底纹仍归 Tilemap，本类只负责管理凸出地面的 1x2 纵深立面件，状态切换自动借还池。</remarks>
+    /// <summary>纵深立面覆盖物管理器：脚底深度对齐 Y-Sort 频带</summary>
+    /// <remarks>贴地底纹仍归 Tilemap，本类只管凸出地面的 1x2 纵深立面件，状态切换自动借还池。</remarks>
     public sealed class TileOverlayDirector : MonoBehaviour
     {
         [Header("覆盖物映射表")]
@@ -33,7 +33,8 @@ namespace DeepseaOil.Presentation.Grid
         [SerializeField] private TileOverlayBinding[] bindings = new TileOverlayBinding[0];
 
         [Header("池容量")]
-        [SerializeField] private int maxPoolSize = 64;
+        [Tooltip("立面件上限：卡累计创建数，闲置再久也占额度")]
+        [SerializeField] private int maxPoolSize = 256;
 
         private readonly Dictionary<Vector3Int, GameObject> _activeOverlays = new();
         private readonly Dictionary<TileStateType, TileOverlayBinding> _bindingMap = new();
@@ -42,6 +43,7 @@ namespace DeepseaOil.Presentation.Grid
         private Pool<GameObject> _pool;
         private GridGeometry _geometry;
         private bool _attached;
+        private int _droppedOverlays;
 
         /// <summary>装配几何并初始化对象池</summary>
         public void Initialize(in GridGeometry geometry)
@@ -114,15 +116,19 @@ namespace DeepseaOil.Presentation.Grid
 
             if (!TryGetOverlay(evt.State, out Sprite sprite, out float extraOffsetY)) return;
 
-            if (!_pool.TryGet(out GameObject obj) || obj == null) return;
+            if (!_pool.TryGet(out GameObject obj) || obj == null)
+            {
+                CountDropped();
+                return;
+            }
 
             Vector2 center = _geometry.CellCenter(evt.Cell);
             float cellSize = _geometry.CellSize;
 
-            // 脚底点 Y（格底）：以此为基准进行 2.5D 深度遮挡计算
+            // 格底 Y：2.5D 深度遮挡的基准
             float footY = center.y - cellSize * 0.5f;
 
-            // 贴图默认 Pivot 为 (0.5, 0) 底边居中，坐标直接贴齐格底
+            // 贴图 Pivot 默认底边居中，坐标直接贴齐格底
             obj.transform.position = new Vector3(center.x, footY + extraOffsetY, 0f);
 
             var renderer = obj.GetComponent<SpriteRenderer>();
@@ -138,7 +144,7 @@ namespace DeepseaOil.Presentation.Grid
             sprite = null;
             extraOffsetY = 0f;
 
-            // 门禁：只处理在 bindings 中显式登记了的状态，未登记的地貌（如水/土/泥浆）直接跳过，绝不盲查 AssetModule
+            // 门禁：只处理 bindings 里登记过的状态，未登记的地貌直接跳过，绝不盲查 AssetModule
             if (!_bindingMap.TryGetValue(state, out TileOverlayBinding binding))
             {
                 return false;
@@ -180,6 +186,18 @@ namespace DeepseaOil.Presentation.Grid
 
             go.SetActive(false);
             return go;
+        }
+
+        /// <summary>丢件计数：只报头一次与每 64 次，免得刷屏</summary>
+        private void CountDropped()
+        {
+            _droppedOverlays++;
+
+            if (_droppedOverlays != 1 && _droppedOverlays % 64 != 0) return;
+
+            Debug.LogWarning(
+                $"[Grid] TileOverlay 立面件借不到：累计 {_droppedOverlays} 次（上限 {maxPoolSize}）。" +
+                "调大 TileOverlayDirector.maxPoolSize，或检查 bindings 是否登记了这个地貌状态。", this);
         }
     }
 }
