@@ -294,9 +294,11 @@ namespace DeepseaOil.Presentation
             if (!logic.TakeDamage(in damage, now)) return;
 
             // 受创反馈：世界侧只报事实，播什么由玩家侧与特效模块决定
+            CombatFeelTuning feel = ConfigModule.Feel;
+
             EffectContext hitShake = EffectContext.At(position);
-            hitShake.Intensity = 1f;
-            hitShake.Duration = 0.14f;
+            hitShake.Intensity = feel.hitShakeAmplitude;
+            hitShake.Duration = feel.hitShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in hitShake);
 
@@ -650,6 +652,8 @@ namespace DeepseaOil.Presentation
         {
             if (evt.ResultTile != TileStateType.Steam) return;
 
+            CombatFeelTuning feel = ConfigModule.Feel;
+
             EffectContext ctx = EffectContext.At(evt.Center);
             ctx.Radius = evt.Radius;
             ctx.Scale = evt.Radius; // ParticleDriver 会将预制体缩放与 Scale 相乘，使扩散范围与半径对齐
@@ -657,9 +661,11 @@ namespace DeepseaOil.Presentation
             EffectModule.Play(EffectId.SteamBlast, in ctx);
 
             // 半径映射到 0.4..1：EffectContext.Intensity 读时 Clamp01，塞原始半径会被拍成恒定满档
+            float shake = Mathf.Lerp(feel.blastShakeAmplitudeMin, feel.blastShakeAmplitudeMax, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
+
             EffectContext shakeCtx = EffectContext.At(evt.Center);
-            shakeCtx.Intensity = Mathf.Lerp(0.4f, 1f, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
-            shakeCtx.Duration = 0.16f;
+            shakeCtx.Intensity = shake;
+            shakeCtx.Duration = feel.blastShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in shakeCtx);
         }

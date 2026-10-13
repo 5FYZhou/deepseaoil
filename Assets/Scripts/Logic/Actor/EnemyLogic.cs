@@ -13,7 +13,7 @@ namespace DeepseaOil.Logic
         private readonly StatusGroup _status;
         private readonly EnemyMoveGroup _move;
 
-        private readonly AggroState _aggro = new();
+        private readonly AggroState _aggro;
 
         // 绕障网格，null = 不绕障
         private GridLogic _grid;
@@ -25,8 +25,8 @@ namespace DeepseaOil.Logic
 
         private System.Func<Vector3Int, bool> _isWalkable;
 
-        // BFS 重算间隔，物理帧
-        private const int PathRecalcFrames = 5;
+        private int _pathMaxSteps;
+        private int _pathRecalcFrames;
 
         private int _pathCooldown;
         private Vector2 _pathDirection;
@@ -48,6 +48,7 @@ namespace DeepseaOil.Logic
             Brain = brain ?? EnemyBrainFactory.Create(in spec);
             _status = new StatusGroup(this);
             _move = new EnemyMoveGroup(this, motor);
+            _aggro = new AggroState(spec.VisionRange, spec.SustainRange, spec.LoseDelay);
         }
 
         public IEnemyBrain Brain { get; }
@@ -72,6 +73,9 @@ namespace DeepseaOil.Logic
 
             // 委托只构造一次：写进 ResolveObstacle 会每帧分配
             _isWalkable = IsWalkable;
+
+            _pathMaxSteps = ConfigModule.PathMaxSteps;
+            _pathRecalcFrames = ConfigModule.PathRecalcFrames;
         }
 
         public void ForceLoseAggro()
@@ -88,7 +92,7 @@ namespace DeepseaOil.Logic
 
             if (_pathCooldown-- > 0) return _pathDirection.sqrMagnitude > 0f ? _pathDirection : direction;
 
-            _pathCooldown = PathRecalcFrames;
+            _pathCooldown = _pathRecalcFrames;
 
             Vector2 position = Motor.Position;
 
@@ -112,6 +116,7 @@ namespace DeepseaOil.Logic
                 _grid.Geometry,
                 _grid.WorldToCell(position),
                 _grid.WorldToCell(_target.Value),
+                _pathMaxSteps,
                 _isWalkable,
                 _pathFrontier,
                 _pathQueue,

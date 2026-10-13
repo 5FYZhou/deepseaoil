@@ -197,8 +197,7 @@ namespace DeepseaOil.Presentation.UI
             }
         }
 
-        /// 显示面板；isSync 方法体从不读
-        public void ShowPanel<T>(UnityAction<T> callBack = null, bool isSync = true) where T : BasePanel
+        public void ShowPanel<T>(UnityAction<T> callBack = null) where T : BasePanel
         {
             string panelName = typeof(T).Name;
             if (panelDic.ContainsKey(panelName))

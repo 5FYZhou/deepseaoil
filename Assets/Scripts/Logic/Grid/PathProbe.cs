@@ -7,9 +7,6 @@ namespace DeepseaOil.Logic.Grid
     /// <remarks>找不到或超深度返回 false 且 step=start，调用方退回直线撞墙；缓冲全由调用方持有，本类每次调用零分配。</remarks>
     public static class PathProbe
     {
-        /// <summary>搜索深度上限（格），超过即放弃</summary>
-        public const int DefaultMaxSteps = 16;
-
         // 与 GridQuery.GetNeighbors4 同序：下/左/右/上
         private static readonly Vector3Int[] Neighbors4 =
         {
@@ -19,11 +16,12 @@ namespace DeepseaOil.Logic.Grid
             new Vector3Int(0, 1, 0),
         };
 
-        /// <summary>返回起点走到终点的下一步；几何无效、起点即终点、超 DefaultMaxSteps 都返回 false</summary>
+        /// <summary>返回起点走到终点的下一步；几何无效、起点即终点、超 maxSteps 都返回 false</summary>
         public static bool TryFindStep(
             GridGeometry geometry,
             Vector3Int start,
             Vector3Int goal,
+            int maxSteps,
             System.Func<Vector3Int, bool> isWalkable,
             List<Vector3Int> frontier,
             Queue<Vector3Int> queue,
@@ -49,7 +47,7 @@ namespace DeepseaOil.Logic.Grid
             visited.Add(start);
             queue.Enqueue(start);
 
-            for (int depth = 0; depth < DefaultMaxSteps && queue.Count > 0; depth++)
+            for (int depth = 0; depth < maxSteps && queue.Count > 0; depth++)
             {
                 frontier.Clear();
 

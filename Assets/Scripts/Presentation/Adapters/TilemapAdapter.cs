@@ -136,7 +136,7 @@ namespace DeepseaOil.Presentation.Adapters
 
                 TileStateType state = ResolveSetupState(tile);
 
-                grid.RegisterCell(cell, state);
+                grid.RegisterCell(cell);
 
                 if (state == TileStateType.Normal) continue;
 

@@ -16,20 +16,6 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>燎原火海每步蔓延的间隔（秒）</summary>
         public const float FlameSpreadStep = 0.2f;
 
-        /// <summary>连锁电击的伤害与麻痹下限，全网同帧一致</summary>
-        private const int ShockDamage = 1;
-
-        private const float ShockStunSeconds = 1.5f;
-
-        /// <summary>火海每格的灼烧伤害</summary>
-        private const int FlameDamage = 2;
-
-        /// <summary>二级反应的波及半径下限，格；表里填得更大时以表为准</summary>
-        private const float MinBlastRadius = 1.5f;
-
-        /// <summary>向心吸引强度，单位/秒</summary>
-        private const float PullStrength = 5f;
-
         private static readonly Queue<Vector3Int> _queue = new Queue<Vector3Int>(64);
 
         private static readonly HashSet<Vector3Int> _visited = new HashSet<Vector3Int>();
@@ -155,9 +141,13 @@ namespace DeepseaOil.Logic.Grid
 
                 _shocked++;
 
-                float stun = Mathf.Max(grid.TouchStunOf(current), ShockStunSeconds);
+                int damage = grid.DotDamageOf(current);
 
-                grid.ApplyInstantShock(current, ShockDamage, stun);
+                // 兜底 1：地貌没配 dot_damage 时链锁不该变成 0 伤害
+                if (damage <= 0) damage = 1;
+
+                // 麻痹取 1.5 下限：导电体表值多为 0，只读表就不麻痹且特效翻成火花
+                grid.ApplyInstantShock(current, damage, Mathf.Max(grid.TouchStunOf(current), 1.5f));
 
                 GridQuery.GetNeighbors4(current, _neighbors);
 
@@ -192,8 +182,13 @@ namespace DeepseaOil.Logic.Grid
         {
             if (!grid.HasCell(cell)) return;
 
-            // stun>0 会被 ApplyInstantShock 判成电弧特效
-            grid.ApplyInstantShock(cell, FlameDamage, grid.TouchStunOf(cell));
+            int damage = grid.DotDamageOf(cell);
+
+            // 兜底 1：地貌没配 dot_damage 时链锁不该变成 0 伤害
+            if (damage <= 0) damage = 1;
+
+            // stun>0 会被 ApplyInstantShock 判成电弧特效：火海 touch_stun=0 出火花，带电荆棘 1.5 出电弧
+            grid.ApplyInstantShock(cell, damage, grid.TouchStunOf(cell));
 
             GridQuery.GetNeighbors4(cell, _neighbors);
 
@@ -243,16 +238,16 @@ namespace DeepseaOil.Logic.Grid
                 grid.SwitchTileState(origin, duo.ResultTile, duo.ResultDuration);
             }
 
-            float radius = duo.EffectRadius > MinBlastRadius ? duo.EffectRadius : MinBlastRadius;
+            float radius = duo.EffectRadius;
 
             grid.ApplyBlast(origin, radius, duo.ImpactDamage, duo.ImpactKnockback);
 
             grid.SpreadTileInRadius(origin, radius, duo.ResultTile, duo.ResultDuration);
 
-            // 判据用表里的原始半径，不用上面夹逼过的 radius
-            if (duo.ResultTile == TileStateType.Normal && duo.EffectRadius > 1.5f) BreakAggroInRadius(grid, origin, duo.EffectRadius);
+            // 吸力与清仇恨是表里的两列开关：填了才生效，吸力单位是单位/秒，不靠半径反推
+            if (duo.PullStrength > 0f) PullInRadius(grid, origin, radius, duo.PullStrength);
 
-            if (duo.ResultTile == TileStateType.Freeze && duo.EffectRadius > 1.5f) PullInRadius(grid, origin, duo.EffectRadius);
+            if (duo.BreakAggro) BreakAggroInRadius(grid, origin, radius);
 
             if (!duo.TriggerChain) return;
 
@@ -291,7 +286,7 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        private static void PullInRadius(GridLogic grid, Vector3Int origin, float radius)
+        private static void PullInRadius(GridLogic grid, Vector3Int origin, float radius, float pullStrength)
         {
             CollectCellsInRadius(grid, origin, radius, _radiusCells);
 
@@ -314,7 +309,7 @@ namespace DeepseaOil.Logic.Grid
                     // 零向量归一化是 NaN：压在格心上就跳过
                     if (toCenter.sqrMagnitude <= 0.001f) continue;
 
-                    knockbackable.ApplyKnockback(toCenter.normalized * PullStrength);
+                    knockbackable.ApplyKnockback(toCenter.normalized * pullStrength);
                 }
             }
         }

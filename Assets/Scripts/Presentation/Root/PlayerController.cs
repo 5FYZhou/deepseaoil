@@ -33,16 +33,6 @@ namespace DeepseaOil.Presentation
         [Tooltip("视觉适配器，必须挂在子节点 View 上（Root 只放物理与逻辑）。留空则 Awake 自愈")]
         [SerializeField] private ActorAnimationView animView = default;
 
-        [Header("脚下扬尘")]
-        [Tooltip("低于此速度（单位/秒）不扬尘；避免静止抖动时喷粒子")]
-        [SerializeField] private float dustSpeedThreshold = 0.8f;
-
-        [Tooltip("满速时的发射节拍（秒）")]
-        [SerializeField] private float dustInterval = 0.14f;
-
-        [Tooltip("节拍按速度缩放的基准速度（单位/秒），一般取 PlayerConfig.moveSpeed")]
-        [SerializeField] private float dustReferenceSpeed = 8f;
-
         private float _dustTimer;
 
         private const float DirectionEpsilon = 1e-6f;
@@ -313,9 +303,11 @@ namespace DeepseaOil.Presentation
         {
             if (dt <= 0f) return;
 
+            CombatFeelTuning feel = ConfigModule.Feel;
+
             float speed = EngineVelocity.magnitude;
 
-            if (speed < dustSpeedThreshold)
+            if (speed < feel.dustSpeedThreshold)
             {
                 // 停下立刻归零：下次起步即发射，不用等半个节拍
                 _dustTimer = 0f;
@@ -328,12 +320,12 @@ namespace DeepseaOil.Presentation
             if (_dustTimer > 0f) return;
 
             // 速度越快节拍越密：满速时取 dustInterval
-            float ratio = Mathf.Clamp(speed / dustReferenceSpeed, 0.5f, 2f);
+            float ratio = Mathf.Clamp(speed / feel.dustReferenceSpeed, 0.5f, 2f);
 
-            _dustTimer = dustInterval / ratio;
+            _dustTimer = feel.dustInterval / ratio;
 
             EffectContext ctx = EffectContext.At(Position);
-            ctx.Intensity = Mathf.Clamp01(speed / dustReferenceSpeed);
+            ctx.Intensity = Mathf.Clamp01(speed / feel.dustReferenceSpeed);
 
             EffectModule.Play(EffectId.Dust, in ctx);
         }
