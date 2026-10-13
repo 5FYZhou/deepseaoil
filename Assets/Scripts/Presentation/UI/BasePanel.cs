@@ -38,7 +38,7 @@ namespace DeepseaOil.Presentation.UI
             ReleaseAssets();
         }
 
-        public void InitUIStyle(UIConfig config)
+        public void InitUIStyle(UIConfig config, IReadOnlyDictionary<TxtStyle, TMP_FontAsset> fontAssets)
         {
             _config = config;
 
@@ -47,6 +47,10 @@ namespace DeepseaOil.Presentation.UI
                 if(type is Button button)
                 {
                     ApplyBtnStyle(button, SetBtnStyle(name));
+                }
+                else if (type is TMP_Text text)
+                {
+                    ApplyFontStyle(text, SetTxtStyle(name), fontAssets);
                 }
             }
         }
@@ -143,6 +147,24 @@ namespace DeepseaOil.Presentation.UI
             return ButtonStyle.None;
         }
 
+        protected virtual TxtStyle SetTxtStyle(string name)
+        {
+            return TxtStyle.None;
+        }
+
+        internal void CollectFontStyles(HashSet<TxtStyle> styles)
+        {
+            foreach (var (name, type) in components)
+            {
+                if (type is TMP_Text)
+                {
+                    TxtStyle style = SetTxtStyle(name);
+                    if (style != TxtStyle.None)
+                        styles.Add(style);
+                }
+            }
+        }
+
         protected void ApplyBtnStyle(Button button, ButtonStyle style)
         {
             if (style == ButtonStyle.None) return;
@@ -171,6 +193,37 @@ namespace DeepseaOil.Presentation.UI
             state.disabledSprite = disabled;
 
             button.spriteState = state;
+        }
+
+        private void ApplyFontStyle(
+            TMP_Text text,
+            TxtStyle style,
+            IReadOnlyDictionary<TxtStyle, TMP_FontAsset> fontAssets)
+        {
+            if (style == TxtStyle.None) return;
+            if (!_config.TryGetFontStyleInfo(style, out FontStyleInfo info)) return;
+            if (!fontAssets.TryGetValue(style, out TMP_FontAsset fontAsset) || fontAsset == null) return;
+
+            text.font = fontAsset;
+            if (info.size > 0)
+                text.fontSize = info.size;
+
+            text.fontStyle = ToFontStyles(info.fontStyle);
+        }
+
+        private static FontStyles ToFontStyles(FontStyle fontStyle)
+        {
+            switch (fontStyle)
+            {
+                case FontStyle.Bold:
+                    return FontStyles.Bold;
+                case FontStyle.Italic:
+                    return FontStyles.Italic;
+                case FontStyle.BoldAndItalic:
+                    return FontStyles.Bold | FontStyles.Italic;
+                default:
+                    return FontStyles.Normal;
+            }
         }
 
         protected SpriteAtlas LoadSpriteAtlas(string key)

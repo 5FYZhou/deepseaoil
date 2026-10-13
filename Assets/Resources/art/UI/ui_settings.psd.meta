@@ -330,6 +330,48 @@ ScriptedImporter:
     tessellationDetail: 0
     uvTransform: {x: 4, y: 1363}
     spritePosition: {x: 324, y: 587}
+  - name: "\u4EA4\u4E92\u540E\u6309\u94AE"
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    rect:
+      serializedVersion: 2
+      x: 1913
+      y: 986
+      width: 112
+      height: 122
+    spriteID: ad76fa590bf047e46851a26ce5d13de9
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1913, y: 986}
+    spritePosition: {x: 934, y: 451}
+  - name: "\u4EA4\u4E92\u524D\u6309\u94AE"
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    rect:
+      serializedVersion: 2
+      x: 1913
+      y: 816
+      width: 113
+      height: 125
+    spriteID: ab3fceb94f1e5fe46bdbe458508e91fb
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1913, y: 816}
+    spritePosition: {x: 933, y: 448}
   - name: "SETTING\u4EA4\u4E92\u540E"
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -590,6 +632,26 @@ ScriptedImporter:
     spriteID: 51ab3f7b4392cae44bf64a4055506da7
     layerID: 7
     mosaicPosition: {x: 4, y: 1363}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: "\u4EA4\u4E92\u540E\u6309\u94AE"
+    spriteName: "\u4EA4\u4E92\u540E\u6309\u94AE"
+    isGroup: 0
+    parentIndex: -1
+    spriteID: ad76fa590bf047e46851a26ce5d13de9
+    layerID: 33
+    mosaicPosition: {x: 1913, y: 986}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: "\u4EA4\u4E92\u524D\u6309\u94AE"
+    spriteName: "\u4EA4\u4E92\u524D\u6309\u94AE"
+    isGroup: 0
+    parentIndex: -1
+    spriteID: ab3fceb94f1e5fe46bdbe458508e91fb
+    layerID: 32
+    mosaicPosition: {x: 1913, y: 816}
     flatten: 0
     isImported: 1
     isVisible: 1
