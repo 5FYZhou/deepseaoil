@@ -10,15 +10,12 @@ using cfg.dso;
 
 namespace DeepseaOil.Presentation.Grid
 {
-    /// <summary>地貌贴图配置，关联地貌状态与立面贴图</summary>
+    /// <summary>地貌立面登记表：只在册状态查约定贴图</summary>
     [Serializable]
     public struct TileOverlayBinding
     {
-        [Tooltip("对应地貌状态")]
+        [Tooltip("登记该状态有覆盖物立面；未登记的状态完全不查资源系统")]
         public TileStateType State;
-
-        [Tooltip("纵深贴图。留空则走 tiles/overlays/Overlay_<状态> 约定加载")]
-        public Sprite Sprite;
 
         [Tooltip("垂直微调偏移")]
         public float ExtraOffsetY;
@@ -29,7 +26,7 @@ namespace DeepseaOil.Presentation.Grid
     public sealed class TileOverlayDirector : MonoBehaviour
     {
         [Header("覆盖物映射表")]
-        [Tooltip("各状态立面贴图绑定。未配的将尝试约定路径懒加载")]
+        [Tooltip("登记哪些状态有覆盖物立面；未登记的完全不查资源系统")]
         [SerializeField] private TileOverlayBinding[] bindings = new TileOverlayBinding[0];
 
         [Header("池容量")]
@@ -45,9 +42,11 @@ namespace DeepseaOil.Presentation.Grid
         private bool _attached;
         private int _droppedOverlays;
 
-        /// <summary>装配几何并初始化对象池</summary>
+        /// <summary>装配几何并初始化对象池，重复调用 no-op</summary>
         public void Initialize(in GridGeometry geometry)
         {
+            if (_pool != null) return;
+
             _geometry = geometry;
 
             _bindingMap.Clear();
@@ -144,7 +143,7 @@ namespace DeepseaOil.Presentation.Grid
             sprite = null;
             extraOffsetY = 0f;
 
-            // 门禁：只处理 bindings 里登记过的状态，未登记的地貌直接跳过，绝不盲查 AssetModule
+            // 门禁：未登记的状态不查资源系统，也不警告
             if (!_bindingMap.TryGetValue(state, out TileOverlayBinding binding))
             {
                 return false;
@@ -152,14 +151,7 @@ namespace DeepseaOil.Presentation.Grid
 
             extraOffsetY = binding.ExtraOffsetY;
 
-            // 若 Inspector 已拖入贴图，直接使用
-            if (binding.Sprite != null)
-            {
-                sprite = binding.Sprite;
-                return true;
-            }
-
-            // 若留空则仅对该登记状态尝试一次约定路径加载
+            // 约定路径只查一次，加载失败也记进缓存
             if (_lazySpriteCache.TryGetValue(state, out sprite))
             {
                 return sprite != null;
@@ -199,5 +191,39 @@ namespace DeepseaOil.Presentation.Grid
                 $"[Grid] TileOverlay 立面件借不到：累计 {_droppedOverlays} 次（上限 {maxPoolSize}）。" +
                 "调大 TileOverlayDirector.maxPoolSize，或检查 bindings 是否登记了这个地貌状态。", this);
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateBindings();
+        }
+
+        /// <summary>已登记但缺图：报一条警告，指向期望路径</summary>
+        private void ValidateBindings()
+        {
+            if (bindings == null) return;
+
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                TileStateType state = bindings[i].State;
+
+                if (state == TileStateType.None || state == TileStateType.Normal)
+                {
+                    Debug.LogWarning(
+                        $"[Overlay] bindings 第 {i} 行登记的是 {state}，该状态不该有覆盖物。", this);
+
+                    continue;
+                }
+
+                string path = $"Assets/Resources/tiles/overlays/Overlay_{state}.png";
+
+                if (UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path) == null)
+                {
+                    Debug.LogWarning(
+                        $"[Overlay] bindings 第 {i} 行已登记 {state}，但缺图：期望 {path}。", this);
+                }
+            }
+        }
+#endif
     }
 }
