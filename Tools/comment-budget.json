@@ -156,7 +156,7 @@
     "Assets/Scripts/Presentation/Effects/Drivers/ScalePunchDriver.cs": 733,
     "Assets/Scripts/Presentation/Effects/Drivers/ScreenShakeDriver.cs": 221,
     "Assets/Scripts/Presentation/Effects/Drivers/ShatterDriver.cs": 302,
-    "Assets/Scripts/Presentation/Effects/EffectCatalog.cs": 270,
+    "Assets/Scripts/Presentation/Effects/EffectCatalog.cs": 339,
     "Assets/Scripts/Presentation/Effects/EffectContext.cs": 344,
     "Assets/Scripts/Presentation/Effects/EffectHandle.cs": 199,
     "Assets/Scripts/Presentation/Effects/EffectId.cs": 81,
