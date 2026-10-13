@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
@@ -10,12 +9,17 @@ using cfg.dso;
 
 namespace DeepseaOil.Presentation.Grid
 {
-    /// <summary>地貌立面登记表：只在册状态查约定贴图</summary>
     [Serializable]
     public struct TileOverlayBinding
     {
-        [Tooltip("登记该状态有覆盖物立面；未登记的状态完全不查资源系统")]
+        [Tooltip("登记该状态有覆盖物立面")]
         public TileStateType State;
+
+        [Tooltip("覆盖物贴图；为空则该状态不显示覆盖物")]
+        public Sprite OverlaySprite;
+
+        [Tooltip("覆盖物材质；留空则用 Sprite 默认材质")]
+        public Material OverrideMaterial;
 
         [Tooltip("垂直微调偏移")]
         public float ExtraOffsetY;
@@ -26,7 +30,7 @@ namespace DeepseaOil.Presentation.Grid
     public sealed class TileOverlayDirector : MonoBehaviour
     {
         [Header("覆盖物映射表")]
-        [Tooltip("登记哪些状态有覆盖物立面；未登记的完全不查资源系统")]
+        [Tooltip("登记哪些状态有覆盖物立面")]
         [SerializeField] private TileOverlayBinding[] bindings = new TileOverlayBinding[0];
 
         [Header("池容量")]
@@ -35,7 +39,6 @@ namespace DeepseaOil.Presentation.Grid
 
         private readonly Dictionary<Vector3Int, GameObject> _activeOverlays = new();
         private readonly Dictionary<TileStateType, TileOverlayBinding> _bindingMap = new();
-        private readonly Dictionary<TileStateType, Sprite> _lazySpriteCache = new();
 
         private Pool<GameObject> _pool;
         private GridGeometry _geometry;
@@ -102,18 +105,20 @@ namespace DeepseaOil.Presentation.Grid
 
         private void OnTileStateChanged(TileStateChanged evt)
         {
-            if (!_geometry.IsValid) return;
-
-            // 离开覆盖态时归还旧对象
-            if (_activeOverlays.TryGetValue(evt.Cell, out GameObject activeObj))
+            // 先归还旧对象：无论新状态有没有覆盖物，旧的那件都不能留在场上
+            if (_activeOverlays.TryGetValue(evt.Cell, out GameObject oldObj))
             {
-                _pool.Release(activeObj);
+                _pool.Release(oldObj);
                 _activeOverlays.Remove(evt.Cell);
             }
 
             if (evt.State == TileStateType.Normal) return;
+            if (!_geometry.IsValid) return;
 
-            if (!TryGetOverlay(evt.State, out Sprite sprite, out float extraOffsetY)) return;
+            if (!_bindingMap.TryGetValue(evt.State, out TileOverlayBinding binding)) return;
+
+            // 空 Sprite 直接返回：不借池对象，也就不占池额度
+            if (binding.OverlaySprite == null) return;
 
             if (!_pool.TryGet(out GameObject obj) || obj == null)
             {
@@ -128,44 +133,17 @@ namespace DeepseaOil.Presentation.Grid
             float footY = center.y - cellSize * 0.5f;
 
             // 贴图 Pivot 默认底边居中，坐标直接贴齐格底
-            obj.transform.position = new Vector3(center.x, footY + extraOffsetY, 0f);
+            obj.transform.position = new Vector3(center.x, footY + binding.ExtraOffsetY, 0f);
 
             var renderer = obj.GetComponent<SpriteRenderer>();
-            renderer.sprite = sprite;
+            renderer.sprite = binding.OverlaySprite;
+
+            // sharedMaterial 避免逐实例克隆；null 即回默认材质
+            renderer.sharedMaterial = binding.OverrideMaterial;
 
             renderer.sortingOrder = RenderOrder.ActorOrder(footY) - 1;
 
             _activeOverlays[evt.Cell] = obj;
-        }
-
-        private bool TryGetOverlay(TileStateType state, out Sprite sprite, out float extraOffsetY)
-        {
-            sprite = null;
-            extraOffsetY = 0f;
-
-            // 门禁：未登记的状态不查资源系统，也不警告
-            if (!_bindingMap.TryGetValue(state, out TileOverlayBinding binding))
-            {
-                return false;
-            }
-
-            extraOffsetY = binding.ExtraOffsetY;
-
-            // 约定路径只查一次，加载失败也记进缓存
-            if (_lazySpriteCache.TryGetValue(state, out sprite))
-            {
-                return sprite != null;
-            }
-
-            if (AssetModule.IsInitialized)
-            {
-                string key = $"tiles/overlays/Overlay_{state}";
-                sprite = AssetModule.Load<Sprite>(key);
-                _lazySpriteCache[state] = sprite;
-                return sprite != null;
-            }
-
-            return false;
         }
 
         private GameObject CreateOverlayObject()
@@ -189,17 +167,11 @@ namespace DeepseaOil.Presentation.Grid
 
             Debug.LogWarning(
                 $"[Grid] TileOverlay 立面件借不到：累计 {_droppedOverlays} 次（上限 {maxPoolSize}）。" +
-                "调大 TileOverlayDirector.maxPoolSize，或检查 bindings 是否登记了这个地貌状态。", this);
+                "调大 TileOverlayDirector.maxPoolSize。", this);
         }
 
 #if UNITY_EDITOR
         private void OnValidate()
-        {
-            ValidateBindings();
-        }
-
-        /// <summary>已登记但缺图：报一条警告，指向期望路径</summary>
-        private void ValidateBindings()
         {
             if (bindings == null) return;
 
@@ -215,12 +187,19 @@ namespace DeepseaOil.Presentation.Grid
                     continue;
                 }
 
-                string path = $"Assets/Resources/tiles/overlays/Overlay_{state}.png";
-
-                if (UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path) == null)
+                if (bindings[i].OverlaySprite == null)
                 {
                     Debug.LogWarning(
-                        $"[Overlay] bindings 第 {i} 行已登记 {state}，但缺图：期望 {path}。", this);
+                        $"[Overlay] bindings 第 {i} 行登记了 {state}，但 OverlaySprite 为空：该状态不会显示覆盖物。", this);
+                }
+
+                for (int j = i + 1; j < bindings.Length; j++)
+                {
+                    if (bindings[j].State == state)
+                    {
+                        Debug.LogError(
+                            $"[Overlay] bindings 里 {state} 出现了两次（第 {i} 行与第 {j} 行）：只会取第一条。", this);
+                    }
                 }
             }
         }
