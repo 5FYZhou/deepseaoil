@@ -41,6 +41,20 @@ namespace DeepseaOil.Presentation.UI
             }
             return ButtonStyle.None;
         }
+
+        protected override TxtStyle SetTxtStyle(string name)
+        {
+            switch (name)
+            {
+                case "txtSfxNum":
+                    return TxtStyle.Title;
+                case "txtBgmNum":
+                    return TxtStyle.Body;
+                default:
+                    return TxtStyle.None;
+            }
+        }
+
         protected override void OnButtonClicked(string name)
         {
             switch (name)
