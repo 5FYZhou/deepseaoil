@@ -1,4 +1,5 @@
-﻿using DeepseaOil.Logic;
+﻿using DeepseaOil.Data;
+using DeepseaOil.Logic;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -10,6 +11,24 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe() { }
 
         public override void HideMe() { }
+
+        protected override ButtonStyle SetBtnStyle(string name)
+        {
+            switch (name)
+            {
+                case "BtnClose":
+                    return ButtonStyle.None;
+                case "BtnSave0":
+                    return ButtonStyle.SaveSlot;
+                case "BtnSave1":
+                    return ButtonStyle.SaveSlot;
+                case "BtnSave2":
+                    return ButtonStyle.EmptySaveSlot;
+                case "BtnSave3":
+                    return ButtonStyle.EmptySaveSlot;
+            }
+            return ButtonStyle.None;
+        }
 
         protected override void OnButtonClicked(string name)
         {

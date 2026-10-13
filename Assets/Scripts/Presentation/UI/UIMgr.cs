@@ -4,11 +4,13 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
     public enum E_UILayer
     {
+        Transition,
         Bottom,
         Middle,
         Top,
@@ -55,12 +57,13 @@ namespace DeepseaOil.Presentation.UI
         private Canvas uiCanvas;
         private EventSystem uiEventSystem;
 
-        /// 装配是否完成
+
         public bool IsReady { get; private set; }
 
-        /// 重复 EventSystem 是否已报过一次（防刷屏）
+
         private bool _warnedDuplicateEventSystem;
 
+        private Transform transitionLayer;
         private Transform bottomLayer;
         private Transform middleLayer;
         private Transform topLayer;
@@ -75,7 +78,8 @@ namespace DeepseaOil.Presentation.UI
         private readonly Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
 
         private readonly Dictionary<E_UILayer, Stack<BasePanelInfo>> openPanels = new()
-        {
+        { 
+            { E_UILayer.Transition, new Stack<BasePanelInfo>() },
             { E_UILayer.Bottom, new Stack<BasePanelInfo>() },
             { E_UILayer.Middle, new Stack<BasePanelInfo>() },
             { E_UILayer.Top, new Stack<BasePanelInfo>() },
@@ -100,6 +104,7 @@ namespace DeepseaOil.Presentation.UI
             uiCanvas.worldCamera = uiCamera;
             GameObject.DontDestroyOnLoad(uiCanvas.gameObject);
 
+            transitionLayer = uiCanvas.transform.Find("Transition");
             bottomLayer = uiCanvas.transform.Find("Bottom");
             middleLayer = uiCanvas.transform.Find("Middle");
             topLayer = uiCanvas.transform.Find("Top");
@@ -109,6 +114,8 @@ namespace DeepseaOil.Presentation.UI
 
             uiEventSystem = GameObject.Instantiate(AssetModule.Load<GameObject>(UI_EVENT_SYS_KEY)).GetComponent<EventSystem>();
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
+
+            EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
 
             IsReady = true;
         }
@@ -120,6 +127,8 @@ namespace DeepseaOil.Presentation.UI
             if (!IsReady) return;
 
             IsReady = false;
+
+            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
 
             foreach (KeyValuePair<string, BasePanelInfo> kv in panelDic)
             {
@@ -150,7 +159,7 @@ namespace DeepseaOil.Presentation.UI
             systemLayer = null;
         }
 
-        /// 停用场景里多余的 EventSystem 并就该去清理场景报一次错
+
         /// 停用而非销毁：场景那份是用户资产，停用足以让它走 OnDisable 摘掉注册；必须用 includeInactive 重载，失活的那份被激活时警告会回来。
         private void DisableSceneEventSystems()
         {
@@ -184,6 +193,8 @@ namespace DeepseaOil.Presentation.UI
         {
             switch (layer)
             {
+                case E_UILayer.Transition:
+                    return transitionLayer;
                 case E_UILayer.Bottom:
                     return bottomLayer;
                 case E_UILayer.Middle:
@@ -216,6 +227,7 @@ namespace DeepseaOil.Presentation.UI
                     if (!panelInfo.panel.gameObject.activeSelf)
                         panelInfo.panel.gameObject.SetActive(true);
 
+                    panelInfo.panel.gameObject.transform.SetAsLastSibling();
                     panelInfo.panel.ShowMe();
                     panelInfo.isHide = false;
                     callBack?.Invoke(panelInfo.panel);
@@ -269,6 +281,7 @@ namespace DeepseaOil.Presentation.UI
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);
 
+            panel.transform.SetAsLastSibling();
             panel.ShowMe();
             panelInfo.callBack?.Invoke(panel);
             panelInfo.callBack = null;
@@ -346,7 +359,7 @@ namespace DeepseaOil.Presentation.UI
 
         public bool TryCloseTopmostPanel()
         {
-            E_UILayer[] layers = {E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom};
+            E_UILayer[] layers = { E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom, E_UILayer.Transition };
 
             foreach (var layer in layers)
             {
@@ -380,12 +393,7 @@ namespace DeepseaOil.Presentation.UI
             ShowPanel<PausePanel>();
         }
 
-        public void OpenExitConfirmPanel()
-        {
-            ShowPanel<ExitConfirmPanel>();
-        }
-
-
+        
         public void CloseAllPanels()
         {
             foreach (Stack<BasePanelInfo> stack in openPanels.Values)
@@ -405,6 +413,36 @@ namespace DeepseaOil.Presentation.UI
         private void ClearUISelection()
         {
             uiEventSystem?.SetSelectedGameObject(null);
+        }
+
+
+        /// 控制按钮点击等UI输入
+
+        private void SetUIInputEnabled(bool enabled)
+        {
+            if (uiEventSystem == null) return;
+
+            // 关闭输入模块 → 按钮点不了、滑条拖不了、点击/拖拽事件都不派发
+            var module = uiEventSystem.GetComponent<BaseInputModule>();
+            if (module != null)
+            {
+                if(module.enabled != enabled)
+                    module.enabled = enabled;
+            }
+
+            if (!enabled) uiEventSystem.SetSelectedGameObject(null);
+        }
+
+        public void OnGameStateChanged(GameStateChanged evt)
+        {
+            if(evt.state == Logic.GameState.CG)
+            {
+                SetUIInputEnabled(false);
+            }
+            else
+            {
+                SetUIInputEnabled(true);
+            }
         }
     }
 }

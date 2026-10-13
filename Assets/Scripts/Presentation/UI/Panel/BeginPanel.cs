@@ -1,16 +1,19 @@
 ﻿using DeepseaOil.Logic;
 using DeepseaOil.Data;
+using UnityEngine;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
     public class BeginPanel : BasePanel
     {
-        public override E_UILayer Layer => E_UILayer.Bottom;
+        public override E_UILayer Layer => E_UILayer.Middle;
         public override bool CanBeHideByKey => false;
+
+        public RectTransform maskStart;
 
         public override void HideMe()
         {
-
         }
 
         public override void ShowMe()
@@ -27,7 +30,29 @@ namespace DeepseaOil.Presentation.UI
             switch (btnName)
             {
                 case "BtnStart":
+                    GameRoot.Instance.UI.ShowPanel<TransitionPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.CG);
+                    GameRoot.Instance.UI.GetPanel<TransitionPanel>((transition) =>
+                    {
+                        GameRoot.Instance.UI.ShowPanel<CGPanel>((cgPanel) =>
+                        {
+                            transition.SetMaskPos(this.maskStart.localPosition);
+                            transition.Play(
+                                this, cgPanel,
+                                () =>
+                                {
+                                    GameRoot.Instance.UI.HidePanel<BeginPanel>();
+                                    GameRoot.Instance.UI.HidePanel<TransitionPanel>();
+                                    cgPanel.StartTimeLine();
+
+                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Game, true));
+                                }
+                            );
+                        });
+                    });
+
+                    GameRoot.Instance.UI.ShowPanel<HudPanel>();
+                    GameRoot.Instance.UI.ShowPanel<GamePlayPanel>();
                     break;
                 case "BtnContinue":
                     GameRoot.Instance.UI.ShowPanel<SavePanel>();
@@ -36,7 +61,8 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
                 case "BtnExit":
-                    GameRoot.Instance.Game.ChangeState(GameState.BeforeExit);
+                    GameRoot.Instance.Game.ChangeState(GameState.Exit);
+                    Application.Quit();
                     break;
             }
         }

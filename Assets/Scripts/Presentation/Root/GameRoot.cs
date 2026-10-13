@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
@@ -109,14 +109,14 @@ namespace DeepseaOil.Presentation
             if (!ReferenceEquals(Instance, this)) return;
 
             // 必须在 SceneService.Init 之前订阅（发布按订阅顺序调用）；不写进 SceneService：它属 Logic 层，调 EffectModule 是反向依赖
-            EventBus<RequestChangeScene>.Subscribe(OnRequestChangeScene);
+            EventBus<RequestLoadScene>.Subscribe(OnRequestChangeScene);
 
             Assemble();
 
             IsReady = true;
         }
 
-        private void OnRequestChangeScene(RequestChangeScene evt)
+        private void OnRequestChangeScene(RequestLoadScene evt)
         {
             EffectModule.CleanAll();
         }
@@ -301,7 +301,7 @@ namespace DeepseaOil.Presentation
         private void OnDestroy()
         {
             // 退订必须在守卫之前
-            EventBus<RequestChangeScene>.Unsubscribe(OnRequestChangeScene);
+            EventBus<RequestLoadScene>.Unsubscribe(OnRequestChangeScene);
 
             if (!ReferenceEquals(_assembled, this)) return;
 
@@ -309,6 +309,7 @@ namespace DeepseaOil.Presentation
 
             EffectModule.Dispose();
             UI?.Dispose();
+            _uiInputProvider?.Dispose();
 
             for (int i = _services.Count - 1; i >= 0; i--)
             {

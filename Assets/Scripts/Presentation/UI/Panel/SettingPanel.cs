@@ -1,6 +1,7 @@
 ﻿using DeepseaOil.Logic;
 using TMPro;
 using DeepseaOil.Data;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -33,11 +34,10 @@ namespace DeepseaOil.Presentation.UI
             switch (name)
             {
                 case "BtnClose":
-                    return ButtonStyle.None;
                 case "BtnReturnMenu":
                 case "BtnSave":
                 case "BtnLoad":
-                    return ButtonStyle.Normal;
+                    return ButtonStyle.None;
             }
             return ButtonStyle.None;
         }
@@ -49,11 +49,17 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     break;
                 case "BtnReturnMenu":
+                    GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
+
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
                     break;
                 case "BtnSave":
+
                     break;
                 case "BtnLoad":
+
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
                     break;
             }
         }

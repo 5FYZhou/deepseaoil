@@ -21,3 +21,19 @@ MonoBehaviour:
     selectedName: ui_panel_tongyong_3
     disabledName: ui_panel_tongyong_0
     size: {x: 465, y: 112}
+  - buttonStyle: 2
+    path: art/UI/ui_panel_tongyong
+    normalName: ui_panel_save_5
+    highlightedName: ui_panel_save_2
+    pressedName: ui_panel_save_2
+    selectedName: ui_panel_save_2
+    disabledName: ui_panel_save_5
+    size: {x: 400, y: 650}
+  - buttonStyle: 3
+    path: art/UI/ui_panel_tongyong
+    normalName: ui_panel_save_0
+    highlightedName: ui_panel_save_1
+    pressedName: ui_panel_save_1
+    selectedName: ui_panel_save_1
+    disabledName: ui_panel_save_0
+    size: {x: 411, y: 661}

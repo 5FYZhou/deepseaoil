@@ -9,8 +9,17 @@ namespace DeepseaOil.Data
     {
         /// 代码不设置样式（在编辑器里设置）
         None = 0,
-        /// 开始界面等
-        Normal
+
+
+        Normal,
+
+
+
+        EmptySaveSlot,
+
+
+
+        SaveSlot
     }
 
     [Serializable]
