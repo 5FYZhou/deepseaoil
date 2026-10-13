@@ -26,10 +26,13 @@ namespace DeepseaOil.Data
         /// <summary>每秒伤害，0=无伤害</summary>
         public int DotDamage => _row.DotDamage;
 
-        /// <summary>是否物理阻挡墙体；表现层需要时按此挂碰撞体，逻辑层不做寻路</summary>
+        /// <summary>是否物理阻挡墙体；表现层按此挂碰撞体，逻辑层绕障读它</summary>
         public bool IsObstacle => _row.IsObstacle;
 
         /// <summary>是否作为网格连锁的导通体（水/泥浆为真）；TileChainReactor 泛洪的唯一判据</summary>
         public bool IsConductor => _row.IsConductor;
+
+        /// <summary>麻痹秒数，0=不麻痹</summary>
+        public float TouchStun => _row.TouchStun;
     }
 }

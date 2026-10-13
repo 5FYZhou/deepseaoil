@@ -133,6 +133,11 @@ namespace DeepseaOil.Presentation.Diagnostics
             }
             else
             {
+                _grid = combat.Grid;
+
+                // 不取 registry 木桩登记不进格
+                _registry = _grid.Registry;
+
                 _ownsGrid = false;
 
                 Debug.Log("[Harness] 检测到 CombatRoot：格子交给它推进，本类只驱动木桩与发受击指令。");

@@ -8,6 +8,8 @@
     "impact_knockback": 0,
     "result_duration": 3,
     "effect_radius": 1,
+    "pull_strength": 0,
+    "break_aggro": false,
     "trigger_chain": true
   },
   {
@@ -19,6 +21,8 @@
     "impact_knockback": 4,
     "result_duration": 2,
     "effect_radius": 1.5,
+    "pull_strength": 0,
+    "break_aggro": false,
     "trigger_chain": false
   },
   {
@@ -30,6 +34,8 @@
     "impact_knockback": 0,
     "result_duration": 4,
     "effect_radius": 2.5,
+    "pull_strength": 5,
+    "break_aggro": false,
     "trigger_chain": false
   },
   {
@@ -41,6 +47,8 @@
     "impact_knockback": 0,
     "result_duration": 3,
     "effect_radius": 1,
+    "pull_strength": 0,
+    "break_aggro": false,
     "trigger_chain": true
   },
   {
@@ -52,6 +60,8 @@
     "impact_knockback": 0,
     "result_duration": 6,
     "effect_radius": 2.5,
+    "pull_strength": 0,
+    "break_aggro": true,
     "trigger_chain": false
   },
   {
@@ -63,6 +73,8 @@
     "impact_knockback": 0,
     "result_duration": 3,
     "effect_radius": 1,
+    "pull_strength": 0,
+    "break_aggro": false,
     "trigger_chain": false
   }
 ]

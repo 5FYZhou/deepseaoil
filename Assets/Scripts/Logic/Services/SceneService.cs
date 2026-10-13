@@ -31,7 +31,7 @@ namespace DeepseaOil.Logic.Service
         {
             if (_op == null) return;
 
-            // 场景加载完毕，等待GameManager发信号激活
+
             if (_op.progress >= 0.9f && !_op.allowSceneActivation)
             {
                 if(_loadedNotified) return;
@@ -39,7 +39,7 @@ namespace DeepseaOil.Logic.Service
                 _loadedNotified = true;
             }
 
-            // 放行且真正完成，才清理
+
             if (_op.isDone && _op.allowSceneActivation)
             {
                 _op = null;
@@ -52,13 +52,13 @@ namespace DeepseaOil.Logic.Service
         {
             pauseService.SetPaused(false);
 
-            // 清资源侧冷却期（保留预加载条目，不动 refCount>0）：须在 LoadScene 前，否则新场景命中上一场景高频缓存
+
             AssetModule.OnSceneSwitch();
 
             if (!evt.isAsync)
             {
-                //切场景清除事件的话，跨场景不销毁的面板的事件也会被清掉
-                //EventBus.ClearAll();
+
+
                 SceneManager.LoadScene(evt.sceneName);
                 _curScene = evt.sceneName;
                 EventBus<SceneActivated>.Publish(new SceneActivated(evt.sceneName));
@@ -71,9 +71,7 @@ namespace DeepseaOil.Logic.Service
             _op.allowSceneActivation = false;   // 先不激活，等 GameManager 放行
         }
 
-        /// <summary>
         /// 激活异步加载的场景，同步加载不调用
-        /// </summary>
         public void Active(RequestActiveScene evt)
         {
             if (_op == null)
@@ -89,7 +87,7 @@ namespace DeepseaOil.Logic.Service
             _op.allowSceneActivation = true;
             _curScene = evt.sceneName;
 
-            //EventBus.ClearAll();
+
         }
 
         public void Dispose()

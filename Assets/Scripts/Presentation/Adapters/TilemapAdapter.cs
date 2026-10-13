@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
+using DeepseaOil.Presentation.Grid;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using cfg.dso;
@@ -10,7 +11,7 @@ using cfg.dso;
 namespace DeepseaOil.Presentation.Adapters
 {
     /// 格子系统与 Tilemap 的适配器：地板与几何进逻辑层，状态画出来
-    /// 唯一认识 Tilemap 的地方；订阅由组合根收口（Attach/Detach）。效果贴图只盖状态、不改地板；状态→贴图先查 stateTiles，未配的按约定懒加载。
+    /// 唯一认识 Tilemap 的地方；订阅由组合根收口（Attach/Detach）。效果贴图只盖状态、不改地板。
     public sealed class TilemapAdapter : MonoBehaviour
     {
         [Serializable]
@@ -23,11 +24,24 @@ namespace DeepseaOil.Presentation.Adapters
             public TileBase Tile;
         }
 
+        [Serializable]
+        public struct EffectLayerBinding
+        {
+            [Tooltip("这一层的 Tilemap。同一格的状态贴图只画在它归属的那一层里")]
+            public Tilemap Tilemap;
+
+            [Tooltip("这一层负责哪些状态；同一状态只能出现在一层。留空 = 只作兜底层，不主动接状态")]
+            public TileStateType[] States;
+        }
+
         [Tooltip("地板层：提供格子几何与合法格集合。必接。")]
         [SerializeField] private Tilemap groundTilemap = default;
 
-        [Tooltip("效果层：状态贴图盖在这一层。必接。")]
-        [SerializeField] private Tilemap effectTilemap = default;
+        [Tooltip("效果层（动效分组）：每层一张 Tilemap、一个材质；同一状态只登记在一层。")]
+        [SerializeField] private EffectLayerBinding[] effectLayers = new EffectLayerBinding[0];
+
+        [Tooltip("未在任何效果层登记的状态落到这一层；留空 = 取 effectLayers[0]")]
+        [SerializeField] private Tilemap fallbackEffectTilemap = default;
 
         [Tooltip("状态 → 贴图（特例覆盖）。命中即用；未配的状态按 tiles/Tile_<状态> 的约定懒加载。")]
         [SerializeField] private StateTileBinding[] stateTiles = new StateTileBinding[0];
@@ -35,8 +49,20 @@ namespace DeepseaOil.Presentation.Adapters
         [Tooltip("初始地块编辑层（可选）：用笔刷在此绘制开局特殊地块。读取后自动隐藏")]
         [SerializeField] private Tilemap initialSetupTilemap = default;
 
-        /// 只记第一次覆盖（第二次会把"泥浆"当原值）；原值取自 effectTilemap，效果层只有 Show/Restore 写者。
-        private readonly Dictionary<Vector3Int, TileBase> _previousTiles = new();
+        [Header("装饰件（留空则自愈挂载）")]
+        [Tooltip("覆盖物立面管理器")]
+        [SerializeField] private TileOverlayDirector overlayDirector = default;
+
+        [Tooltip("物理阻挡体管理器")]
+        [SerializeField] private TileObstacleDirector obstacleDirector = default;
+
+        /// 每格只记一层；前提：效果层开局全空，刷过 tile 改按每层记原值。
+        private readonly Dictionary<Vector3Int, Tilemap> _cellLayer = new();
+
+        /// 同状态只能进一层；重复在 Awake/OnValidate 报错。
+        private readonly Dictionary<TileStateType, Tilemap> _stateToLayer = new();
+
+        private bool _warnedNoLayer;
 
         /// 热路径缓存：只缓存取到过的贴图，避免反复寻址资源系统。
         private readonly Dictionary<TileStateType, TileBase> _runtimeTileCache = new();
@@ -46,15 +72,61 @@ namespace DeepseaOil.Presentation.Adapters
 
         public bool IsWired => groundTilemap != null;
 
-        /// 开始听格子状态变化，必须在灌入初始状态之前调。
+        /// 先自愈装饰件再订阅；必须在灌入初始状态之前调。
         public void Attach()
         {
+            GridGeometry geometry = ReadGeometry();
+
+            EnsureOverlay(in geometry);
+
+            EnsureObstacle(in geometry);
+
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
         }
 
         public void Detach()
         {
             EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
+
+            overlayDirector?.Detach();
+
+            obstacleDirector?.Detach();
+        }
+
+        /// 清空全部装饰件实例；切场景/清场用
+        public void ClearAll()
+        {
+            overlayDirector?.ClearAll();
+
+            obstacleDirector?.ClearAll();
+        }
+
+        /// 自愈装配覆盖物管理器；几何非法时跳过
+        private void EnsureOverlay(in GridGeometry geometry)
+        {
+            if (!geometry.IsValid) return;
+
+            if (overlayDirector == null) overlayDirector = GetComponent<TileOverlayDirector>();
+
+            if (overlayDirector == null) overlayDirector = gameObject.AddComponent<TileOverlayDirector>();
+
+            overlayDirector.Initialize(in geometry);
+
+            overlayDirector.Attach();
+        }
+
+        /// 自愈装配阻挡体管理器；几何非法时跳过
+        private void EnsureObstacle(in GridGeometry geometry)
+        {
+            if (!geometry.IsValid) return;
+
+            if (obstacleDirector == null) obstacleDirector = GetComponent<TileObstacleDirector>();
+
+            if (obstacleDirector == null) obstacleDirector = gameObject.AddComponent<TileObstacleDirector>();
+
+            obstacleDirector.Initialize(in geometry);
+
+            obstacleDirector.Attach();
         }
 
         /// 角点语义与 GridGeometry 对齐：CellToWorld(zero)=格左下角、GetCellCenterWorld(zero)=格心，差半格。
@@ -136,7 +208,7 @@ namespace DeepseaOil.Presentation.Adapters
 
                 TileStateType state = ResolveSetupState(tile);
 
-                grid.RegisterCell(cell, state);
+                grid.RegisterCell(cell);
 
                 if (state == TileStateType.Normal) continue;
 
@@ -185,41 +257,170 @@ namespace DeepseaOil.Presentation.Adapters
 
         private void Awake()
         {
-            // 接线自检：这三条错误的共同点是不报错也能跑
+            // 接线自检：这几条错误的共同点是不报错也能跑
             if (groundTilemap == null)
             {
                 Debug.LogError(
                     "[Grid] TilemapAdapter.groundTilemap 未接线：格子系统拿不到几何，落点不会产生任何效果。", this);
             }
 
-            if (effectTilemap == null)
-            {
-                Debug.LogWarning(
-                    "[Grid] TilemapAdapter.effectTilemap 未接线：状态变化只记逻辑、不显示（泥浆不会出现）。", this);
-            }
-            else if (effectTilemap == groundTilemap)
-            {
-                Debug.LogError(
-                    "[Grid] TilemapAdapter 的 groundTilemap 与 effectTilemap 指向了同一层：状态结束时会把地板一起擦掉" +
-                    "（表现为地上出现一块空洞）。请用两层不同的 Tilemap。", this);
-            }
+            ValidateEffectLayers();
+
+            BuildStateLayerMap();
 
             // InitialSetup 读完会 SetActive(false)，指错层会误关地板/效果层
-            if (initialSetupTilemap != null && (initialSetupTilemap == groundTilemap || initialSetupTilemap == effectTilemap))
+            if (initialSetupTilemap != null && initialSetupTilemap == groundTilemap)
             {
                 Debug.LogError(
-                    "[Grid] TilemapAdapter 的 initialSetupTilemap 与地板层／效果层指向了同一层：" +
-                    "初始地块读完会把这个物体整个 SetActive(false)，地板或效果会一起消失。请单独建一个 InitialSetup 层。", this);
+                    "[Grid] TilemapAdapter 的 initialSetupTilemap 与地板层指向了同一层：" +
+                    "初始地块读完会把这个物体整个 SetActive(false)，地板会一起消失。请单独建一个 InitialSetup 层。", this);
             }
 
             ValidateStateTiles();
         }
 
+        private void ValidateEffectLayers()
+        {
+            int usable = 0;
+
+            if (effectLayers != null)
+            {
+                for (int i = 0; i < effectLayers.Length; i++)
+                {
+                    Tilemap layer = effectLayers[i].Tilemap;
+
+                    if (layer == null)
+                    {
+                        Debug.LogError(
+                            $"[Grid] TilemapAdapter.effectLayers 第 {i} 行没有接 Tilemap：这一层被跳过，它登记的状态不显示。", this);
+
+                        continue;
+                    }
+
+                    usable++;
+
+                    if (layer == groundTilemap)
+                    {
+                        Debug.LogError(
+                            $"[Grid] TilemapAdapter.effectLayers 第 {i} 行与 groundTilemap 指向了同一层：状态结束时会把地板一起擦掉" +
+                            "（表现为地上出现一块空洞）。请用不同的 Tilemap。", this);
+                    }
+
+                    if (initialSetupTilemap != null && layer == initialSetupTilemap)
+                    {
+                        Debug.LogError(
+                            $"[Grid] TilemapAdapter.effectLayers 第 {i} 行与 initialSetupTilemap 指向了同一层：" +
+                            "初始地块读完会把这个物体整个 SetActive(false)，效果层会一起消失。请单独建一个 InitialSetup 层。", this);
+                    }
+
+                    ValidateLayerStates(i);
+                }
+            }
+
+            if (fallbackEffectTilemap != null)
+            {
+                if (fallbackEffectTilemap == groundTilemap)
+                {
+                    Debug.LogError(
+                        "[Grid] TilemapAdapter 的 fallbackEffectTilemap 与地板层指向了同一层：" +
+                        "未登记的状态会画到地板上，回到 Normal 时还会把地板擦掉。请指向一张效果层。", this);
+                }
+
+                if (fallbackEffectTilemap == initialSetupTilemap)
+                {
+                    Debug.LogError(
+                        "[Grid] TilemapAdapter 的 fallbackEffectTilemap 与 initialSetupTilemap 指向了同一层：" +
+                        "初始地块读完会把这层整个 SetActive(false)，兜底的状态贴图看不见。请单独建一个 InitialSetup 层。", this);
+                }
+            }
+
+            if (usable == 0 && fallbackEffectTilemap == null)
+            {
+                Debug.LogWarning(
+                    "[Grid] TilemapAdapter 的 effectLayers 一层都没接、fallbackEffectTilemap 也留空：" +
+                    "状态变化只记逻辑、不显示（泥浆不会出现）。至少给一层接上 Tilemap。", this);
+
+                return;
+            }
+
+            if (usable > 0 && fallbackEffectTilemap == null && effectLayers[0].Tilemap == null)
+            {
+                Debug.LogError(
+                    "[Grid] TilemapAdapter 的 fallbackEffectTilemap 留空、effectLayers[0] 也没接 Tilemap：" +
+                    "没在任何层登记的状态无处可落（只记逻辑、不显示）。给第 0 层接上 Tilemap，或显式配 fallbackEffectTilemap。", this);
+            }
+        }
+
+        private void ValidateLayerStates(int index)
+        {
+            TileStateType[] states = effectLayers[index].States;
+
+            if (states == null) return;
+
+            for (int j = 0; j < states.Length; j++)
+            {
+                TileStateType state = states[j];
+
+                if (state == TileStateType.Normal)
+                {
+                    Debug.LogError(
+                        $"[Grid] TilemapAdapter.effectLayers 第 {index} 行登记了 Normal（= 擦除）：效果层上「回到原样」由逻辑直接触发，不该绑层。" +
+                        "如果这一层想画的是泥浆，把状态改成 Mud（表 id = 2）。", this);
+                }
+
+                if (state == TileStateType.None)
+                {
+                    Debug.LogWarning(
+                        $"[Grid] TilemapAdapter.effectLayers 第 {index} 行的 States 里有 None（默认值，多半是没选）：这一项永远不会被用到。", this);
+                }
+
+                for (int k = 0; k < index; k++)
+                {
+                    TileStateType[] earlier = effectLayers[k].States;
+
+                    if (earlier == null || Array.IndexOf(earlier, state) < 0) continue;
+
+                    Debug.LogError(
+                        $"[Grid] TilemapAdapter.effectLayers 里 {state} 同时登记在第 {k} 层与第 {index} 层：" +
+                        "只会落到先查到的那一层，另一层永远收不到它。", this);
+
+                    break;
+                }
+            }
+        }
+
+        private void BuildStateLayerMap()
+        {
+            _stateToLayer.Clear();
+
+            if (effectLayers == null) return;
+
+            for (int i = 0; i < effectLayers.Length; i++)
+            {
+                Tilemap layer = effectLayers[i].Tilemap;
+
+                TileStateType[] states = effectLayers[i].States;
+
+                if (layer == null || states == null) continue;
+
+                for (int j = 0; j < states.Length; j++)
+                {
+                    if (states[j] == TileStateType.Normal || states[j] == TileStateType.None) continue;
+
+                    if (_stateToLayer.ContainsKey(states[j])) continue;
+
+                    _stateToLayer[states[j]] = layer;
+                }
+            }
+        }
+
 #if UNITY_EDITOR
-        /// 接线错在编辑器内就报，不等进 Play；只读 stateTiles。
+        /// 只读配置数组，不建映射：OnValidate 调用频繁。
         private void OnValidate()
         {
             ValidateStateTiles();
+
+            ValidateEffectLayers();
         }
 #endif
 
@@ -259,15 +460,54 @@ namespace DeepseaOil.Presentation.Adapters
 
         private void OnTileStateChanged(TileStateChanged evt)
         {
-            if (effectTilemap == null) return;
-
-            if (evt.State == TileStateType.Normal)
+            // 先擦旧层：状态换组后旧层会留残影
+            if (_cellLayer.TryGetValue(evt.Cell, out Tilemap previous))
             {
-                Restore(evt.Cell);
+                if (previous != null) previous.SetTile(evt.Cell, null);
+
+                _cellLayer.Remove(evt.Cell);
+            }
+
+            if (evt.State == TileStateType.Normal) return;
+
+            Tilemap target = ResolveLayer(evt.State);
+
+            if (target == null)
+            {
+                WarnNoLayer();
+
                 return;
             }
 
-            Show(evt.Cell, TileFor(evt.State));
+            TileBase tile = TileFor(evt.State);
+
+            if (tile == null) return;
+
+            target.SetTile(evt.Cell, tile);
+
+            _cellLayer[evt.Cell] = target;
+        }
+
+        private Tilemap ResolveLayer(TileStateType state)
+        {
+            if (_stateToLayer.TryGetValue(state, out Tilemap layer)) return layer;
+
+            if (fallbackEffectTilemap != null) return fallbackEffectTilemap;
+
+            if (effectLayers == null || effectLayers.Length == 0) return null;
+
+            return effectLayers[0].Tilemap;
+        }
+
+        private void WarnNoLayer()
+        {
+            if (_warnedNoLayer) return;
+
+            _warnedNoLayer = true;
+
+            Debug.LogWarning(
+                "[Grid] TilemapAdapter 没有可用的效果层：状态只记逻辑、不显示。" +
+                "检查 effectLayers 是否接了 Tilemap。", this);
         }
 
         /// 状态 → 效果层贴图：特例优先，未配的按约定懒加载
@@ -305,27 +545,6 @@ namespace DeepseaOil.Presentation.Adapters
             _runtimeTileCache[state] = tile;
 
             return tile;
-        }
-
-        private void Show(Vector3Int cell, TileBase tile)
-        {
-            if (tile == null) return;
-
-            if (!_previousTiles.ContainsKey(cell))
-            {
-                _previousTiles[cell] = effectTilemap.GetTile(cell);
-            }
-
-            effectTilemap.SetTile(cell, tile);
-        }
-
-        private void Restore(Vector3Int cell)
-        {
-            if (!_previousTiles.TryGetValue(cell, out TileBase original)) return;
-
-            _previousTiles.Remove(cell);
-
-            effectTilemap.SetTile(cell, original);
         }
 
         private void VerifyGeometry(in GridGeometry geometry)

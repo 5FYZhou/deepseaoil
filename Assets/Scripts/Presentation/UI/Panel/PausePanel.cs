@@ -36,7 +36,6 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
-                    // 开始场景直接同步加载
                     EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
                     GameRoot.Instance.UI.CloseAllPanels();
                     break;

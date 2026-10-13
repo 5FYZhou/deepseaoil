@@ -9,16 +9,16 @@ namespace DeepseaOil.Data
     {
         /// 代码不设置样式（在编辑器里设置）
         None = 0,
-        /// 开始界面等
-        /// </summary>
+
+
         Normal,
-        /// <summary>
-        /// 空存档按钮
-        /// </summary>
+
+
+
         EmptySaveSlot,
-        /// <summary>
-        /// 有存档的存档按钮
-        /// </summary>
+
+
+
         SaveSlot
     }
 
