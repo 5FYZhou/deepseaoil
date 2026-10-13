@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Drop;
@@ -484,6 +484,7 @@ namespace DeepseaOil.Presentation
 
             IsReady = true;
 
+            OnRequestHudRefresh(new RequestHudRefresh());
         }
 
         private void AttachFountains()

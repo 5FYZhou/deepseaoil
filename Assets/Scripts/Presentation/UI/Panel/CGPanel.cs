@@ -4,13 +4,14 @@ using DeepseaOil.Data;
 using UnityEngine.UI;
 using UnityEngine;
 using UnityEngine.Playables;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
     [RequireComponent(typeof(PlayableDirector))]
     public class CGPanel : BasePanel
     {
-        public override E_UILayer Layer => E_UILayer.Top;
+        public override E_UILayer Layer => E_UILayer.System;
         public override bool CanBeHideByKey => false;
 
         private PlayableDirector _director;
@@ -24,18 +25,19 @@ namespace DeepseaOil.Presentation.UI
             _img2 = GetComponent<Image>("Img2");
             _director = GetComponent<PlayableDirector>();
             _director.stopped += OnTimelineStopped;
+            EventBus<SceneActivated>.Subscribe(Hide);
         }
 
         protected override void OnDestroy()
         {
+            if (_director != null)
+                _director.stopped -= OnTimelineStopped;
+            EventBus<SceneActivated>.Unsubscribe(Hide);
             base.OnDestroy();
-            _director.stopped -= OnTimelineStopped;
         }
 
         public override void ShowMe()
         {
-            _director.time = 0;
-            _director.Play();
         }
 
         public override void HideMe()
@@ -43,13 +45,25 @@ namespace DeepseaOil.Presentation.UI
             _director.Stop();
         }
 
+        public void StartTimeLine()
+        {
+            _director.time = 0;
+            _director.Play();
+        }
+
         private void OnTimelineStopped(PlayableDirector director)
         {
             if (director != _director)
                 return;
 
-            // Timeline 播放完成
+            // 播完才激活新场景
+            EventBus<RequestActiveScene>.Publish(new RequestActiveScene(SceneName.Game));
             GameRoot.Instance.Game.ChangeState(GameState.Running);
+        }
+
+        public void Hide(SceneActivated evt)
+        {
+            GameRoot.Instance.UI.HidePanel<CGPanel>();
         }
     }
 }

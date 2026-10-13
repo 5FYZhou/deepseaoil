@@ -1,16 +1,20 @@
 ﻿using DeepseaOil.Data;
 using DeepseaOil.Logic;
+using DeepseaOil.Logic.Events;
 
 namespace DeepseaOil.Presentation.UI
 {
     public class PausePanel : BasePanel
     {
         public override E_UILayer Layer => E_UILayer.Middle;
-        public override bool CanBeHideByKey => false;
+        public override bool CanBeHideByKey => true;
 
         public override void ShowMe() { }
 
-        public override void HideMe() { }
+        public override void HideMe()
+        {
+            GameRoot.Instance.Game.ChangeState(GameState.Running);
+        }
 
         protected override ButtonStyle SetBtnStyle(string name)
         {
@@ -25,12 +29,15 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
                 case "BtnContinue":
+                    GameRoot.Instance.UI.HidePanel<PausePanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Running);
                     break;
                 case "BtnRestart":
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
+                    GameRoot.Instance.UI.CloseAllPanels();
                     break;
             }
         }

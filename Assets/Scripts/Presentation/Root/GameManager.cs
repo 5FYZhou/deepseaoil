@@ -30,38 +30,23 @@ namespace DeepseaOil.Presentation
             switch (newState)
             {
                 case GameState.Menu:
-                    _ui.CloseAllPanels();
-                    _ui.ShowPanel<BeginPanel>();
-
-                    // 请求暂停；PlayerController 监听它并在暂停时关掉输入
-                    EventBus<RequestPause>.Publish(new RequestPause());
+                    // 开始场景BeginSceneInitializer打开开始面板
                     break;
                 case GameState.CG:
-                    _ui.CloseAllPanels();
-                    _ui.ShowPanel<CGPanel>();
+
                     break;
                 case GameState.Running:
-                    EventBus<RequestResume>.Publish(new RequestResume());
-                    _ui.CloseAllPanels();
-                    _ui.ShowPanel<HudPanel>();
-                    _ui.ShowPanel<GamePlayPanel>();
                     break;
 
                 case GameState.Paused:
-                    EventBus<RequestPause>.Publish(new RequestPause());
-                    _ui.ShowPanel<PausePanel>();
-                    break;
-
-                case GameState.BeforeExit:
-                    _ui.ShowPanel<ExitConfirmPanel>();
                     break;
 
                 case GameState.Exit:
-                    Application.Quit();
                     break;
             }
 
             CurState = newState;
+            EventBus<GameStateChanged>.Publish(new GameStateChanged(CurState));
         }
     }
 }

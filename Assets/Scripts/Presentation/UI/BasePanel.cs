@@ -33,6 +33,11 @@ namespace DeepseaOil.Presentation.UI
             FindComponentsOnChildren();
         }
 
+        protected virtual void OnDestroy()
+        {
+            ReleaseAssets();
+        }
+
         public void InitUIStyle(UIConfig config)
         {
             _config = config;
@@ -63,7 +68,7 @@ namespace DeepseaOil.Presentation.UI
 
         protected virtual void OnSliderValueChange(string sliderName, float value) { }
 
-        /// <summary>只在 Awake 时被调用一次</summary>
+
         protected virtual string SetInitialTxt(string name)
         {
             return "Empty";
@@ -128,6 +133,7 @@ namespace DeepseaOil.Presentation.UI
 
             return null;
         }
+
         #endregion
 
         #region UI样式
@@ -137,15 +143,15 @@ namespace DeepseaOil.Presentation.UI
             return ButtonStyle.None;
         }
 
-        private void ApplyBtnStyle(Button button, ButtonStyle style)
+        protected void ApplyBtnStyle(Button button, ButtonStyle style)
         {
             if (style == ButtonStyle.None) return;
 
             if (!_config.TryGetBtnStyleInfo(style, out ButtonStyleInfo info)) return;
             if (info.size != Vector2.zero)
             {
-                RectTransform rect = button.GetComponent<RectTransform>();
-                rect.sizeDelta = info.size;
+
+
             }
             var sprites = LoadSpriteAtlas(info.path);
             Sprite normal = sprites.GetSprite(info.normalName);
@@ -184,11 +190,7 @@ namespace DeepseaOil.Presentation.UI
 
             _assetKeys.Clear();
         }
-
-        protected virtual void OnDestroy()
-        {
-            ReleaseAssets();
-        }
         #endregion
+
     }
 }
