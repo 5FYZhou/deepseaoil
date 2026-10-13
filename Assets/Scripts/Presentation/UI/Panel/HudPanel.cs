@@ -18,6 +18,8 @@ namespace DeepseaOil.Presentation.UI
 
         private const string SeedTextName = "txtSeed";
 
+        private const string SeedIconName = "imgSeedIcon";
+
         private const string PhaseTextName = "txtPhase";
 
         private TMP_Text _hp;
@@ -25,6 +27,8 @@ namespace DeepseaOil.Presentation.UI
         private TMP_Text _wave;
         private TMP_Text _seed;
         private TMP_Text _phase;
+
+        private UnityEngine.UI.Image _seedIcon;
 
         private bool _subscribed;
 
@@ -58,6 +62,7 @@ namespace DeepseaOil.Presentation.UI
             _wave = GetComponent<TMP_Text>(WaveTextName);
             _seed = GetComponent<TMP_Text>(SeedTextName);
             _phase = GetComponent<TMP_Text>(PhaseTextName);
+            _seedIcon = GetComponent<UnityEngine.UI.Image>(SeedIconName);
         }
 
         public override void ShowMe()
@@ -117,11 +122,32 @@ namespace DeepseaOil.Presentation.UI
                 _water.text = $"水 {evt.Water}/{evt.WaterCapacity} · 土 {evt.Earth}/{evt.EarthCapacity}";
             }
 
+            UpdateSeedIcon(evt.Seed);
+
             if (_seed == null) return;
 
             _seed.text = evt.Seed == SeedType.None
                 ? "种子：空（等下一波配给）"
                 : $"种子：{SeedName(evt.Seed)}";
+        }
+
+        private void UpdateSeedIcon(SeedType seed)
+        {
+            if (_seedIcon == null) return;
+
+            Data.SeedSpec spec = seed == SeedType.None ? null : Data.ConfigModule.GetSeed(seed);
+
+            if (spec == null || string.IsNullOrEmpty(spec.IconKey))
+            {
+                _seedIcon.enabled = false;
+                return;
+            }
+
+            // Load 内部已 Retain，不配对 Release（与 TilemapAdapter 同口径）
+            Sprite icon = Data.AssetModule.Load<Sprite>(spec.IconKey);
+
+            _seedIcon.sprite = icon;
+            _seedIcon.enabled = icon != null;
         }
 
         private void OnWaveChanged(WaveChanged evt)

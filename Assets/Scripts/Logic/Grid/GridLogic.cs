@@ -46,6 +46,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>径向冲击的格缓冲，复用避免热路径分配</summary>
         private readonly List<Vector3Int> _blastCells = new();
 
+        /// <summary>铺地貌的格缓冲，不复用 _blastCells</summary>
+        private readonly List<Vector3Int> _spreadCells = new();
+
         private float _now;
         private float _deltaTime;
 
@@ -100,6 +103,22 @@ namespace DeepseaOil.Logic.Grid
             TileStateType state = StateOf(cell);
 
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsConductor;
+        }
+
+        /// <summary>该格是否物理阻挡；未登记或表里没有该行都返回 false</summary>
+        public bool IsObstacle(Vector3Int cell)
+        {
+            TileStateType state = StateOf(cell);
+
+            return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsObstacle;
+        }
+
+        /// <summary>该格地貌的麻痹秒数；未登记或表里没有该行都返回 0</summary>
+        public float TouchStunOf(Vector3Int cell)
+        {
+            TileStateType state = StateOf(cell);
+
+            return _specs.TryGetValue(state, out TileStateSpec spec) ? spec.TouchStun : 0f;
         }
 
         /// <summary>灌入关卡初始状态，不产生伤害</summary>
@@ -361,6 +380,53 @@ namespace DeepseaOil.Logic.Grid
             // 二级反应激发广域冲击时广播事实
             TileStateType centerState = StateOf(center);
             EventBus<GridBlastOccurred>.Publish(new GridBlastOccurred(centerPoint, radiusCells * _geometry.CellSize, centerState));
+        }
+
+        /// <summary>半径内铺 resultTile；永久地貌跳过（Normal 例外），保护玩家铺的水/土</summary>
+        public void SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
+        {
+            if (radiusCells < 0f) radiusCells = 0f;
+
+            int reach = Mathf.CeilToInt(radiusCells);
+            float radiusSqr = radiusCells * radiusCells;
+
+            Vector2 centerPoint = _geometry.CellCenter(center);
+
+            _spreadCells.Clear();
+
+            for (int dy = -reach; dy <= reach; dy++)
+            {
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    var cell = new Vector3Int(center.x + dx, center.y + dy, center.z);
+
+                    if (!_cells.Contains(cell)) continue;
+
+                    if (dx != 0 || dy != 0)
+                    {
+                        Vector2 delta = _geometry.CellCenter(cell) - centerPoint;
+
+                        if (delta.sqrMagnitude > radiusSqr) continue;
+                    }
+
+                    _spreadCells.Add(cell);
+                }
+            }
+
+            for (int i = 0; i < _spreadCells.Count; i++)
+            {
+                Vector3Int cell = _spreadCells[i];
+
+                TileStateType state = StateOf(cell);
+
+                if (state == resultTile) continue;
+
+                if (state != TileStateType.Normal
+                    && _specs.TryGetValue(state, out TileStateSpec spec)
+                    && spec.Duration <= 0f) continue;
+
+                SwitchTileState(cell, resultTile, durationOverride);
+            }
         }
 
         /// <summary>切换某格状态；同状态 no-op，未登记的格与无表行的状态一律拒绝</summary>

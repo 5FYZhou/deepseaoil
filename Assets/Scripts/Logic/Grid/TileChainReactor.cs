@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Logic.Combat;
 using UnityEngine;
 using cfg.dso;
 
@@ -15,7 +16,7 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>燎原火海每步蔓延的间隔（秒）</summary>
         public const float FlameSpreadStep = 0.2f;
 
-        /// <summary>连锁电击的伤害与麻痹，全网同帧一致</summary>
+        /// <summary>连锁电击的伤害与麻痹下限，全网同帧一致</summary>
         private const int ShockDamage = 1;
 
         private const float ShockStunSeconds = 1.5f;
@@ -25,6 +26,9 @@ namespace DeepseaOil.Logic.Grid
 
         /// <summary>二级反应的波及半径下限，格；表里填得更大时以表为准</summary>
         private const float MinBlastRadius = 1.5f;
+
+        /// <summary>向心吸引强度，单位/秒</summary>
+        private const float PullStrength = 5f;
 
         private static readonly Queue<Vector3Int> _queue = new Queue<Vector3Int>(64);
 
@@ -36,6 +40,9 @@ namespace DeepseaOil.Logic.Grid
 
         // <summary>火海蔓延前沿：(格, 下次蔓延时刻)</summary>
         private static readonly List<(Vector3Int Cell, float At)> _flameFront = new List<(Vector3Int, float)>(16);
+
+        // 半径格缓冲：白雾/超导共用，互不嵌套
+        private static readonly List<Vector3Int> _radiusCells = new List<Vector3Int>(32);
 
         private static bool _warnedOverflow;
 
@@ -148,7 +155,9 @@ namespace DeepseaOil.Logic.Grid
 
                 _shocked++;
 
-                grid.ApplyInstantShock(current, ShockDamage, ShockStunSeconds);
+                float stun = Mathf.Max(grid.TouchStunOf(current), ShockStunSeconds);
+
+                grid.ApplyInstantShock(current, ShockDamage, stun);
 
                 GridQuery.GetNeighbors4(current, _neighbors);
 
@@ -183,7 +192,8 @@ namespace DeepseaOil.Logic.Grid
         {
             if (!grid.HasCell(cell)) return;
 
-            grid.ApplyInstantShock(cell, FlameDamage, 0f);
+            // stun>0 会被 ApplyInstantShock 判成电弧特效
+            grid.ApplyInstantShock(cell, FlameDamage, grid.TouchStunOf(cell));
 
             GridQuery.GetNeighbors4(cell, _neighbors);
 
@@ -237,6 +247,13 @@ namespace DeepseaOil.Logic.Grid
 
             grid.ApplyBlast(origin, radius, duo.ImpactDamage, duo.ImpactKnockback);
 
+            grid.SpreadTileInRadius(origin, radius, duo.ResultTile, duo.ResultDuration);
+
+            // 判据用表里的原始半径，不用上面夹逼过的 radius
+            if (duo.ResultTile == TileStateType.Normal && duo.EffectRadius > 1.5f) BreakAggroInRadius(grid, origin, duo.EffectRadius);
+
+            if (duo.ResultTile == TileStateType.Freeze && duo.EffectRadius > 1.5f) PullInRadius(grid, origin, duo.EffectRadius);
+
             if (!duo.TriggerChain) return;
 
             TileStateType result = grid.StateOf(origin);
@@ -257,6 +274,78 @@ namespace DeepseaOil.Logic.Grid
         public static bool IsFlammable(TileStateType state)
         {
             return state == TileStateType.BasicPlant || state == TileStateType.ChargedThorn;
+        }
+
+        private static void BreakAggroInRadius(GridLogic grid, Vector3Int origin, float radius)
+        {
+            CollectCellsInRadius(grid, origin, radius, _radiusCells);
+
+            for (int i = 0; i < _radiusCells.Count; i++)
+            {
+                if (!grid.Registry.TryGetIn(_radiusCells[i], out List<IEffectTarget> targets)) continue;
+
+                for (int j = 0; j < targets.Count; j++)
+                {
+                    if (targets[j] is IAggroBreakable breakable) breakable.ForceLoseAggro();
+                }
+            }
+        }
+
+        private static void PullInRadius(GridLogic grid, Vector3Int origin, float radius)
+        {
+            CollectCellsInRadius(grid, origin, radius, _radiusCells);
+
+            Vector2 center = grid.Geometry.CellCenter(origin);
+
+            for (int i = 0; i < _radiusCells.Count; i++)
+            {
+                if (!grid.Registry.TryGetIn(_radiusCells[i], out List<IEffectTarget> targets)) continue;
+
+                for (int j = 0; j < targets.Count; j++)
+                {
+                    IEffectTarget target = targets[j];
+
+                    if (!target.IsAlive) continue;
+
+                    if (!(target is IKnockBackable knockbackable)) continue;
+
+                    Vector2 toCenter = center - target.Position;
+
+                    // 零向量归一化是 NaN：压在格心上就跳过
+                    if (toCenter.sqrMagnitude <= 0.001f) continue;
+
+                    knockbackable.ApplyKnockback(toCenter.normalized * PullStrength);
+                }
+            }
+        }
+
+        private static void CollectCellsInRadius(GridLogic grid, Vector3Int center, float radius, List<Vector3Int> cells)
+        {
+            cells.Clear();
+
+            int reach = Mathf.CeilToInt(radius);
+            float radiusSqr = radius * radius;
+
+            Vector2 centerPoint = grid.Geometry.CellCenter(center);
+
+            for (int dy = -reach; dy <= reach; dy++)
+            {
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    var cell = new Vector3Int(center.x + dx, center.y + dy, center.z);
+
+                    if (!grid.HasCell(cell)) continue;
+
+                    if (dx != 0 || dy != 0)
+                    {
+                        Vector2 delta = grid.Geometry.CellCenter(cell) - centerPoint;
+
+                        if (delta.sqrMagnitude > radiusSqr) continue;
+                    }
+
+                    cells.Add(cell);
+                }
+            }
         }
 
         private static void WarnOverflowOnce(Vector3Int origin)

@@ -66,6 +66,7 @@ namespace DeepseaOil.Presentation
 
         private CombatDirector _combat;
         private TileHighlightView _highlight;
+        private TileObstacleDirector _obstacleDirector;
 
         private LifeFountainState _lifeFountain;
 
@@ -102,6 +103,7 @@ namespace DeepseaOil.Presentation
             _highlight?.Detach();
             gridView?.Detach();
             overlayDirector?.Detach();
+            _obstacleDirector?.Detach();
 
             // 销毁期再问 GameRoot.Instance 会当场造一个新的，只能用 Start 里抓的引用
             if (_root != null) _root.UnregisterSceneRoot(this);
@@ -322,6 +324,8 @@ namespace DeepseaOil.Presentation
 
             overlayDirector?.ClearAll();
 
+            _obstacleDirector?.ClearAll();
+
             // 权属分流：场景木桩满血归位（物体留着），波次怪彻底销毁
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
@@ -452,6 +456,8 @@ namespace DeepseaOil.Presentation
 
             EnsureOverlayDirector(geometry);
 
+            EnsureObstacleDirector(geometry);
+
             int cells = gridView.RegisterCells(_grid);
 
             // 关卡初始地块优先从场景里的 InitialSetup 笔刷层读（策划在编辑器里画）
@@ -502,6 +508,21 @@ namespace DeepseaOil.Presentation
 
             overlayDirector.Initialize(geometry);
             overlayDirector.Attach();
+        }
+
+        private void EnsureObstacleDirector(in GridGeometry geometry)
+        {
+            if (_obstacleDirector == null)
+            {
+                _obstacleDirector = GetComponent<TileObstacleDirector>();
+                if (_obstacleDirector == null)
+                {
+                    _obstacleDirector = gameObject.AddComponent<TileObstacleDirector>();
+                }
+            }
+
+            _obstacleDirector.Initialize(geometry);
+            _obstacleDirector.Attach();
         }
 
         private void AttachFountains()
