@@ -87,11 +87,5 @@ namespace DeepseaOil.Data
                 default: return unknownBall;
             }
         }
-
-        /// <remarks>slowMultiplier 本帧减速系数，小于 1 即被减速；受击闪白不在这里，由 EffectId.Flash 覆盖</remarks>
-        public Color EnemyBodyColor(float slowMultiplier)
-        {
-            return slowMultiplier < 1f ? enemyBodySlowed : enemyBodyNormal;
-        }
     }
 }

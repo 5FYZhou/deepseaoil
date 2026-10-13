@@ -31,6 +31,7 @@ namespace DeepseaOil.Data
         private static ThrowTuning _throwTuning;
         private static DropTuning _dropTuning;
         private static VisualPalette _visuals;
+        private static CombatFeelTuning _feel;
         private static EnemyTuning _enemyTuning;
         private static UIConfig _uiConfig;
         private static AudioConfig _audioConfig;
@@ -47,14 +48,14 @@ namespace DeepseaOil.Data
         /// <summary>波次→敌种清单，装配期折一次（值按子表行序）；此后只读</summary>
         private static Dictionary<int, List<WaveEnemySpec>> _waveEnemies;
 
-        /// <summary>没配敌种的波共用这一份，避免"查不到"也要每次分配新空表</summary>
+        /// <summary>没配敌种的波共用这一份，避免每次分配新空表</summary>
         private static readonly List<WaveEnemySpec> EmptyWaveEnemies = new List<WaveEnemySpec>();
 
         public static bool IsReady => _ready;
 
         public static bool AreAssetsBound => _bound;
 
-        /// <summary>初始化第一段只读表：必须早于 AssetModule.Init，重复调用抛异常</summary>
+        /// <summary>初始化只读表：必须早于 AssetModule.Init，重复调用抛异常</summary>
         public static void Init(string jsonRoot)
         {
             if (_ready)
@@ -90,8 +91,8 @@ namespace DeepseaOil.Data
             Init(System.IO.Path.Combine(Application.streamingAssetsPath, "Luban"));
         }
 
-        /// <summary>绑定 SO 资产第二段：必须在 AssetModule.Init 之后，重复调用是 no-op</summary>
-        /// <remarks>PlayerConfig 缺失是硬错误（否则玩家速度为 0），观感调参缺失只报警告</remarks>
+        /// <summary>绑定 SO 资产：必须在 AssetModule.Init 之后，重复调用是 no-op</summary>
+        /// <remarks>PlayerConfig 缺失是硬错误（玩家速度为 0），观感调参缺失只报警告</remarks>
         public static void BindAssets()
         {
             EnsureReady();
@@ -118,6 +119,7 @@ namespace DeepseaOil.Data
             _throwTuning = ThrowTuning.LoadOrDefault();
             _dropTuning = DropTuning.LoadOrDefault();
             _visuals = VisualPalette.LoadOrDefault();
+            _feel = CombatFeelTuning.LoadOrDefault();
 
             // enemy 表已不存这些值：缺了没有字段默认值可退，会静默改变手感，故当场抛
             _enemyTuning = AssetModule.Load<EnemyTuning>(EnemyTuning.ResourceKey);
@@ -180,9 +182,9 @@ namespace DeepseaOil.Data
             }
         }
 
-        // 玩法数值查询（包装件：表行 ＋ SO）；id 不存在时 Luban 的 Get 抛异常，这里不 catch
+        // 玩法数值查询（包装件：表行 ＋ SO）；id 不存在时 Luban 的 Get 抛异常
 
-        /// <summary>读一个球种，表中不存在时返回 null</summary>
+        /// <summary>读一个球种，表里没有返回 null</summary>
         public static ProjectileSpec GetBall(BallType type)
         {
             EnsureAssets();
@@ -208,7 +210,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>读一个格子状态，表里没有这一行时抛异常</summary>
+        /// <summary>读一个格子状态，表里没有抛异常</summary>
         public static TileStateSpec GetTileState(TileStateType id)
         {
             EnsureAssets();
@@ -216,7 +218,7 @@ namespace DeepseaOil.Data
             return new TileStateSpec(_holder.Tables.TbTileState.Get(id));
         }
 
-        /// <summary>读一个格子状态，表里没有这一行时返回 null 不抛异常</summary>
+        /// <summary>读一个格子状态，表里没有返回 null 不抛异常</summary>
         public static TileStateSpec TryGetTileState(TileStateType id)
         {
             EnsureAssets();
@@ -263,7 +265,7 @@ namespace DeepseaOil.Data
             return _elementRules;
         }
 
-        /// <summary>二级元素跨界反应查询表；装配期建一次，调表后须重启</summary>
+        /// <summary>二级元素跨界反应查询表；装配期建一次，调表要重启</summary>
         public static DuoReactionCatalog GetDuoReactions()
         {
             EnsureAssets();
@@ -284,7 +286,7 @@ namespace DeepseaOil.Data
             return _duoReactions;
         }
 
-        /// <summary>读一个种子，表里没有这一行时返回 null 不抛异常</summary>
+        /// <summary>读一个种子，表里没有返回 null 不抛异常</summary>
         public static SeedSpec GetSeed(SeedType id)
         {
             EnsureAssets();
@@ -311,7 +313,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>读一个敌人种类：耐久来自 enemy 表，运动学来自 EnemyTuning 该 id 条目</summary>
+        /// <summary>读一个敌人种类：耐久来自 enemy 表，运动学来自 EnemyTuning 条目</summary>
         public static EnemySpec GetEnemy(int id = Ids.Enemy)
         {
             EnsureAssets();
@@ -331,7 +333,7 @@ namespace DeepseaOil.Data
             return _waveEnemies.TryGetValue(waveId, out List<WaveEnemySpec> list) ? list : EmptyWaveEnemies;
         }
 
-        /// <summary>观感颜色表（SO），观感取值的唯一权威入口</summary>
+        /// <summary>观感颜色表（SO），观感取值唯一入口</summary>
         /// <remarks>永不返回 null：丢资产时给字段默认值实例＋Warning</remarks>
         public static VisualPalette Visuals
         {
@@ -340,6 +342,37 @@ namespace DeepseaOil.Data
                 EnsureAssets();
 
                 return _visuals;
+            }
+        }
+
+        /// <summary>战斗观感调参（SO）：受击/震屏/扬尘取值的唯一入口</summary>
+        public static CombatFeelTuning Feel
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _feel;
+            }
+        }
+
+        public static int PathMaxSteps
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.pathMaxSteps;
+            }
+        }
+
+        public static int PathRecalcFrames
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.pathRecalcFrames;
             }
         }
 
@@ -361,7 +394,7 @@ namespace DeepseaOil.Data
             return new WaveSpec(_holder.Tables.TbWave.Get(id), GetWaveEnemies(id));
         }
 
-        /// <summary>全部波次配置，按表内顺序；WaveLogic 逐波推进，跑完循环回第 1 行</summary>
+        /// <summary>全部波次配置，按表内顺序；WaveLogic 逐波推进，跑完回第 1 行</summary>
         public static IReadOnlyList<WaveSpec> GetWaves()
         {
             EnsureAssets();
