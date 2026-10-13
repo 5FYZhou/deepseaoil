@@ -31,8 +31,6 @@ namespace DeepseaOil.Data
 
         public float SpawnInterval => _row.SpawnInterval;
 
-        public float SpawnRadius => _row.SpawnRadius;
-
         public SeedType GrantSeed => _row.GrantSeed;
     }
 }
