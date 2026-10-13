@@ -28,6 +28,8 @@ public sealed partial class ElementDuoReaction : Luban.BeanBase
         { if(!_buf["impact_knockback"].IsNumber) { throw new SerializationException(); }  ImpactKnockback = _buf["impact_knockback"]; }
         { if(!_buf["result_duration"].IsNumber) { throw new SerializationException(); }  ResultDuration = _buf["result_duration"]; }
         { if(!_buf["effect_radius"].IsNumber) { throw new SerializationException(); }  EffectRadius = _buf["effect_radius"]; }
+        { if(!_buf["pull_strength"].IsNumber) { throw new SerializationException(); }  PullStrength = _buf["pull_strength"]; }
+        { if(!_buf["break_aggro"].IsBoolean) { throw new SerializationException(); }  BreakAggro = _buf["break_aggro"]; }
         { if(!_buf["trigger_chain"].IsBoolean) { throw new SerializationException(); }  TriggerChain = _buf["trigger_chain"]; }
     }
 
@@ -69,6 +71,14 @@ public sealed partial class ElementDuoReaction : Luban.BeanBase
     /// </summary>
     public readonly float EffectRadius;
     /// <summary>
+    /// 向心吸引力
+    /// </summary>
+    public readonly float PullStrength;
+    /// <summary>
+    /// 是否清仇恨
+    /// </summary>
+    public readonly bool BreakAggro;
+    /// <summary>
     /// 连锁模式
     /// </summary>
     public readonly bool TriggerChain;
@@ -91,6 +101,8 @@ public sealed partial class ElementDuoReaction : Luban.BeanBase
         + "impactKnockback:" + ImpactKnockback + ","
         + "resultDuration:" + ResultDuration + ","
         + "effectRadius:" + EffectRadius + ","
+        + "pullStrength:" + PullStrength + ","
+        + "breakAggro:" + BreakAggro + ","
         + "triggerChain:" + TriggerChain + ","
         + "}";
     }
