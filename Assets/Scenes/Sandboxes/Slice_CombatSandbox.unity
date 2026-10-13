@@ -1904,55 +1904,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3180fa70822433a45b0d2b8db73ef5d1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &410001
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 410002}
-  - component: {fileID: 410003}
-  m_Layer: 0
-  m_Name: GridView
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &410002
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 410001}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &410003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 410001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7171130770de1e0489b66b50d9965c81, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  groundTilemap: {fileID: 310003}
-  effectLayers: []
-  fallbackEffectTilemap: {fileID: 0}
-  stateTiles: []
-  initialSetupTilemap: {fileID: 0}
 --- !u!1 &420001
 GameObject:
   m_ObjectHideFlags: 0
@@ -1999,7 +1950,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enemy: {fileID: 0}
   spawnEnemyId: 1
-  adapter: {fileID: 410003}
+  adapter: {fileID: 875218003}
   spawnPosition: {x: 6, y: 5}
   panelOrigin: {x: 8, y: 8}
   panelSize: {x: 380, y: 320}
@@ -2077,7 +2028,7 @@ TilemapRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 1
+  m_SortingOrder: 2
   m_ChunkSize: {x: 32, y: 32, z: 32}
   m_ChunkCullingBounds: {x: 0.5, y: 0.5, z: 0}
   m_MaxChunkCount: 16
@@ -2134,6 +2085,7 @@ GameObject:
   m_Component:
   - component: {fileID: 875218004}
   - component: {fileID: 875218003}
+  - component: {fileID: 875218005}
   m_Layer: 0
   m_Name: TIlemapAdpater
   m_TagString: Untagged
@@ -2166,6 +2118,8 @@ MonoBehaviour:
   fallbackEffectTilemap: {fileID: 320003}
   stateTiles: []
   initialSetupTilemap: {fileID: 0}
+  overlayDirector: {fileID: 0}
+  obstacleDirector: {fileID: 0}
 --- !u!4 &875218004
 Transform:
   m_ObjectHideFlags: 0
@@ -2181,6 +2135,33 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &875218005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 875218002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b775c025db05c8740988d2786f867723, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bindings:
+  - State: 16
+    OverlaySprite: {fileID: -2110302984, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 21
+    OverlaySprite: {fileID: -1416169379, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 2100000, guid: cb1342ad2de4fc74585ae8602a13300b, type: 2}
+    ExtraOffsetY: 0
+  - State: 19
+    OverlaySprite: {fileID: 1664075843, guid: 60f28caded1c88e4585752947d21b638, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  defaultMaterial: {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  maxPoolSize: 256
 --- !u!1 &1180941121
 GameObject:
   m_ObjectHideFlags: 0
@@ -2254,7 +2235,7 @@ TilemapRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 1
+  m_SortingOrder: 4
   m_ChunkSize: {x: 32, y: 32, z: 32}
   m_ChunkCullingBounds: {x: 0.5, y: 0.5, z: 0}
   m_MaxChunkCount: 16
@@ -2374,7 +2355,7 @@ TilemapRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 1
+  m_SortingOrder: 3
   m_ChunkSize: {x: 32, y: 32, z: 32}
   m_ChunkCullingBounds: {x: 0.5, y: 0.5, z: 0}
   m_MaxChunkCount: 16
@@ -2428,7 +2409,6 @@ SceneRoots:
   - {fileID: 100002}
   - {fileID: 200002}
   - {fileID: 300002}
-  - {fileID: 400002}
-  - {fileID: 410002}
-  - {fileID: 420002}
   - {fileID: 875218004}
+  - {fileID: 400002}
+  - {fileID: 420002}

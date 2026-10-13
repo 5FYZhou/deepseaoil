@@ -21220,11 +21220,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bindings:
   - State: 16
+    OverlaySprite: {fileID: -2110302984, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
     ExtraOffsetY: 0
   - State: 21
+    OverlaySprite: {fileID: -1416169379, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 2100000, guid: cb1342ad2de4fc74585ae8602a13300b, type: 2}
     ExtraOffsetY: 0
   - State: 19
+    OverlaySprite: {fileID: 1664075843, guid: 60f28caded1c88e4585752947d21b638, type: 3}
+    OverrideMaterial: {fileID: 0}
     ExtraOffsetY: 0
+  defaultMaterial: {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
   maxPoolSize: 256
 --- !u!1 &544939641
 GameObject:
@@ -22152,7 +22159,7 @@ TilemapRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: 3254772c4f1f8134893f8353bb01a34f, type: 3}
+  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
