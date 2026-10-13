@@ -24108,6 +24108,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2915623506942802446, guid: 7cffd0fd78c020a438e10f7c29072c66, type: 3}
+      propertyPath: aimCamera
+      value: 
+      objectReference: {fileID: 1648274591}
+    - target: {fileID: 2915623506942802446, guid: 7cffd0fd78c020a438e10f7c29072c66, type: 3}
       propertyPath: boundsArea
       value: 
       objectReference: {fileID: 553542504}
