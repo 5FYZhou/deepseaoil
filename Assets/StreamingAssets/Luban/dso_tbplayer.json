@@ -3,7 +3,6 @@
     "id": 1,
     "name": "玩家",
     "max_hp": 3,
-    "contact_damage": 1,
     "invulnerable_duration": 0.8,
     "retry_delay": 1.2,
     "attack_interval": 0.35,
