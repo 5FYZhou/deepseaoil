@@ -65,14 +65,14 @@ namespace DeepseaOil.Presentation.UI
                 case "BtnReturnMenu":
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
-                    // 开始场景直接同步加载
+
                     EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
                     break;
                 case "BtnSave":
-                    // 保存进度
+
                     break;
                 case "BtnLoad":
-                    // 读取存档
+
                     GameRoot.Instance.UI.ShowPanel<SavePanel>();
                     break;
             }

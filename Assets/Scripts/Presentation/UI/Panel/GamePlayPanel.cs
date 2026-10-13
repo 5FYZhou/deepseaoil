@@ -173,12 +173,12 @@ namespace DeepseaOil.Presentation.UI
                     break;
 
                 case "BtnSetting":
-                    // 跟已有的：暂停游戏时打开暂停面板逻辑打架
-                    // Esc暂停时，需要通过GameManager打开暂停面板
-                    // 打开设置时，游戏状态又要变为暂停
-                    // 结论：还是别放设置了
-                    //GameRoot.Instance.Game.ChangeState(GameState.Paused);
-                    //GameRoot.Instance.UI.ShowPanel<SettingPanel>();
+
+
+
+
+
+
                     break;
             }
         }

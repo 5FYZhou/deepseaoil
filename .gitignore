@@ -12,6 +12,9 @@
 /[Uu]ser[Ss]ettings/
 *.log
 
+# 门禁输出的原始日志归档，仅用于批次归因，不入库
+/.gate-logs/
+
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be commited to version control.
 *.blend1
 *.blend1.meta

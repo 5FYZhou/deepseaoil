@@ -26,7 +26,6 @@ public sealed partial class Wave : Luban.BeanBase
         { if(!_buf["battle_time"].IsNumber) { throw new SerializationException(); }  BattleTime = _buf["battle_time"]; }
         { if(!_buf["settle_time"].IsNumber) { throw new SerializationException(); }  SettleTime = _buf["settle_time"]; }
         { if(!_buf["spawn_interval"].IsNumber) { throw new SerializationException(); }  SpawnInterval = _buf["spawn_interval"]; }
-        { if(!_buf["spawn_radius"].IsNumber) { throw new SerializationException(); }  SpawnRadius = _buf["spawn_radius"]; }
         { if(!_buf["grant_seed"].IsNumber) { throw new SerializationException(); }  GrantSeed = (dso.SeedType)_buf["grant_seed"].AsInt; }
     }
 
@@ -60,10 +59,6 @@ public sealed partial class Wave : Luban.BeanBase
     /// </summary>
     public readonly float SpawnInterval;
     /// <summary>
-    /// 出生环半径
-    /// </summary>
-    public readonly float SpawnRadius;
-    /// <summary>
     /// 战备配给种子
     /// </summary>
     public readonly dso.SeedType GrantSeed;
@@ -84,7 +79,6 @@ public sealed partial class Wave : Luban.BeanBase
         + "battleTime:" + BattleTime + ","
         + "settleTime:" + SettleTime + ","
         + "spawnInterval:" + SpawnInterval + ","
-        + "spawnRadius:" + SpawnRadius + ","
         + "grantSeed:" + GrantSeed + ","
         + "}";
     }

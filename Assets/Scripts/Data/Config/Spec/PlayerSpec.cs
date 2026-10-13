@@ -22,8 +22,6 @@ namespace DeepseaOil.Data
 
         public float MaxHp => _row.MaxHp;
 
-        public float ContactDamage => _row.ContactDamage;
-
         public float InvulnerableDuration => _row.InvulnerableDuration;
 
         public float RetryDelay => _row.RetryDelay;

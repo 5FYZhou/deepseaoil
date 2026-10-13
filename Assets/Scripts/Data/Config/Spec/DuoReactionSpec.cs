@@ -28,6 +28,10 @@ namespace DeepseaOil.Data
 
         public float EffectRadius => _row.EffectRadius;
 
+        public float PullStrength => _row.PullStrength;
+
+        public bool BreakAggro => _row.BreakAggro;
+
         public bool TriggerChain => _row.TriggerChain;
     }
 }

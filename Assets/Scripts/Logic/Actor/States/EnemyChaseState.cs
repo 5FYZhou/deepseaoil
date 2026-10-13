@@ -27,7 +27,9 @@ namespace DeepseaOil.Logic
         {
             EnemyIntent intent = _logic.Intent;
 
-            Host.MoveTowards(intent.Direction, intent.Speed);
+            var direction = _logic.ResolveObstacle(intent.Direction);
+
+            Host.MoveTowards(direction, intent.Speed);
         }
 
         /// <summary>不动就让位</summary>

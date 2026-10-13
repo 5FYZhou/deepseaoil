@@ -17,16 +17,16 @@ namespace DeepseaOil.Presentation.UI
         {
             base.Awake();
             EventBus<RequestLoadScene>.Subscribe(Show);
-            //EventBus<SceneLoaded>.Subscribe(Hide);
-            //EventBus<RequestActiveScene>.Subscribe(Hide);
+
+
             EventBus<SceneActivated>.Subscribe(Hide);
         }
 
         protected override void OnDestroy()
         {
             EventBus<RequestLoadScene>.Unsubscribe(Show);
-            //EventBus<SceneLoaded>.Unsubscribe(Hide);
-            //EventBus<RequestActiveScene>.Unsubscribe(Hide);
+
+
             EventBus<SceneActivated>.Unsubscribe(Hide);
             base.OnDestroy();
         }

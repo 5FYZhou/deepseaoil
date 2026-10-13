@@ -26,6 +26,15 @@ namespace DeepseaOil.Data
         [Tooltip("超出这个距离就放弃追击（世界单位）")]
         public float chaseRange = 60f;
 
+        [Tooltip("仇恨视野距离（世界单位），0 = 继承 EnemyTuning.defaultEntry")]
+        public float visionRange = 0f;
+
+        [Tooltip("仇恨维持距离（世界单位），0 = 继承 EnemyTuning.defaultEntry")]
+        public float sustainRange = 0f;
+
+        [Tooltip("仇恨丢失延迟（秒），0 = 继承 EnemyTuning.defaultEntry")]
+        public float loseDelay = 0f;
+
         [Tooltip("受击形变：一怪一套，改这里即改观感，不用碰代码")]
         public SquashTuning squash = new SquashTuning();
     }
