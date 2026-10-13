@@ -1,6 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
-using DeepseaOil.Logic;
 using TMPro;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
@@ -14,15 +12,11 @@ namespace DeepseaOil.Presentation.UI
         public override bool CanBeHideByKey => false;
         public override bool CloseOnSceneTransition => true;
 
-        private TMP_Text txtContext;
-
-        // 每行之间的间隔（秒）
-        [SerializeField] private float lineInterval = 0.5f;
-
-        // 开始前的停留时间（秒）
+        [SerializeField] private RectTransform viewport;
+        [SerializeField] private float scrollSpeed = 60f;
         [SerializeField] private float startDelay = 0.1f;
+        [SerializeField] private float endHoldSeconds = 1.5f;
 
-        // 按行拆分的字幕内容，用 List 方便遍历
         private static readonly string[] CreditLines =
         {
             "【深海鱼油工作室】",
@@ -49,34 +43,26 @@ namespace DeepseaOil.Presentation.UI
             "既灵",
         };
 
+        private TMP_Text txtContext;
+        private RectTransform txtRect;
         private Coroutine showCoroutine;
 
         protected override void Awake()
         {
             base.Awake();
+
             txtContext = GetComponent<TMP_Text>("TxtContext");
-            Debug.Log($"[EndPanel] txtContext = {(txtContext == null ? "NULL" : txtContext.name)}, " +
-                      $"active = {gameObject.activeInHierarchy}, " +
-                      $"lineInterval = {lineInterval}");
-        }
-        private void Start()
-        {
-            StartCoroutine(DebugTest());
+            if (txtContext == null)
+                return;
+
+            txtRect = txtContext.rectTransform;
+            if (viewport == null)
+                viewport = txtRect.parent as RectTransform;
         }
 
-        private IEnumerator DebugTest()
-        {
-            for (int i = 0; i < 5; i++)
-            {
-                Debug.Log($"[EndPanel] test {i}");
-                yield return new WaitForSeconds(0.5f);
-            }
-        }
         public override void ShowMe()
         {
-            if (showCoroutine != null)
-                StopCoroutine(showCoroutine);
-
+            StopShow();
             showCoroutine = StartCoroutine(PlayCredits());
         }
 
@@ -87,36 +73,52 @@ namespace DeepseaOil.Presentation.UI
 
         private void StopShow()
         {
-            if (showCoroutine != null)
-            {
-                StopCoroutine(showCoroutine);
-                showCoroutine = null;
-            }
+            if (showCoroutine == null)
+                return;
+
+            StopCoroutine(showCoroutine);
+            showCoroutine = null;
         }
 
         private IEnumerator PlayCredits()
         {
-            // 初始清空
-            txtContext.text = string.Empty;
-            txtContext.maxVisibleCharacters = int.MaxValue;
-
-            if (startDelay > 0f)
-                yield return new WaitForSeconds(startDelay);
-
-            // 逐行追加
-            for (int i = 0; i < CreditLines.Length; i++)
+            if (txtContext == null || txtRect == null || viewport == null)
             {
-                if (i == 0)
-                    txtContext.text = CreditLines[i];
-                else
-                    txtContext.text += "\n" + CreditLines[i];
-                Debug.Log(txtContext.text);
-
-                yield return new WaitForSeconds(lineInterval);
+                showCoroutine = null;
+                yield break;
             }
 
-            // 全部显示完后停留一会儿，再自动跳主菜单
-            yield return new WaitForSeconds(1.5f);
+            txtContext.text = string.Join("\n", CreditLines);
+            txtContext.ForceMeshUpdate();
+
+            float textHeight = txtContext.GetPreferredValues().y;
+            Vector2 size = txtRect.sizeDelta;
+            size.y = textHeight;
+            txtRect.sizeDelta = size;
+
+            float halfTravel = (viewport.rect.height + textHeight) * 0.5f;
+            float speed = Mathf.Max(1f, scrollSpeed);
+
+            Vector2 anchored = txtRect.anchoredPosition;
+            anchored.y = -halfTravel;
+            txtRect.anchoredPosition = anchored;
+
+            if (startDelay > 0f)
+                yield return new WaitForSecondsRealtime(startDelay);
+
+            while (anchored.y < halfTravel)
+            {
+                anchored.y += speed * Time.unscaledDeltaTime;
+                txtRect.anchoredPosition = anchored;
+                yield return null;
+            }
+
+            anchored.y = halfTravel;
+            txtRect.anchoredPosition = anchored;
+
+            if (endHoldSeconds > 0f)
+                yield return new WaitForSecondsRealtime(endHoldSeconds);
+
             GoToBegin();
 
             showCoroutine = null;

@@ -300,12 +300,6 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    public readonly struct CGCompleted
-    {
-        public readonly CGType type;
-        public CGCompleted(CGType t) { type = t; }
-    }
-
     public readonly struct LevelStateChanged
     {
         public readonly LevelState Level;

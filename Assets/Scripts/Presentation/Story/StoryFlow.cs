@@ -413,7 +413,6 @@ namespace DeepseaOil.Presentation.Story
         private void OnPopupTimerElapsed()
         {
             _popupExpired = true;
-            Debug.Log("OnPopupTimerElapsed");
         }
 
         private void ProcessPopupExpired()
@@ -445,7 +444,6 @@ namespace DeepseaOil.Presentation.Story
             {
                 return;
             }
-            Debug.Log("TryCompleteParagraph");
             int completedParagraph = _paragraph;
             _playing = false;
             _lines = null;
@@ -750,6 +748,12 @@ namespace DeepseaOil.Presentation.Story
             if (_root == null || _root.Audio == null)
             {
                 Debug.LogError($"[StoryFlow] GameRoot.Audio 不可用，无法播放剧情音效 {id}。", this);
+                return;
+            }
+
+            if(id == AudioId.BgmMain || id == AudioId.BgmAscensio)
+            {
+                _root.Audio.EnqueueBgm(id);
                 return;
             }
 

@@ -14,7 +14,7 @@ using Luban.SimpleJSON;
 namespace cfg.dso
 {
 /// <summary>
-/// 剧情对话表
+/// 剧情文本表
 /// </summary>
 public sealed partial class SlotDialogue : Luban.BeanBase
 {

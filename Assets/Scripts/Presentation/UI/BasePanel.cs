@@ -80,6 +80,11 @@ namespace DeepseaOil.Presentation.UI
             return "Empty";
         }
 
+        protected virtual bool KeepAuthoredTxt(string name)
+        {
+            return false;
+        }
+
         private void FindComponentsOnChildren()
         {
             var componentsInChildren = GetComponentsInChildren<UIBehaviour>(true);
@@ -106,7 +111,8 @@ namespace DeepseaOil.Presentation.UI
                 }
                 else if (component is TMP_Text text)
                 {
-                    text.text = SetInitialTxt(component.name);
+                    if (!KeepAuthoredTxt(component.name))
+                        text.text = SetInitialTxt(component.name);
                 }
                 else if (component is Graphic)
                 {

@@ -38,6 +38,7 @@ namespace DeepseaOil.Presentation.UI
                     {
                         GameRoot.Instance.UI.ShowPanel<CGPanel>((cgPanel) =>
                         {
+                            cgPanel.SetType(true);
                             transition.SetMaskPos(this.maskStart.localPosition);
                             transition.Play(
                                 this, cgPanel,

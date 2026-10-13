@@ -583,7 +583,7 @@ namespace DeepseaOil.Presentation.UI
 
             if (evt.nextId <= 0)
             {
-                ShowPanel<EndPanel>();
+                ShowPanel<CGPanel>(panel => panel.SetType(false));
                 return;
             }
 
