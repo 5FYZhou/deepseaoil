@@ -23,8 +23,9 @@ public sealed partial class TileState : Luban.BeanBase
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = (dso.TileStateType)_buf["id"].AsInt; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
         { if(!_buf["duration"].IsNumber) { throw new SerializationException(); }  Duration = _buf["duration"]; }
-        { if(!_buf["slow_rate"].IsNumber) { throw new SerializationException(); }  SlowRate = _buf["slow_rate"]; }
         { if(!_buf["dot_damage"].IsNumber) { throw new SerializationException(); }  DotDamage = _buf["dot_damage"]; }
+        { if(!_buf["slow_rate"].IsNumber) { throw new SerializationException(); }  SlowRate = _buf["slow_rate"]; }
+        { if(!_buf["touch_stun"].IsNumber) { throw new SerializationException(); }  TouchStun = _buf["touch_stun"]; }
         { if(!_buf["is_obstacle"].IsBoolean) { throw new SerializationException(); }  IsObstacle = _buf["is_obstacle"]; }
         { if(!_buf["is_conductor"].IsBoolean) { throw new SerializationException(); }  IsConductor = _buf["is_conductor"]; }
     }
@@ -47,13 +48,17 @@ public sealed partial class TileState : Luban.BeanBase
     /// </summary>
     public readonly float Duration;
     /// <summary>
+    /// 每秒伤害
+    /// </summary>
+    public readonly int DotDamage;
+    /// <summary>
     /// 移速倍率(1=不减速)
     /// </summary>
     public readonly float SlowRate;
     /// <summary>
-    /// 每秒伤害(0=无)
+    /// 麻痹时间
     /// </summary>
-    public readonly int DotDamage;
+    public readonly float TouchStun;
     /// <summary>
     /// 物理阻挡墙体
     /// </summary>
@@ -76,8 +81,9 @@ public sealed partial class TileState : Luban.BeanBase
         + "id:" + Id + ","
         + "name:" + Name + ","
         + "duration:" + Duration + ","
-        + "slowRate:" + SlowRate + ","
         + "dotDamage:" + DotDamage + ","
+        + "slowRate:" + SlowRate + ","
+        + "touchStun:" + TouchStun + ","
         + "isObstacle:" + IsObstacle + ","
         + "isConductor:" + IsConductor + ","
         + "}";
