@@ -18,7 +18,7 @@ namespace DeepseaOil.Presentation.Grid
         [Tooltip("覆盖物贴图；为空则该状态不显示覆盖物")]
         public Sprite OverlaySprite;
 
-        [Tooltip("覆盖物材质；留空则用 Sprite 默认材质")]
+        [Tooltip("覆盖物材质；留空则用 defaultMaterial")]
         public Material OverrideMaterial;
 
         [Tooltip("垂直微调偏移")]
@@ -32,6 +32,10 @@ namespace DeepseaOil.Presentation.Grid
         [Header("覆盖物映射表")]
         [Tooltip("登记哪些状态有覆盖物立面")]
         [SerializeField] private TileOverlayBinding[] bindings = new TileOverlayBinding[0];
+
+        [Header("默认材质")]
+        [Tooltip("覆盖物默认材质（装配必填）。OverrideMaterial 为空的 binding 用它；未拖则 SpriteRenderer 会显示为粉色 error shader")]
+        [SerializeField] private Material defaultMaterial = default;
 
         [Header("池容量")]
         [Tooltip("立面件上限：卡累计创建数，闲置再久也占额度")]
@@ -138,8 +142,10 @@ namespace DeepseaOil.Presentation.Grid
             var renderer = obj.GetComponent<SpriteRenderer>();
             renderer.sprite = binding.OverlaySprite;
 
-            // sharedMaterial 避免逐实例克隆；null 即回默认材质
-            renderer.sharedMaterial = binding.OverrideMaterial;
+            // sharedMaterial 不克隆实例；默认材质靠三元兜底，赋 null 会变粉色
+            renderer.sharedMaterial = binding.OverrideMaterial != null
+                ? binding.OverrideMaterial
+                : defaultMaterial;
 
             renderer.sortingOrder = RenderOrder.ActorOrder(footY) - 1;
 
@@ -173,6 +179,12 @@ namespace DeepseaOil.Presentation.Grid
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (defaultMaterial == null)
+            {
+                Debug.LogWarning(
+                    "[Overlay] defaultMaterial 未拖：OverrideMaterial 为空的 binding 会显示成粉色。", this);
+            }
+
             if (bindings == null) return;
 
             for (int i = 0; i < bindings.Length; i++)
