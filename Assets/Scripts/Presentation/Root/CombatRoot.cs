@@ -52,8 +52,6 @@ namespace DeepseaOil.Presentation
         [Tooltip("算屏幕外出生点用的相机。留空则由 EnemyDirector 回落 Camera.main。")]
         [SerializeField] private Camera spawnCamera = default;
 
-        [SerializeField] private TileOverlayDirector overlayDirector = default;
-
         private GameRoot _root;
 
         private GridLogic _grid; private EnemyCellRegistry _registry;
@@ -66,7 +64,6 @@ namespace DeepseaOil.Presentation
 
         private CombatDirector _combat;
         private TileHighlightView _highlight;
-        private TileObstacleDirector _obstacleDirector;
 
         private LifeFountainState _lifeFountain;
 
@@ -102,8 +99,6 @@ namespace DeepseaOil.Presentation
         {
             _highlight?.Detach();
             gridView?.Detach();
-            overlayDirector?.Detach();
-            _obstacleDirector?.Detach();
 
             // 销毁期再问 GameRoot.Instance 会当场造一个新的，只能用 Start 里抓的引用
             if (_root != null) _root.UnregisterSceneRoot(this);
@@ -324,9 +319,7 @@ namespace DeepseaOil.Presentation
 
             TileChainReactor.Clear();
 
-            overlayDirector?.ClearAll();
-
-            _obstacleDirector?.ClearAll();
+            gridView?.ClearAll();
 
             // 权属分流：场景木桩满血归位（物体留着），波次怪彻底销毁
             for (int i = _enemies.Count - 1; i >= 0; i--)
@@ -456,10 +449,6 @@ namespace DeepseaOil.Presentation
             // 先订阅格子状态变化再灌初始状态，否则那批泥浆不会被画出来
             gridView.Attach();
 
-            EnsureOverlayDirector(geometry);
-
-            EnsureObstacleDirector(geometry);
-
             int cells = gridView.RegisterCells(_grid);
 
             // 关卡初始地块优先从场景里的 InitialSetup 笔刷层读（策划在编辑器里画）
@@ -495,36 +484,6 @@ namespace DeepseaOil.Presentation
 
             IsReady = true;
 
-        }
-
-        private void EnsureOverlayDirector(in GridGeometry geometry)
-        {
-            if (overlayDirector == null)
-            {
-                overlayDirector = GetComponent<TileOverlayDirector>();
-                if (overlayDirector == null)
-                {
-                    overlayDirector = gameObject.AddComponent<TileOverlayDirector>();
-                }
-            }
-
-            overlayDirector.Initialize(geometry);
-            overlayDirector.Attach();
-        }
-
-        private void EnsureObstacleDirector(in GridGeometry geometry)
-        {
-            if (_obstacleDirector == null)
-            {
-                _obstacleDirector = GetComponent<TileObstacleDirector>();
-                if (_obstacleDirector == null)
-                {
-                    _obstacleDirector = gameObject.AddComponent<TileObstacleDirector>();
-                }
-            }
-
-            _obstacleDirector.Initialize(geometry);
-            _obstacleDirector.Attach();
         }
 
         private void AttachFountains()

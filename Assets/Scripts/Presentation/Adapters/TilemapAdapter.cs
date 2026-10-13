@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
+using DeepseaOil.Presentation.Grid;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using cfg.dso;
@@ -48,6 +49,13 @@ namespace DeepseaOil.Presentation.Adapters
         [Tooltip("初始地块编辑层（可选）：用笔刷在此绘制开局特殊地块。读取后自动隐藏")]
         [SerializeField] private Tilemap initialSetupTilemap = default;
 
+        [Header("装饰件（留空则自愈挂载）")]
+        [Tooltip("覆盖物立面管理器")]
+        [SerializeField] private TileOverlayDirector overlayDirector = default;
+
+        [Tooltip("物理阻挡体管理器")]
+        [SerializeField] private TileObstacleDirector obstacleDirector = default;
+
         /// 每格只记一层；前提：效果层开局全空，刷过 tile 改按每层记原值。
         private readonly Dictionary<Vector3Int, Tilemap> _cellLayer = new();
 
@@ -64,15 +72,61 @@ namespace DeepseaOil.Presentation.Adapters
 
         public bool IsWired => groundTilemap != null;
 
-        /// 开始听格子状态变化，必须在灌入初始状态之前调。
+        /// 先自愈装饰件再订阅；必须在灌入初始状态之前调。
         public void Attach()
         {
+            GridGeometry geometry = ReadGeometry();
+
+            EnsureOverlay(in geometry);
+
+            EnsureObstacle(in geometry);
+
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
         }
 
         public void Detach()
         {
             EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
+
+            overlayDirector?.Detach();
+
+            obstacleDirector?.Detach();
+        }
+
+        /// 清空全部装饰件实例；切场景/清场用
+        public void ClearAll()
+        {
+            overlayDirector?.ClearAll();
+
+            obstacleDirector?.ClearAll();
+        }
+
+        /// 自愈装配覆盖物管理器；几何非法时跳过
+        private void EnsureOverlay(in GridGeometry geometry)
+        {
+            if (!geometry.IsValid) return;
+
+            if (overlayDirector == null) overlayDirector = GetComponent<TileOverlayDirector>();
+
+            if (overlayDirector == null) overlayDirector = gameObject.AddComponent<TileOverlayDirector>();
+
+            overlayDirector.Initialize(in geometry);
+
+            overlayDirector.Attach();
+        }
+
+        /// 自愈装配阻挡体管理器；几何非法时跳过
+        private void EnsureObstacle(in GridGeometry geometry)
+        {
+            if (!geometry.IsValid) return;
+
+            if (obstacleDirector == null) obstacleDirector = GetComponent<TileObstacleDirector>();
+
+            if (obstacleDirector == null) obstacleDirector = gameObject.AddComponent<TileObstacleDirector>();
+
+            obstacleDirector.Initialize(in geometry);
+
+            obstacleDirector.Attach();
         }
 
         /// 角点语义与 GridGeometry 对齐：CellToWorld(zero)=格左下角、GetCellCenterWorld(zero)=格心，差半格。

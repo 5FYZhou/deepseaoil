@@ -23,9 +23,11 @@ namespace DeepseaOil.Presentation.Grid
         private GridGeometry _geometry;
         private bool _attached;
 
-        /// <summary>装配几何并收集阻挡状态；池的 factory 首次触发在 TryGet，故 _geometry 赋值早于它</summary>
+        /// <summary>装配几何并收集阻挡状态，重复调用 no-op；池的 factory 首次触发在 TryGet，故 _geometry 赋值早于它</summary>
         public void Initialize(in GridGeometry geometry)
         {
+            if (_pool != null) return;
+
             _geometry = geometry;
 
             _obstacleStates.Clear();
