@@ -13,6 +13,7 @@ namespace DeepseaOil.Data
         private const string PlayerConfigKey = "config/PlayerConfig";
         private const string UIConfigKey = "config/UIConfig";
         private const string AudioConfigKey = "config/AudioConfig";
+        private const string CGConfigKey = "config/CGConfig";
 
         /// <summary>关键表主键默认值</summary>
         public static class Ids
