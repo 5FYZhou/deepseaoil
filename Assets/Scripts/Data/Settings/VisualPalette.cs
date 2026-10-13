@@ -1,25 +1,50 @@
+﻿﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using cfg.dso;
 
 namespace DeepseaOil.Data
 {
-    /// <summary>战斗表现件颜色表；观感参数一律走 SO</summary>
-    // 球种色只有一份，三个消费者共用；敌人两态色显式写出，不做插值
+    [Serializable]
+    public struct BallColorEntry
+    {
+        public BallType Type;
 
+        public Color Color;
+    }
+
+    [Serializable]
+    public struct DropColorEntry
+    {
+        public DropType Type;
+
+        public Color Color;
+    }
+
+    /// <summary>战斗表现件颜色表；观感参数一律走 SO</summary>
+    // 敌人两态色显式写出，不做插值
     [CreateAssetMenu(fileName = "VisualPalette", menuName = "DeepseaOil/Settings/VisualPalette")]
     public sealed class VisualPalette : ScriptableObject
     {
         public const string ResourceKey = "tuning/VisualPalette";
 
-        [Header("球种")]
-        [Tooltip("水球色")]
+        [Header("球种色（每个 BallType 一行）")]
+        [Tooltip("加新球种时在此加一行；未列出的球种回落到 unknownBall 并警告一次")]
+        public BallColorEntry[] ballColors = new BallColorEntry[0];
+
+        // 迁移字段：首次打开本资产时迁往 ballColors，勿删
+        [HideInInspector]
         public Color waterBall = new(0.20f, 0.55f, 1.00f, 1f);
 
-        [Tooltip("土球色")]
+        [HideInInspector]
         public Color earthBall = new(0.55f, 0.36f, 0.18f, 1f);
 
         [Tooltip("未知球种的兜底色（不会看不见，也不会误导成某一颗球）")]
         public Color unknownBall = Color.white;
+
+        [Header("掉落物色（每个 DropType 一行）")]
+        [Tooltip("加新掉落物时在此加一行；未列出的回落到 unknownBall 并警告一次")]
+        public DropColorEntry[] dropColors = new DropColorEntry[0];
 
         [Header("敌人身体 · 两态")]
         [Tooltip("正常态：真身渲染器的颜色乘数。白色＝美术原色不变；美术有自带配色时改这里即可，不用动预制体")]
@@ -67,31 +92,179 @@ namespace DeepseaOil.Data
 
         private static VisualPalette Cached;
 
+        // 只在覆盖位图变化时才报告：OnValidate 频繁，逐次报会刷屏
+        private int _reportedBallColors = -1;
+
+        private int _reportedDropColors = -1;
+
         public Color BallColor(BallType type)
         {
-            switch (type)
+            if (ballColors != null)
             {
-                case BallType.Water: return waterBall;
-                case BallType.Earth: return earthBall;
-                default: return unknownBall;
+                for (int i = 0; i < ballColors.Length; i++)
+                {
+                    if (ballColors[i].Type == type) return ballColors[i].Color;
+                }
             }
+
+            return unknownBall;
         }
 
-        /// <summary>掉落物颜色；与球同色（掉落物就是材料本身），种子件走 unknownBall 以免误导</summary>
+        /// <summary>掉落物与球同色（掉落物就是材料本身）；两处数组独立填</summary>
         public Color DropColor(DropType type)
         {
-            switch (type)
+            if (dropColors != null)
             {
-                case DropType.Water: return waterBall;
-                case DropType.Earth: return earthBall;
-                default: return unknownBall;
+                for (int i = 0; i < dropColors.Length; i++)
+                {
+                    if (dropColors[i].Type == type) return dropColors[i].Color;
+                }
+            }
+
+            return unknownBall;
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            MigrateLegacyColors();
+
+            ValidateEntries();
+        }
+
+        private void MigrateLegacyColors()
+        {
+            if (ballColors != null && ballColors.Length > 0) return;
+
+            List<BallColorEntry> migrated = new List<BallColorEntry>(2);
+
+            // default(Color) 视为没填：纯透明黑会被误判
+            if (waterBall != default(Color)) migrated.Add(new BallColorEntry { Type = BallType.Water, Color = waterBall });
+
+            if (earthBall != default(Color)) migrated.Add(new BallColorEntry { Type = BallType.Earth, Color = earthBall });
+
+            if (migrated.Count == 0) return;
+
+            ballColors = migrated.ToArray();
+
+            waterBall = default;
+            earthBall = default;
+
+            UnityEditor.EditorUtility.SetDirty(this);
+
+            Debug.Log($"[VisualPalette] 已迁移 waterBall / earthBall 到 ballColors 数组（{migrated.Count} 条）。");
+        }
+#endif
+
+        private void ValidateEntries()
+        {
+            ValidateBallColors();
+
+            ValidateDropColors();
+        }
+
+        private void ValidateBallColors()
+        {
+            int coverage = 0;
+            bool duplicated = false;
+
+            if (ballColors != null)
+            {
+                for (int i = 0; i < ballColors.Length; i++)
+                {
+                    int bit = 1 << (int)ballColors[i].Type;
+
+                    if ((coverage & bit) != 0) duplicated = true;
+
+                    coverage |= bit;
+                }
+            }
+
+            int signature = (coverage << 1) | (duplicated ? 1 : 0);
+
+            if (signature == _reportedBallColors) return;
+
+            _reportedBallColors = signature;
+
+            if (duplicated)
+            {
+                for (int i = 0; i < ballColors.Length; i++)
+                {
+                    for (int j = i + 1; j < ballColors.Length; j++)
+                    {
+                        if (ballColors[i].Type != ballColors[j].Type) continue;
+
+                        Debug.LogError(
+                            $"[VisualPalette] ballColors 里 {ballColors[i].Type} 出现了两次（第 {i} 行与第 {j} 行）：只会取第一条。", this);
+                    }
+                }
+            }
+
+            string missing = MissingNames(typeof(BallType), coverage);
+
+            if (missing.Length > 0)
+            {
+                Debug.LogWarning($"[VisualPalette] ballColors 未覆盖：{missing}，运行时回落到 unknownBall。", this);
             }
         }
 
-        /// <remarks>slowMultiplier 本帧减速系数，小于 1 即被减速；受击闪白不在这里，由 EffectId.Flash 覆盖</remarks>
-        public Color EnemyBodyColor(float slowMultiplier)
+        private void ValidateDropColors()
         {
-            return slowMultiplier < 1f ? enemyBodySlowed : enemyBodyNormal;
+            int coverage = 0;
+            bool duplicated = false;
+
+            if (dropColors != null)
+            {
+                for (int i = 0; i < dropColors.Length; i++)
+                {
+                    int bit = 1 << (int)dropColors[i].Type;
+
+                    if ((coverage & bit) != 0) duplicated = true;
+
+                    coverage |= bit;
+                }
+            }
+
+            int signature = (coverage << 1) | (duplicated ? 1 : 0);
+
+            if (signature == _reportedDropColors) return;
+
+            _reportedDropColors = signature;
+
+            if (duplicated)
+            {
+                for (int i = 0; i < dropColors.Length; i++)
+                {
+                    for (int j = i + 1; j < dropColors.Length; j++)
+                    {
+                        if (dropColors[i].Type != dropColors[j].Type) continue;
+
+                        Debug.LogError(
+                            $"[VisualPalette] dropColors 里 {dropColors[i].Type} 出现了两次（第 {i} 行与第 {j} 行）：只会取第一条。", this);
+                    }
+                }
+            }
+
+            string missing = MissingNames(typeof(DropType), coverage);
+
+            if (missing.Length > 0)
+            {
+                Debug.LogWarning($"[VisualPalette] dropColors 未覆盖：{missing}，运行时回落到 unknownBall。", this);
+            }
+        }
+
+        private static string MissingNames(Type enumType, int coverage)
+        {
+            List<string> missing = new List<string>();
+
+            foreach (object value in Enum.GetValues(enumType))
+            {
+                if ((coverage & (1 << (int)value)) != 0) continue;
+
+                missing.Add(value.ToString());
+            }
+
+            return string.Join(", ", missing);
         }
     }
 }

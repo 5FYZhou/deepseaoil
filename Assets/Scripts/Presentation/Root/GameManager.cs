@@ -33,7 +33,7 @@ namespace DeepseaOil.Presentation
                     // 开始场景BeginSceneInitializer打开开始面板
                     break;
                 case GameState.CG:
-                    // UI自己监听事件关闭输入
+
                     break;
                 case GameState.Running:
                     break;

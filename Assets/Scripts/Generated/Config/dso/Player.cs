@@ -23,7 +23,6 @@ public sealed partial class Player : Luban.BeanBase
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
         { if(!_buf["max_hp"].IsNumber) { throw new SerializationException(); }  MaxHp = _buf["max_hp"]; }
-        { if(!_buf["contact_damage"].IsNumber) { throw new SerializationException(); }  ContactDamage = _buf["contact_damage"]; }
         { if(!_buf["invulnerable_duration"].IsNumber) { throw new SerializationException(); }  InvulnerableDuration = _buf["invulnerable_duration"]; }
         { if(!_buf["retry_delay"].IsNumber) { throw new SerializationException(); }  RetryDelay = _buf["retry_delay"]; }
         { if(!_buf["attack_interval"].IsNumber) { throw new SerializationException(); }  AttackInterval = _buf["attack_interval"]; }
@@ -47,17 +46,13 @@ public sealed partial class Player : Luban.BeanBase
     /// </summary>
     public readonly int Id;
     /// <summary>
-    /// 显示名
+    /// 玩家名字
     /// </summary>
     public readonly string Name;
     /// <summary>
     /// 血量上限
     /// </summary>
     public readonly float MaxHp;
-    /// <summary>
-    /// 敌人贴身一次造成的伤害
-    /// </summary>
-    public readonly float ContactDamage;
     /// <summary>
     /// 受击无敌时长
     /// </summary>
@@ -116,7 +111,6 @@ public sealed partial class Player : Luban.BeanBase
         + "id:" + Id + ","
         + "name:" + Name + ","
         + "maxHp:" + MaxHp + ","
-        + "contactDamage:" + ContactDamage + ","
         + "invulnerableDuration:" + InvulnerableDuration + ","
         + "retryDelay:" + RetryDelay + ","
         + "attackInterval:" + AttackInterval + ","

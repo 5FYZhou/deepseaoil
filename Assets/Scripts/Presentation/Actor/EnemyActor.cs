@@ -18,7 +18,7 @@ namespace DeepseaOil.Presentation.Actor
 
     /// 一只敌人的组合根：抓预制体上的执行器与视效、推进逻辑层、结算伤害与死亡
     [DisallowMultipleComponent]
-    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor, IAggroBreakable
     {
         [Header("死亡反馈")]
         [Tooltip("死亡时播放的特效；由预制体配置")]
@@ -182,6 +182,8 @@ namespace DeepseaOil.Presentation.Actor
 
             _logic = new EnemyLogic(_motor, spec, brain);
 
+            _logic.AttachGrid(_grid);
+
             _motor.Facing = facing;
 
             UpdateHpText();
@@ -207,12 +209,14 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasDamage)
             {
+                CombatFeelTuning feel = ConfigModule.Feel;
+
                 // 耐久是整数，伤害舍入到整数
                 Stats.ApplyDamage(damage.Amount);
 
                 // 实体只报告事实：Follow 给 Root，真身渲染器由驱动自己下探（会跳过 ShadowView）
                 EffectContext flash = EffectContext.OnTarget(transform);
-                flash.Duration = 0.12f;
+                flash.Duration = feel.flashDuration;
                 flash.Tint = Color.white;
 
                 EffectModule.Play(EffectId.Flash, in flash);
@@ -222,10 +226,17 @@ namespace DeepseaOil.Presentation.Actor
                 {
                     SquashTuning squash = _spec.Squash;
 
+                    // 条目填 0 视为未填：回落全局观感，0 时长会变成看不见的形变
+                    float duration = Stats.IsAlive
+                        ? (squash.normalDuration > 0f ? squash.normalDuration : feel.squashDuration)
+                        : (squash.deathDuration > 0f ? squash.deathDuration : feel.squashDurationLethal);
+
+                    float cap = squash.maxAmount > 0f ? squash.maxAmount : feel.squashIntensity;
+
                     EffectContext punch = EffectContext.OnTarget(
                         _animView != null ? _animView.transform : transform);
-                    punch.Duration = Stats.IsAlive ? squash.normalDuration : squash.deathDuration;
-                    punch.Intensity = Mathf.Min(squash.amount, squash.maxAmount);
+                    punch.Duration = duration;
+                    punch.Intensity = Mathf.Min(squash.amount, cap);
                     punch.SquashRatio = squash.compressRatio;
                     punch.SquashPower = squash.easePower;
 
@@ -237,14 +248,14 @@ namespace DeepseaOil.Presentation.Actor
 
                 EffectModule.Play(EffectId.BurstSparks, in spark);
 
-                // 受击顿帧：定格动画 0.06 秒
-                StartCoroutine(CoHitStop(0.06f));
+                // 受击顿帧：定格动画
+                StartCoroutine(CoHitStop(feel.hitStopSeconds));
             }
 
             if (damage.HasKnockback && _logic != null)
             {
                 // 只递交，下个逻辑帧才"进入受击"：v0 由本节拍位移与本节阻尼反解，与 HurtState 同源
-                float targetDistance = damage.KnockbackCells * CellsToWorldUnit;
+                float targetDistance = damage.KnockbackCells * CellSize;
 
                 float v0 = Mathf.Sqrt(2f * HurtDeceleration() * targetDistance);
 
@@ -265,8 +276,8 @@ namespace DeepseaOil.Presentation.Actor
             UpdateHpText();
         }
 
-        /// <summary>格 → 世界单位换算；与 GridGeometry.cellSize 同值，格边长不是 1 时要跟</summary>
-        private const float CellsToWorldUnit = 1f;
+        /// <summary>格边长（世界单位）；网格未接线时退化为 1f</summary>
+        private float CellSize => _grid != null && _grid.Geometry.IsValid ? _grid.Geometry.CellSize : 1f;
 
         /// <summary>滑停减速度：hurtDecay 非法/未填即落回 moveAcceleration</summary>
         private float HurtDeceleration()
@@ -337,6 +348,13 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 麻痹是否还在生效；只读、暂无消费者
         public bool IsStunned => Time.time < _stunnedUntil;
+
+        public void ForceLoseAggro()
+        {
+            _logic?.ForceLoseAggro();
+        }
+
+        void IAggroBreakable.ForceLoseAggro() => ForceLoseAggro();
 
         private void OnDrawGizmosSelected()
         {

@@ -57,10 +57,10 @@ namespace DeepseaOil.Presentation.UI
         private Canvas uiCanvas;
         private EventSystem uiEventSystem;
 
-        /// 装配是否完成
+
         public bool IsReady { get; private set; }
 
-        /// 重复 EventSystem 是否已报过一次（防刷屏）
+
         private bool _warnedDuplicateEventSystem;
 
         private Transform transitionLayer;
@@ -159,7 +159,7 @@ namespace DeepseaOil.Presentation.UI
             systemLayer = null;
         }
 
-        /// 停用场景里多余的 EventSystem 并就该去清理场景报一次错
+
         /// 停用而非销毁：场景那份是用户资产，停用足以让它走 OnDisable 摘掉注册；必须用 includeInactive 重载，失活的那份被激活时警告会回来。
         private void DisableSceneEventSystems()
         {
@@ -208,8 +208,7 @@ namespace DeepseaOil.Presentation.UI
             }
         }
 
-        /// 显示面板；isSync 方法体从不读
-        public void ShowPanel<T>(UnityAction<T> callBack = null, bool isSync = true) where T : BasePanel
+        public void ShowPanel<T>(UnityAction<T> callBack = null) where T : BasePanel
         {
             string panelName = typeof(T).Name;
             if (panelDic.ContainsKey(panelName))
@@ -227,7 +226,7 @@ namespace DeepseaOil.Presentation.UI
                 {
                     if (!panelInfo.panel.gameObject.activeSelf)
                         panelInfo.panel.gameObject.SetActive(true);
-                    // 放在层级最上方
+
                     panelInfo.panel.gameObject.transform.SetAsLastSibling();
                     panelInfo.panel.ShowMe();
                     panelInfo.isHide = false;
@@ -281,7 +280,7 @@ namespace DeepseaOil.Presentation.UI
             Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);
-            // 放在层级最上方
+
             panel.transform.SetAsLastSibling();
             panel.ShowMe();
             panelInfo.callBack?.Invoke(panel);
@@ -416,9 +415,9 @@ namespace DeepseaOil.Presentation.UI
             uiEventSystem?.SetSelectedGameObject(null);
         }
 
-        /// <summary>
+
         /// 控制按钮点击等UI输入
-        /// </summary>
+
         private void SetUIInputEnabled(bool enabled)
         {
             if (uiEventSystem == null) return;

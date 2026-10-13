@@ -52,8 +52,6 @@ namespace DeepseaOil.Presentation
         [Tooltip("算屏幕外出生点用的相机。留空则由 EnemyDirector 回落 Camera.main。")]
         [SerializeField] private Camera spawnCamera = default;
 
-        [SerializeField] private TileOverlayDirector overlayDirector = default;
-
         private GameRoot _root;
 
         private GridLogic _grid; private EnemyCellRegistry _registry;
@@ -101,7 +99,6 @@ namespace DeepseaOil.Presentation
         {
             _highlight?.Detach();
             gridView?.Detach();
-            overlayDirector?.Detach();
 
             // 销毁期再问 GameRoot.Instance 会当场造一个新的，只能用 Start 里抓的引用
             if (_root != null) _root.UnregisterSceneRoot(this);
@@ -292,9 +289,11 @@ namespace DeepseaOil.Presentation
             if (!logic.TakeDamage(in damage, now)) return;
 
             // 受创反馈：世界侧只报事实，播什么由玩家侧与特效模块决定
+            CombatFeelTuning feel = ConfigModule.Feel;
+
             EffectContext hitShake = EffectContext.At(position);
-            hitShake.Intensity = 1f;
-            hitShake.Duration = 0.14f;
+            hitShake.Intensity = feel.hitShakeAmplitude;
+            hitShake.Duration = feel.hitShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in hitShake);
 
@@ -320,7 +319,7 @@ namespace DeepseaOil.Presentation
 
             TileChainReactor.Clear();
 
-            overlayDirector?.ClearAll();
+            gridView?.ClearAll();
 
             // 权属分流：场景木桩满血归位（物体留着），波次怪彻底销毁
             for (int i = _enemies.Count - 1; i >= 0; i--)
@@ -450,8 +449,6 @@ namespace DeepseaOil.Presentation
             // 先订阅格子状态变化再灌初始状态，否则那批泥浆不会被画出来
             gridView.Attach();
 
-            EnsureOverlayDirector(geometry);
-
             int cells = gridView.RegisterCells(_grid);
 
             // 关卡初始地块优先从场景里的 InitialSetup 笔刷层读（策划在编辑器里画）
@@ -486,23 +483,8 @@ namespace DeepseaOil.Presentation
             }
 
             IsReady = true;
-            // 加载完毕，先通知面板刷新一次
+
             OnRequestHudRefresh(new RequestHudRefresh());
-        }
-
-        private void EnsureOverlayDirector(in GridGeometry geometry)
-        {
-            if (overlayDirector == null)
-            {
-                overlayDirector = GetComponent<TileOverlayDirector>();
-                if (overlayDirector == null)
-                {
-                    overlayDirector = gameObject.AddComponent<TileOverlayDirector>();
-                }
-            }
-
-            overlayDirector.Initialize(geometry);
-            overlayDirector.Attach();
         }
 
         private void AttachFountains()
@@ -630,6 +612,8 @@ namespace DeepseaOil.Presentation
         {
             if (evt.ResultTile != TileStateType.Steam) return;
 
+            CombatFeelTuning feel = ConfigModule.Feel;
+
             EffectContext ctx = EffectContext.At(evt.Center);
             ctx.Radius = evt.Radius;
             ctx.Scale = evt.Radius; // ParticleDriver 会将预制体缩放与 Scale 相乘，使扩散范围与半径对齐
@@ -637,9 +621,11 @@ namespace DeepseaOil.Presentation
             EffectModule.Play(EffectId.SteamBlast, in ctx);
 
             // 半径映射到 0.4..1：EffectContext.Intensity 读时 Clamp01，塞原始半径会被拍成恒定满档
+            float shake = Mathf.Lerp(feel.blastShakeAmplitudeMin, feel.blastShakeAmplitudeMax, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
+
             EffectContext shakeCtx = EffectContext.At(evt.Center);
-            shakeCtx.Intensity = Mathf.Lerp(0.4f, 1f, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
-            shakeCtx.Duration = 0.16f;
+            shakeCtx.Intensity = shake;
+            shakeCtx.Duration = feel.blastShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in shakeCtx);
         }

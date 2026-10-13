@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ff36fdb58cac4943b71017785857241, type: 3}
+  m_Name: EffectTuning
+  m_EditorClassIdentifier: 
+  pools:
+  - Id: 1
+    MaxSize: 32
+    Prewarm: 8
+  - Id: 2
+    MaxSize: 32
+    Prewarm: 0
+  - Id: 4
+    MaxSize: 1
+    Prewarm: 0
+  - Id: 5
+    MaxSize: 16
+    Prewarm: 4
+  - Id: 6
+    MaxSize: 16
+    Prewarm: 0
+  - Id: 7
+    MaxSize: 1
+    Prewarm: 0
+  - Id: 8
+    MaxSize: 16
+    Prewarm: 4
+  - Id: 9
+    MaxSize: 64
+    Prewarm: 32
+  - Id: 10
+    MaxSize: 64
+    Prewarm: 16
+  - Id: 11
+    MaxSize: 32
+    Prewarm: 0
+  - Id: 12
+    MaxSize: 32
+    Prewarm: 0
+  - Id: 13
+    MaxSize: 16
+    Prewarm: 0
+  maxQueuedPlaysPerEffect: 64
