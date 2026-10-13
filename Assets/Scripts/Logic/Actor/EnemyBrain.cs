@@ -17,16 +17,19 @@ namespace DeepseaOil.Logic
 
         public readonly bool HasTarget;
 
-        public EnemyBrainContext(Vector2 self, Vector2 target, bool hasTarget)
+        public readonly bool HasAggro;
+
+        public EnemyBrainContext(Vector2 self, Vector2 target, bool hasTarget, bool hasAggro = false)
         {
             Self = self;
             Target = target;
             HasTarget = hasTarget;
+            HasAggro = hasAggro;
         }
 
         public static EnemyBrainContext WithoutTarget(Vector2 self)
         {
-            return new EnemyBrainContext(self, default, false);
+            return new EnemyBrainContext(self, default, false, false);
         }
     }
 
@@ -41,7 +44,8 @@ namespace DeepseaOil.Logic
 
         public EnemyIntent Decide(in EnemyBrainContext ctx)
         {
-            if (!ctx.HasTarget) return EnemyIntent.Idle;
+            // 仇恨由 AggroState 给：删掉这个判据，追逐就不再受视野约束
+            if (!ctx.HasTarget || !ctx.HasAggro) return EnemyIntent.Idle;
 
             Steering steering = Steering.Resolve(
                 ctx.Self,

@@ -18,7 +18,7 @@ namespace DeepseaOil.Presentation.Actor
 
     /// 一只敌人的组合根：抓预制体上的执行器与视效、推进逻辑层、结算伤害与死亡
     [DisallowMultipleComponent]
-    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor, IAggroBreakable
     {
         [Header("死亡反馈")]
         [Tooltip("死亡时播放的特效；由预制体配置")]
@@ -182,6 +182,8 @@ namespace DeepseaOil.Presentation.Actor
 
             _logic = new EnemyLogic(_motor, spec, brain);
 
+            _logic.AttachGrid(_grid);
+
             _motor.Facing = facing;
 
             UpdateHpText();
@@ -337,6 +339,13 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 麻痹是否还在生效；只读、暂无消费者
         public bool IsStunned => Time.time < _stunnedUntil;
+
+        public void ForceLoseAggro()
+        {
+            _logic?.ForceLoseAggro();
+        }
+
+        void IAggroBreakable.ForceLoseAggro() => ForceLoseAggro();
 
         private void OnDrawGizmosSelected()
         {
