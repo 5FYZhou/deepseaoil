@@ -1,10 +1,12 @@
 namespace DeepseaOil.Presentation
 {
     // 命名空间约定：一个子目录一个命名空间，专管层内各组边界；新增目录必须带自己的命名空间。
-    // 反例：Presentation/Debug/ 曾名 …Presentation.Debug，让本层 Debug.LogError 全变 CS0234，故改名 Diagnostics/。
 
     public static class SceneOrder
     {
+        /// <summary>场景入口声明：其余场景根的 Attach 都要排在它之后</summary>
+        public const int Entry = int.MinValue;
+
         /// <summary>玩家侧：必须早于世界侧，否则接触判定读上一帧站位</summary>
         public const int Player = -100;
 

@@ -19,7 +19,7 @@ namespace DeepseaOil.Presentation.Effects
         };
 
         // 一次同帧爆发最多能有多少个请求：按池子整片泛洪的量级给，8 会悄悄丢掉大半
-        private const int MaxQueuedPlaysPerEffect = 64;
+        private static int _maxQueuedPlaysPerEffect = 64;
 
         private const string RootName = "[Effects]";
 
@@ -46,7 +46,7 @@ namespace DeepseaOil.Presentation.Effects
         /// <summary>特效实例的父物体，运行期创建且 DontDestroyOnLoad；未 Init 时为 null</summary>
         internal static Transform Root => _root != null ? _root.transform : null;
 
-        /// <summary>初始化：建特效根 + 按 EffectCatalog 装配全部驱动</summary>
+        /// <summary>初始化：建特效根 + 按 EffectCatalog 装配驱动</summary>
         /// <remarks>调用方 GameRoot.Awake；重复调用只 LogError 并返回，不重置已有驱动。</remarks>
         public static void Init()
         {
@@ -70,8 +70,12 @@ namespace DeepseaOil.Presentation.Effects
                 Object.DontDestroyOnLoad(_root);
             }
 
-            IReadOnlyList<EffectSpec> specs = EffectCatalog.All;
-            for (int i = 0; i < specs.Count; i++)
+            EffectTuning tuning = AssetModule.IsInitialized ? EffectTuning.LoadOrDefault() : null;
+
+            _maxQueuedPlaysPerEffect = tuning != null && tuning.maxQueuedPlaysPerEffect > 0 ? tuning.maxQueuedPlaysPerEffect : 64;
+
+            EffectSpec[] specs = EffectCatalog.BuildSpecs(tuning);
+            for (int i = 0; i < specs.Length; i++)
             {
                 EffectSpec spec = specs[i];
                 if (spec.Id == EffectId.None)
@@ -354,7 +358,7 @@ namespace DeepseaOil.Presentation.Effects
                 _pendingPlays[id] = list;
             }
 
-            if (list.Count >= MaxQueuedPlaysPerEffect)
+            if (list.Count >= _maxQueuedPlaysPerEffect)
             {
                 list.RemoveAt(0);
             }

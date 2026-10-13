@@ -43,6 +43,12 @@ namespace DeepseaOil.Data
 
         public float ChaseRange => _tuning.chaseRange;
 
+        public float VisionRange => _tuning.visionRange;
+
+        public float SustainRange => _tuning.sustainRange;
+
+        public float LoseDelay => _tuning.loseDelay;
+
         public int Hp => _row.Hp;
 
         /// <summary>贴身一次对玩家造成的伤害；敌人伤害的唯一权威，玩家表的 contact_damage 不用在这条链上</summary>

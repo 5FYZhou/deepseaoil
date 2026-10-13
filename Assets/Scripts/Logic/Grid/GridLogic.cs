@@ -43,8 +43,11 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>目标快照：受害方可能在结算中死亡注销</summary>
         private readonly List<IEffectTarget> _dealScratch = new();
 
-        /// <summary>径向冲击的格缓冲，复用避免热路径分配</summary>
+        /// <summary>径向冲击格缓冲，复用避免热路径分配</summary>
         private readonly List<Vector3Int> _blastCells = new();
+
+        /// <summary>铺地貌格缓冲，不复用 _blastCells</summary>
+        private readonly List<Vector3Int> _spreadCells = new();
 
         private float _now;
         private float _deltaTime;
@@ -71,8 +74,8 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        /// <summary>登记合法格；initial 参数当前不读，地貌由 SwitchTileState 改</summary>
-        public void RegisterCell(Vector3Int cell, TileStateType initial = TileStateType.Normal)
+        /// <summary>登记为合法格；地貌由 SwitchTileState 改</summary>
+        public void RegisterCell(Vector3Int cell)
         {
             _cells.Add(cell);
         }
@@ -94,12 +97,36 @@ namespace DeepseaOil.Logic.Grid
                 : TileStateType.Normal;
         }
 
-        /// <summary>该格是否作为网格连锁的导通体；未登记或表里没有该行都返回 false</summary>
+        /// <summary>该格是否作为网格连锁的导通体；无表行返回 false</summary>
         public bool IsConductor(Vector3Int cell)
         {
             TileStateType state = StateOf(cell);
 
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsConductor;
+        }
+
+        /// <summary>该格是否物理阻挡；无表行返回 false</summary>
+        public bool IsObstacle(Vector3Int cell)
+        {
+            TileStateType state = StateOf(cell);
+
+            return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsObstacle;
+        }
+
+        /// <summary>该格地貌的每秒伤害（dot_damage）；无表行返回 0</summary>
+        public int DotDamageOf(Vector3Int cell)
+        {
+            TileStateType state = StateOf(cell);
+
+            return _specs.TryGetValue(state, out TileStateSpec spec) ? spec.DotDamage : 0;
+        }
+
+        /// <summary>该格地貌的麻痹秒数（touch_stun）；无表行返回 0</summary>
+        public float TouchStunOf(Vector3Int cell)
+        {
+            TileStateType state = StateOf(cell);
+
+            return _specs.TryGetValue(state, out TileStateSpec spec) ? spec.TouchStun : 0f;
         }
 
         /// <summary>灌入关卡初始状态，不产生伤害</summary>
@@ -157,7 +184,7 @@ namespace DeepseaOil.Logic.Grid
 
             TileStateType current = StateOf(cell);
 
-            // 二级先判且用未改写状态：一级若先改格子，配对（如植物×火）就再也凑不齐
+            // 二级先判且用未改写状态：一级先改格子，配对（如植物×火）就凑不齐
             bool duoTriggered = TileChainReactor.TriggerDuo(this, cell, current, _duo);
 
             ReactionOutcome outcome = ReactionResolver.Resolve(current, ball);
@@ -179,7 +206,7 @@ namespace DeepseaOil.Logic.Grid
             return false;
         }
 
-        /// <summary>落地冲击的唯一出口：支持单格与广域 AoE 波及</summary>
+        /// <summary>落地冲击的唯一出口：单格与广域 AoE</summary>
         public bool ApplyImpact(Vector3Int cell, in ReactionOutcome outcome)
         {
             bool any = false;
@@ -240,7 +267,7 @@ namespace DeepseaOil.Logic.Grid
             _pending[cell] = next;
         }
 
-        /// <summary>对格上目标造成一次伤害；残留伤害也走同一份结算规则，走这条即不带击退</summary>
+        /// <summary>对格上目标造成一次伤害；走这条即不带击退</summary>
         public void DealCell(Vector3Int cell, float amount)
         {
             DealCell(cell, amount, 0f);
@@ -264,7 +291,7 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        /// <summary>对单个目标结算一次：与 DealCell 同一份打包规则，供只作用于该目标的入口用</summary>
+        /// <summary>对单个目标结算一次：与 DealCell 同一份打包规则</summary>
         private static void DealTarget(IEffectTarget target, Vector2 center, float amount, float knockbackCells)
         {
             if (target == null || !target.IsAlive) return;
@@ -282,7 +309,7 @@ namespace DeepseaOil.Logic.Grid
             if (knockbackCells > 0f && target is IKnockBackable knockbackable) knockbackable.ApplyKnockback(direction * damage.KnockbackCells);
         }
 
-        /// <summary>对格上目标续一次减速；状态实现按帧调它，seconds 就是本帧窗口</summary>
+        /// <summary>对格上目标续一次减速；状态实现按帧调，seconds 是本帧窗口</summary>
         /// 续减速不做快照，离开泥浆自然过期；替换成一次性大窗口会短于物理帧被扣穿
         public void ApplySlowCell(Vector3Int cell, float speedScale, float seconds)
         {
@@ -296,7 +323,7 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        /// <summary>对格上目标施加麻痹</summary>
+        /// <summary>对格上目标施麻痹</summary>
         public void ApplyStunCell(Vector3Int cell, float seconds)
         {
             if (seconds <= 0f) return;
@@ -309,7 +336,7 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        /// <summary>连锁电击：伤害 + 麻痹一次结算，供 TileChainReactor 逐格调用</summary>
+        /// <summary>连锁电击：伤害 + 麻痹一次结算，供 TileChainReactor 逐格调</summary>
         public void ApplyInstantShock(Vector3Int cell, int damage, float stunSeconds)
         {
             DealCell(cell, damage);
@@ -321,8 +348,8 @@ namespace DeepseaOil.Logic.Grid
             EventBus<GridPointVfxOccurred>.Publish(new GridPointVfxOccurred(_geometry.CellCenter(cell), isFlame));
         }
 
-        /// <summary>径向范围冲击：对半径内每格的伙伴结算一次伤害与击退，用于二级反应的波及</summary>
-        /// <remarks>半径按格心欧氏距离判，含中心格；一次反应内同一格只结算一次。</remarks>
+        /// <summary>径向范围冲击：半径内每格结算一次伤害与击退，用于二级反应的波及</summary>
+        /// <remarks>半径按格心欧氏距离判、含中心格；一次反应同格只结算一次。</remarks>
         public void ApplyBlast(Vector3Int center, float radiusCells, int damage, float knockbackCells)
         {
             if (radiusCells < 0f) radiusCells = 0f;
@@ -363,8 +390,55 @@ namespace DeepseaOil.Logic.Grid
             EventBus<GridBlastOccurred>.Publish(new GridBlastOccurred(centerPoint, radiusCells * _geometry.CellSize, centerState));
         }
 
+        /// <summary>半径内铺 resultTile；永久地貌跳过（Normal 例外），保护玩家铺的水/土</summary>
+        public void SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
+        {
+            if (radiusCells < 0f) radiusCells = 0f;
+
+            int reach = Mathf.CeilToInt(radiusCells);
+            float radiusSqr = radiusCells * radiusCells;
+
+            Vector2 centerPoint = _geometry.CellCenter(center);
+
+            _spreadCells.Clear();
+
+            for (int dy = -reach; dy <= reach; dy++)
+            {
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    var cell = new Vector3Int(center.x + dx, center.y + dy, center.z);
+
+                    if (!_cells.Contains(cell)) continue;
+
+                    if (dx != 0 || dy != 0)
+                    {
+                        Vector2 delta = _geometry.CellCenter(cell) - centerPoint;
+
+                        if (delta.sqrMagnitude > radiusSqr) continue;
+                    }
+
+                    _spreadCells.Add(cell);
+                }
+            }
+
+            for (int i = 0; i < _spreadCells.Count; i++)
+            {
+                Vector3Int cell = _spreadCells[i];
+
+                TileStateType state = StateOf(cell);
+
+                if (state == resultTile) continue;
+
+                if (state != TileStateType.Normal
+                    && _specs.TryGetValue(state, out TileStateSpec spec)
+                    && spec.Duration <= 0f) continue;
+
+                SwitchTileState(cell, resultTile, durationOverride);
+            }
+        }
+
         /// <summary>切换某格状态；同状态 no-op，未登记的格与无表行的状态一律拒绝</summary>
-        /// <remarks>durationOverride &gt; 0 时覆盖表里的 duration（二级反应的结果存续用它）；不改贴图以外任何东西，贴图由 EventBus 订阅者刷。</remarks>
+        /// <remarks>durationOverride &gt; 0 覆盖表里的 duration（二级反应结果存续用它）；贴图由 EventBus 订阅者刷。</remarks>
         public bool SwitchTileState(Vector3Int cell, TileStateType next, float durationOverride = 0f)
         {
             if (!_cells.Contains(cell)) return false;
@@ -397,14 +471,14 @@ namespace DeepseaOil.Logic.Grid
             return true;
         }
 
-        /// <summary>取某状态的包装件，诊断与测试用</summary>
+        /// <summary>取某状态的包装件，诊断用</summary>
         public bool TryGetSpec(TileStateType state, out TileStateSpec spec)
         {
             return _specs.TryGetValue(state, out spec);
         }
 
-        /// <summary>目标跨格进入：只给该目标补该格"进格一下"</summary>
-        /// <remarks>进入地格的一次性代价按"伤害 + 击退"两类算，由状态的 DoT 与减速承担持续部分。</remarks>
+        /// <summary>目标跨格进入：只给该目标补"进格一下"</summary>
+        /// <remarks>进格一次性代价＝伤害＋麻痹，持续伤害由状态的 DoT 承担；同格不再进不重复结算。</remarks>
         public void OnActorEnterCell(Vector3Int cell, IEffectTarget target)
         {
             if (target == null || target.IsAlive == false) return;
@@ -412,6 +486,9 @@ namespace DeepseaOil.Logic.Grid
             if (!_cells.Contains(cell)) return;
 
             if (!_specs.TryGetValue(StateOf(cell), out TileStateSpec spec)) return;
+
+            // 麻痹不吃 DotDamage 的提前返回：dot_damage 可为 0 也要麻
+            if (spec.TouchStun > 0f) ApplyStunCell(cell, spec.TouchStun);
 
             if (spec.DotDamage <= 0) return;
 

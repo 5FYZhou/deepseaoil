@@ -8,7 +8,7 @@ using cfg.dso;
 namespace DeepseaOil.Logic.Events
 {
     #region 请求
-    /// <summary> 请求加载某场景</summary>
+
     public readonly struct RequestLoadScene
     {
         public readonly string sceneName;
@@ -16,7 +16,7 @@ namespace DeepseaOil.Logic.Events
         public RequestLoadScene(string n, bool i) { sceneName = n; isAsync = i; }
     }
 
-    /// <summary> 请求激活某场景（异步加载时用），若该场景未加载会报错 </summary>
+
     public readonly struct RequestActiveScene 
     {
         public readonly string sceneName;
@@ -29,16 +29,14 @@ namespace DeepseaOil.Logic.Events
     #endregion
 
     #region 事实
-    /// <summary> 某场景异步加载完毕，等待被激活 </summary>
+
     public readonly struct SceneLoaded
     {
         public readonly string sceneName;
         public SceneLoaded(string n) { sceneName = n; }
     }
 
-    /// <summary> 某场景被激活了。</summary>
-    /// <remarks>同步加载时，Load完直接发；
-    /// 异步加载时，会在监听到RequestActiveScene并激活场景后发</remarks>
+    /// 同步加载时 Load 完直接发；异步加载时在激活场景后发
     public readonly struct SceneActivated
     {
         public readonly string sceneName;
@@ -143,7 +141,7 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    /// <summary>波次进入新阶段；备战期带配给种子与倒计时</summary>
+
     public readonly struct WavePhaseChanged
     {
         public readonly int WaveIndex;
@@ -152,7 +150,7 @@ namespace DeepseaOil.Logic.Events
 
         public readonly SeedType GrantSeed;
 
-        /// <summary>本阶段剩余秒数</summary>
+
         public readonly float SecondsLeft;
 
         public WavePhaseChanged(
@@ -184,7 +182,7 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    /// <summary>逐格瞬时特效：IsFire 为真＝火花，为假＝电弧</summary>
+
     public readonly struct GridPointVfxOccurred
     {
         public readonly Vector2 Point;

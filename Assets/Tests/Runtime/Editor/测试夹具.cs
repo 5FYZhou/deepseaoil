@@ -21,7 +21,7 @@ using cfg.dso;
 namespace DeepseaOil.Tests
 {
     /// <summary>生成行的工厂：用 JSON 字面量造 cfg.dso.* 行</summary>
-        /// <remarks>缺一个键就会抛 SerializationException：Luban 的惰性占位 IsNumber / IsString 都是 false，不是留 null。枚举键写数字，不是成员名。</remarks>
+        /// <remarks>缺一个键就会抛 SerializationException：Luban 的惰性占位 IsNumber / IsString 都是 false，不是留 null。</remarks>
     internal static class RowFactory
     {
         /// <summary>一行水球：id 本身就是球种，只有这两列。</summary>
@@ -37,7 +37,7 @@ namespace DeepseaOil.Tests
         /// <summary>一行玩家：受击 / 投掷 / 回血三条链用到的列全在。</summary>
         public static Player PlayerRow()
             => new Player(JSON.Parse(
-                "{\"id\":1,\"name\":\"玩家\",\"max_hp\":3,\"contact_damage\":1," +
+                "{\"id\":1,\"name\":\"玩家\",\"max_hp\":3," +
                 "\"invulnerable_duration\":0.8,\"retry_delay\":1.2,\"attack_interval\":0.35," +
                 "\"knockback_impulse\":12,\"knockback_speed_limit\":12,\"contact_radius\":1," +
                 "\"water_capacity\":5,\"water_start\":5,\"earth_capacity\":5,\"earth_start\":5," +
@@ -47,14 +47,14 @@ namespace DeepseaOil.Tests
         public static Wave WaveRow(int id = 1, int grantSeed = 1)
             => new Wave(JSON.Parse(
                 $"{{\"id\":{id},\"name\":\"测试波次\",\"prep_time\":10,\"battle_time\":30,\"settle_time\":8," +
-                $"\"spawn_interval\":0.4,\"spawn_radius\":5,\"grant_seed\":{grantSeed}}}"));
+                $"\"spawn_interval\":0.4,\"grant_seed\":{grantSeed}}}"));
 
         /// <summary>一行波次敌种：某一波出某个怪种几只；顺序即刷怪顺序。</summary>
         public static WaveEnemy WaveEnemyRow(int id, int waveId, int enemyId, int count)
             => new WaveEnemy(JSON.Parse(
                 $"{{\"id\":{id},\"wave_id\":{waveId},\"enemy_id\":{enemyId},\"count\":{count}}}"));
 
-        /// <summary>一行地块状态；默认是一个"永久、不减速、无伤害、不导通"的空地。</summary>
+        /// <summary>一行地块状态；默认是一个"永久、不减速、无伤害、不麻痹、不导通"的空地。</summary>
         public static TileState TileStateRow(
             int id,
             float duration = -1f,
@@ -62,10 +62,12 @@ namespace DeepseaOil.Tests
             int dotDamage = 0,
             bool isObstacle = false,
             bool isConductor = false,
-            string name = "测试地块")
+            string name = "测试地块",
+            float touchStun = 0f)
             => new TileState(JSON.Parse(
                 $"{{\"id\":{id},\"name\":\"{name}\",\"duration\":{duration},\"slow_rate\":{slowRate}," +
-                $"\"dot_damage\":{dotDamage},\"is_obstacle\":{(isObstacle ? "true" : "false")}," +
+                $"\"dot_damage\":{dotDamage},\"touch_stun\":{touchStun}," +
+                $"\"is_obstacle\":{(isObstacle ? "true" : "false")}," +
                 $"\"is_conductor\":{(isConductor ? "true" : "false")}}}"));
 
         /// <summary>一行元素反应规则：原格 + 球种 → 结果与冲击；radius 默认 1 格。</summary>
@@ -95,11 +97,14 @@ namespace DeepseaOil.Tests
             float knockback = 0f,
             float duration = 3f,
             float radius = 1f,
-            bool triggerChain = true)
+            bool triggerChain = true,
+            float pullStrength = 0f,
+            bool breakAggro = false)
             => new ElementDuoReaction(JSON.Parse(
                 $"{{\"id\":{id},\"elem_a\":{elemA},\"elem_b\":{elemB},\"result_tile\":{resultTile}," +
                 $"\"impact_damage\":{damage},\"impact_knockback\":{knockback}," +
                 $"\"result_duration\":{duration},\"effect_radius\":{radius}," +
+                $"\"pull_strength\":{pullStrength},\"break_aggro\":{(breakAggro ? "true" : "false")}," +
                 $"\"trigger_chain\":{(triggerChain ? "true" : "false")}}}"));
 
         /// <summary>一行种子基建配置。</summary>

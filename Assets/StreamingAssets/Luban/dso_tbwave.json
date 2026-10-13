@@ -6,7 +6,6 @@
     "battle_time": 30,
     "settle_time": 8,
     "spawn_interval": 0.4,
-    "spawn_radius": 5,
     "grant_seed": 1
   },
   {
@@ -16,7 +15,6 @@
     "battle_time": 30,
     "settle_time": 8,
     "spawn_interval": 0.3,
-    "spawn_radius": 5,
     "grant_seed": 2
   },
   {
@@ -26,7 +24,6 @@
     "battle_time": 30,
     "settle_time": 8,
     "spawn_interval": 0.25,
-    "spawn_radius": 5,
     "grant_seed": 3
   }
 ]
