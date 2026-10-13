@@ -141,7 +141,7 @@
     "Assets/Scripts/Presentation/Ball/BallActor.cs": 330,
     "Assets/Scripts/Presentation/Ball/BallDirector.cs": 421,
     "Assets/Scripts/Presentation/Ball/ImpulseExecutor.cs": 333,
-    "Assets/Scripts/Presentation/Diagnostics/CombatDummyHarness.cs": 1185,
+    "Assets/Scripts/Presentation/Diagnostics/CombatDummyHarness.cs": 1205,
     "Assets/Scripts/Presentation/Diagnostics/GridReactionHarness.cs": 1049,
     "Assets/Scripts/Presentation/Diagnostics/HarnessGui.cs": 94,
     "Assets/Scripts/Presentation/Diagnostics/MovementDebugPanel.cs": 177,
