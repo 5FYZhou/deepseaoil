@@ -402,6 +402,24 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(3f, again.emission.rateOverTimeMultiplier, 1e-4f);
         }
 
+        [Test]
+        public void D7_飘字落点等于锚点加头顶高度与随机偏移()
+        {
+            Vector2 anchor = new Vector2(1f, 2f);
+
+            Vector2 center = PopupDriver.ResolveSpawn(anchor, 0.6f, 0.15f, 0.08f, Vector2.zero);
+            Assert.AreEqual(1f, center.x, 1e-6f, "抖动为 0 时 x 必须仍是锚点");
+            Assert.AreEqual(2.6f, center.y, 1e-6f, "锚高必须叠上去：丢了就退回物理体中心");
+
+            Vector2 up = PopupDriver.ResolveSpawn(anchor, 0.6f, 0.15f, 0.08f, new Vector2(1f, 1f));
+            Assert.AreEqual(0.15f, up.x - anchor.x, 1e-6f, "偏移量必须等于 popupJitterX");
+            Assert.AreEqual(0.68f, up.y - anchor.y, 1e-6f, "偏移量必须是锚高 + popupJitterY");
+
+            Vector2 zero = PopupDriver.ResolveSpawn(anchor, 0f, 0f, 0f, new Vector2(-1f, -1f));
+            Assert.AreEqual(anchor.x, zero.x, 1e-6f, "两个旋钮归零＝回到旧行为");
+            Assert.AreEqual(anchor.y, zero.y, 1e-6f, "锚高 0 时不得凭空抬升");
+        }
+
         /// <summary>在测试根下造一具体：View 上是真身，ShadowView 上的不是。</summary>
         private static Transform MakeBody(
             Transform parent,

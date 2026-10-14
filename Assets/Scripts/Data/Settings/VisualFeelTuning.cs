@@ -70,6 +70,12 @@ namespace DeepseaOil.Data.Settings
 
         [Tooltip("alpha 淡出指数")] public float popupFadeEase = 1.5f;
 
+        [Tooltip("落点相对锚点的抬升（世界单位）：0＝物理体中心，0.6≈普通敌人头顶")] public float popupAnchorHeight = 0.6f;
+
+        [Tooltip("落点水平随机半径（世界单位，±）：0＝固定；用飘字自己的随机流，不动全局 Rng")] public float popupJitterX = 0.15f;
+
+        [Tooltip("落点垂直随机半径（世界单位，±）：0＝固定")] public float popupJitterY = 0.08f;
+
         [Header("Z-Hop 伪高度")]
         [Tooltip("基准峰值高度（世界单位），Value=1 时的上飘高度")]
         public float hopPeakHeight = 0.25f;
