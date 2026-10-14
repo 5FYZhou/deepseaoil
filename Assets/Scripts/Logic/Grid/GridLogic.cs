@@ -291,22 +291,15 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        /// <summary>对单个目标结算一次：与 DealCell 同一份打包规则</summary>
+        /// <summary>对单个目标结算一次：伤害与击退都只走这一份 Damage</summary>
         private static void DealTarget(IEffectTarget target, Vector2 center, float amount, float knockbackCells)
         {
             if (target == null || !target.IsAlive) return;
 
-            Vector2 delta = target.Position - center;
-
-            // 格心方向为零：与 Damage.At 同纪律，给"上"
-            Vector2 direction = delta.sqrMagnitude > 1e-6f ? delta.normalized : Vector2.up;
-
             Damage damage = Damage.At(center, target.Position, amount, DamageSource.Tile, knockbackCells);
 
-            // 不可受伤者仍可被减速/击退，只是不吃伤害
-            if (amount > 0f && target is IDamageable damageable) damageable.TakeDamage(in damage);
-
-            if (knockbackCells > 0f && target is IKnockBackable knockbackable) knockbackable.ApplyKnockback(direction * damage.KnockbackCells);
+            // 格层只管算格数与方向：击退位移要由受击者按自身阻尼折算成初速度
+            if (target is IDamageable damageable) damageable.TakeDamage(in damage);
         }
 
         /// <summary>对格上目标续一次减速；状态实现按帧调，seconds 是本帧窗口</summary>
