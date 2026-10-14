@@ -97,6 +97,8 @@ namespace DeepseaOil.Presentation.Effects
             new EffectSpec(EffectId.DamagePopup,  EffectDriverKind.Popup,       isSingleton: false, maxSize: 32, prewarm: 8),
 
             new EffectSpec(EffectId.Hop,          EffectDriverKind.Hop,         isSingleton: false, maxSize: 32),
+
+            new EffectSpec(EffectId.AlphaTint,    EffectDriverKind.Tint,        isSingleton: false, maxSize: 32),
         };
 
         internal static EffectSpec[] BuildSpecs(EffectTuning tuning)

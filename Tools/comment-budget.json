@@ -193,7 +193,7 @@
     "Assets/Scripts/Presentation/UI/Panel/SavePanel.cs": 0,
     "Assets/Scripts/Presentation/UI/Panel/SettingPanel.cs": 0,
     "Assets/Scripts/Presentation/UI/UIMgr.cs": 571,
-    "Assets/Scripts/Presentation/Visual/ActorAnimationView.cs": 443,
+    "Assets/Scripts/Presentation/Visual/ActorAnimationView.cs": 641,
     "Assets/Scripts/Presentation/Visual/AnimHashes.cs": 144,
     "Assets/Scripts/Presentation/Visual/IYSortAnchor.cs": 41,
     "Assets/Scripts/Presentation/Visual/RenderOrder.cs": 189,

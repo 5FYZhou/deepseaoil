@@ -34,5 +34,7 @@ namespace DeepseaOil.Presentation.Effects
         DamagePopup,
 
         Hop,
+
+        AlphaTint,
     }
 }

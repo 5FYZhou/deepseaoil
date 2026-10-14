@@ -17,7 +17,7 @@ namespace DeepseaOil.Presentation.Actor
         Stand = 1,
     }
 
-    /// 一只敌人的组合根：抓预制体上的执行器与视效、推进逻辑层、结算伤害与死亡
+    /// 一只敌人的组合根：推进逻辑层，结算伤害与死亡
     [DisallowMultipleComponent]
     public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor, IAggroBreakable
     {
@@ -82,6 +82,9 @@ namespace DeepseaOil.Presentation.Actor
         /// 减速垫色的句柄：减速期间持有，离开减速格 Stop
         private EffectHandle _slowTintHandle;
 
+        /// 尸体淡出句柄：复活前必须 Stop
+        private EffectHandle _fadeHandle;
+
         /// 上一物理帧是否减速：只在跨阶时通知 EffectModule，不逐帧重发
         private bool _slowOn;
 
@@ -103,7 +106,7 @@ namespace DeepseaOil.Presentation.Actor
 
         public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
-        /// 本帧生效的减速乘数（1=没被减速）：诊断面板读数，与身体颜色读同一份数据
+        /// 本帧生效的减速乘数：诊断面板读数
         public float SlowMultiplier => _slowMultiplier;
 
         private void Awake()
@@ -111,7 +114,6 @@ namespace DeepseaOil.Presentation.Actor
             BindPrefabParts();
         }
 
-        /// 抓预制体上的执行器与视效
         /// 补空不覆盖：Awake 与 Initialize 都会调，编辑器装配路径不跑 Awake
         private void BindPrefabParts()
         {
@@ -131,7 +133,6 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 组装一只敌人，依赖全由参数给出；target=null 则滑停，registry=null 则不登记
         /// IsScenePlaced 为真才吃 Inspector 打靶配置与复活；权属由 CombatRoot 的接管入口置位
-        /// 预制体缺 EnemyMotor 是本类唯一当场作废生成的装配错误
         public void Initialize(
             Vector2 position,
             in EnemySpec spec,
@@ -207,7 +208,7 @@ namespace DeepseaOil.Presentation.Actor
                 // 耐久是整数，伤害舍入到整数
                 Stats.ApplyDamage(damage.Amount);
 
-                // 实体只报告事实：Follow 给 Anchor，真身渲染器由驱动自己下探（会跳过 ShadowView）
+                // Anchor 给驱动，真身渲染器由驱动自己下探（跳过 ShadowView）
                 EffectContext flash = EffectContext.OnTarget(transform);
                 flash.Duration = feel.flashDuration;
                 flash.Tint = Color.white;
@@ -273,8 +274,6 @@ namespace DeepseaOil.Presentation.Actor
 
             if (!Stats.IsAlive)
             {
-                _animView?.TriggerDie();
-
                 Die(damage.Direction);
                 return;
             }
@@ -339,7 +338,7 @@ namespace DeepseaOil.Presentation.Actor
             _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + seconds);
         }
 
-        /// 麻痹是否还在生效；只读、暂无消费者
+        /// 麻痹是否还在生效；只读
         public bool IsStunned => Time.time < _stunnedUntil;
 
         public void ForceLoseAggro()
@@ -434,6 +433,10 @@ namespace DeepseaOil.Presentation.Actor
 
         private void Die(Vector2 hitDirection)
         {
+            if (_deathFired) return;
+
+            _deathFired = true;
+
             if (_motor != null) _motor.Move(Vector2.zero);
 
             // 死亡即刻摘掉归属，否则这一格继续"有目标"且结算方拿到正在销毁的对象
@@ -444,32 +447,72 @@ namespace DeepseaOil.Presentation.Actor
             }
 
             // 先发事实再销毁：回调方要用位置（战利品落在死亡那一刻的地方）
-            if (!_deathFired)
-            {
-                _deathFired = true;
+            Died?.Invoke(this);
 
-                Died?.Invoke(this);
-            }
+            if (_collider != null) _collider.enabled = false;
+
+            _animView?.TriggerDie();
 
             EffectContext ctx = EffectContext.At(Position, hitDirection);
             ctx.Tint = ConfigModule.Visuals.enemyBodyNormal;
+            ctx.Value = ConfigModule.VisualFeel.shatterIntensity;
 
             // 播哪个特效由预制体说了算，本类不写死
             EffectModule.Play(deathEffect, in ctx);
 
+            // 尸体淡出：alpha 源是 Animator 的 FadeAlpha 曲线
+            if (_animView != null)
+            {
+                EffectContext fade = EffectContext.OnTarget(_animView.transform);
+
+                _fadeHandle = EffectModule.Play(EffectId.AlphaTint, in fade);
+            }
+
+            // 回收触发口：无可用 Animator 才走兜底计时
+            if (_animView != null && _animView.HasValidAnimator)
+            {
+                _animView.DeathAnimationEnd += OnDeathAnimationDone;
+
+                return;
+            }
+
+            _respawnRoutine = StartCoroutine(CoFallbackDeath(ConfigModule.VisualFeel.deathFallbackSeconds));
+        }
+
+        private void OnDeathAnimationDone()
+        {
+            if (_animView != null) _animView.DeathAnimationEnd -= OnDeathAnimationDone;
+
             if (IsScenePlaced && respawnDelay > 0f)
             {
                 _respawnRoutine = StartCoroutine(CoRespawn());
+
                 return;
             }
 
             Destroy(gameObject);
         }
 
+        private System.Collections.IEnumerator CoFallbackDeath(float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+
+            OnDeathAnimationDone();
+        }
+
         /// 满血归位：打靶复活与清场复位共用；未接管过的对象（无 spec）不动
         public void ResetToSpawn()
         {
             if (_spec == null) return;
+
+            // 退订并清句柄：否则复活后仍被上条命的淡出压 alpha
+            if (_animView != null) _animView.DeathAnimationEnd -= OnDeathAnimationDone;
+
+            if (_fadeHandle.IsValid)
+            {
+                EffectModule.Stop(_fadeHandle);
+                _fadeHandle = EffectHandle.None;
+            }
 
             if (_respawnRoutine != null)
             {

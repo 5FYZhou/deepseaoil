@@ -26,6 +26,13 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("挤压强度兜底（EffectContext.Value）：EnemyTuning 条目里 maxAmount 填 0 时用")]
         public float squashIntensity = 0.18f;
 
+        [Header("死亡")]
+        [Tooltip("碎裂增强层强度（ctx.Value）：与动画帧打架时调低")]
+        public float shatterIntensity = 1.0f;
+
+        [Tooltip("无 Animator 时的兜底销毁延迟（秒）")]
+        public float deathFallbackSeconds = 1.0f;
+
         [Header("震屏")]
         [Tooltip("玩家受创震屏幅度（EffectContext.Value）")]
         public float hitShakeAmplitude = 1f;
