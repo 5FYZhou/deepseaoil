@@ -1,4 +1,5 @@
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
@@ -209,7 +210,7 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasDamage)
             {
-                CombatFeelTuning feel = ConfigModule.Feel;
+                VisualFeelTuning feel = ConfigModule.VisualFeel;
 
                 // 耐久是整数，伤害舍入到整数
                 Stats.ApplyDamage(damage.Amount);

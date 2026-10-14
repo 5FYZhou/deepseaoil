@@ -1,3 +1,4 @@
+using DeepseaOil.Data.Settings;
 using UnityEngine;
 
 namespace DeepseaOil.Data

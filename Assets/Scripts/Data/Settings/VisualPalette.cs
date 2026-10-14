@@ -1,9 +1,10 @@
 ﻿﻿using System;
 using System.Collections.Generic;
+using DeepseaOil.Data;
 using UnityEngine;
 using cfg.dso;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     [Serializable]
     public struct BallColorEntry

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Service;
 using UnityEngine;

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
@@ -303,7 +304,7 @@ namespace DeepseaOil.Presentation
         {
             if (dt <= 0f) return;
 
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             float speed = EngineVelocity.magnitude;
 

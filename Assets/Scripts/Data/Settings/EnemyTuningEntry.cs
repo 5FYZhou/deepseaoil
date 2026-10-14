@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
         // 单个怪种的运学调参：enemy.id 一行，怪与怪不共用
         // 预制体碰撞体半径必须与本条 radius 一致，不一致不报错
