@@ -487,6 +487,8 @@ namespace DeepseaOil.Presentation
             // 只装配时入队一次，勿挪进状态切换
             if (_root != null) _root.Audio.EnqueueBgm(AudioId.Bgm);
 
+            if (_root != null) _root.UI.EnterGameplayUi();
+
             OnRequestHudRefresh(new RequestHudRefresh());
         }
 
