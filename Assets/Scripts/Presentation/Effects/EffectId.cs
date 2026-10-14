@@ -30,5 +30,7 @@ namespace DeepseaOil.Presentation.Effects
         Squash,
 
         Dust,
+
+        DamagePopup,
     }
 }
