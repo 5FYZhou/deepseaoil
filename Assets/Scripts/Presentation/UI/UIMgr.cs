@@ -505,13 +505,22 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-            if(evt.state == Logic.GameState.CG)
+            //SetUIInputEnabled(evt.state != Logic.GameState.CG);
+
+            switch (evt.state)
             {
-                SetUIInputEnabled(false);
-            }
-            else
-            {
-                SetUIInputEnabled(true);
+                case Logic.GameState.Menu:
+                    HidePanel<GamePlayPanel>();
+                    HidePanel<HudPanel>();
+                    HidePanel<SettlePanel>();
+                    ShowPanel<BeginPanel>();
+                    break;
+                case Logic.GameState.Running:
+                    HidePanel<BeginPanel>();
+                    ShowPanel<GamePlayPanel>();
+                    ShowPanel<HudPanel>();
+                    ShowPanel<SettlePanel>();
+                    break;
             }
         }
     }

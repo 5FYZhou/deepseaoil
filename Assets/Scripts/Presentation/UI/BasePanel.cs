@@ -146,10 +146,12 @@ namespace DeepseaOil.Presentation.UI
         {
             return ButtonStyle.None;
         }
-
+        /// <summary>
+        /// 子类自己设置文本字体，默认为正文
+        /// </summary>
         protected virtual TxtStyle SetTxtStyle(string name)
         {
-            return TxtStyle.None;
+            return TxtStyle.Body;
         }
 
         internal void CollectFontStyles(HashSet<TxtStyle> styles)

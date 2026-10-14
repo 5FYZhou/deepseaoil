@@ -1,27 +1,114 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
+
+using DeepseaOil.Data;
+using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Wave;
 using UnityEngine;
 
-namespace DeepseaOil.Logic
+namespace DeepseaOil.Logic.Level
 {
-    public enum LevelPhase
+    public enum LevelState
     {
-        Prep = 0,
-
-        Battle = 1,
-
-        Settle = 2,
+        NotStarted = 0,
+        Running = 1,
+        Victory = 2,
+        Defeat = 3,
     }
 
-    /// <summary>
-    /// 获取当前关卡信息（表现层传入）
-    /// 剧情播放（CGType)
-    /// 设置敌人波次
-    /// 控制关卡流程（开关面板）
-    /// 切换关卡（胜利/玩家死亡）
-    /// </summary>
-    public class LevelLogic
+    public sealed class LevelLogic
     {
-        
+        private readonly WaveLogic _waveLogic;
+
+        public LevelSpec CurrentLevel { get; }
+
+        private int _nextLevelId;
+
+        public WaveLogic Waves => _waveLogic;
+
+        public WavePlayMode PlayMode { get; }
+
+        public LevelState State { get; private set; } = LevelState.NotStarted;
+
+        public bool IsFinished => State == LevelState.Victory || State == LevelState.Defeat;
+
+        public LevelLogic(ILevelReader levelReader)
+        {
+            if (levelReader == null)
+                throw new ArgumentNullException(nameof(levelReader));
+
+            int currentLevelId = levelReader.CurrentLevelId;
+            int nextLevelId = levelReader.NextLevelId;
+            WavePlayMode playMode = levelReader.PlayMode;
+
+            if (currentLevelId <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(levelReader),
+                    currentLevelId,
+                    "Current level ID must be positive.");
+
+            if (nextLevelId < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(levelReader),
+                    nextLevelId,
+                    "Next level ID cannot be negative.");
+
+            if (!Enum.IsDefined(typeof(WavePlayMode), playMode))
+                throw new ArgumentOutOfRangeException(nameof(levelReader), playMode, "Unknown wave play mode.");
+
+            CurrentLevel = ConfigModule.GetLevel(levelReader.CurrentLevelId);
+            _nextLevelId = nextLevelId;
+            PlayMode = playMode;
+            _waveLogic = new WaveLogic(CurrentLevel.Waves, PlayMode);
+        }
+
+        public void Start()
+        {
+            if (State != LevelState.NotStarted) return;
+
+            _waveLogic.Reset();
+            ChangeState(LevelState.Running);
+        }
+
+        public void Tick(
+            float deltaTime,
+            bool anyEnemyAlive,
+            List<WaveLogic.SpawnRequest> spawnRequests)
+        {
+            if (spawnRequests == null)
+                throw new ArgumentNullException(nameof(spawnRequests));
+
+            spawnRequests.Clear();
+
+            if (State != LevelState.Running) return;
+
+            _waveLogic.Tick(deltaTime, anyEnemyAlive, spawnRequests);
+
+            if (PlayMode == WavePlayMode.Sequential && _waveLogic.IsSequenceCompleted)
+                ChangeState(LevelState.Victory);
+        }
+
+        public void Reset()
+        {
+            _waveLogic.Reset();
+            ChangeState(LevelState.NotStarted);
+        }
+
+        public void ChangeState(LevelState state)
+        {
+            State = state;
+            EventBus<LevelStateChanged>.Publish(new LevelStateChanged(State));
+
+            if (state == LevelState.Victory || state == LevelState.Defeat)
+            {
+                EventBus<LevelEnded>.Publish(new LevelEnded(CurrentLevel.Id, _nextLevelId));
+            }
+        }
+
+        public void Announce()
+        {
+            _waveLogic.Announce();
+            EventBus<LevelStateChanged>.Publish(new LevelStateChanged(State));
+        }
     }
 }

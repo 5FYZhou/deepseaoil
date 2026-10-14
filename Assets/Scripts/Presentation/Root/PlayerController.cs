@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
@@ -232,6 +232,8 @@ namespace DeepseaOil.Presentation
         public void FixedTick(float deltaTime)
         {
             if (Logic == null) return;
+
+            if (!Logic.IsAlive) return;
 
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 

@@ -1,4 +1,4 @@
-using DeepseaOil.Logic.Events;
+﻿using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Wave;
 using TMPro;
 using UnityEngine;
@@ -22,11 +22,14 @@ namespace DeepseaOil.Presentation.UI
 
         private const string PhaseTextName = "txtPhase";
 
+        private const string LevelTextName = "txtLevel";
+
         private TMP_Text _hp;
         private TMP_Text _water;
         private TMP_Text _wave;
         private TMP_Text _seed;
         private TMP_Text _phase;
+        private TMP_Text _level;
 
         private UnityEngine.UI.Image _seedIcon;
 
@@ -46,6 +49,7 @@ namespace DeepseaOil.Presentation.UI
                 case WaveTextName:
                 case SeedTextName:
                 case PhaseTextName:
+                case LevelTextName:
                     return "--";
 
                 default:
@@ -62,6 +66,7 @@ namespace DeepseaOil.Presentation.UI
             _wave = GetComponent<TMP_Text>(WaveTextName);
             _seed = GetComponent<TMP_Text>(SeedTextName);
             _phase = GetComponent<TMP_Text>(PhaseTextName);
+            _level = GetComponent<TMP_Text>(LevelTextName);
             _seedIcon = GetComponent<UnityEngine.UI.Image>(SeedIconName);
         }
 
@@ -94,6 +99,7 @@ namespace DeepseaOil.Presentation.UI
             EventBus<PlayerAmmoChanged>.Subscribe(OnAmmoChanged);
             EventBus<WaveChanged>.Subscribe(OnWaveChanged);
             EventBus<WavePhaseChanged>.Subscribe(OnWavePhaseChanged);
+            EventBus<LevelStateChanged>.Subscribe(OnLevelStateChanged);
         }
 
         private void Unsubscribe()
@@ -106,6 +112,7 @@ namespace DeepseaOil.Presentation.UI
             EventBus<PlayerAmmoChanged>.Unsubscribe(OnAmmoChanged);
             EventBus<WaveChanged>.Unsubscribe(OnWaveChanged);
             EventBus<WavePhaseChanged>.Unsubscribe(OnWavePhaseChanged);
+            EventBus<LevelStateChanged>.Unsubscribe(OnLevelStateChanged);
         }
 
         private void OnHealthChanged(PlayerHealthChanged evt)
@@ -185,6 +192,26 @@ namespace DeepseaOil.Presentation.UI
             Data.SeedSpec spec = Data.ConfigModule.GetSeed(seed);
 
             return spec != null ? spec.Name : seed.ToString();
+        }
+
+        private void OnLevelStateChanged(LevelStateChanged evt)
+        {
+            _level.text = evt.Level.ToString();
+            switch (evt.Level)
+            {
+                case Logic.Level.LevelState.NotStarted:
+                    _level.text = "关卡未开始";
+                    break;
+                case Logic.Level.LevelState.Running:
+                    _level.text = "关卡进行中";
+                    break;
+                case Logic.Level.LevelState.Defeat:
+                    _level.text = "失败";
+                    break;
+                case Logic.Level.LevelState.Victory:
+                    _level.text = "成功";
+                    break;
+            }
         }
     }
 }

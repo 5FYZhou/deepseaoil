@@ -10,7 +10,9 @@ namespace DeepseaOil.Data
         None = 0,
         Bgm,
         Walk,
-        Jump
+        Jump,
+        PlayerHurt,
+        PlayerDie
     };
 
     [Serializable]
