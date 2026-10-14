@@ -240,7 +240,6 @@ namespace DeepseaOil.Logic.Grid
                     any = true;
                 }
 
-                // 单格蒸汽生成时广播 1 格基准特效
                 if (outcome.NextTile == TileStateType.Steam)
                 {
                     EventBus<GridBlastOccurred>.Publish(new GridBlastOccurred(_geometry.CellCenter(cell), _geometry.CellSize, outcome.NextTile));
@@ -267,14 +266,14 @@ namespace DeepseaOil.Logic.Grid
             _pending[cell] = next;
         }
 
-        /// <summary>对格上目标造成一次伤害；走这条即不带击退</summary>
+        /// <summary>对格上目标造成一次伤害；不带击退</summary>
         public void DealCell(Vector3Int cell, float amount)
         {
             DealCell(cell, amount, 0f);
         }
 
-        /// <summary>对格上目标结算一次：伤害与击退打包进同一份 Damage，方向在此只算一次</summary>
-        public void DealCell(Vector3Int cell, float amount, float knockbackCells)
+        /// <summary>对格上目标结算一次：元素默认按该格当前状态定，强制定色由 element 覆盖</summary>
+        public void DealCell(Vector3Int cell, float amount, float knockbackCells, ElementKind element = ElementKind.Physical, bool forceElement = false)
         {
             if (amount <= 0f && knockbackCells <= 0f) return;
 
@@ -285,18 +284,20 @@ namespace DeepseaOil.Logic.Grid
 
             Vector2 center = _geometry.CellCenter(cell);
 
+            ElementKind resolved = forceElement ? element : Damage.ElementFromTile(StateOf(cell));
+
             for (int i = 0; i < _dealScratch.Count; i++)
             {
-                DealTarget(_dealScratch[i], center, amount, knockbackCells);
+                DealTarget(_dealScratch[i], center, amount, knockbackCells, resolved);
             }
         }
 
         /// <summary>对单个目标结算一次：伤害与击退都只走这一份 Damage</summary>
-        private static void DealTarget(IEffectTarget target, Vector2 center, float amount, float knockbackCells)
+        private static void DealTarget(IEffectTarget target, Vector2 center, float amount, float knockbackCells, ElementKind element)
         {
             if (target == null || !target.IsAlive) return;
 
-            Damage damage = Damage.At(center, target.Position, amount, DamageSource.Tile, knockbackCells);
+            Damage damage = Damage.At(center, target.Position, amount, DamageSource.Tile, knockbackCells, element);
 
             // 格层只管算格数与方向：击退位移要由受击者按自身阻尼折算成初速度
             if (target is IDamageable damageable) damageable.TakeDamage(in damage);
@@ -332,7 +333,8 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>连锁电击：伤害 + 麻痹一次结算，供 TileChainReactor 逐格调</summary>
         public void ApplyInstantShock(Vector3Int cell, int damage, float stunSeconds)
         {
-            DealCell(cell, damage);
+            // 连锁电击不看格状态：导电源也可能是水或荆棘，元素恒为电
+            DealCell(cell, damage, 0f, ElementKind.Electric, forceElement: true);
 
             ApplyStunCell(cell, stunSeconds);
 
@@ -486,7 +488,7 @@ namespace DeepseaOil.Logic.Grid
             if (spec.DotDamage <= 0) return;
 
             // DoT 的首跳放在这：走进去那一下要立刻痛，不能等满一秒
-            DealTarget(target, _geometry.CellCenter(cell), spec.DotDamage, 0f);
+            DealTarget(target, _geometry.CellCenter(cell), spec.DotDamage, 0f, Damage.ElementFromTile(StateOf(cell)));
         }
 
         private void DrainPendingTransitions()

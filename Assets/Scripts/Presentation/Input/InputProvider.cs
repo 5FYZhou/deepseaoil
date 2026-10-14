@@ -89,6 +89,8 @@ namespace DeepseaOil.Presentation.Input
             EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
             // 用 Start 抓住的引用，不能再写 GameRoot.Instance：退出 Play/切场景时它可能已销毁，getter 会再 new 一个
             if (_root != null) _root.UnregisterInputProvider(this);
+
+            _input?.Dispose();
         }
 
         private void OnEnable()

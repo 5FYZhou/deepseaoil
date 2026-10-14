@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
     /// <summary>实体颜色栈驱动：color 只写「持续态 × 基线」，瞬态闪白改走材质插值</summary>
-            /// <remarks>基线是首次抓到渲染器时记下的现值：纯白乘数在乘法法则下永远变不白。目标销毁直接摘账，不抛异常。</remarks>
+            /// <remarks>基线是首次抓到渲染器时记下的现值：纯白乘数在乘法法则下永远变不白。</remarks>
     public sealed class ActorTintDriver : IEffectDriver
     {
         private const float DefaultDuration = 0.12f;
@@ -13,7 +14,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
         private static readonly int FlashColorId = Shader.PropertyToID("_FlashColor");
 
-            /// <summary>一个目标的色栈账本</summary>
         private sealed class ColorState
         {
             public SpriteRenderer Renderer;
@@ -28,7 +28,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             public float FlashRemaining;
 
-            /// <summary>材质上没有 _FlashAmount 就退化成乘法闪白</summary>
             public bool FlashOn;
 
             /// <summary>上一次钉进材质的精灵贴图；逐帧只做一次引用比较</summary>
@@ -40,6 +39,13 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             public bool SlowOn;
 
             public int SlowHandleId;
+
+            /// <summary>尸体淡出通道：alpha 与 SlowOn 正交</summary>
+            public bool AlphaOn;
+
+            public int AlphaHandleId;
+
+            public ActorAnimationView AlphaSource;
         }
 
         private readonly Dictionary<Transform, ColorState> _states = new Dictionary<Transform, ColorState>();
@@ -70,19 +76,18 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
         public int ActiveInstanceCount => _states.Count;
 
-        /// <summary>不持有 GameObject，池恒为空</summary>
         public int PooledObjectCount => 0;
 
         public void OnAssetLoaded(Object asset)
         {
         }
 
-        /// <summary>ctx.Follow 空、或抓不到 SpriteRenderer 时返回 None：给错目标只静默不播</summary>
+        /// <summary>ctx.Anchor 空、或抓不到 SpriteRenderer 时返回 None：给错目标只静默不播</summary>
         public EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (_disposed) return EffectHandle.None;
 
-            Transform target = ctx.Follow;
+            Transform target = ctx.Anchor;
 
             if (target == null) return EffectHandle.None;
 
@@ -112,6 +117,21 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
                 return new EffectHandle(state.SlowHandleId, _epoch, this);
             }
+            else if (id == EffectId.AlphaTint)
+            {
+                // 只往父级找：Animator 挂在渲染子节点的父链上
+                ActorAnimationView source = target.GetComponentInParent<ActorAnimationView>();
+
+                if (state.AlphaOn && state.AlphaSource == source) return new EffectHandle(state.AlphaHandleId, _epoch, this);
+
+                state.AlphaSource = source;
+                state.AlphaOn = true;
+                state.AlphaHandleId = ++_nextId;
+
+                ApplyPersistentTint(state);
+
+                return new EffectHandle(state.AlphaHandleId, _epoch, this);
+            }
             else
             {
                 return EffectHandle.None;
@@ -131,16 +151,28 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             {
                 ColorState state = kv.Value;
 
-                if (state.SlowHandleId != handle.Id) continue;
+                if (state.SlowHandleId == handle.Id)
+                {
+                    state.SlowOn = false;
+                    state.SlowHandleId = 0;
+                    state.PersistentTint = Color.white;
 
-                state.SlowOn = false;
-                state.SlowHandleId = 0;
-                state.PersistentTint = Color.white;
+                    // 闪白是独立通道，持续态退场不必等它，也绝不掐掉它
+                    ApplyPersistentTint(state);
 
-                // 闪白是独立通道，持续态退场不必等它，也绝不掐掉它
-                ApplyPersistentTint(state);
+                    return;
+                }
 
-                return;
+                if (state.AlphaHandleId == handle.Id)
+                {
+                    state.AlphaOn = false;
+                    state.AlphaHandleId = 0;
+                    state.AlphaSource = null;
+
+                    ApplyPersistentTint(state);
+
+                    return;
+                }
             }
         }
 
@@ -176,6 +208,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                     ApplyFlash(state, expired ? 0f : state.FlashRemaining / state.FlashDuration);
 
                     if (expired) ApplyPersistentTint(state);
+                }
+                else if (state.AlphaOn)
+                {
+                    // alpha 与 RGB 一次写掉：分两次写会后者盖前者
+                    ApplyPersistentTint(state);
                 }
                 else if (!state.SlowOn && state.PersistentTint == Color.white)
                 {
@@ -223,7 +260,14 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         {
             if (state.Renderer == null) return;
 
-            state.Renderer.color = state.PersistentTint * state.BaseColor;
+            Color final = state.PersistentTint * state.BaseColor;
+
+            // 淡出只乘系数：BaseColor.a 是美术基线 alpha
+            final.a = state.BaseColor.a * (state.AlphaOn && state.AlphaSource != null
+                ? state.AlphaSource.FadeAlpha
+                : 1f);
+
+            state.Renderer.color = final;
         }
 
         /// <summary>闪白强度写进属性块；无 _FlashAmount 的材质退回 color 乘法</summary>

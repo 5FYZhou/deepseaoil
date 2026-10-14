@@ -51,8 +51,6 @@ namespace DeepseaOil.Presentation.UI
                         });
                     });
 
-                    GameRoot.Instance.UI.ShowPanel<HudPanel>();
-                    GameRoot.Instance.UI.ShowPanel<GamePlayPanel>();
                     break;
                 case "BtnContinue":
                     GameRoot.Instance.UI.ShowPanel<SavePanel>();

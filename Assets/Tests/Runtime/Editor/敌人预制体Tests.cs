@@ -17,6 +17,7 @@
 // ---------------------------------------------------------------------------
 
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic;
 using DeepseaOil.Presentation.Actor;
 using DeepseaOil.Presentation.Adapters;

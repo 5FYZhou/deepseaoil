@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     // 敌人运动学调参：enemy 表退役物理列的落点
     [CreateAssetMenu(fileName = "EnemyTuning", menuName = "DeepseaOil/Tuning/Enemy")]

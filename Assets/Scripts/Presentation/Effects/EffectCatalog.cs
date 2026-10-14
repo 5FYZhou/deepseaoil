@@ -15,6 +15,10 @@ namespace DeepseaOil.Presentation.Effects
         Tint = 5,
 
         ScalePunch = 6,
+
+        Popup = 7,
+
+        Hop = 8,
     }
 
     internal readonly struct EffectSpec
@@ -61,7 +65,7 @@ namespace DeepseaOil.Presentation.Effects
         internal const string KeyPrefix = "effects/";
 
         // 代码默认骨架：maxSize / prewarm 被 EffectTuning 同 Id 行覆盖
-        // 顺序与 EffectId 枚举一致；Shake(3) 刻意不注册，M3 用例守失败路径
+        // Shake(3) 刻意不注册，M3 用例守失败路径
         private static readonly EffectSpec[] Specs =
         {
             new EffectSpec(EffectId.BurstSparks,  EffectDriverKind.Particle,    isSingleton: false, maxSize: 32, prewarm: 8),
@@ -89,6 +93,12 @@ namespace DeepseaOil.Presentation.Effects
             new EffectSpec(EffectId.Squash,       EffectDriverKind.ScalePunch,  maxSize: 32),
 
             new EffectSpec(EffectId.Dust,         EffectDriverKind.Particle,    isSingleton: false, maxSize: 16, prewarm: 0),
+
+            new EffectSpec(EffectId.DamagePopup,  EffectDriverKind.Popup,       isSingleton: false, maxSize: 32, prewarm: 8),
+
+            new EffectSpec(EffectId.Hop,          EffectDriverKind.Hop,         isSingleton: false, maxSize: 32),
+
+            new EffectSpec(EffectId.AlphaTint,    EffectDriverKind.Tint,        isSingleton: false, maxSize: 32),
         };
 
         internal static EffectSpec[] BuildSpecs(EffectTuning tuning)

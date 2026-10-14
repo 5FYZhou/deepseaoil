@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     /// <summary>投掷与瞄准的程序调参</summary>
     /// <remarks>程序调参走 SO，不经导表；资产丢失时返回字段默认值实例而非 0；渲染约定见 RenderOrder</remarks>
