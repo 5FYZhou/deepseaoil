@@ -168,13 +168,13 @@
 4. **`VisualPalette.cs`**：
    - 包含：球种颜色、敌人两态颜色（`enemyBodyNormal` / `enemyBodySlowed`）、高亮提示色、贴地件阴影色、伤害飘字四色（`damagePhysical` / `damageFire` / `damageElectric` / `damageIce`）。**受击闪白不吃色值**：它走材质属性块（见 `Docs/表现/粒子特效系统.md` §8），本表只管颜色乘数。
    - 飘字配色走 `DamageColor(int)`：形参是**元素序号**（`ElementKind` 的 0/1/2/3）而不是枚举本身 —— 刻意避免 Data → Logic 的反向依赖，未列出的序号回落 `damagePhysical`。
-5. **`VisualFeelTuning.cs`**（键 `tuning/VisualFeelTuning`，资产在 `Resources/tuning/`；23 个字段）：
+5. **`VisualFeelTuning.cs`**（键 `tuning/VisualFeelTuning`，资产在 `Resources/tuning/`；26 个字段）：
    - **受击**：顿帧 `hitStopSeconds`（秒）、闪白时长 `flashDuration`（秒，填进 `EffectContext.Duration`）、挤压形变兜底 `squashDuration` / `squashDurationLethal`（秒）/ `squashIntensity`（`EffectContext.Value`）—— 后三项**只在 `EnemyTuning` 对应条目填 0 时兜底**。
    - **死亡**：碎裂增强层强度 `shatterIntensity`（`EffectContext.Value`，与死亡动画帧打架时调低）。
    - **尸体回收兜底** `deathFallbackSeconds`（秒）：它**不是剪辑时长，是保险丝**。`EnemyActor.Die` 在"有 Animator 但死亡剪辑末帧没挂 `OnDeathAnimationEnd` 事件"与"没有可用 Animator"（`ActorAnimationView.HasValidAnimator` 为假）两种情况下都按它到点收口；事件先到则立即收口并取消这条兜底协程。**若该值大于死亡剪辑时长会提前截断剪辑**，所以别拿它当"死亡动画多长"的旋钮。
    - **震屏**：玩家受创 `hitShakeAmplitude` / `hitShakeDuration`（秒）；蒸汽爆轰 `blastShakeAmplitudeMin` / `blastShakeAmplitudeMax`（按波及半径区间插值）/ `blastShakeDuration`（秒）。
    - **扬尘**：`dustSpeedThreshold`（低于此速度不扬尘）/ `dustInterval`（满速时的发射节拍，秒）/ `dustReferenceSpeed`（节拍缩放的基准速度，一般取 `PlayerConfig.moveSpeed`）。
-   - **伤害飘字**（`PopupDriver`）：上飘高度 `popupRiseHeight`（世界单位）、总时长 `popupDuration`（秒）、相对 `ActorOrder` 的排序偏移 `popupSortingOffset`（int）、位移缓出指数 `popupRiseEase`、alpha 淡出指数 `popupFadeEase`。
+   - **伤害飘字**（`PopupDriver`）：上飘高度 `popupRiseHeight`（世界单位）、总时长 `popupDuration`（秒）、相对 `ActorOrder` 的排序偏移 `popupSortingOffset`（int）、位移缓出指数 `popupRiseEase`、alpha 淡出指数 `popupFadeEase`、**落点抬升 `popupAnchorHeight`**（世界单位：0＝物理体中心，0.6≈普通敌人头顶）、**落点随机半径 `popupJitterX` / `popupJitterY`**（±世界单位，0＝该轴不随机）。三个新旋钮由 `PopupDriver.ResolveSpawn` 一次算进 `StartPos`，随后的上升 / 淡出不受影响。落点随机走 **`PopupDriver` 自持的 `DefaultRng` 私有流**，不借全局 `Rng`（借了会把 `CombatDirector` 刷怪散布的随机序列整体平移），也不用 `UnityEngine.Random`；`sortingOrder` 仍按**锚点** y 计算，抖动不进 Y-Sort 档位。
    - **Z-Hop 伪高度**（`HopDriver`）：基准峰值高度 `hopPeakHeight`（世界单位，`Value = 1` 时的上飘高度）、滞空时长 `hopDuration`（秒）、归一化基准速度 `hopReferenceSpeed`（单位/秒，`Value = v0 / 本值`）。
    - `EffectModule` **不读这份 SO**：调用方读值填进 `EffectContext`，它只负责传递（具体消费点在各 Driver：`PopupDriver` / `HopDriver` / `ScalePunchDriver` 等）；消费者经 `ConfigModule.VisualFeel` 取。
    - 与 `EnemyTuning` 不同，资产缺失时 `LoadOrDefault()` **退回字段默认值实例**（并打一条 Warning），不抛 `ConfigLoadException`。
