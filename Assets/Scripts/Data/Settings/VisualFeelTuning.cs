@@ -23,20 +23,20 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("致死一击挤压形变兜底时长（秒）：EnemyTuning 条目里 deathDuration 填 0 时用")]
         public float squashDurationLethal = 0.14f;
 
-        [Tooltip("挤压强度兜底（EffectContext.Intensity）：EnemyTuning 条目里 maxAmount 填 0 时用")]
+        [Tooltip("挤压强度兜底（EffectContext.Value）：EnemyTuning 条目里 maxAmount 填 0 时用")]
         public float squashIntensity = 0.18f;
 
         [Header("震屏")]
-        [Tooltip("玩家受创震屏幅度（EffectContext.Intensity）")]
+        [Tooltip("玩家受创震屏幅度（EffectContext.Value）")]
         public float hitShakeAmplitude = 1f;
 
         [Tooltip("玩家受创震屏时长（秒）")]
         public float hitShakeDuration = 0.14f;
 
-        [Tooltip("蒸汽爆轰震屏最小幅度（EffectContext.Intensity），对应半径区间下限")]
+        [Tooltip("蒸汽爆轰震屏最小幅度（EffectContext.Value），对应半径区间下限")]
         public float blastShakeAmplitudeMin = 0.4f;
 
-        [Tooltip("蒸汽爆轰震屏最大幅度（EffectContext.Intensity），对应半径区间上限")]
+        [Tooltip("蒸汽爆轰震屏最大幅度（EffectContext.Value），对应半径区间上限")]
         public float blastShakeAmplitudeMax = 1f;
 
         [Tooltip("蒸汽爆轰震屏时长（秒）")]

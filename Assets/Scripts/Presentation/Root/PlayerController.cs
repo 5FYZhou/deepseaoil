@@ -326,7 +326,7 @@ namespace DeepseaOil.Presentation
             _dustTimer = feel.dustInterval / ratio;
 
             EffectContext ctx = EffectContext.At(Position);
-            ctx.Intensity = Mathf.Clamp01(speed / feel.dustReferenceSpeed);
+            ctx.Value = Mathf.Clamp01(speed / feel.dustReferenceSpeed);
 
             EffectModule.Play(EffectId.Dust, in ctx);
         }

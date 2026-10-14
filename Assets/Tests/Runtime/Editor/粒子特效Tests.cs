@@ -3,16 +3,14 @@
 //
 // 【只用 public API】internal 类型（EffectCatalog / EffectSpec）跨程序集不可见，故不碰它们，也不需要 InternalsVisibleTo。
 //
-// 【守什么】判据只有一条：这条用例守的是不是「改错了不报错、只表现为手感/观感不对」。
-//   池的收支（上限生效 / 归还超限销毁 / 失败播放必须归还），EffectContext 的零值与退化，
-//   失败模式必须报错且不抛（未 Init / 未注册），幂等与 no-op 守卫，作者乘数只缩放不覆盖，
-//   单例型合并，旧句柄的 epoch 语义，工厂漏 case 这类静默失效（漏了落到 ParticleDriver，只表现为不播）。
+// 【守什么】只守「改错了不报错、只表现为手感/观感不对」的契约：池的收支、EffectContext 的零值与退化、
+//   失败模式必须报错且不抛、作者乘数只缩放不覆盖、单例型合并、旧句柄的 epoch 语义、工厂漏 case 这类静默失效。
 //
 // 【颜色栈两路】换过闪白材质的走材质插值，没换的退化成 color 乘法，两条路都要守还原与基线。
 //
 // 【未注册判据不写死 id】写死的期望会随 EffectCatalog 增行整条落空。
 //
-// 【不覆盖】渲染结果、粒子外观、真实 prefab 的加载（需美术资产，只能人工验收）。
+// 【不覆盖】渲染结果、粒子外观、真实 prefab 的加载。
 //
 // 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
 // ------------------------------------------------------------
@@ -168,25 +166,26 @@ namespace DeepseaOil.Tests
             pool.Dispose();
         }
 
-        /// <summary>零值与"只写一个字段"都必须归一：参考实现这里会把特效缩到 1%。</summary>
         [Test]
         public void T1_EffectContext默认值与部分初始化()
         {
+            // 上下限全在驱动自持：读时归一化（含把 default 的 Value 兜成 1）会让调用方塞的原始半径被拍成满档
             EffectContext zero = default;
-            Assert.AreEqual(1f, zero.Scale, 1e-5f, "default 的 Scale 必须归一为 1");
+            Assert.AreEqual(0f, zero.Value, "EffectContext 不归一化 Value：default 读作 0");
             Assert.AreEqual(Vector2.up, zero.Direction, "default 的 Direction 必须归一为 up");
+            Assert.IsNull(zero.Anchor, "default 必须无 Anchor");
 
-            var partial = new EffectContext { Intensity = 0.5f };
-            Assert.AreEqual(1f, partial.Scale, 1e-5f, "只写 Intensity 时 Scale 仍应是 1；参考实现这里会缩到 1%");
+            var partial = new EffectContext { Value = 0.5f };
+            Assert.AreEqual(Vector2.zero, partial.Modulation, "只写 Value 时 Modulation 仍是 zero");
+
+            Assert.AreEqual(1f, EffectContext.At(Vector2.zero).Value, 1e-5f, "工厂给出的 Value 是 1");
+            Assert.AreEqual(1f, EffectContext.OnTarget(null).Value, 1e-5f, "工厂给出的 Value 是 1");
 
             EffectContext dir = EffectContext.At(Vector2.zero, new Vector2(3f, 4f));
             Assert.AreEqual(1f, dir.Direction.magnitude, 1e-4f, "Direction 必须归一化");
 
-            Assert.AreEqual(1f, new EffectContext { Intensity = 5f }.Intensity, 1e-5f, "Intensity 上钳位");
-            Assert.AreEqual(0f, new EffectContext { Intensity = -1f }.Intensity, 1e-5f, "Intensity 下钳位");
-
             Assert.DoesNotThrow(() => EffectContext.OnTarget(null), "目标为 null 不得抛");
-            Assert.IsFalse(EffectContext.OnTarget(null).FollowRequested);
+            Assert.IsNull(EffectContext.OnTarget(null).Anchor, "目标为 null 时 Anchor 必须为空");
         }
 
         [Test]
@@ -343,10 +342,10 @@ namespace DeepseaOil.Tests
             EffectModule.Register(EffectId.Shake, driver);
 
             EffectHandle a = EffectModule.Play(EffectId.Shake,
-                new EffectContext { Position = Vector2.zero, Intensity = 0.2f, Scale = 1f });
+                new EffectContext { Position = Vector2.zero, Value = 0.2f });
 
             EffectHandle b = EffectModule.Play(EffectId.Shake,
-                new EffectContext { Position = Vector2.one, Intensity = 0.9f, Scale = 1f });
+                new EffectContext { Position = Vector2.one, Value = 0.9f });
 
             Assert.IsTrue(a.IsValid);
             Assert.AreEqual(a, b, "单例型：重复 Play 应合并到同一实例，返回同一句柄");
@@ -376,7 +375,7 @@ namespace DeepseaOil.Tests
 
             EffectModule.Register(EffectId.Shake, driver);
 
-            // ① Intensity = 1（At 系列就是 1）：必须是作者原值，一位都不能改
+            // ① Value = 1（At 系列就是 1）：必须是作者原值，一位都不能改
             EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
 
             ParticleSystem inst = _root.GetComponentInChildren<ParticleSystem>();
@@ -385,15 +384,15 @@ namespace DeepseaOil.Tests
                 "作者的 size 乘数被覆盖成 1 —— 预制体里的 Start Size 会「变成默认大小」");
             Assert.AreEqual(3f, inst.emission.rateOverTimeMultiplier, 1e-4f, "作者的 rate 乘数被覆盖 —— 粒子量会与预制体对不上");
 
-            // ② Intensity = 0：作者值 × MinIntensityScale(0.4)，而不是绝对 0.4
+            // ② Value = 0：作者值 × MinIntensityScale(0.4)，而不是绝对 0.4
             EffectModule.CleanAll();
-            EffectModule.Play(EffectId.Shake, new EffectContext { Position = Vector2.zero, Intensity = 0f, Scale = 1f });
+            EffectModule.Play(EffectId.Shake, new EffectContext { Position = Vector2.zero, Value = 0f });
 
             ParticleSystem low = _root.GetComponentInChildren<ParticleSystem>();
             Assert.AreEqual(0.1f, low.main.startSizeMultiplier, 1e-4f, "强度 0 应是 0.25 × 0.4");
             Assert.AreEqual(1.2f, low.emission.rateOverTimeMultiplier, 1e-4f, "强度 0 应是 3 × 0.4");
 
-            // ③ 再回到 Intensity = 1：不得叠加（0.25 仍是 0.25，不是 0.0625）
+            // ③ 再回到 Value = 1：不得叠加（0.25 仍是 0.25，不是 0.0625）
             EffectModule.CleanAll();
             EffectModule.Play(EffectId.Shake, EffectContext.At(Vector2.zero));
 

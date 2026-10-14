@@ -237,9 +237,8 @@ namespace DeepseaOil.Presentation.Actor
                     EffectContext punch = EffectContext.OnTarget(
                         _animView != null ? _animView.transform : transform);
                     punch.Duration = duration;
-                    punch.Intensity = Mathf.Min(squash.amount, cap);
-                    punch.SquashRatio = squash.compressRatio;
-                    punch.SquashPower = squash.easePower;
+                    punch.Value = Mathf.Min(squash.amount, cap);
+                    punch.Modulation = new Vector2(squash.compressRatio, squash.easePower);
 
                     EffectModule.Play(EffectId.Squash, in punch);
                 }

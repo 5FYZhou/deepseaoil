@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects
 {
-    /// <remarks>归一化均在读取处做：Direction 零向量=Vector2.up；Scale/Radius ≤0=1；SquashRatio ≤0=0.6；SquashPower ≤0=2；Intensity 读时 Clamp01；Tint alpha=0=白色；Duration ≤0 由驱动取默认时长。Intensity 语义由 Driver 解释：ScreenShake 取最大值合并，HitSpark 缩放粒子量与大小，参考 ParticleDriver.ApplyIntensity。</remarks>
+    /// <remarks>归一化均在读取处做：Direction 零向量=Vector2.up；Tint alpha=0=白色；Duration ≤0 由驱动取默认时长；Value 与 Modulation 原值直传，上下限由各驱动自持。</remarks>
     public struct EffectContext
     {
         public Vector2 Position;
@@ -15,22 +15,6 @@ namespace DeepseaOil.Presentation.Effects
             set => _direction = value;
         }
 
-        private float _scale;
-
-        public float Scale
-        {
-            get => _scale > 0f ? _scale : 1f;
-            set => _scale = value;
-        }
-
-        private float _intensity;
-
-        public float Intensity
-        {
-            get => Mathf.Clamp01(_intensity);
-            set => _intensity = value;
-        }
-
         private Color _tint;
 
         /// <summary>着色，未设置读作白</summary>
@@ -38,30 +22,6 @@ namespace DeepseaOil.Presentation.Effects
         {
             get => _tint.a > 0f ? _tint : Color.white;
             set => _tint = value;
-        }
-
-        private float _radius;
-
-        public float Radius
-        {
-            get => _radius > 0f ? _radius : 1f;
-            set => _radius = value;
-        }
-
-        private float _squashRatio;
-
-        public float SquashRatio
-        {
-            get => _squashRatio > 0f ? _squashRatio : 0.6f;
-            set => _squashRatio = value;
-        }
-
-        private float _squashPower;
-
-        public float SquashPower
-        {
-            get => _squashPower > 0f ? _squashPower : 2f;
-            set => _squashPower = value;
         }
 
         private float _duration;
@@ -72,18 +32,33 @@ namespace DeepseaOil.Presentation.Effects
             set => _duration = value;
         }
 
-        public Transform Follow;
+        private float _value;
 
-        public bool FollowRequested => Follow != null;
+        /// <summary>主数值，驱动自解释语义，读时不做归一</summary>
+        public float Value
+        {
+            get => _value;
+            set => _value = value;
+        }
+
+        private Vector2 _modulation;
+
+        /// <summary>主数值的修饰量，x/y 语义按驱动，读时不做归一</summary>
+        public Vector2 Modulation
+        {
+            get => _modulation;
+            set => _modulation = value;
+        }
+
+        public Transform Anchor;
 
         public static EffectContext At(Vector2 position)
             => new EffectContext
             {
                 Position = position,
                 Direction = Vector2.up,
-                Scale = 1f,
-                Intensity = 1f,
-                Follow = null,
+                Value = 1f,
+                Anchor = null,
             };
 
         public static EffectContext At(Vector2 position, Vector2 direction)
@@ -91,27 +66,25 @@ namespace DeepseaOil.Presentation.Effects
             {
                 Position = position,
                 Direction = direction,
-                Scale = 1f,
-                Intensity = 1f,
-                Follow = null,
+                Value = 1f,
+                Anchor = null,
             };
 
-        /// <summary>跟随目标播一次（满强度）；目标 null 退化为原点，不抛异常</summary>
+        /// <summary>跟随目标播一次；目标 null 退化为原点，不抛异常</summary>
         public static EffectContext OnTarget(Transform target)
             => new EffectContext
             {
                 Position = target != null ? (Vector2)target.position : Vector2.zero,
                 Direction = Vector2.up,
-                Scale = 1f,
-                Intensity = 1f,
-                Follow = target,
+                Value = 1f,
+                Anchor = target,
             };
 
         public static EffectContext Default => At(Vector2.zero);
 
         public override string ToString()
             => $"EffectContext(pos=({Position.x:F2}, {Position.y:F2}) dir=({Direction.x:F2}, {Direction.y:F2}) " +
-               $"scale={Scale:F2} intensity={Intensity:F2} tint={Tint} radius={Radius:F2} duration={Duration:F2} " +
-               $"follow={(Follow != null ? Follow.name : "null")})";
+               $"value={Value:F2} modulation=({Modulation.x:F2}, {Modulation.y:F2}) tint={Tint} duration={Duration:F2} " +
+               $"anchor={(Anchor != null ? Anchor.name : "null")})";
     }
 }
