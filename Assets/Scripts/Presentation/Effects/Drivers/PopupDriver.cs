@@ -19,6 +19,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private readonly int _maxSize;
         private readonly int _prewarm;
 
+        /// <summary>飘字自己的随机流：借全局 Rng 会把 CombatDirector 刷怪散布的随机序列整体平移</summary>
+        private readonly IRng _jitterRng = new DefaultRng();
+
         private readonly Dictionary<int, PopupInstance> _active = new Dictionary<int, PopupInstance>();
         private readonly List<int> _recycleScratch = new List<int>();
 
@@ -81,6 +84,14 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             if (_prewarm > 0) _pool.Prewarm(_prewarm);
         }
 
+        /// <summary>落点＝锚点＋头顶高度＋±随机偏移；unitSquare 两轴由调用方给，取值域 [-1,1]</summary>
+        public static Vector2 ResolveSpawn(Vector2 anchor, float anchorHeight, float jitterX, float jitterY, Vector2 unitSquare)
+        {
+            return new Vector2(
+                anchor.x + unitSquare.x * jitterX,
+                anchor.y + anchorHeight + unitSquare.y * jitterY);
+        }
+
         public EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (_disposed) return EffectHandle.None;
@@ -140,7 +151,16 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             float duration = ctx.Duration > 0f ? ctx.Duration : feel.popupDuration;
             if (duration <= 0f) duration = 0.6f;
 
-            Vector2 pos = ctx.Position;
+            // 锚点是物理体位置：抬到头顶与落点抖动都在这里一次性算进 StartPos
+            Vector2 anchor = ctx.Position;
+
+            Vector2 pos = ResolveSpawn(
+                anchor,
+                feel.popupAnchorHeight,
+                feel.popupJitterX,
+                feel.popupJitterY,
+                new Vector2(_jitterRng.Value01() * 2f - 1f, _jitterRng.Value01() * 2f - 1f));
+
             var inst = new PopupInstance
             {
                 Go = go,
@@ -158,8 +178,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             go.transform.position = new Vector3(pos.x, pos.y, 0f);
 
-            // 排序只在 Play 算一次：StartPos 定死，逐帧重算没有意义
-            label.sortingOrder = RenderOrder.ActorOrder(pos.y) + feel.popupSortingOffset;
+            // 排序只在 Play 算一次：按锚点档位，落点抖动不该让同一只怪的飘字跳档
+            label.sortingOrder = RenderOrder.ActorOrder(anchor.y) + feel.popupSortingOffset;
 
             _active[inst.HandleId] = inst;
 
