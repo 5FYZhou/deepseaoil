@@ -52,6 +52,17 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("节拍按速度缩放的基准速度（单位/秒），一般取 PlayerConfig.moveSpeed")]
         public float dustReferenceSpeed = 8f;
 
+        [Header("伤害飘字")]
+        [Tooltip("上飘高度（世界单位）")] public float popupRiseHeight = 0.6f;
+
+        [Tooltip("总时长（秒）")] public float popupDuration = 0.6f;
+
+        [Tooltip("相对 ActorOrder 的排序偏移")] public int popupSortingOffset = 100;
+
+        [Tooltip("位移缓出指数")] public float popupRiseEase = 2.0f;
+
+        [Tooltip("alpha 淡出指数")] public float popupFadeEase = 1.5f;
+
         private static VisualFeelTuning Cached;
 
         /// <summary>取调参资产；缺失时返回字段默认值实例</summary>

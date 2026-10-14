@@ -49,10 +49,6 @@ namespace DeepseaOil.Presentation.Actor
         /// 本预制体对应 enemy 表的哪一行；场景接管路径读它，波次路径用注入的 spec
         public int EnemyId => enemyId;
 
-        [Header("临时调试件")]
-        [Tooltip("头顶耐久数字（预制体上的 Hp_txt 节点）。留空则自取子节点；这是可视化调试件，正式表现应做进预制体美术")]
-        [SerializeField] private TextMesh hpText = default;
-
         private EnemySpec _spec;
         private EnemyLogic _logic;
         private EnemyMotor _motor;
@@ -130,8 +126,6 @@ namespace DeepseaOil.Presentation.Actor
                     : GetComponentInChildren<SpriteRenderer>(true);
             }
 
-            if (hpText == null) hpText = GetComponentInChildren<TextMesh>(true);
-
             if (_collider == null) _collider = GetComponent<Collider2D>();
         }
 
@@ -187,8 +181,6 @@ namespace DeepseaOil.Presentation.Actor
 
             _motor.Facing = facing;
 
-            UpdateHpText();
-
             UpdateCell(force: true);
 
         }
@@ -221,6 +213,13 @@ namespace DeepseaOil.Presentation.Actor
                 flash.Tint = Color.white;
 
                 EffectModule.Play(EffectId.Flash, in flash);
+
+                // 元素序号由 Logic 定，数据层按序号查色
+                EffectContext popup = EffectContext.At(Position);
+                popup.Value = damage.Amount;
+                popup.Tint = ConfigModule.Visuals.DamageColor((int)damage.Element);
+
+                EffectModule.Play(EffectId.DamagePopup, in popup);
 
                 // 写 View 不写 Root：Root.localScale.x 是朝向镜像，叠乘会变胖；旋钮在 EnemyTuning 行
                 if (_spec != null && _spec.Squash.amount > 0f)
@@ -272,8 +271,6 @@ namespace DeepseaOil.Presentation.Actor
             }
 
             _animView?.TriggerHurt();
-
-            UpdateHpText();
         }
 
         /// <summary>格边长（世界单位）；网格未接线时退化为 1f</summary>
@@ -289,19 +286,6 @@ namespace DeepseaOil.Presentation.Actor
             float accel = _spec != null ? _spec.Config.moveAcceleration : 0f;
 
             return accel > 0f && !float.IsNaN(accel) ? accel : 10f;
-        }
-
-        /// 头顶耐久数字（临时调试件）；只在数值变了才写
-        /// 数字挂 Root 下，朝左时 localScale.x 为负，文字会跟着镜像
-        private void UpdateHpText()
-        {
-            if (hpText == null) return;
-
-            string text = Hp > 0 ? Hp.ToString() : string.Empty;
-
-            if (hpText.text == text) return;
-
-            hpText.text = text;
         }
 
         /// 由 CombatRoot 每物理帧调：速度一帧只提交一次，视效同频刷新
@@ -499,7 +483,6 @@ namespace DeepseaOil.Presentation.Actor
             if (_collider != null) _collider.enabled = true;
             if (_body != null) _body.enabled = true;
 
-            UpdateHpText();
             UpdateCell(force: true);
             _animView?.ResetToDefault();
         }
@@ -507,7 +490,6 @@ namespace DeepseaOil.Presentation.Actor
         private System.Collections.IEnumerator CoRespawn()
         {
             if (_body != null) _body.enabled = false;
-            if (hpText != null) hpText.text = string.Empty;
             if (_collider != null) _collider.enabled = false;
 
             yield return new WaitForSeconds(respawnDelay);
