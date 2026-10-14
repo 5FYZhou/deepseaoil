@@ -17,6 +17,7 @@ namespace DeepseaOil.Data
             "TbElementDuoReaction",
             "TbWaveEnemy",
             "TbLevelWave",
+            "TbAudioMap",
         };
 
         public static int Count => Names.Length;

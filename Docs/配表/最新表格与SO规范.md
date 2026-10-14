@@ -159,7 +159,7 @@
 
 ### 三、ScriptableObject 承接体系（程序调参盘）
 
-在 `Assets/Scripts/Data/Settings/` 下，程序持有以下 SO 文件（**调参 SO 全部由 `ConfigModule.BindAssets` 装载，并经 `ConfigModule` 暴露给上层**；`PlayerConfig.asset` / `AudioConfig.asset` 在 `Resources/config/`，其余在 `Resources/tuning/`。`AudioConfig` 是例外：由 `AudioManager` 自己按 `Config/AudioConfig` 读取，不经 `ConfigModule`）：
+在 `Assets/Scripts/Data/Settings/` 下，程序持有以下 SO 文件（调参 SO 由 `ConfigModule.BindAssets` 装载并经 `ConfigModule` 暴露给上层；`PlayerConfig.asset` / `AudioConfig.asset` 在 `Resources/config/`，其余在 `Resources/tuning/`。`AudioConfig` 仅保存音量等调参，音频编号与文件名映射维护在 `audio_map` 表）：
 
 1. **`PlayerConfig.cs`**（继承 `CharacterConfig`：`moveSpeed` / `snapToEightDirections` / `moveAcceleration` / `turnDecayRate` / `hurtDecay` / `extraForceScale` / `dashSpeed` / `dashDuration`）：
    - 自身只有输入与冲刺三项：`inputBufferTime`、`dashCooldown`、`dashBufferTime`。

@@ -484,6 +484,21 @@ namespace DeepseaOil.Data
             return _audioConfig;
         }
 
+        public static IReadOnlyList<AudioMapSpec> GetAudioMaps()
+        {
+            EnsureAssets();
+
+            IReadOnlyList<cfg.dso.AudioMap> rows = _holder.Tables.TbAudioMap.DataList;
+            var result = new List<AudioMapSpec>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                result.Add(new AudioMapSpec(rows[i]));
+            }
+
+            return result;
+        }
+
         // 逃生舱：特殊情况直接访问原始 Tables
         // 边界：只读；调用方不得跨帧持有该引用；新增消费必须登记在本注释里
 
