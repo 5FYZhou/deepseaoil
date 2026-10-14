@@ -6,7 +6,6 @@ namespace DeepseaOil.Logic.Input
     public interface IUIOperation
     {
         bool TryCloseTopmostPanel();
-        void OpenPausePanel();
     }
 
     /// <summary>GameRoot 每渲染帧驱动一次；Esc 优先链：先关顶层，关不掉才请求切状态</summary>
@@ -30,7 +29,6 @@ namespace DeepseaOil.Logic.Input
             switch (ctx.gameState)
             {
                 case GameState.Running:
-                    _uiMgr.OpenPausePanel();
                     _states.RequestState(GameState.Paused);
                     return;
 

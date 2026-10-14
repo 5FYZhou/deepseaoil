@@ -27,6 +27,8 @@ namespace DeepseaOil.Presentation.Input
         {
             _input.UI.Disable();
             EventBus<GameStateChanged>.Unsubscribe(OnGameStateChange);
+
+            _input.Dispose();
         }
 
         public void Sample()

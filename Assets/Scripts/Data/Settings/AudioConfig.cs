@@ -1,17 +1,7 @@
 ﻿using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
-    public enum AudioId
-    {
-        None = 0,
-        Bgm,
-        Walk,
-        Jump,
-        PlayerHurt,
-        PlayerDie
-    };
-
     [CreateAssetMenu(fileName = "AudioConfig", menuName = "DeepseaOil/Settings/AudioConfig")]
     public class AudioConfig : BaseConfig
     {

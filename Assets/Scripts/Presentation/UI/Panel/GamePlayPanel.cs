@@ -167,7 +167,6 @@ namespace DeepseaOil.Presentation.UI
             {
                 case "BtnPause":
                     GameRoot.Instance.Game.ChangeState(GameState.Paused);
-                    GameRoot.Instance.UI.ShowPanel<PausePanel>();
                     break;
             }
         }

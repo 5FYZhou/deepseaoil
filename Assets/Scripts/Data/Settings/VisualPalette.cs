@@ -1,9 +1,10 @@
 ﻿﻿using System;
 using System.Collections.Generic;
+using DeepseaOil.Data;
 using UnityEngine;
 using cfg.dso;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     [Serializable]
     public struct BallColorEntry
@@ -21,8 +22,6 @@ namespace DeepseaOil.Data
         public Color Color;
     }
 
-    /// <summary>战斗表现件颜色表；观感参数一律走 SO</summary>
-    // 敌人两态色显式写出，不做插值
     [CreateAssetMenu(fileName = "VisualPalette", menuName = "DeepseaOil/Settings/VisualPalette")]
     public sealed class VisualPalette : ScriptableObject
     {
@@ -64,8 +63,16 @@ namespace DeepseaOil.Data
         [Tooltip("球阴影色：存在感来自它，不走球种色（阴影是光不是材质）")]
         public Color shadow = new(0f, 0f, 0f, 0.35f);
 
+        [Header("伤害飘字 · 元素色")]
+        public Color damagePhysical = Color.white;
+
+        public Color damageFire = new(1.00f, 0.55f, 0.20f, 1f);
+
+        public Color damageElectric = new(0.55f, 0.85f, 1.00f, 1f);
+
+        public Color damageIce = new(0.70f, 0.90f, 1.00f, 1f);
+
         /// <summary>取观感颜色表；缺失时返回字段默认值实例</summary>
-        /// <remarks>消费者经 ConfigModule.Visuals 取，观感唯一权威入口</remarks>
         internal static VisualPalette LoadOrDefault()
         {
             if (Cached != null) return Cached;
@@ -122,6 +129,25 @@ namespace DeepseaOil.Data
             }
 
             return unknownBall;
+        }
+
+        /// <summary>飘字配色：int 是 ElementKind 的序号（0/1/2/3），刻意不引 Logic 以免 Data→Logic 反向依赖</summary>
+        public Color DamageColor(int element)
+        {
+            switch (element)
+            {
+                case 1:
+                    return damageFire;
+
+                case 2:
+                    return damageElectric;
+
+                case 3:
+                    return damageIce;
+
+                default:
+                    return damagePhysical;
+            }
         }
 
 #if UNITY_EDITOR
