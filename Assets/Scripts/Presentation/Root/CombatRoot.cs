@@ -208,7 +208,7 @@ namespace DeepseaOil.Presentation
 
             EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(cell));
 
-            ctx.Radius = _grid.Geometry.CellSize * 0.5f;
+            ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
             EffectModule.Play(EffectId.Highlight, in ctx);
         }
@@ -293,7 +293,7 @@ namespace DeepseaOil.Presentation
             VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext hitShake = EffectContext.At(position);
-            hitShake.Intensity = feel.hitShakeAmplitude;
+            hitShake.Value = feel.hitShakeAmplitude;
             hitShake.Duration = feel.hitShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in hitShake);
@@ -616,16 +616,15 @@ namespace DeepseaOil.Presentation
             VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext ctx = EffectContext.At(evt.Center);
-            ctx.Radius = evt.Radius;
-            ctx.Scale = evt.Radius; // ParticleDriver 会将预制体缩放与 Scale 相乘，使扩散范围与半径对齐
+            ctx.Value = evt.Radius; // ParticleDriver 会将预制体缩放与 Value 相乘，使扩散范围与半径对齐
             ctx.Tint = new Color(0.92f, 0.96f, 1f, 0.85f);
             EffectModule.Play(EffectId.SteamBlast, in ctx);
 
-            // 半径映射到 0.4..1：EffectContext.Intensity 读时 Clamp01，塞原始半径会被拍成恒定满档
+            // 半径映射到 0.4..1：ScreenShakeDriver 自持 Clamp01，塞原始半径会被拍成恒定满档
             float shake = Mathf.Lerp(feel.blastShakeAmplitudeMin, feel.blastShakeAmplitudeMax, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
 
             EffectContext shakeCtx = EffectContext.At(evt.Center);
-            shakeCtx.Intensity = shake;
+            shakeCtx.Value = shake;
             shakeCtx.Duration = feel.blastShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in shakeCtx);

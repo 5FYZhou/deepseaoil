@@ -77,12 +77,12 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         {
         }
 
-        /// <summary>ctx.Follow 空、或抓不到 SpriteRenderer 时返回 None：给错目标只静默不播</summary>
+        /// <summary>ctx.Anchor 空、或抓不到 SpriteRenderer 时返回 None：给错目标只静默不播</summary>
         public EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (_disposed) return EffectHandle.None;
 
-            Transform target = ctx.Follow;
+            Transform target = ctx.Anchor;
 
             if (target == null) return EffectHandle.None;
 
