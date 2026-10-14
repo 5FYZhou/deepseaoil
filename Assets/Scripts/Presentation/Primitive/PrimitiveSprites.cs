@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Primitive
@@ -12,6 +13,20 @@ namespace DeepseaOil.Presentation.Primitive
 
         private static Sprite _circle;
         private static Sprite _square;
+
+        private static readonly Dictionary<long, Sprite> _groundCache = new Dictionary<long, Sprite>();
+
+        private const int GroundCacheLimit = 256;
+
+        private const float KeyQuantum = 1f / 4096f;
+
+        private const int RadiusKeyBits = 22;
+
+        private const int RatioKeyBits = 12;
+
+        private const int RadiusKeyMax = (1 << RadiusKeyBits) - 1;
+
+        private const int RatioKeyMax = (1 << RatioKeyBits) - 1;
 
         /// <summary>实心圆点 sprite，直径=1 世界单位，全工程共用一张</summary>
         public static Sprite Circle
@@ -145,8 +160,16 @@ namespace DeepseaOil.Presentation.Primitive
             verticalSquash = Mathf.Clamp(verticalSquash, 0.02f, 1f);
             perspectiveTaper = Mathf.Clamp(perspectiveTaper, 0f, 0.95f);
 
+            long key = GroundKey(radius, verticalSquash, perspectiveTaper, thickness, solid);
+
+            bool known = _groundCache.TryGetValue(key, out Sprite cached);
+
+            if (known && cached != null) return cached;
+
+            float bakedRadius = Quantize(radius, RadiusKeyMax) * KeyQuantum;
+
             // sprite 是正方形，用水平直径换算像素密度
-            float pixelsPerUnit = size / Mathf.Max(radius * 2f, 1e-4f);
+            float pixelsPerUnit = size / Mathf.Max(bakedRadius * 2f, 1e-4f);
 
             float cx = size * 0.5f;
             float cy = size * 0.5f;
@@ -189,10 +212,35 @@ namespace DeepseaOil.Presentation.Primitive
                 }
             }
 
-            return Commit(texture, pixels, size, "GroundShape", pixelsPerUnit);
+            Sprite built = Commit(texture, pixels, size, "GroundShape", pixelsPerUnit);
+
+            if (known || _groundCache.Count < GroundCacheLimit) _groundCache[key] = built;
+
+            return built;
         }
 
         /// <summary>把像素数组落成 sprite；alphaIsTransparency: true 不能关，否则透明像素残留颜色被双线性过滤带进边缘成脏边</summary>
+        private static long GroundKey(float radius, float verticalSquash, float perspectiveTaper, float thickness, bool solid)
+        {
+            long key = solid ? 1L : 0L;
+
+            key = (key << RadiusKeyBits) | (uint)Quantize(radius, RadiusKeyMax);
+            key = (key << RatioKeyBits) | (uint)Quantize(verticalSquash, RatioKeyMax);
+            key = (key << RatioKeyBits) | (uint)Quantize(perspectiveTaper, RatioKeyMax);
+            key = (key << RatioKeyBits) | (uint)Quantize(thickness, RatioKeyMax);
+
+            return key;
+        }
+
+        private static int Quantize(float value, int max)
+        {
+            float bucket = value / KeyQuantum;
+
+            if (float.IsNaN(bucket) || bucket <= 0f) return 0;
+
+            return bucket > max ? max : Mathf.RoundToInt(bucket);
+        }
+
         private static Sprite Commit(Texture2D texture, Color32[] pixels, int size, string name, float pixelsPerUnit)
         {
             texture.name = name;

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
     /// <summary>受击挤压驱动：目标 Transform 的 localScale 按 Y 拉伸、X 压缩，按幂次缓出回弹</summary>
-    /// <remarks>不像 Tint 那样下探渲染器：ctx.Follow 必须是 View 节点，给 Root 会把朝向镜像一起缩。挂在 View 下的子节点（影子/血条）会继承这份缩放，是节点拓扑决定的。连续受击重置不叠加，目标销毁自动摘账。压缩比与回弹曲线由 ctx 带进来（EnemyTuning 那一行），驱动自己不留硬编码手感。</remarks>
+    /// <remarks>不像 Tint 那样下探渲染器：ctx.Anchor 必须是 View 节点，给 Root 会把朝向镜像一起缩。挂在 View 下的子节点（影子/血条）会继承这份缩放，是节点拓扑决定的。连续受击重置不叠加，目标销毁自动摘账。压缩比与回弹曲线由 ctx 带进来（EnemyTuning 那一行），驱动自己不留硬编码手感。</remarks>
     public sealed class ScalePunchDriver : IEffectDriver
     {
         private const float DefaultDuration = 0.1f;
@@ -63,12 +63,12 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         {
         }
 
-        /// <summary>ctx.Follow 为空时返回 None；目标已在形变则重置计时与强度，不叠加</summary>
+        /// <summary>ctx.Anchor 为空时返回 None；目标已在形变则重置计时与强度，不叠加</summary>
         public EffectHandle Play(EffectId id, in EffectContext ctx)
         {
             if (_disposed) return EffectHandle.None;
 
-            Transform target = ctx.Follow;
+            Transform target = ctx.Anchor;
 
             if (target == null) return EffectHandle.None;
 
@@ -80,9 +80,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             state.Duration = ctx.Duration > 0f ? ctx.Duration : DefaultDuration;
 
             // 上限与兜底都在这里收口：调用方给什么，驱动就只信一段合法区间
-            state.Amount = Mathf.Clamp(ctx.Intensity, 0f, 1f);
-            state.Ratio = Mathf.Clamp(ctx.SquashRatio, 0.05f, 3f);
-            state.Power = Mathf.Clamp(ctx.SquashPower, 0.25f, 8f);
+            state.Amount = Mathf.Clamp(ctx.Value, 0f, 1f);
+            state.Ratio = Mathf.Clamp(ctx.Modulation.x, 0.05f, 3f);
+            state.Power = Mathf.Clamp(ctx.Modulation.y, 0.25f, 8f);
             state.HandleId = ++_nextId;
 
             ApplyAt(state, 0f);

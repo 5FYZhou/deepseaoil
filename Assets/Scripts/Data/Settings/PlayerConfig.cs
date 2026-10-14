@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     /// <summary>玩家专属参数，共用部分在 CharacterConfig</summary>
     /// <remarks>唯一读取口 ConfigModule.GetPlayer().Config，由 BindAssets 读一次</remarks>

@@ -56,12 +56,10 @@ namespace DeepseaOil.Presentation.Grid
             EffectContext ctx = EffectContext.At(_geometry.CellCenter(evt.Cell));
 
             // 半径=半格：驱动的契约是"半径"，画出来正好一格。
-            ctx.Radius = _cellSize * 0.5f;
+            ctx.Value = _cellSize * 0.5f;
             ctx.Tint = evt.Available ? AvailableColor() : BlockedColor();
 
-            // 句柄失效（CleanAll/驱动换过）时重新创建
-            if (_handle.IsValid && EffectModule.Update(_handle, in ctx)) return;
-
+            // 单例驱动：每次 Play 即更新并夺回所有权
             _handle = EffectModule.Play(EffectId.Highlight, in ctx);
         }
 

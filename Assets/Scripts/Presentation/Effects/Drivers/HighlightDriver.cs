@@ -73,6 +73,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             if (!handle.IsValid || handle.Id != _nextId || handle.Generation != _epoch) return;
 
             Hide();
+
+            _active = false;
         }
 
         public void CleanAll()
@@ -138,7 +140,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             _go.transform.position = new Vector3(position.x, position.y, 0f);
 
-            float radius = Mathf.Max(ctx.Radius, 1e-3f);
+            float radius = Mathf.Max(ctx.Value, 1e-3f);
             float diameter = radius * 2f;
 
             _go.transform.localScale = new Vector3(diameter, diameter, 1f);

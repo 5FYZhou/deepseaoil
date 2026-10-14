@@ -208,6 +208,29 @@ namespace DeepseaOil.Presentation.UI
             }
         }
 
+        // 开合前必查：ShowPanel 对已开面板会重复压栈
+        public bool IsPanelOpen<T>() where T : BasePanel
+        {
+            string panelName = typeof(T).Name;
+
+            return panelDic.TryGetValue(panelName, out BasePanelInfo info)
+                && info.Panel != null
+                && !info.isHide;
+        }
+
+        public void EnterGameplayUi()
+        {
+            if (!IsPanelOpen<HudPanel>()) ShowPanel<HudPanel>();
+            if (!IsPanelOpen<GamePlayPanel>()) ShowPanel<GamePlayPanel>();
+        }
+
+        public void ExitGameplayUi()
+        {
+            HidePanel<PausePanel>();
+            HidePanel<GamePlayPanel>();
+            HidePanel<HudPanel>();
+        }
+
         public void ShowPanel<T>(UnityAction<T> callBack = null) where T : BasePanel
         {
             string panelName = typeof(T).Name;
@@ -388,12 +411,6 @@ namespace DeepseaOil.Presentation.UI
             return false;
         }
         
-        public void OpenPausePanel()
-        {
-            ShowPanel<PausePanel>();
-        }
-
-        
         public void CloseAllPanels()
         {
             foreach (Stack<BasePanelInfo> stack in openPanels.Values)
@@ -416,8 +433,6 @@ namespace DeepseaOil.Presentation.UI
         }
 
 
-        /// 控制按钮点击等UI输入
-
         private void SetUIInputEnabled(bool enabled)
         {
             if (uiEventSystem == null) return;
@@ -435,13 +450,22 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-            if(evt.state == Logic.GameState.CG)
+            SetUIInputEnabled(evt.state != Logic.GameState.CG);
+
+            switch (evt.state)
             {
-                SetUIInputEnabled(false);
-            }
-            else
-            {
-                SetUIInputEnabled(true);
+                case Logic.GameState.Running:
+                    HidePanel<PausePanel>();
+                    break;
+
+                case Logic.GameState.Paused:
+                    ShowPanel<PausePanel>();
+                    break;
+
+                case Logic.GameState.Menu:
+                case Logic.GameState.Exit:
+                    ExitGameplayUi();
+                    break;
             }
         }
     }

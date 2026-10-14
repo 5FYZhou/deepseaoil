@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     /// <remarks>运动参数是装配期 Configure 一次性折算的快照，事后改 SO 不生效</remarks>
     public class CharacterConfig : BaseConfig

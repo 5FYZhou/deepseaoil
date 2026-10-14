@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
-    /// <summary>震屏驱动：把 ctx.Intensity 折算成相机偏移幅度，实际施加由 CameraShaker 在 LateUpdate 完成</summary>
+    /// <summary>震屏驱动：把 ctx.Value 折算成相机偏移幅度，实际施加由 CameraShaker 在 LateUpdate 完成</summary>
     public sealed class ScreenShakeDriver : IEffectDriver
     {
         /// <summary>满强度的偏移幅度（世界单位），改它即改全局震感</summary>
@@ -36,7 +36,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             if (shaker == null) return EffectHandle.None;
 
-            float amplitude = ctx.Intensity > 0f ? ctx.Intensity * AmplitudePerIntensity : FallbackAmplitude;
+            float intensity = Mathf.Clamp01(ctx.Value);
+            float amplitude = intensity > 0f ? intensity * AmplitudePerIntensity : FallbackAmplitude;
             float duration = ctx.Duration > 0f ? ctx.Duration : DefaultDuration;
 
             shaker.Shake(amplitude, duration);

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Drop;
 using DeepseaOil.Logic.Element;
@@ -176,7 +177,6 @@ namespace DeepseaOil.Presentation
             UpdatePlayerContact(now);
         }
 
-        // 播种：E 键把手上的种子落成地貌
         private void TickPlanting()
         {
             InputProvider input = player != null ? player.Input : null;
@@ -207,7 +207,7 @@ namespace DeepseaOil.Presentation
 
             EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(cell));
 
-            ctx.Radius = _grid.Geometry.CellSize * 0.5f;
+            ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
             EffectModule.Play(EffectId.Highlight, in ctx);
         }
@@ -289,10 +289,10 @@ namespace DeepseaOil.Presentation
             if (!logic.TakeDamage(in damage, now)) return;
 
             // 受创反馈：世界侧只报事实，播什么由玩家侧与特效模块决定
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext hitShake = EffectContext.At(position);
-            hitShake.Intensity = feel.hitShakeAmplitude;
+            hitShake.Value = feel.hitShakeAmplitude;
             hitShake.Duration = feel.hitShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in hitShake);
@@ -484,6 +484,11 @@ namespace DeepseaOil.Presentation
 
             IsReady = true;
 
+            // 只装配时入队一次，勿挪进状态切换
+            if (_root != null) _root.Audio.EnqueueBgm(AudioId.Bgm);
+
+            if (_root != null) _root.UI.EnterGameplayUi();
+
             OnRequestHudRefresh(new RequestHudRefresh());
         }
 
@@ -612,19 +617,18 @@ namespace DeepseaOil.Presentation
         {
             if (evt.ResultTile != TileStateType.Steam) return;
 
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext ctx = EffectContext.At(evt.Center);
-            ctx.Radius = evt.Radius;
-            ctx.Scale = evt.Radius; // ParticleDriver 会将预制体缩放与 Scale 相乘，使扩散范围与半径对齐
+            ctx.Value = evt.Radius; // ParticleDriver 会将预制体缩放与 Value 相乘，使扩散范围与半径对齐
             ctx.Tint = new Color(0.92f, 0.96f, 1f, 0.85f);
             EffectModule.Play(EffectId.SteamBlast, in ctx);
 
-            // 半径映射到 0.4..1：EffectContext.Intensity 读时 Clamp01，塞原始半径会被拍成恒定满档
+            // 半径映射到 0.4..1：ScreenShakeDriver 自持 Clamp01，塞原始半径会被拍成恒定满档
             float shake = Mathf.Lerp(feel.blastShakeAmplitudeMin, feel.blastShakeAmplitudeMax, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
 
             EffectContext shakeCtx = EffectContext.At(evt.Center);
-            shakeCtx.Intensity = shake;
+            shakeCtx.Value = shake;
             shakeCtx.Duration = feel.blastShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in shakeCtx);
