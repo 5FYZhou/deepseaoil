@@ -17,6 +17,8 @@ MonoBehaviour:
   squashDuration: 0.1
   squashDurationLethal: 0.14
   squashIntensity: 0.18
+  shatterIntensity: 1
+  deathFallbackSeconds: 1
   hitShakeAmplitude: 1
   hitShakeDuration: 0.14
   blastShakeAmplitudeMin: 0.4
@@ -25,3 +27,11 @@ MonoBehaviour:
   dustSpeedThreshold: 0.8
   dustInterval: 0.14
   dustReferenceSpeed: 8
+  popupRiseHeight: 0.6
+  popupDuration: 0.6
+  popupSortingOffset: 100
+  popupRiseEase: 2
+  popupFadeEase: 1.5
+  hopPeakHeight: 0.25
+  hopDuration: 0.28
+  hopReferenceSpeed: 8
