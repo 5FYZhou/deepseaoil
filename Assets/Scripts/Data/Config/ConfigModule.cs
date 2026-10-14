@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DeepseaOil.Data.Settings;
 using UnityEngine;
 using cfg.dso;
 
@@ -31,7 +32,7 @@ namespace DeepseaOil.Data
         private static ThrowTuning _throwTuning;
         private static DropTuning _dropTuning;
         private static VisualPalette _visuals;
-        private static CombatFeelTuning _feel;
+        private static VisualFeelTuning _feel;
         private static EnemyTuning _enemyTuning;
         private static UIConfig _uiConfig;
         private static AudioConfig _audioConfig;
@@ -119,7 +120,7 @@ namespace DeepseaOil.Data
             _throwTuning = ThrowTuning.LoadOrDefault();
             _dropTuning = DropTuning.LoadOrDefault();
             _visuals = VisualPalette.LoadOrDefault();
-            _feel = CombatFeelTuning.LoadOrDefault();
+            _feel = VisualFeelTuning.LoadOrDefault();
 
             // enemy 表已不存这些值：缺了没有字段默认值可退，会静默改变手感，故当场抛
             _enemyTuning = AssetModule.Load<EnemyTuning>(EnemyTuning.ResourceKey);
@@ -347,7 +348,7 @@ namespace DeepseaOil.Data
         }
 
         /// <summary>战斗观感调参（SO）：受击/震屏/扬尘取值的唯一入口</summary>
-        public static CombatFeelTuning Feel
+        public static VisualFeelTuning VisualFeel
         {
             get
             {

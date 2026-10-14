@@ -49,4 +49,13 @@ MonoBehaviour:
   - Id: 13
     MaxSize: 16
     Prewarm: 0
+  - Id: 14
+    MaxSize: 64
+    Prewarm: 0
+  - Id: 15
+    MaxSize: 64
+    Prewarm: 0
+  - Id: 16
+    MaxSize: 64
+    Prewarm: 0
   maxQueuedPlaysPerEffect: 64

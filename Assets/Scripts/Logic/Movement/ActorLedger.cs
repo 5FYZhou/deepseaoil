@@ -1,4 +1,5 @@
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using UnityEngine;
 
 namespace DeepseaOil.Logic.Movement

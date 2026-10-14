@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     /// <summary>资产 Assets/Resources/tuning/DropTuning.asset 必须在仓库；缺资源表现为加载失败并计入 DataMetrics，不靠兜底掩盖</summary>
     [CreateAssetMenu(fileName = "DropTuning", menuName = "DeepseaOil/Tuning/Drop")]

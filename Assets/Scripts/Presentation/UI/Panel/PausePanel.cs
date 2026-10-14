@@ -29,7 +29,6 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();
                     break;
                 case "BtnContinue":
-                    GameRoot.Instance.UI.HidePanel<PausePanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Running);
                     break;
                 case "BtnRestart":

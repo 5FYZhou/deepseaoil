@@ -17,6 +17,8 @@ namespace DeepseaOil.Presentation.Visual
         public static readonly int Hurt = Animator.StringToHash("Hurt");
 
         public static readonly int Die = Animator.StringToHash("Die");
+
+        public static readonly int FadeAlpha = Animator.StringToHash("FadeAlpha");
     }
 
     public static class PlayerAnimHashes

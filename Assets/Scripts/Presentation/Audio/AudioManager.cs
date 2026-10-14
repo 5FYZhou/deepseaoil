@@ -3,6 +3,7 @@ using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Service;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation
 {
@@ -133,21 +134,15 @@ namespace DeepseaOil.Presentation
 
         // 消息队列
 
-        /// <summary>请求播放音效，只入队，None 丢弃</summary>
+        /// <summary>请求播放音效，只入队</summary>
         public void EnqueueSfx(AudioId id)
         {
-            if (id == AudioId.None)
-                return;
-
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Sfx, id));
         }
 
-        /// <summary>请求播放 BGM，只入队，None 丢弃</summary>
+        /// <summary>请求播放 BGM，只入队</summary>
         public void EnqueueBgm(AudioId id)
         {
-            if (id == AudioId.None)
-                return;
-
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id));
         }
 
@@ -322,9 +317,6 @@ namespace DeepseaOil.Presentation
 
             foreach (var m in ConfigModule.GetAudioMaps())
             {
-                if (m.Id == AudioId.None)
-                    continue;
-
                 if (string.IsNullOrEmpty(m.FileName))
                 {
                     Debug.LogWarning($"audio_map: {m.Id} 没有配置文件名");
