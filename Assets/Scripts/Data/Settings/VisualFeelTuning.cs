@@ -1,13 +1,14 @@
+using DeepseaOil.Data;
 using UnityEngine;
 
-namespace DeepseaOil.Data
+namespace DeepseaOil.Data.Settings
 {
     /// <summary>战斗观感调参：受击反馈、震屏、扬尘的数值集中地</summary>
     /// <remarks>只由主程调。EffectModule 不读本 SO：调用方读值填进 EffectContext，它只传递</remarks>
-    [CreateAssetMenu(fileName = "CombatFeelTuning", menuName = "DeepseaOil/Tuning/CombatFeel")]
-    public sealed class CombatFeelTuning : ScriptableObject
+    [CreateAssetMenu(fileName = "VisualFeelTuning", menuName = "DeepseaOil/Tuning/VisualFeel")]
+    public sealed class VisualFeelTuning : ScriptableObject
     {
-        public const string ResourceKey = "tuning/CombatFeelTuning";
+        public const string ResourceKey = "tuning/VisualFeelTuning";
 
         [Header("受击")]
         [Tooltip("受击顿帧（秒）：定格动画，CoHitStop 用")]
@@ -51,17 +52,17 @@ namespace DeepseaOil.Data
         [Tooltip("节拍按速度缩放的基准速度（单位/秒），一般取 PlayerConfig.moveSpeed")]
         public float dustReferenceSpeed = 8f;
 
-        private static CombatFeelTuning Cached;
+        private static VisualFeelTuning Cached;
 
         /// <summary>取调参资产；缺失时返回字段默认值实例</summary>
-        /// <remarks>调用方只有 ConfigModule.BindAssets；消费者经 ConfigModule.Feel 取</remarks>
-        internal static CombatFeelTuning LoadOrDefault()
+        /// <remarks>调用方只有 ConfigModule.BindAssets；消费者经 ConfigModule.VisualFeel 取</remarks>
+        internal static VisualFeelTuning LoadOrDefault()
         {
             if (Cached != null) return Cached;
 
             if (AssetModule.IsInitialized)
             {
-                CombatFeelTuning loaded = AssetModule.Load<CombatFeelTuning>(ResourceKey);
+                VisualFeelTuning loaded = AssetModule.Load<VisualFeelTuning>(ResourceKey);
 
                 if (loaded != null)
                 {
@@ -75,7 +76,7 @@ namespace DeepseaOil.Data
                 $"[Tuning] 取不到 {ResourceKey}（未接线或资产不存在），改用代码默认值。" +
                 "战斗观感调参将在本局失效。");
 
-            Cached = CreateInstance<CombatFeelTuning>();
+            Cached = CreateInstance<VisualFeelTuning>();
 
             return Cached;
         }

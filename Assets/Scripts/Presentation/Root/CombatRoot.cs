@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Drop;
 using DeepseaOil.Logic.Element;
@@ -289,7 +290,7 @@ namespace DeepseaOil.Presentation
             if (!logic.TakeDamage(in damage, now)) return;
 
             // 受创反馈：世界侧只报事实，播什么由玩家侧与特效模块决定
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext hitShake = EffectContext.At(position);
             hitShake.Intensity = feel.hitShakeAmplitude;
@@ -612,7 +613,7 @@ namespace DeepseaOil.Presentation
         {
             if (evt.ResultTile != TileStateType.Steam) return;
 
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext ctx = EffectContext.At(evt.Center);
             ctx.Radius = evt.Radius;

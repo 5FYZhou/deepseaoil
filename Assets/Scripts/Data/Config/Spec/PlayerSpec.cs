@@ -1,4 +1,5 @@
 using cfg.dso;
+using DeepseaOil.Data.Settings;
 
 namespace DeepseaOil.Data
 {
