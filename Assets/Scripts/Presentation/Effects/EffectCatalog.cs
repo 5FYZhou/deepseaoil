@@ -17,6 +17,8 @@ namespace DeepseaOil.Presentation.Effects
         ScalePunch = 6,
 
         Popup = 7,
+
+        Hop = 8,
     }
 
     internal readonly struct EffectSpec
@@ -93,6 +95,8 @@ namespace DeepseaOil.Presentation.Effects
             new EffectSpec(EffectId.Dust,         EffectDriverKind.Particle,    isSingleton: false, maxSize: 16, prewarm: 0),
 
             new EffectSpec(EffectId.DamagePopup,  EffectDriverKind.Popup,       isSingleton: false, maxSize: 32, prewarm: 8),
+
+            new EffectSpec(EffectId.Hop,          EffectDriverKind.Hop,         isSingleton: false, maxSize: 32),
         };
 
         internal static EffectSpec[] BuildSpecs(EffectTuning tuning)
