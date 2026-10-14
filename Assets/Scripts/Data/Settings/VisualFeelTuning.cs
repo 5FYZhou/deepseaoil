@@ -30,7 +30,7 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("碎裂增强层强度（ctx.Value）：与动画帧打架时调低")]
         public float shatterIntensity = 1.0f;
 
-        [Tooltip("无 Animator 时的兜底销毁延迟（秒）")]
+        [Tooltip("死亡回收兜底延迟（秒）：事件没到（未挂 AnimationEvent 或无 Animator）到点即收口；挂好事件时它只作保险，须大于死亡剪辑时长")]
         public float deathFallbackSeconds = 1.0f;
 
         [Header("震屏")]

@@ -43,7 +43,7 @@ namespace DeepseaOil.Presentation.Actor
 
         public bool IsInitialized => Stats != null;
 
-        /// 权属：true = 场景木桩（吃 Inspector 打靶配置，清场归位）
+        /// 吃 Inspector 打靶配置，清场归位
         public bool IsScenePlaced { get; set; }
 
         /// 本预制体对应 enemy 表的哪一行；场景接管路径读它，波次路径用注入的 spec
@@ -79,13 +79,15 @@ namespace DeepseaOil.Presentation.Actor
 
         private bool _deathFired;
 
-        /// 减速垫色的句柄：减速期间持有，离开减速格 Stop
+        /// 减速期间持有，离开减速格 Stop
         private EffectHandle _slowTintHandle;
 
         /// 尸体淡出句柄：复活前必须 Stop
         private EffectHandle _fadeHandle;
 
-        /// 上一物理帧是否减速：只在跨阶时通知 EffectModule，不逐帧重发
+        private bool _deathDone;
+
+        /// 上一物理帧的减速态
         private bool _slowOn;
 
         /// 麻痹到期时刻（Time.time 口径）
@@ -106,7 +108,7 @@ namespace DeepseaOil.Presentation.Actor
 
         public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
-        /// 本帧生效的减速乘数：诊断面板读数
+        /// 诊断面板读数
         public float SlowMultiplier => _slowMultiplier;
 
         private void Awake()
@@ -248,7 +250,6 @@ namespace DeepseaOil.Presentation.Actor
 
                 EffectModule.Play(EffectId.BurstSparks, in spark);
 
-                // 受击顿帧：定格动画
                 StartCoroutine(CoHitStop(feel.hitStopSeconds));
             }
 
@@ -338,7 +339,6 @@ namespace DeepseaOil.Presentation.Actor
             _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + seconds);
         }
 
-        /// 麻痹是否还在生效；只读
         public bool IsStunned => Time.time < _stunnedUntil;
 
         public void ForceLoseAggro()
@@ -468,20 +468,37 @@ namespace DeepseaOil.Presentation.Actor
                 _fadeHandle = EffectModule.Play(EffectId.AlphaTint, in fade);
             }
 
-            // 回收触发口：无可用 Animator 才走兜底计时
-            if (_animView != null && _animView.HasValidAnimator)
+            // 回收触发口：事件到了立刻收；到点还没来（未挂 AnimationEvent / 无可用 Animator）也收
+            bool waitForEvent = _animView != null && _animView.HasValidAnimator;
+
+            if (waitForEvent) _animView.DeathAnimationEnd += OnDeathAnimationDone;
+
+            float fallbackSeconds = ConfigModule.VisualFeel.deathFallbackSeconds;
+
+            if (fallbackSeconds > 0f)
             {
-                _animView.DeathAnimationEnd += OnDeathAnimationDone;
-
-                return;
+                _respawnRoutine = StartCoroutine(CoFallbackDeath(fallbackSeconds));
             }
-
-            _respawnRoutine = StartCoroutine(CoFallbackDeath(ConfigModule.VisualFeel.deathFallbackSeconds));
+            else if (!waitForEvent)
+            {
+                OnDeathAnimationDone();
+            }
         }
 
         private void OnDeathAnimationDone()
         {
+            if (_deathDone) return;
+
+            _deathDone = true;
+
             if (_animView != null) _animView.DeathAnimationEnd -= OnDeathAnimationDone;
+
+            if (_respawnRoutine != null)
+            {
+                StopCoroutine(_respawnRoutine);
+
+                _respawnRoutine = null;
+            }
 
             if (IsScenePlaced && respawnDelay > 0f)
             {
@@ -496,6 +513,8 @@ namespace DeepseaOil.Presentation.Actor
         private System.Collections.IEnumerator CoFallbackDeath(float seconds)
         {
             yield return new WaitForSeconds(seconds);
+
+            _respawnRoutine = null;   // 这条协程就是 _respawnRoutine，先摘句柄再收口
 
             OnDeathAnimationDone();
         }
@@ -531,6 +550,7 @@ namespace DeepseaOil.Presentation.Actor
 
             Stats = new EnemyStats(_spec);
             _deathFired = false;
+            _deathDone = false;
 
             if (_collider != null) _collider.enabled = true;
             if (_body != null) _body.enabled = true;
