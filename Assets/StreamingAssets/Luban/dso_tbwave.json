@@ -16,14 +16,5 @@
     "settle_time": 8,
     "spawn_interval": 0.3,
     "grant_seed": 2
-  },
-  {
-    "id": 3,
-    "name": "精英试炼",
-    "prep_time": 10,
-    "battle_time": 30,
-    "settle_time": 8,
-    "spawn_interval": 0.25,
-    "grant_seed": 3
   }
 ]
