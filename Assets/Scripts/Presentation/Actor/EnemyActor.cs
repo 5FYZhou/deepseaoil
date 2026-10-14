@@ -557,6 +557,8 @@ namespace DeepseaOil.Presentation.Actor
 
             UpdateCell(force: true);
             _animView?.ResetToDefault();
+
+            if (_animView != null && _animView.Animator != null) _animView.Animator.speed = 1f;
         }
 
         private System.Collections.IEnumerator CoRespawn()
