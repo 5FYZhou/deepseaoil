@@ -177,7 +177,6 @@ namespace DeepseaOil.Presentation
             UpdatePlayerContact(now);
         }
 
-        // 播种：E 键把手上的种子落成地貌
         private void TickPlanting()
         {
             InputProvider input = player != null ? player.Input : null;
@@ -484,6 +483,9 @@ namespace DeepseaOil.Presentation
             }
 
             IsReady = true;
+
+            // 只装配时入队一次，勿挪进状态切换
+            if (_root != null) _root.Audio.EnqueueBgm(AudioId.Bgm);
 
             OnRequestHudRefresh(new RequestHudRefresh());
         }

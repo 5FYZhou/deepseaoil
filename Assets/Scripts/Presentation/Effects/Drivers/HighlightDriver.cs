@@ -73,6 +73,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             if (!handle.IsValid || handle.Id != _nextId || handle.Generation != _epoch) return;
 
             Hide();
+
+            _active = false;
         }
 
         public void CleanAll()
