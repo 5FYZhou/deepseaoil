@@ -3,13 +3,13 @@
     "id": 1,
     "wave_id": 1,
     "enemy_id": 1,
-    "count": 2
+    "count": 1
   },
   {
     "id": 2,
     "wave_id": 1,
     "enemy_id": 2,
-    "count": 4
+    "count": 0
   },
   {
     "id": 3,

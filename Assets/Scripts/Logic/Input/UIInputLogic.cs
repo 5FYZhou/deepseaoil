@@ -9,19 +9,13 @@ namespace DeepseaOil.Logic.Input
         void OpenPausePanel();
     }
 
-    public interface IUIStateRequest
-    {
-        /// <summary>请求切到某状态，是否真切由实现方判定</summary>
-        void RequestState(GameState state);
-    }
-
     /// <summary>GameRoot 每渲染帧驱动一次；Esc 优先链：先关顶层，关不掉才请求切状态</summary>
     public sealed class UIInputLogic : ITickable
     {
         private readonly IUIOperation _uiMgr;
-        private readonly IUIStateRequest _states;
+        private readonly IGameStateRequest _states;
 
-        public UIInputLogic(IUIOperation uiMgr, IUIStateRequest states)
+        public UIInputLogic(IUIOperation uiMgr, IGameStateRequest states)
         {
             _uiMgr = uiMgr;
             _states = states;

@@ -2,8 +2,8 @@
   {
     "id": 1,
     "name": "首波侵袭",
-    "prep_time": 10,
-    "battle_time": 30,
+    "prep_time": 1,
+    "battle_time": 10,
     "settle_time": 8,
     "spawn_interval": 0.4,
     "grant_seed": 1
