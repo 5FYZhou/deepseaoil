@@ -411,12 +411,6 @@ namespace DeepseaOil.Presentation.UI
             return false;
         }
         
-        public void OpenPausePanel()
-        {
-            ShowPanel<PausePanel>();
-        }
-
-        
         public void CloseAllPanels()
         {
             foreach (Stack<BasePanelInfo> stack in openPanels.Values)
@@ -456,18 +450,22 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-            if(evt.state == Logic.GameState.CG)
-            {
-                SetUIInputEnabled(false);
-            }
-            else
-            {
-                SetUIInputEnabled(true);
-            }
+            SetUIInputEnabled(evt.state != Logic.GameState.CG);
 
-            if (evt.state == Logic.GameState.Menu || evt.state == Logic.GameState.Exit)
+            switch (evt.state)
             {
-                ExitGameplayUi();
+                case Logic.GameState.Running:
+                    HidePanel<PausePanel>();
+                    break;
+
+                case Logic.GameState.Paused:
+                    ShowPanel<PausePanel>();
+                    break;
+
+                case Logic.GameState.Menu:
+                case Logic.GameState.Exit:
+                    ExitGameplayUi();
+                    break;
             }
         }
     }
