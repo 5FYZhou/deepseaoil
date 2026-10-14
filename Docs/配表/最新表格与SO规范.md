@@ -4,7 +4,7 @@
 > 温湿度电三轴、`tile_effect` 效果档位表、`TileEffectValue` 多槽位结构体**已物理删除**。
 > 现在各表的确切列与语义见：
 > - `Docs/设计/策划案_荒原复苏指南_v4.0.md` 第 8 节（配置契约附录，含全部列名速查）
-> - `Docs/配表/技术文档_配表管线.md` 第 2 节（9 张表逐表消费者）
+> - `Docs/配表/技术文档_配表管线.md` 第 2 节（10 张表逐表消费者）
 > - `Docs/配表/策划配表手册.md`
 >
 > **下文保留的是"划界原则"（Excel 放什么 / SO 放什么 / 资产怎么寻址）**，
@@ -85,6 +85,7 @@
 | `duration` | `float` | 存活秒数（-1 为永久） |
 | `slow_rate` | `float` | 踩在上面的移速倍率（1 = 不减速） |
 | `dot_damage` | `int` | 每秒伤害（0 = 无伤害） |
+| `touch_stun` | `float` | 踩上去的麻痹秒数（0 = 不麻痹；当前只有 `带电荆棘` = 1.5） |
 | `is_obstacle` | `bool` | 物理阻挡墙体 |
 | `is_conductor` | `bool` | **网格连锁导通体**（`基础水` / `基础土` / `普通泥浆` / `稀泥` / `导电区` 为真） |
 
@@ -131,7 +132,7 @@
 > 🔴 **业务唯一键是 `(source_tile, ball_type)`**：`ReactionResolver` 按它建哈希表做 O(1) 查询，
 > 重复配置会被当场 `LogError` 报出（后者不算数）。曾经有过 `priority` 列，**已删除** ——
 > 它曾经叫"优先级"而实际匹配顺序由表内行序决定，是纯误导。
-> `impact_stun` **不要加 `!`**：11 行里有 **10 行**天然是 0，加 `!` 会导表失败。
+> `impact_stun` **不要加 `!`**：14 行里有 **13 行**天然是 0，加 `!` 会导表失败。
 
 `element_duo_reaction.xlsx` — 地面 × 地面（新表）：
 
@@ -144,6 +145,8 @@
 | `impact_knockback` | `float` | 瞬发击退（格） |
 | `result_duration` | `float` | 结果存续秒数 |
 | `effect_radius` | `float` | 波及半径（格，欧氏距离） |
+| `pull_strength` | `float` | 向心吸力（单位/秒，0 = 不吸；当前只有 `超导` = 5） |
+| `break_aggro` | `bool` | 是否清空范围内敌人的仇恨（当前只有 `白雾` = True） |
 | `trigger_chain` | `bool` | 是否沿网格继续泛洪 |
 
 > `(elem_a, elem_b)` 与 `(elem_b, elem_a)` 是同一条：`DuoReactionCatalog` 建**双向字典**，
@@ -168,6 +171,12 @@
    - 每行还带一组**受击形变**调参 `squash`：强度 `amount`、普通一击时长 `normalDuration`、致死一击时长 `deathDuration`、X 压扁比 `compressRatio`、回弹曲线指数 `easePower`、强度硬上限 `maxAmount`。改这里即改观感，不用碰 `ScalePunchDriver`；`amount = 0` 即关掉该怪种的形变。**资产缺失即抛 `ConfigLoadException`**（不退回默认值）。
 4. **`VisualPalette.cs`**：
    - 包含：球种颜色、敌人两态颜色（`enemyBodyNormal` / `enemyBodySlowed`）、高亮提示色、贴地件阴影色。**受击闪白不吃色值**：它走材质属性块（见 `Docs/表现/粒子特效系统.md` §8），本表只管颜色乘数。
+5. **`CombatFeelTuning.cs`**（键 `tuning/CombatFeelTuning`，资产在 `Resources/tuning/`）：
+   - **受击**：顿帧 `hitStopSeconds`、闪白时长 `flashDuration`、挤压形变兜底 `squashDuration` / `squashDurationLethal` / `squashIntensity`。
+   - **震屏**：玩家受创 `hitShakeAmplitude` / `hitShakeDuration`；蒸汽爆轰 `blastShakeAmplitudeMin` / `blastShakeAmplitudeMax` / `blastShakeDuration`。
+   - **扬尘**：`dustSpeedThreshold` / `dustInterval` / `dustReferenceSpeed`。
+   - `EffectModule` **不读这份 SO**：调用方读值填进 `EffectContext`，它只负责传递；消费者经 `ConfigModule.Feel` 取。
+   - 与 `EnemyTuning` 不同，资产缺失时 `LoadOrDefault()` **退回字段默认值实例**，不抛 `ConfigLoadException`。
 
 ---
 
