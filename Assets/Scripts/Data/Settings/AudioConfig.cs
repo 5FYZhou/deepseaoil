@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace DeepseaOil.Data
 {
@@ -15,14 +12,6 @@ namespace DeepseaOil.Data
         PlayerDie
     };
 
-    [Serializable]
-    public struct AudioMap
-    {
-        public AudioId id;
-        public string fileName;
-    }
-
-
     [CreateAssetMenu(fileName = "AudioConfig", menuName = "DeepseaOil/Settings/AudioConfig")]
     public class AudioConfig : BaseConfig
     {
@@ -32,11 +21,5 @@ namespace DeepseaOil.Data
         public float sfxVolume;
         [Header("音频文件路径")]
         public string path;
-
-        [SerializeField]
-        [Tooltip("程序里用id区分各音频，这里确定id对应哪个音频文件，填文件名")]
-        private List<AudioMap> audioMaps = new();
-
-        public IReadOnlyList<AudioMap> AudioMaps => audioMaps;
     }
 }
