@@ -35,7 +35,6 @@
     "Assets/Scripts/Data/Settings/AudioConfig.cs": 0,
     "Assets/Scripts/Data/Settings/BaseConfig.cs": 0,
     "Assets/Scripts/Data/Settings/CharacterConfig.cs": 59,
-    "Assets/Scripts/Data/Settings/CombatFeelTuning.cs": 231,
     "Assets/Scripts/Data/Settings/DropTuning.cs": 210,
     "Assets/Scripts/Data/Settings/EnemyTuning.cs": 97,
     "Assets/Scripts/Data/Settings/EnemyTuningEntry.cs": 94,
@@ -186,7 +185,6 @@
     "Assets/Scripts/Presentation/UI/Panel/BeginPanel.cs": 0,
     "Assets/Scripts/Presentation/UI/Panel/CGPanel.cs": 14,
     "Assets/Scripts/Presentation/UI/Panel/DialoguePanel.cs": 0,
-    "Assets/Scripts/Presentation/UI/Panel/ExitConfirmPanel.cs": 0,
     "Assets/Scripts/Presentation/UI/Panel/GamePlayPanel.cs": 0,
     "Assets/Scripts/Presentation/UI/Panel/HudPanel.cs": 250,
     "Assets/Scripts/Presentation/UI/Panel/PausePanel.cs": 0,
@@ -210,8 +208,6 @@
     "Assets/Tests/Runtime/Editor/状态工厂Tests.cs": 1092,
     "Assets/Tests/Runtime/Editor/Data层Tests.cs": 3280,
     "Assets/Tests/Runtime/Editor/ReactionResolverTests.cs": 496,
-    "Assets/Tests/Scene/TestAudio.cs": 99,
-    "Assets/Tests/Scene/TestChangeScene.cs": 0,
     "Assets/Tests/Tools/LubanWorkflowTests.cs": 2779
   }
 }
