@@ -32,5 +32,7 @@ namespace DeepseaOil.Presentation.Effects
         Dust,
 
         DamagePopup,
+
+        Hop,
     }
 }

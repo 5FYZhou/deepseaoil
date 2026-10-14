@@ -63,6 +63,16 @@ namespace DeepseaOil.Data.Settings
 
         [Tooltip("alpha 淡出指数")] public float popupFadeEase = 1.5f;
 
+        [Header("Z-Hop 伪高度")]
+        [Tooltip("基准峰值高度（世界单位），Value=1 时的上飘高度")]
+        public float hopPeakHeight = 0.25f;
+
+        [Tooltip("滞空时长（秒）")]
+        public float hopDuration = 0.28f;
+
+        [Tooltip("v0 归一化基准速度（单位/秒）：Value = v0 / 本值")]
+        public float hopReferenceSpeed = 8f;
+
         private static VisualFeelTuning Cached;
 
         /// <summary>取调参资产；缺失时返回字段默认值实例</summary>

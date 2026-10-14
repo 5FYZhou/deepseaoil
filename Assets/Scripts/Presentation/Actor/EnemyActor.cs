@@ -207,7 +207,7 @@ namespace DeepseaOil.Presentation.Actor
                 // 耐久是整数，伤害舍入到整数
                 Stats.ApplyDamage(damage.Amount);
 
-                // 实体只报告事实：Follow 给 Root，真身渲染器由驱动自己下探（会跳过 ShadowView）
+                // 实体只报告事实：Follow 给 Anchor，真身渲染器由驱动自己下探（会跳过 ShadowView）
                 EffectContext flash = EffectContext.OnTarget(transform);
                 flash.Duration = feel.flashDuration;
                 flash.Tint = Color.white;
@@ -260,6 +260,15 @@ namespace DeepseaOil.Presentation.Actor
 
                 // 非数/无穷会被账本原样写进刚体，整段位移直接作废
                 if (!float.IsNaN(v0) && !float.IsInfinity(v0)) _logic.ApplyKnockback(v0, damage.Direction);
+
+                // 抬 View 不抬 Root：Y-Sort 读物理体位置
+                if (_animView != null)
+                {
+                    EffectContext hop = EffectContext.OnTarget(_animView.transform);
+                    hop.Value = v0 / ConfigModule.VisualFeel.hopReferenceSpeed;
+
+                    EffectModule.Play(EffectId.Hop, in hop);
+                }
             }
 
             if (!Stats.IsAlive)
