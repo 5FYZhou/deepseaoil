@@ -170,12 +170,13 @@
    - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`、脱战距离 `chaseRange`。
    - 每行还带一组**受击形变**调参 `squash`：强度 `amount`、普通一击时长 `normalDuration`、致死一击时长 `deathDuration`、X 压扁比 `compressRatio`、回弹曲线指数 `easePower`、强度硬上限 `maxAmount`。改这里即改观感，不用碰 `ScalePunchDriver`；`amount = 0` 即关掉该怪种的形变。**资产缺失即抛 `ConfigLoadException`**（不退回默认值）。
 4. **`VisualPalette.cs`**：
-   - 包含：球种颜色、敌人两态颜色（`enemyBodyNormal` / `enemyBodySlowed`）、高亮提示色、贴地件阴影色。**受击闪白不吃色值**：它走材质属性块（见 `Docs/表现/粒子特效系统.md` §8），本表只管颜色乘数。
-5. **`CombatFeelTuning.cs`**（键 `tuning/CombatFeelTuning`，资产在 `Resources/tuning/`）：
+   - 包含：球种颜色、敌人两态颜色（`enemyBodyNormal` / `enemyBodySlowed`）、高亮提示色、贴地件阴影色、伤害飘字四色（`damagePhysical` / `damageFire` / `damageElectric` / `damageIce`）。**受击闪白不吃色值**：它走材质属性块（见 `Docs/表现/粒子特效系统.md` §8），本表只管颜色乘数。
+   - 飘字配色走 `DamageColor(int)`：形参是**元素序号**（`ElementKind` 的 0/1/2/3）而不是枚举本身 —— 刻意避免 Data → Logic 的反向依赖，未列出的序号回落 `damagePhysical`。
+5. **`VisualFeelTuning.cs`**（键 `tuning/VisualFeelTuning`，资产在 `Resources/tuning/`）：
    - **受击**：顿帧 `hitStopSeconds`、闪白时长 `flashDuration`、挤压形变兜底 `squashDuration` / `squashDurationLethal` / `squashIntensity`。
    - **震屏**：玩家受创 `hitShakeAmplitude` / `hitShakeDuration`；蒸汽爆轰 `blastShakeAmplitudeMin` / `blastShakeAmplitudeMax` / `blastShakeDuration`。
    - **扬尘**：`dustSpeedThreshold` / `dustInterval` / `dustReferenceSpeed`。
-   - `EffectModule` **不读这份 SO**：调用方读值填进 `EffectContext`，它只负责传递；消费者经 `ConfigModule.Feel` 取。
+   - `EffectModule` **不读这份 SO**：调用方读值填进 `EffectContext`，它只负责传递；消费者经 `ConfigModule.VisualFeel` 取。
    - 与 `EnemyTuning` 不同，资产缺失时 `LoadOrDefault()` **退回字段默认值实例**，不抛 `ConfigLoadException`。
 
 ---
