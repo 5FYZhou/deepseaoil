@@ -1,6 +1,4 @@
-using DeepseaOil.Data;
 using DeepseaOil.Foundation;
-using DeepseaOil.Presentation.Primitive;
 using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 
@@ -9,25 +7,33 @@ namespace DeepseaOil.Presentation.Drop
     /// <summary>水球掉落物，抛物线飞向落点，碰到玩家后跟踪，到手提交</summary>
     public sealed class WaterBallDrop : DropActor
     {
+        private float _homingDuration;
+
         protected override void BuildBody()
         {
             gameObject.layer = RenderOrder.OverlayLayer;
 
-            var renderer = gameObject.AddComponent<SpriteRenderer>();
+            var renderer = GetComponentInChildren<SpriteRenderer>(true);
+            if (renderer != null)
+            {
+                renderer.sortingOrder = RenderOrder.BallOrder(Landing.y);
+            }
 
-            // Y-Sort 档位按落点 y 取一次，途中改档会乱穿
-            PrimitiveSprites.Configure(
-                renderer,
-                PrimitiveSprites.Circle,
-                Definition.Color,
-                RenderOrder.BallOrder(Landing.y),
-                Definition.BodyDiameter);
+            var collider = GetComponent<CircleCollider2D>();
+            if (collider != null)
+            {
+                collider.isTrigger = true;
+            }
+        }
 
-            // 触发体只挂一边（玩家侧有刚体），掉落物无需 Rigidbody2D
-            var collider = gameObject.AddComponent<CircleCollider2D>();
+        protected override void OnPhaseEntered(Phase phase)
+        {
+            base.OnPhaseEntered(phase);
 
-            collider.isTrigger = true;
-            collider.radius = Definition.TriggerRadius;
+            if (phase == Phase.Homing)
+            {
+                _homingDuration = 0f;
+            }
         }
 
         protected override void TickFalling(float deltaTime)
@@ -56,16 +62,23 @@ namespace DeepseaOil.Presentation.Drop
                 return;
             }
 
-            Vector2 current = transform.position;
-            var target = new Vector2(Player.position.x, Player.position.y);
+            _homingDuration += deltaTime;
 
-            Vector2 next = Vector2.MoveTowards(current, target, Definition.HomingSpeed * deltaTime);
+            Vector2 current = transform.position;
+            Vector2 target = Player.position;
+            Vector2 toTarget = target - current;
+            float distance = toTarget.magnitude;
+
+            if (distance <= Definition.ReachDistance || distance <= 0.15f)
+            {
+                Collect();
+                return;
+            }
+
+            float speed = Definition.HomingSpeed + (30f * _homingDuration * _homingDuration);
+            Vector2 next = Vector2.MoveTowards(current, target, speed * deltaTime);
 
             transform.position = next;
-
-            if (Vector2.Distance(next, target) > Definition.ReachDistance) return;
-
-            Collect();
         }
 
         protected override void OnPlayerReached(Transform player)

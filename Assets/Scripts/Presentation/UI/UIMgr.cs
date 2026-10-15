@@ -544,7 +544,6 @@ namespace DeepseaOil.Presentation.UI
         public void OnGameStateChanged(GameStateChanged evt)
         {
             SetUIInputEnabled(evt.state != Logic.GameState.SceneTransition);
-            Debug.Log("UI: "+evt.state.ToString());
             switch (evt.state)
             {
                 case Logic.GameState.Running:

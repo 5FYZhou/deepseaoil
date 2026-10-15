@@ -55,7 +55,7 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Load));
                     break;
                 case "BtnSetting":
-                    GameRoot.Instance.UI.ShowPanel<SettingPanel>();
+                    GameRoot.Instance.UI.ShowPanel<SettingPanel>((panel) => panel.CanSave(false));
                     break;
                 case "BtnExit":
                     GameRoot.Instance.Game.ChangeState(GameState.Exit);

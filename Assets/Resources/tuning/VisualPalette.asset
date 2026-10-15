@@ -26,7 +26,7 @@ MonoBehaviour:
   - Type: 1
     Color: {r: 0.54901963, g: 0.36078432, b: 0.18039216, a: 1}
   - Type: 2
-    Color: {r: 1, g: 1, b: 1, a: 0}
+    Color: {r: 1, g: 1, b: 1, a: 1}
   enemyBodyNormal: {r: 1, g: 1, b: 1, a: 1}
   enemyBodySlowed: {r: 0.45, g: 0.45, b: 0.45, a: 1}
   highlightAvailable: {r: 1, g: 1, b: 1, a: 0.32}

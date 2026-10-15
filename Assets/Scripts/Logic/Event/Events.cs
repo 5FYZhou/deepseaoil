@@ -40,6 +40,16 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
+    public readonly struct RequestAutoSave
+    {
+        public readonly GameData Data;
+
+        public RequestAutoSave(GameData data)
+        {
+            Data = data;
+        }
+    }
+
     public readonly struct RequestLoad
     {
         public readonly int SlotIndex;
@@ -144,10 +154,13 @@ namespace DeepseaOil.Logic.Events
 
         public readonly int Amount;
 
-        public DropCollected(DropType type, int amount)
+        public readonly SeedType Seed;
+
+        public DropCollected(DropType type, int amount, SeedType seed = SeedType.None)
         {
             Type = type;
             Amount = amount;
+            Seed = seed;
         }
     }
 
@@ -296,21 +309,6 @@ namespace DeepseaOil.Logic.Events
         {
             curId = currentLevelId;
             nextId = nextLevelId;
-        }
-    }
-
-
-    public readonly struct SaveChanged
-    {
-        public readonly int SlotIndex;
-        public readonly string SavedAtUtc;
-        public readonly int CurrentLevelId;
-
-        public SaveChanged(int slotIndex, string savedAtUtc, int currentLevelId)
-        {
-            SlotIndex = slotIndex;
-            SavedAtUtc = savedAtUtc;
-            CurrentLevelId = currentLevelId;
         }
     }
 

@@ -73,6 +73,7 @@ namespace DeepseaOil.Logic.Service
         public void Init()
         {
             EventBus<RequestSave>.Subscribe(OnRequestSave);
+            EventBus<RequestAutoSave>.Subscribe(OnRequestAutoSave);
             EventBus<RequestLoad>.Subscribe(OnRequestLoad);
             EventBus<RequestDeleteSave>.Subscribe(OnRequestDeleteSave);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
@@ -239,6 +240,7 @@ namespace DeepseaOil.Logic.Service
         public void Dispose()
         {
             EventBus<RequestSave>.Unsubscribe(OnRequestSave);
+            EventBus<RequestAutoSave>.Unsubscribe(OnRequestAutoSave);
             EventBus<RequestLoad>.Unsubscribe(OnRequestLoad);
             EventBus<RequestDeleteSave>.Unsubscribe(OnRequestDeleteSave);
             EventBus<RequestHudRefresh>.Unsubscribe(OnRequestHudRefresh);
@@ -251,17 +253,34 @@ namespace DeepseaOil.Logic.Service
 
         private void OnRequestSave(RequestSave evt)
         {
+            if (evt.SlotIndex == 0)
+            {
+                EventBus<SaveResult>.Publish(
+                    new SaveResult(evt.SlotIndex, false, "0 号槽为自动存档槽，不能手动保存。"));
+                return;
+            }
+
             if (TrySave(evt.SlotIndex, evt.Data, out string error))
             {
-                SaveSlotInfo info = GetSlotInfos()[evt.SlotIndex];
-                EventBus<SaveChanged>.Publish(
-                    new SaveChanged(evt.SlotIndex, info.SavedAtUtc, info.CurrentLevelId));
                 PublishSlotInfos();
                 EventBus<SaveResult>.Publish(new SaveResult(evt.SlotIndex, true, null));
                 return;
             }
 
             EventBus<SaveResult>.Publish(new SaveResult(evt.SlotIndex, false, error));
+        }
+
+        private void OnRequestAutoSave(RequestAutoSave evt)
+        {
+            if (TrySave(0, evt.Data, out string error))
+            {
+                PublishSlotInfos();
+                EventBus<SaveResult>.Publish(new SaveResult(0, true, null));
+                return;
+            }
+
+            Debug.LogError($"[Save] 0 号自动存档失败：{error}");
+            EventBus<SaveResult>.Publish(new SaveResult(0, false, error));
         }
 
         private void OnRequestDeleteSave(RequestDeleteSave evt)

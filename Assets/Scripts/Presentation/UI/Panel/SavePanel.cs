@@ -19,8 +19,6 @@ namespace DeepseaOil.Presentation.UI
         private SavePanelMode _mode = SavePanelMode.Load;
         private readonly SaveSlot[] _slotViews = new SaveSlot[SaveSlotInfo.SlotCount];
         private readonly ButtonStyle[] _slotStyles = new ButtonStyle[SaveSlotInfo.SlotCount];
-        private readonly Color[] _slotGraphicColors = new Color[SaveSlotInfo.SlotCount];
-        private readonly bool[] _slotGraphicColorsCaptured = new bool[SaveSlotInfo.SlotCount];
         private SaveSlotInfo[] _slotInfos;
         private bool _subscribed;
 
@@ -76,10 +74,19 @@ namespace DeepseaOil.Presentation.UI
 
             if (_mode == SavePanelMode.Save)
             {
+                if (slotIndex == 0)
+                    return;
+
                 EventBus<RequestSave>.Publish(
                     new RequestSave(slotIndex, new GameData(CombatRoot.Current != null
                         ? CombatRoot.Current.CurrentLevelId
                         : 0)));
+                return;
+            }
+
+            if (slotIndex == 0 && IsLevelInProgress())
+            {
+                Debug.LogWarning("[Save] 关卡进行中不能读取 0 号自动存档。", this);
                 return;
             }
 
@@ -128,8 +135,6 @@ namespace DeepseaOil.Presentation.UI
             }
 
             GameRoot root = GameRoot.Instance;
-            //root.UI.CloseAllPanels();
-            //root.Game.ChangeState(GameState.Running);
             EventBus<RequestLoadScene>.Publish(new RequestLoadScene(sceneName, true));
         }
 
@@ -154,7 +159,10 @@ namespace DeepseaOil.Presentation.UI
 
                 SaveSlotInfo slot = _slotInfos[i];
                 bool hasSave = slot.Status == SaveSlotStatus.Available;
-                button.interactable = _mode == SavePanelMode.Save || hasSave;
+                bool canSelect = _mode == SavePanelMode.Save
+                    ? i != 0
+                    : hasSave && (i != 0 || !IsLevelInProgress());
+                button.interactable = canSelect;
                 ButtonStyle style = hasSave ? ButtonStyle.SaveSlot : ButtonStyle.EmptySaveSlot;
                 if (_slotStyles[i] != style)
                 {
@@ -166,6 +174,14 @@ namespace DeepseaOil.Presentation.UI
                 if (hasSave)
                     _slotViews[i].SetInfo(slot);
             }
+        }
+
+        private static bool IsLevelInProgress()
+        {
+            GameState state = GameRoot.Instance.Game.CurState;
+            return state == GameState.Running
+                || state == GameState.Paused
+                || state == GameState.Settle;
         }
 
         private bool EnsureSlotViews()

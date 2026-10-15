@@ -32,6 +32,8 @@ namespace DeepseaOil.Presentation.UI
                 return;
             }
 
+            btnDelete.gameObject.SetActive(_index != 0);
+
             if (_deleteListenerRegistered) return;
 
             btnDelete.onClick.AddListener(OnDeleteClicked);
@@ -53,7 +55,7 @@ namespace DeepseaOil.Presentation.UI
 
         public void SetInfo(SaveSlotInfo info)
         {
-            if (txtTitle != null) txtTitle.text = $"存档槽 {_index + 1}";
+            if (txtTitle != null) txtTitle.text = _index > 0? $"存档槽 {_index + 1}" : "自动存档";
             if (txtPlayerLeft != null) txtPlayerLeft.text = string.Empty;
             if (txtPlayerRight != null) txtPlayerRight.text = string.Empty;
             if (txtProcessLeft != null) txtProcessLeft.text = "关卡进度";
