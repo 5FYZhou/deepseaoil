@@ -9,6 +9,7 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.System;
         public override bool CanBeHideByKey => false;
+        public override bool CloseOnSceneTransition => true;
 
         private TMP_Text txtContext;
 
@@ -20,6 +21,7 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
+            txtContext.text = "所有关卡已完成";
         }
 
         public override void HideMe()
@@ -42,7 +44,15 @@ namespace DeepseaOil.Presentation.UI
             switch (name)
             {
                 case "BtnSkip":
-                    // 跳过
+                    if (!UnityEngine.Application.CanStreamedLevelBeLoaded(SceneName.Begin))
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[Level] 主菜单场景 '{SceneName.Begin}' 不存在或未加入 Build Settings。",
+                            this);
+                        return;
+                    }
+
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, true));
                     break;
             }
         }

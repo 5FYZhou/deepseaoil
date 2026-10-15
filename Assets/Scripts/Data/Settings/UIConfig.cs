@@ -6,20 +6,18 @@ using UnityEngine;
 
 namespace DeepseaOil.Data
 {
+    public enum SavePanelMode
+    {
+        Save,
+        Load,
+    }
+
     public enum ButtonStyle
     {
         /// 代码不设置样式（在编辑器里设置）
         None = 0,
-
-
         Normal,
-
-
-
         EmptySaveSlot,
-
-
-
         SaveSlot
     }
 

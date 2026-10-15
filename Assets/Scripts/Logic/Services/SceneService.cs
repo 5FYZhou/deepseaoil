@@ -14,6 +14,8 @@ namespace DeepseaOil.Logic.Service
         private string _curScene;
         private string _nextSceneName;
         private bool _loadedNotified;
+        private bool _transitionInProgress;
+        private bool _sceneLoadStarted;
 
         public SceneService(PauseService pauseService)
         {
@@ -24,6 +26,9 @@ namespace DeepseaOil.Logic.Service
         {
             EventBus<RequestLoadScene>.Subscribe(Load);
             EventBus<RequestActiveScene>.Subscribe(Active);
+            EventBus<LoadingPanelReady>.Subscribe(OnLoadingPanelReady);
+            EventBus<SceneTransitionFinished>.Subscribe(OnSceneTransitionFinished);
+            EventBus<SceneTransitionFailed>.Subscribe(OnSceneTransitionFailed);
         }
 
         /// <remarks>无每帧工作，切场景由事件驱动（Load）</remarks>
@@ -50,25 +55,97 @@ namespace DeepseaOil.Logic.Service
 
         public void Load(RequestLoadScene evt)
         {
-            pauseService.SetPaused(false);
-
-
-            AssetModule.OnSceneSwitch();
-
-            if (!evt.isAsync)
+            if (_transitionInProgress)
             {
-
-
-                SceneManager.LoadScene(evt.sceneName);
-                _curScene = evt.sceneName;
-                EventBus<SceneActivated>.Publish(new SceneActivated(evt.sceneName));
+                string error = $"场景切换 '{_nextSceneName}' 尚未完成，拒绝重复请求 '{evt.sceneName}'。";
+                Debug.LogError($"[Scene] {error}");
                 return;
             }
 
-            _nextSceneName = evt.sceneName;
+            if (evt.isAsync)
+            {
+                _nextSceneName = evt.sceneName;
+                _loadedNotified = false;
+                _sceneLoadStarted = false;
+                _transitionInProgress = true;
+                return;
+            }
+
+            pauseService.SetPaused(false);
+
+            AssetModule.OnSceneSwitch();
+
+            EventBus<SceneLoadStarted>.Publish(new SceneLoadStarted(evt.sceneName, evt.isAsync));
+
+            //EventBus.ClearAll();
+            SceneManager.LoadScene(evt.sceneName);
+            _curScene = evt.sceneName;
+            EventBus<SceneActivated>.Publish(new SceneActivated(evt.sceneName));
+        }
+
+        private void OnLoadingPanelReady(LoadingPanelReady evt)
+        {
+            if (!_transitionInProgress || _sceneLoadStarted || _nextSceneName != evt.sceneName)
+                return;
+
+            _sceneLoadStarted = true;
+            EventBus<SceneLoadStarted>.Publish(new SceneLoadStarted(_nextSceneName, true));
+
+            if (!Application.CanStreamedLevelBeLoaded(_nextSceneName))
+            {
+                FailTransition($"场景 '{_nextSceneName}' 不存在或未加入 Build Settings。");
+                return;
+            }
+
+            AssetModule.OnSceneSwitch();
+
+            try
+            {
+                _op = SceneManager.LoadSceneAsync(_nextSceneName);
+            }
+            catch (ArgumentException ex)
+            {
+                FailTransition($"无法异步加载场景 '{_nextSceneName}'：{ex.Message}");
+                return;
+            }
+
+            if (_op == null)
+            {
+                FailTransition($"Unity 未能创建场景 '{_nextSceneName}' 的异步加载操作。");
+                return;
+            }
+
+            _op.allowSceneActivation = false;
+        }
+
+        private void FailTransition(string error)
+        {
+            Debug.LogError($"[Scene] {error}");
+            _op = null;
             _loadedNotified = false;
-            _op = SceneManager.LoadSceneAsync(_nextSceneName);
-            _op.allowSceneActivation = false;   // 先不激活，等 GameManager 放行
+            EventBus<SceneTransitionFailed>.Publish(new SceneTransitionFailed(_nextSceneName, error));
+        }
+
+        private void OnSceneTransitionFailed(SceneTransitionFailed evt)
+        {
+            if (!_transitionInProgress || _nextSceneName != evt.sceneName)
+                return;
+
+            _op = null;
+            _loadedNotified = false;
+            _sceneLoadStarted = false;
+        }
+
+        private void OnSceneTransitionFinished(SceneTransitionFinished evt)
+        {
+            if (!_transitionInProgress || _nextSceneName != evt.sceneName)
+                return;
+
+            _op = null;
+            _nextSceneName = null;
+            _loadedNotified = false;
+            _sceneLoadStarted = false;
+            _transitionInProgress = false;
         }
 
         /// 激活异步加载的场景，同步加载不调用
@@ -86,14 +163,15 @@ namespace DeepseaOil.Logic.Service
 
             _op.allowSceneActivation = true;
             _curScene = evt.sceneName;
-
-
         }
 
         public void Dispose()
         {
             EventBus<RequestLoadScene>.Unsubscribe(Load);
             EventBus<RequestActiveScene>.Unsubscribe(Active);
+            EventBus<LoadingPanelReady>.Unsubscribe(OnLoadingPanelReady);
+            EventBus<SceneTransitionFinished>.Unsubscribe(OnSceneTransitionFinished);
+            EventBus<SceneTransitionFailed>.Unsubscribe(OnSceneTransitionFailed);
         }
     }
 }
