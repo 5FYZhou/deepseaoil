@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "教学",
-    "prep_time": 5,
+    "prep_time": 3,
     "battle_time": 30,
     "settle_time": 8,
     "spawn_interval": 0.4,
@@ -11,8 +11,8 @@
   {
     "id": 2,
     "name": "第一关",
-    "prep_time": 5,
-    "battle_time": 50,
+    "prep_time": 3,
+    "battle_time": 60,
     "settle_time": 8,
     "spawn_interval": 0.3,
     "grant_seed": 0
@@ -20,19 +20,37 @@
   {
     "id": 3,
     "name": "第二关",
-    "prep_time": 8,
-    "battle_time": 50,
+    "prep_time": 5,
+    "battle_time": 60,
     "settle_time": 8,
     "spawn_interval": 0.2,
     "grant_seed": 0
   },
   {
     "id": 4,
-    "name": "第三关",
-    "prep_time": 8,
+    "name": "第三关(掉落）",
+    "prep_time": 5,
+    "battle_time": 20,
+    "settle_time": 3,
+    "spawn_interval": 0.3,
+    "grant_seed": 1
+  },
+  {
+    "id": 5,
+    "name": "第三四关",
+    "prep_time": 3,
     "battle_time": 50,
     "settle_time": 8,
-    "spawn_interval": 0.3,
+    "spawn_interval": 0.2,
+    "grant_seed": 1
+  },
+  {
+    "id": 6,
+    "name": "第四关",
+    "prep_time": 4,
+    "battle_time": 50,
+    "settle_time": 5,
+    "spawn_interval": 0.2,
     "grant_seed": 1
   }
 ]
