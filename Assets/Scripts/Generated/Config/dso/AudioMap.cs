@@ -30,7 +30,7 @@ public sealed partial class AudioMap : Luban.BeanBase
     }
 
     /// <summary>
-    /// 音频编号
+    /// 音频别名
     /// </summary>
     public readonly dso.AudioId Id;
     /// <summary>

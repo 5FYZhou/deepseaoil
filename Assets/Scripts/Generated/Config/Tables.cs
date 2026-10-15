@@ -62,6 +62,10 @@ public partial class Tables
     /// 音效类型与对应文件的名称
     /// </summary>
     public dso.TbAudioMap TbAudioMap {get; }
+    /// <summary>
+    /// 敌人掉落物配置表
+    /// </summary>
+    public dso.TbEnemyDrop TbEnemyDrop {get; }
 
     public Tables(System.Func<string, JSONNode> loader)
     {
@@ -77,6 +81,7 @@ public partial class Tables
         TbWaveEnemy = new dso.TbWaveEnemy(loader("dso_tbwaveenemy"));
         TbLevelWave = new dso.TbLevelWave(loader("dso_tblevelwave"));
         TbAudioMap = new dso.TbAudioMap(loader("dso_tbaudiomap"));
+        TbEnemyDrop = new dso.TbEnemyDrop(loader("dso_tbenemydrop"));
         ResolveRef();
     }
     
@@ -94,6 +99,7 @@ public partial class Tables
         TbWaveEnemy.ResolveRef(this);
         TbLevelWave.ResolveRef(this);
         TbAudioMap.ResolveRef(this);
+        TbEnemyDrop.ResolveRef(this);
     }
 }
 
