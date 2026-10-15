@@ -5,8 +5,8 @@
 //   ② 可走判据落在**采样点**上而不是格心上（回归用例：栅栏压在格心上）；③ 入弯降速（回归用例：满速进弯）；
 //   ④ 动态阻挡翻转必须作废流场。
 //
-// 【地形怎么造】ASCII：'#' 墙、'.' 空地、'=' 窄口，首行是**最上面**那排，一个字符铺满整格 16 个采样点；
-//   采样点级别的特例（薄墙、压格心的栅栏）直接改写 NavMap。距离一律以**采样点**为单位：一格 = 4 个采样点。
+// 【地形怎么造】ASCII：'#' 墙、'.' 空地、'=' 窄口，首行是**最上面**那排；净空按"采样点到最近墙格矩形的距离"逐点铺开
+//   并封顶 Cap（整格填常数会让贴墙那半格假装站得住），'=' 再封顶到 Narrow。距离一律以**采样点**为单位：一格 = 4 个采样点。
 //
 // 跑法：Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
@@ -43,6 +43,7 @@ namespace DeepseaOil.Tests
         private static float MaxSpeed => RowFactory.EnemyRow().MaxSpeed;
 
         /// <summary>手写地形 → 已登记格的 GridLogic ＋ 净空图；墙格也登记</summary>
+        /// <remarks>'=' 是窄口：整格再封顶到 Narrow。</remarks>
         private static GridLogic NewMaze(string[] rows, out NavMap map)
         {
             int height = rows.Length;
@@ -64,18 +65,46 @@ namespace DeepseaOil.Tests
                 {
                     grid.RegisterCell(new Vector3Int(x, y, 0));
 
-                    map.SetCellClearance(CellIndex(x, y, width), row[x] switch
+                    for (int j = 0; j < NavMap.Subdivision; j++)
                     {
-                        '#' => 0f,
-                        '=' => Narrow,
-                        _ => Cap,
-                    });
+                        for (int i = 0; i < NavMap.Subdivision; i++)
+                        {
+                            float cap = row[x] == '=' ? Narrow : Cap;
+
+                            map.SetSampleClearance(Node(x, y, width, i, j), row[x] == '#' ? 0f : Mathf.Min(cap, WallDistance(rows, x, y, i, j)));
+                        }
+                    }
                 }
             }
 
             grid.SetNavMap(map);
 
             return grid;
+        }
+
+        /// <summary>采样点到最近墙格矩形的距离（封顶 Cap；图外不算墙）</summary>
+        private static float WallDistance(string[] rows, int x, int y, int i, int j)
+        {
+            float best = Cap;
+            float px = x + (i + 0.5f) / NavMap.Subdivision;
+            float py = y + (j + 0.5f) / NavMap.Subdivision;
+
+            for (int wy = 0; wy < rows.Length; wy++)
+            {
+                string row = rows[rows.Length - 1 - wy];
+
+                for (int wx = 0; wx < row.Length; wx++)
+                {
+                    if (row[wx] != '#') continue;
+
+                    float dx = Mathf.Max(Mathf.Max(wx - px, px - (wx + 1)), 0f);
+                    float dy = Mathf.Max(Mathf.Max(wy - py, py - (wy + 1)), 0f);
+
+                    best = Mathf.Min(best, Mathf.Sqrt(dx * dx + dy * dy));
+                }
+            }
+
+            return best;
         }
 
         private static int CellIndex(int x, int y, int width)
@@ -234,7 +263,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void 迷宫里的下一步不朝墙()
         {
-            // 一道 x=4 的竖墙从 y=1 到 y=5：可走的是 y=0 与 y=6 两排（各绕 14 格）
+            // 一道 x=4 的竖墙从 y=1 到 y=5：只剩 y=0 与 y=6 两排能绕过去
             string[] rows =
             {
                 ".........",
@@ -256,9 +285,9 @@ namespace DeepseaOil.Tests
 
             int start = CenterNode(0, 3, 9);
 
-            // 绕行 52：往南让到 y=0 那排最上面的采样点（净下 10）＋ 横移 32 ＋ 上来 10（不必下到格心，故比旧的 14 格少）
-            Assert.AreEqual(NavMap.Subdivision * 13, field.DistOf(start), $"绕行距离不对：场没绕墙（直走 8 格）可达={field.ReachableCount}");
-            Assert.AreEqual(NavMap.Subdivision * 13, WalkTo(field, start, CenterNode(8, 3, 9)), "沿场走不到玩家");
+            // 绕行 54：净下 11 采样点 ＋ 横移 32 ＋ 上来 11；y=0 那排只到 j=2（j=3 离上侧墙格只剩 0.125）
+            Assert.AreEqual(NavMap.Subdivision * 13 + 2, field.DistOf(start), $"绕行距离不对：场没绕墙（直走 8 格）可达={field.ReachableCount}");
+            Assert.AreEqual(NavMap.Subdivision * 13 + 2, WalkTo(field, start, CenterNode(8, 3, 9)), "沿场走不到玩家");
 
             // 贴墙那一格（x=3）的链必须沿着格内往下/往右走，不能一步跨进 x=4 的墙格
             int current = CenterNode(3, 3, 9);
@@ -361,8 +390,7 @@ namespace DeepseaOil.Tests
         {
             GridLogic grid = NewMaze(OpenField(5, 3), out NavMap map);
 
-            // 一条横栅栏正压在 y=1 那排的格心线上：j=1、j=2 两排采样点全站不住，通道只剩格的上下两条边。
-            // 判"格心能不能站"会把这排整片判死（实测 19/2016 格可达就是这个病），判采样点才连得通。
+            // 一条横栅栏正压在 y=1 那排的格心线上：j=1、j=2 两排采样点全站不住，通道只剩格的上下两条边（判格心会把这排整片判死）
             for (int x = 0; x < 5; x++)
             {
                 for (int j = 1; j < 3; j++)
@@ -468,15 +496,15 @@ namespace DeepseaOil.Tests
 
             enemy.SetTarget(new Vector2(2.5f, 3.5f));
 
-            // 远离拐角：刹车速度还高于满速，不该降速（位置取走廊最上面那排采样点，方向与链同向）
-            motor.Position = new Vector2(0.5f, 0.875f);
+            // 远离拐角：刹车速度还高于满速，不该降速（取走廊中间那排：0.875 那排离上侧墙格只剩 0.125，站不住）
+            motor.Position = new Vector2(0.5f, 0.625f);
             motor.EngineVelocity = new Vector2(MaxSpeed, 0f);
             enemy.Tick(0.02f, 0.02f);
 
             Assert.AreEqual(MaxSpeed, enemy.ResolveSteering().Speed, 0.05f, "拐角还没进入刹车区就降速了");
 
             // 贴到拐点西侧：入弯速度 = √(v_c² + 2a·d)，d 是到链上拐点的距离
-            var position = new Vector2(1.6f, 0.875f);
+            var position = new Vector2(1.6f, 0.625f);
             float distance = (CornerPoint(map, field, position) - position).magnitude;
 
             Assert.Greater(distance, 0.2f, "没量到拐点：用例地形没造出拐角");
@@ -519,7 +547,9 @@ namespace DeepseaOil.Tests
                 motor.Position += motor.EngineVelocity * 0.02f;
 
                 Assert.IsTrue(map.TrySampleAt(motor.Position, out int node), $"第 {i} 帧跑出了图（位置 {motor.Position}）");
-                Assert.IsTrue(map.IsSampleFree(node, Radius, Skin), $"第 {i} 帧飘进了墙里（位置 {motor.Position}）：入弯降速没生效");
+
+                // 假物理没有碰撞体：逐帧只判"还在不在有地方站的格"（真身靠刚体贴墙滑，拦的是整格冲进实心墙）
+                Assert.IsTrue(map.IsWalkable(map.CellOfSample(node), Radius, Skin), $"第 {i} 帧进了实心墙格（位置 {motor.Position}）：入弯降速没生效");
 
                 if (motor.Position.y > 0.55f) maxDrift = Mathf.Max(maxDrift, motor.Position.x - 2f);
             }
@@ -532,7 +562,7 @@ namespace DeepseaOil.Tests
             Assert.GreaterOrEqual(final.y, 3, $"没顺着竖排走到目标格那一排（停在 {motor.Position}）");
         }
 
-        /// <summary>同伴桩：只实现"站得住、有半径"，用来验软分离</summary>
+        /// <summary>同伴桩：只实现站得住与半径</summary>
         private sealed class BodyStub : IEffectTarget, IEnemyBody
         {
             public Vector2 Position { get; set; }
@@ -549,12 +579,13 @@ namespace DeepseaOil.Tests
 
             grid.RefreshNavFields(new Vector3Int(5, 1, 0), Skin);
 
-            var motor = new MotorProbe { Position = new Vector2(1.5f, 1.5f) };
+            // 站在种子那一排采样点上（j=5）：流场方向正好正东，横向分量只剩软分离一个来源
+            var motor = new MotorProbe { Position = new Vector2(1.5f, 1.375f) };
             EnemyLogic enemy = NewEnemy(grid, motor);
 
             enemy.SetTarget(new Vector2(5.5f, 1.5f));
 
-            grid.Registry.Register(new Vector3Int(1, 1, 0), new BodyStub { Position = new Vector2(1.6f, 1.6f), Radius = Radius });
+            grid.Registry.Register(new Vector3Int(1, 1, 0), new BodyStub { Position = new Vector2(1.6f, 1.475f), Radius = Radius });
 
             motor.EngineVelocity = new Vector2(MaxSpeed, 0f);
             enemy.Tick(0.02f, 0.02f);

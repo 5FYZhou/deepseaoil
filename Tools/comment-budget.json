@@ -15,7 +15,7 @@
     "Assets/Scripts/Logic/Grid/NavField.cs": "1073 → 1120：节点粒度从格心换成采样点后，BFS 的父指针即下一步、种子先在本格找最靠格心的可站点（找不到才外搜 SeedRing 圈）、换步分两轮（只认更近的那轮在开阔地会空手，必须放开距离才脱得出去）、本格站不住时不要求边判据、同距优先同向邻格。新增的 TryFindStart 是两轮落点（先要有场距的，再退到只要站得住）：身体不在采样点上时不写清这两轮，被击退进阻挡格的怪就再也出不来；另有 _next 必须随 _dist 一起清。",
     "Assets/Scripts/Logic/Actor/IEnemyBody.cs": "新增 81：分离只认同伴接口，不认格子注册表里的测试假目标；Radius 的量纲在接口上写一次。",
     "Assets/Tests/Runtime/Editor/场景碰撞体烘焙Tests.cs": "1820 → 1960：净空图由「格心 ＋ 四邻边中点」改成每格 4×4 个采样点后，烘焙断言逐采样点读 NavMap 净空值与 IsWalkable，覆盖数翻了 16 倍；阻挡地貌折进净空的那一档也要有断言。脱困两例的判据移到了 寻路Tests；薄墙的净空断言改成带宽而非点值 —— 实测比几何距离小约 0.01，这个差必须写在注释里，否则下一个人会去调那个 0.01。",
-    "Assets/Tests/Runtime/Editor/寻路Tests.cs": "1391 → 1930：判据落到采样点后新增一条回归 —— 「栅栏压在格心上时格子仍要连得通」（旧「判格心」会把 Maza 整片判死）；「薄墙横插在两排采样点之间」那条由旧的「边中点挡住时该边不可通行」改写而来，现在是采样间距约束的机器判据。另有：目标格站不住仍要建场、窄口只放行挤得过的半径、满速进弯不许飘出走廊（含 L 形走廊为什么要在目标排之上多留两格：追逐到停止距离后靠减速滑行）。",
+    "Assets/Tests/Runtime/Editor/寻路Tests.cs": "1391 → 1930 → 2080：判据落到采样点后新增一条回归 —— 「栅栏压在格心上时格子仍要连得通」（旧「判格心」会把 Maza 整片判死）；「薄墙横插在两排采样点之间」那条由旧的「边中点挡住时该边不可通行」改写而来，现在是采样间距约束的机器判据。另有：目标格站不住仍要建场、窄口只放行挤得过的半径、满速进弯不许飘出走廊（含 L 形走廊为什么要在目标排之上多留两格：追逐到停止距离后靠减速滑行）。本次新增字符是两处契约：夹具的净空由「每格一个常数」改成逐采样点取「该采样点到最近的墙格矩形距离」（按格一个常数会让贴墙那半格假装站得住，正是本文件守的坑）；满速进弯那条写明夹具的假物理没有碰撞体，逐帧判据只能是「所在格仍站得住」而非逐采样点。同一轮删掉了约 130 字符的叙事（实测 19/2016 之类）。",
     "Assets/Scripts/Presentation/Adapters/TilemapAdapter.cs": "1022 → 1082：ValidateEffectLayers 的空槽判据改了 —— 没接 Tilemap 的行原来是每行一条 LogError（场景预制体上 4 个空槽每次 Awake/OnValidate 刷 4 条红字），现按 ValidateStateTiles 对待空表的同一口径静默跳过。这条区分必须靠注释兜住，否则下一个人会把静默当漏判补回去。",
   },
   "files": {
@@ -217,7 +217,7 @@
     "Assets/Scripts/Presentation/Visual/YSortAgent.cs": 171,
     "Assets/Scripts/Presentation/World/Fountain.cs": 153,
     "Assets/Tests/Runtime/Editor/场景碰撞体烘焙Tests.cs": 1960,
-    "Assets/Tests/Runtime/Editor/寻路Tests.cs": 1930,
+    "Assets/Tests/Runtime/Editor/寻路Tests.cs": 2080,
     "Assets/Tests/Runtime/Editor/表清单Tests.cs": 239,
     "Assets/Tests/Runtime/Editor/测试夹具.cs": 1874,
     "Assets/Tests/Runtime/Editor/地块效果Tests.cs": 1943,
