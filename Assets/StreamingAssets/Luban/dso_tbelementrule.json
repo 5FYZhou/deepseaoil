@@ -152,5 +152,27 @@
     "impact_stun": 0,
     "impact_radius": 1,
     "trigger_chain": false
+  },
+  {
+    "id": 15,
+    "source_tile": 24,
+    "ball_type": 0,
+    "result_tile": 19,
+    "impact_damage": 0,
+    "impact_knockback": 0,
+    "impact_stun": 0,
+    "impact_radius": 1,
+    "trigger_chain": false
+  },
+  {
+    "id": 16,
+    "source_tile": 24,
+    "ball_type": 1,
+    "result_tile": 6,
+    "impact_damage": 0,
+    "impact_knockback": 1,
+    "impact_stun": 0,
+    "impact_radius": 1,
+    "trigger_chain": false
   }
 ]

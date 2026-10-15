@@ -2,6 +2,7 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic.Drop;
 using DeepseaOil.Logic.Events;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation.Drop
 {
@@ -24,6 +25,8 @@ namespace DeepseaOil.Presentation.Drop
         protected DropSpec Definition { get; private set; }
 
         protected DropType Type { get; private set; }
+
+        protected SeedType Seed { get; private set; }
 
         protected Phase CurrentPhase { get; private set; }
 
@@ -48,9 +51,10 @@ namespace DeepseaOil.Presentation.Drop
             Destroy(gameObject);
         }
 
-        public void Initialize(in DropSpawnRequest request, DropType type, DropSpec definition, Transform player)
+        public void Initialize(in DropSpawnRequest request, DropType type, SeedType seed, DropSpec definition, Transform player)
         {
             Type = type;
+            Seed = seed;
             Definition = definition;
             Player = player;
             Origin = request.Origin;
@@ -129,7 +133,7 @@ namespace DeepseaOil.Presentation.Drop
 
             EnterPhase(Phase.Done);
 
-            EventBus<DropCollected>.Publish(new DropCollected(Type, Definition.Amount));
+            EventBus<DropCollected>.Publish(new DropCollected(Type, Definition.Amount, Seed));
         }
 
         // 掉落物是触发器、玩家有刚体 ⇒ 回调到两边，Enter 与 Stay 都要听：玩家一直站在上面时 Enter 只发生一次。追踪点取玩家组合根，只认 PlayerController

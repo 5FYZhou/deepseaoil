@@ -1,5 +1,6 @@
 using DeepseaOil.Data;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Logic.Drop
 {
@@ -14,11 +15,14 @@ namespace DeepseaOil.Logic.Drop
         /// <summary>抛物线终点，也是等待拾取时的位置</summary>
         public readonly Vector2 Landing;
 
-        public DropSpawnRequest(DropType type, Vector2 origin, Vector2 landing)
+        public readonly SeedType Seed;
+
+        public DropSpawnRequest(DropType type, Vector2 origin, Vector2 landing, SeedType seed = SeedType.None)
         {
             Type = type;
             Origin = origin;
             Landing = landing;
+            Seed = seed;
         }
     }
 }
