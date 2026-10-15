@@ -500,6 +500,9 @@ namespace DeepseaOil.Presentation
                 initialStates = _grid.LoadInitialStates(ConfigModule.GetTileInitials());
             }
 
+            // 必须早于任何敌人生成：否则首帧绕障仍会直扑场景障碍
+            SceneObstacleBaker.Bake(_grid, ConfigModule.SceneObstacleMargin);
+
             _highlight = CreateHighlightView(geometry);
             _highlight.Attach();
 

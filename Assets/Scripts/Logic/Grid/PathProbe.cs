@@ -15,6 +15,7 @@ namespace DeepseaOil.Logic.Grid
         };
 
         /// <summary>返回起点走到终点的下一步；超步数时回溯至局部最接近目标的节点</summary>
+        /// <remarks>bestNode 初值不可用 start 的曼哈顿距离：绕障必经横向折返，必然更远，会把所有候选丢光而退化成撞墙</remarks>
         public static bool TryFindStep(
             GridGeometry geometry,
             Vector3Int start,
@@ -42,7 +43,7 @@ namespace DeepseaOil.Logic.Grid
             queue.Enqueue(start);
 
             Vector3Int bestNode = start;
-            int minDistanceToGoal = ManhattanDistance(start, goal);
+            int minDistanceToGoal = int.MaxValue;
             bool reachedGoal = false;
 
             for (int depth = 0; depth < maxSteps && queue.Count > 0; depth++)
@@ -63,19 +64,23 @@ namespace DeepseaOil.Logic.Grid
                         break;
                     }
 
-                    int dist = ManhattanDistance(current, goal);
-                    if (dist < minDistanceToGoal)
+                    if (current != start)
                     {
-                        minDistanceToGoal = dist;
-                        bestNode = current;
+                        int dist = ManhattanDistance(current, goal);
+                        if (dist < minDistanceToGoal)
+                        {
+                            minDistanceToGoal = dist;
+                            bestNode = current;
+                        }
                     }
 
                     for (int n = 0; n < Neighbors4.Length; n++)
                     {
                         Vector3Int next = current + Neighbors4[n];
 
-                        if (!visited.Add(next)) continue;
+                        // 通行性必须先查：若先 visited.Add(next)，墙体会被写进 cameFrom，回溯出的"下一步"就不是 start 的邻格
                         if (!isWalkable(next)) continue;
+                        if (!visited.Add(next)) continue;
 
                         cameFrom[next] = current;
                         queue.Enqueue(next);
@@ -93,6 +98,7 @@ namespace DeepseaOil.Logic.Grid
             return false;
         }
 
+        /// <remarks>回溯只在 cameFrom 上走，返回格必然是 start 的四邻格，调用方按格心方向位移即不会斜穿墙角</remarks>
         private static bool TraceStep(
             Vector3Int start,
             Vector3Int goal,

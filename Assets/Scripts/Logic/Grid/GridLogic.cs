@@ -32,6 +32,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>合法格；表现层登记，未登记不参与转换</summary>
         private readonly HashSet<Vector3Int> _cells = new();
 
+        /// <summary>场景预制体碰撞体占用的格；按身体半径烘焙，与地貌无关，故不走状态机</summary>
+        private readonly HashSet<Vector3Int> _solidCells = new();
+
         private readonly Dictionary<Vector3Int, TileStateMachine> _machines = new();
 
         private readonly TileTickQueue _queue = new();
@@ -87,6 +90,26 @@ namespace DeepseaOil.Logic.Grid
             return _cells.Contains(cell);
         }
 
+        /// <summary>已登记格的枚举口；供表现层一次性烘焙场景碰撞体</summary>
+        public IEnumerable<Vector3Int> Cells => _cells;
+
+        /// <summary>标记为场景碰撞体占用；只增不减，重烘焙前先 ClearSolidCells</summary>
+        public void MarkSolidCell(Vector3Int cell)
+        {
+            _solidCells.Add(cell);
+        }
+
+        public void ClearSolidCells()
+        {
+            _solidCells.Clear();
+        }
+
+        /// <summary>该格是否被场景碰撞体占用（不看地貌）；供烘焙日志区分误判与漏判</summary>
+        public bool IsSolidCell(Vector3Int cell)
+        {
+            return _solidCells.Contains(cell);
+        }
+
         public Vector3Int WorldToCell(Vector2 world)
         {
             return _geometry.WorldToCell(world);
@@ -107,9 +130,11 @@ namespace DeepseaOil.Logic.Grid
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsConductor;
         }
 
-        /// <summary>该格是否物理阻挡；无表行返回 false</summary>
+        /// <summary>该格是否物理阻挡：地貌 is_obstacle 或场景碰撞体占用，无表行返回 false</summary>
         public bool IsObstacle(Vector3Int cell)
         {
+            if (_solidCells.Contains(cell)) return true;
+
             TileStateType state = StateOf(cell);
 
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsObstacle;

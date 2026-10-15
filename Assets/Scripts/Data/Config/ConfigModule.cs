@@ -393,6 +393,33 @@ namespace DeepseaOil.Data
             }
         }
 
+        /// <summary>场景碰撞体烘焙余量：取全部怪种的最大值，一套烘焙要服务所有怪</summary>
+        public static float SceneObstacleMargin
+        {
+            get
+            {
+                EnsureAssets();
+
+                IReadOnlyList<EnemyTuningEntry> entries = _enemyTuning.entries;
+
+                if (entries == null || entries.Count == 0)
+                {
+                    return _enemyTuning.defaultEntry != null ? _enemyTuning.defaultEntry.sceneObstacleMargin : 0f;
+                }
+
+                float max = 0f;
+
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    if (entries[i] == null) continue;
+
+                    if (entries[i].sceneObstacleMargin > max) max = entries[i].sceneObstacleMargin;
+                }
+
+                return max;
+            }
+        }
+
         /// <summary>读玩家数值，"玩家"取值的唯一入口：移动参数（SO）与水球射程都从这里出去</summary>
         public static PlayerSpec GetPlayer(int id = Ids.Player)
         {
