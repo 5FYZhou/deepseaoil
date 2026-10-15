@@ -521,7 +521,6 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-            //SetUIInputEnabled(evt.state != Logic.GameState.CG);
 
             switch (evt.state)
             {
