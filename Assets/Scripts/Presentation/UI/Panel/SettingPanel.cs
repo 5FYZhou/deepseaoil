@@ -3,6 +3,7 @@ using TMPro;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace DeepseaOil.Presentation.UI
 {
