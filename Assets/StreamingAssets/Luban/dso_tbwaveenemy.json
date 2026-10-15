@@ -19,19 +19,31 @@
   },
   {
     "id": 4,
-    "wave_id": 3,
+    "wave_id": 4,
+    "enemy_id": 2,
+    "count": 1
+  },
+  {
+    "id": 5,
+    "wave_id": 5,
+    "enemy_id": 1,
+    "count": 4
+  },
+  {
+    "id": 6,
+    "wave_id": 5,
     "enemy_id": 2,
     "count": 2
   },
   {
-    "id": 5,
-    "wave_id": 4,
+    "id": 7,
+    "wave_id": 6,
     "enemy_id": 1,
     "count": 5
   },
   {
-    "id": 6,
-    "wave_id": 4,
+    "id": 8,
+    "wave_id": 6,
     "enemy_id": 2,
     "count": 3
   }
