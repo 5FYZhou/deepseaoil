@@ -141,6 +141,10 @@ namespace cfg.dso
         /// 升华bgm
         /// </summary>
         BgmAscensio = 31,
+        /// <summary>
+        /// UI背包按钮滑动
+        /// </summary>
+        UIBagSlide = 32,
     }
 
 } 
