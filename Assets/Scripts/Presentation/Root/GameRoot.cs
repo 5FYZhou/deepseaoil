@@ -147,7 +147,7 @@ namespace DeepseaOil.Presentation
             UI = new UIMgr();
             UI.Init();
 
-            Game = new GameManager(UI);
+            Game = new GameManager();
 
             Audio = new AudioManager(transform);
 

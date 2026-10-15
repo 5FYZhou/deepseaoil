@@ -25,6 +25,12 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 case EffectDriverKind.ScalePunch:
                     return new ScalePunchDriver(spec);
 
+                case EffectDriverKind.Popup:
+                    return new PopupDriver(spec, root);
+
+                case EffectDriverKind.Hop:
+                    return new HopDriver(spec);
+
                 default:
                     return new ParticleDriver(spec, root);
             }

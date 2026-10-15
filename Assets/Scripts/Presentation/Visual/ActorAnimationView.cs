@@ -3,7 +3,7 @@ using UnityEngine;
 namespace DeepseaOil.Presentation.Visual
 {
     /// <summary>把运动学与事件翻译成 Animator 参数</summary>
-    /// <remarks>无 Animator 或未挂 controller 时全部调用是空操作；localPosition 归 EffectModule，本类不写。</remarks>
+    /// <remarks>无 Animator 或未挂 controller 时参数调用是空操作；FadeAlpha 读 1；localPosition 由 EffectModule 独占写。</remarks>
     [DisallowMultipleComponent]
     public sealed class ActorAnimationView : MonoBehaviour
     {
@@ -18,6 +18,15 @@ namespace DeepseaOil.Presentation.Visual
 
         /// <summary>非空且挂了 controller 才有效，否则 SetFloat 刷警告</summary>
         public bool HasValidAnimator => animator != null && animator.runtimeAnimatorController != null;
+
+        /// <summary>死亡剪辑末帧的 AnimationEvent 靶点；无 controller 时不触发</summary>
+        public event System.Action DeathAnimationEnd;
+
+        /// <summary>AnimationEvent 靶点；由死亡剪辑末帧调用</summary>
+        public void OnDeathAnimationEnd() => DeathAnimationEnd?.Invoke();
+
+        /// <summary>Animator 的 FadeAlpha 参数（未接 controller 读作 1）；尸体淡出的数据源</summary>
+        public float FadeAlpha => HasValidAnimator ? animator.GetFloat(AnimHashes.FadeAlpha) : 1f;
 
         /// <summary>可能为 null</summary>
         public SpriteRenderer Renderer => spriteRenderer;

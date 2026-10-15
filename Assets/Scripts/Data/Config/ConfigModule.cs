@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DeepseaOil.Data.Settings;
 using UnityEngine;
 using cfg.dso;
 
@@ -31,7 +32,7 @@ namespace DeepseaOil.Data
         private static ThrowTuning _throwTuning;
         private static DropTuning _dropTuning;
         private static VisualPalette _visuals;
-        private static CombatFeelTuning _feel;
+        private static VisualFeelTuning _feel;
         private static EnemyTuning _enemyTuning;
         private static UIConfig _uiConfig;
         private static AudioConfig _audioConfig;
@@ -119,7 +120,7 @@ namespace DeepseaOil.Data
             _throwTuning = ThrowTuning.LoadOrDefault();
             _dropTuning = DropTuning.LoadOrDefault();
             _visuals = VisualPalette.LoadOrDefault();
-            _feel = CombatFeelTuning.LoadOrDefault();
+            _feel = VisualFeelTuning.LoadOrDefault();
 
             // enemy 表已不存这些值：缺了没有字段默认值可退，会静默改变手感，故当场抛
             _enemyTuning = AssetModule.Load<EnemyTuning>(EnemyTuning.ResourceKey);
@@ -164,6 +165,7 @@ namespace DeepseaOil.Data
             _ = GetElementRules();
             _ = GetDuoReactions();
             _ = GetAllSeeds();
+            _ = GetLevels();
 
             // 精英怪是预留行：表里有就必须折得出来（多敌种刷怪接上前不能静默缺数据）
             _ = GetEnemy(2);
@@ -346,7 +348,7 @@ namespace DeepseaOil.Data
         }
 
         /// <summary>战斗观感调参（SO）：受击/震屏/扬尘取值的唯一入口</summary>
-        public static CombatFeelTuning Feel
+        public static VisualFeelTuning VisualFeel
         {
             get
             {
@@ -411,6 +413,50 @@ namespace DeepseaOil.Data
             return result;
         }
 
+        public static LevelSpec GetLevel(int id)
+        {
+            EnsureAssets();
+
+            cfg.dso.LevelWave row = _holder.Tables.TbLevelWave.GetOrDefault(id);
+
+            if (row == null)
+                throw new ConfigLoadException($"[Config] level_wave 表里没有关卡 id={id}");
+
+            if (row.WaveIds == null || row.WaveIds.Count == 0)
+                throw new ConfigLoadException($"[Config] 关卡 id={id} 没有配置任何波次");
+
+            var waves = new List<WaveSpec>(row.WaveIds.Count);
+
+            for (int i = 0; i < row.WaveIds.Count; i++)
+            {
+                int waveId = row.WaveIds[i];
+                Wave wave = _holder.Tables.TbWave.GetOrDefault(waveId);
+
+                if (wave == null)
+                    throw new ConfigLoadException(
+                        $"[Config] 关卡 id={id} 引用了不存在的 wave id={waveId}（wave_ids 第 {i + 1} 项）");
+
+                waves.Add(new WaveSpec(wave, GetWaveEnemies(waveId)));
+            }
+
+            return new LevelSpec(row, waves);
+        }
+
+        public static IReadOnlyList<LevelSpec> GetLevels()
+        {
+            EnsureAssets();
+
+            IReadOnlyList<cfg.dso.LevelWave> rows = _holder.Tables.TbLevelWave.DataList;
+            var result = new List<LevelSpec>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                result.Add(GetLevel(rows[i].Id));
+            }
+
+            return result;
+        }
+
         /// <summary>全部关卡初始格子状态；表当前 0 行，不要因表空删链</summary>
         public static IReadOnlyList<TileInitial> GetTileInitials()
         {
@@ -437,6 +483,21 @@ namespace DeepseaOil.Data
         {
             EnsureAssets();
             return _audioConfig;
+        }
+
+        public static IReadOnlyList<AudioMapSpec> GetAudioMaps()
+        {
+            EnsureAssets();
+
+            IReadOnlyList<cfg.dso.AudioMap> rows = _holder.Tables.TbAudioMap.DataList;
+            var result = new List<AudioMapSpec>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                result.Add(new AudioMapSpec(rows[i]));
+            }
+
+            return result;
         }
 
         // 逃生舱：特殊情况直接访问原始 Tables

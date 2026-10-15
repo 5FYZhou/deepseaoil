@@ -37,6 +37,7 @@
 // ---------------------------------------------------------------------------
 
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
