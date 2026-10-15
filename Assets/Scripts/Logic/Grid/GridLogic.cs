@@ -49,6 +49,8 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>铺地貌格缓冲，不复用 _blastCells</summary>
         private readonly List<Vector3Int> _spreadCells = new();
 
+        private readonly List<Vector3Int> _crossCells = new(4);
+
         private float _now;
         private float _deltaTime;
 
@@ -196,6 +198,11 @@ namespace DeepseaOil.Logic.Grid
 
             bool impacted = ApplyImpact(cell, in outcome);
 
+            if (current == TileStateType.BasicFlower && ball == BallType.Water)
+            {
+                GrowCrossGrass(cell);
+            }
+
             if (changed || impacted)
             {
                 ScheduleTick(cell);
@@ -204,6 +211,21 @@ namespace DeepseaOil.Logic.Grid
             }
 
             return false;
+        }
+
+        private void GrowCrossGrass(Vector3Int center)
+        {
+            GridQuery.GetNeighbors4(center, _crossCells);
+
+            for (int i = 0; i < _crossCells.Count; i++)
+            {
+                Vector3Int neighbor = _crossCells[i];
+
+                if (_cells.Contains(neighbor) && StateOf(neighbor) == TileStateType.Normal)
+                {
+                    SwitchTileState(neighbor, TileStateType.BasicPlant, 0f);
+                }
+            }
         }
 
         /// <summary>落地冲击的唯一出口：单格与广域 AoE</summary>
