@@ -1,6 +1,5 @@
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
-using DeepseaOil.Presentation.Primitive;
 using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 
@@ -13,21 +12,21 @@ namespace DeepseaOil.Presentation.Drop
         {
             gameObject.layer = RenderOrder.OverlayLayer;
 
-            var renderer = gameObject.AddComponent<SpriteRenderer>();
+            var renderer = GetComponentInChildren<SpriteRenderer>(true);
+            if (renderer != null)
+            {
+                renderer.sortingOrder = RenderOrder.BallOrder(Landing.y);
+            }
 
-            // Y-Sort 档位按落点 y 取一次，途中改档会乱穿
-            PrimitiveSprites.Configure(
-                renderer,
-                PrimitiveSprites.Circle,
-                Definition.Color,
-                RenderOrder.BallOrder(Landing.y),
-                Definition.BodyDiameter);
-
-            // 触发体只挂一边（玩家侧有刚体），掉落物无需 Rigidbody2D
-            var collider = gameObject.AddComponent<CircleCollider2D>();
-
-            collider.isTrigger = true;
-            collider.radius = Definition.TriggerRadius;
+            var collider = GetComponent<CircleCollider2D>();
+            if (collider != null)
+            {
+                collider.isTrigger = true;
+                if (Definition != null && Definition.TriggerRadius > 0f)
+                {
+                    collider.radius = Definition.TriggerRadius;
+                }
+            }
         }
 
         protected override void TickFalling(float deltaTime)

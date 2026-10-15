@@ -52,6 +52,10 @@ namespace DeepseaOil.Data
         /// <summary>没配敌种的波共用这一份，避免每次分配新空表</summary>
         private static readonly List<WaveEnemySpec> EmptyWaveEnemies = new List<WaveEnemySpec>();
 
+        private static Dictionary<int, List<EnemyDropSpec>> _enemyDrops;
+
+        private static readonly List<EnemyDropSpec> EmptyEnemyDrops = new List<EnemyDropSpec>();
+
         public static bool IsReady => _ready;
 
         public static bool AreAssetsBound => _bound;
@@ -180,6 +184,8 @@ namespace DeepseaOil.Data
                 for (int j = 0; j < enemies.Count; j++)
                 {
                     _ = GetEnemy(enemies[j].EnemyId);
+
+                    _ = GetEnemyDrops(enemies[j].EnemyId);
                 }
             }
         }
@@ -333,6 +339,15 @@ namespace DeepseaOil.Data
             EnsureWaveEnemies();
 
             return _waveEnemies.TryGetValue(waveId, out List<WaveEnemySpec> list) ? list : EmptyWaveEnemies;
+        }
+
+        public static IReadOnlyList<EnemyDropSpec> GetEnemyDrops(int enemyId)
+        {
+            EnsureAssets();
+
+            EnsureEnemyDrops();
+
+            return _enemyDrops.TryGetValue(enemyId, out List<EnemyDropSpec> list) ? list : EmptyEnemyDrops;
         }
 
         /// <summary>观感颜色表（SO），观感取值唯一入口</summary>
@@ -557,6 +572,29 @@ namespace DeepseaOil.Data
                 }
 
                 list.Add(new WaveEnemySpec(row));
+            }
+        }
+
+        private static void EnsureEnemyDrops()
+        {
+            if (_enemyDrops != null) return;
+
+            IReadOnlyList<EnemyDrop> rows = _holder.Tables.TbEnemyDrop.DataList;
+
+            _enemyDrops = new Dictionary<int, List<EnemyDropSpec>>(rows.Count);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                EnemyDrop row = rows[i];
+
+                if (!_enemyDrops.TryGetValue(row.EnemyId, out List<EnemyDropSpec> list))
+                {
+                    list = new List<EnemyDropSpec>(4);
+
+                    _enemyDrops[row.EnemyId] = list;
+                }
+
+                list.Add(new EnemyDropSpec(row));
             }
         }
 
