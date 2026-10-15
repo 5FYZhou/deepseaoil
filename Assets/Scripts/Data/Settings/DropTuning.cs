@@ -26,13 +26,6 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("领取一次给几个")]
         public int amount = 1;
 
-        [Header("本体")]
-        [Tooltip("本体视觉直径（世界单位）")]
-        public float bodyDiameter = 0.3f;
-
-        [Tooltip("触发半径（世界单位）")]
-        public float triggerRadius = 0.15f;
-
         /// <summary>取调参资产；取不到时返回字段默认值实例；调用方只有 ConfigModule.BindAssets，消费者经 ConfigModule.GetDrop 取 DropSpec</summary>
         internal static DropTuning LoadOrDefault()
         {
