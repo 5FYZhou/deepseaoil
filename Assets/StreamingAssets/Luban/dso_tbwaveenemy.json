@@ -3,23 +3,35 @@
     "id": 1,
     "wave_id": 1,
     "enemy_id": 1,
-    "count": 3
+    "count": 1
   },
   {
     "id": 2,
-    "wave_id": 1,
+    "wave_id": 2,
+    "enemy_id": 1,
+    "count": 3
+  },
+  {
+    "id": 3,
+    "wave_id": 3,
+    "enemy_id": 1,
+    "count": 4
+  },
+  {
+    "id": 4,
+    "wave_id": 3,
     "enemy_id": 2,
     "count": 2
   },
   {
-    "id": 3,
-    "wave_id": 2,
+    "id": 5,
+    "wave_id": 4,
     "enemy_id": 1,
     "count": 5
   },
   {
-    "id": 4,
-    "wave_id": 2,
+    "id": 6,
+    "wave_id": 4,
     "enemy_id": 2,
     "count": 3
   }
