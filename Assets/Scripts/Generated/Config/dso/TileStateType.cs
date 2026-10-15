@@ -81,6 +81,10 @@ namespace cfg.dso
         /// 霜冻冰刺
         /// </summary>
         FrostSpike = 23,
+        /// <summary>
+        /// 基础花
+        /// </summary>
+        BasicFlower = 24,
     }
 
 } 

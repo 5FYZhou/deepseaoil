@@ -268,7 +268,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>可燃面：能被火海点燃并烧穿的地貌</summary>
         public static bool IsFlammable(TileStateType state)
         {
-            return state == TileStateType.BasicPlant || state == TileStateType.ChargedThorn;
+            return state == TileStateType.BasicPlant
+                || state == TileStateType.ChargedThorn
+                || state == TileStateType.BasicFlower;
         }
 
         private static void BreakAggroInRadius(GridLogic grid, Vector3Int origin, float radius)
