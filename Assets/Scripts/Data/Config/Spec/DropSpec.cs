@@ -32,10 +32,5 @@ namespace DeepseaOil.Data
         public float ReachDistance => _tuning.reachDistance;
 
         public int Amount => _tuning.amount;
-
-        // 视觉直径，世界单位
-        public float BodyDiameter => _tuning.bodyDiameter;
-
-        public float TriggerRadius => _tuning.triggerRadius;
     }
 }
