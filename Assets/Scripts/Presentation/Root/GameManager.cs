@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>游戏状态机：切状态连带切面板、发暂停/恢复意图，是状态唯一入口。构造点只有 GameRoot.Assemble；面板操作走注入的 UIMgr，本类不认识 GameRoot。UI 输入只能经 IUIStateRequest 请求切状态。</summary>
+    /// <summary>游戏状态机：切状态连带切面板、发暂停/恢复意图，是状态唯一入口。构造点只有 GameRoot.Assemble；面板操作走注入的 UIMgr，本类不认识 GameRoot。UI 输入只能经 IGameStateRequest 请求切状态。</summary>
     public sealed class GameManager : IGameStateRequest
     {
         public GameState CurState { get; private set; } = GameState.None;
