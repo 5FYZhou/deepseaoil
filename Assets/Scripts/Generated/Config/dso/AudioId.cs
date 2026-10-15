@@ -18,13 +18,121 @@ namespace cfg.dso
         /// </summary>
         BgmNormal = 0,
         /// <summary>
-        /// 玩家受击
+        /// UI通用按钮点击
         /// </summary>
-        PlayerHurt = 1,
+        UIButtonClick = 1,
         /// <summary>
-        /// 玩家死亡
+        /// UI音量音效条滑动
         /// </summary>
-        PlayerDie = 2,
+        UIVolumeSlide = 2,
+        /// <summary>
+        /// 波次三秒倒计时
+        /// </summary>
+        WaveCountdown = 3,
+        /// <summary>
+        /// 剧情CG弹出
+        /// </summary>
+        StoryCGPopup = 4,
+        /// <summary>
+        /// 玩家投掷开始
+        /// </summary>
+        PlayerThrowStart = 5,
+        /// <summary>
+        /// 玩家投掷落地
+        /// </summary>
+        PlayerThrowLand = 6,
+        /// <summary>
+        /// 玩家拾取
+        /// </summary>
+        PlayerPickup = 7,
+        /// <summary>
+        /// 玩家移动
+        /// </summary>
+        PlayerMove = 8,
+        /// <summary>
+        /// 玩家丢弃资源
+        /// </summary>
+        PlayerDiscard = 9,
+        /// <summary>
+        /// 地块水蒸气
+        /// </summary>
+        TileSteam = 10,
+        /// <summary>
+        /// 地块结冰
+        /// </summary>
+        TileFreeze = 11,
+        /// <summary>
+        /// 地块冰沙
+        /// </summary>
+        TileIceShard = 12,
+        /// <summary>
+        /// 地块燃烧
+        /// </summary>
+        TileBurn = 13,
+        /// <summary>
+        /// 地块化为灰烬
+        /// </summary>
+        TileAsh = 14,
+        /// <summary>
+        /// 地块泥浆
+        /// </summary>
+        TileMud = 15,
+        /// <summary>
+        /// 地块玻璃碎裂
+        /// </summary>
+        TileGlassBreak = 16,
+        /// <summary>
+        /// 地块陶砖
+        /// </summary>
+        TileBrick = 17,
+        /// <summary>
+        /// 地块冻土
+        /// </summary>
+        TileFrozenSoil = 18,
+        /// <summary>
+        /// 地块土墙
+        /// </summary>
+        Tile = 19,
+        /// <summary>
+        /// 地块荆棘
+        /// </summary>
+        TileThorn = 20,
+        /// <summary>
+        /// 地块导电
+        /// </summary>
+        TileConduct = 21,
+        /// <summary>
+        /// 敌人出生
+        /// </summary>
+        EnemySpawn = 22,
+        /// <summary>
+        /// 击退敌人
+        /// </summary>
+        EnemyKnockback = 23,
+        /// <summary>
+        /// 敌人受击
+        /// </summary>
+        EnemtHit = 24,
+        /// <summary>
+        /// 敌人死亡
+        /// </summary>
+        EnemyDie = 25,
+        /// <summary>
+        /// 玩家种植种子
+        /// </summary>
+        PlayerPlant = 26,
+        /// <summary>
+        /// 玩家回血
+        /// </summary>
+        PlayerHeal = 27,
+        /// <summary>
+        /// CG演出车行驶
+        /// </summary>
+        StoryCGdrive = 28,
+        /// <summary>
+        /// CG演出开车门
+        /// </summary>
+        StoryCGcardoor = 29,
     }
 
 } 
