@@ -7,7 +7,8 @@
     "Assets/Scripts/Logic/Grid/GridLogic.cs": "1988 → 2235：新增场景碰撞体阻挡格（_solidCells / Cells / MarkSolidCell / ClearSolidCells / IsSolidCell / IsObstacle 双来源），跨层契约必须写明；净增 5 个公开成员对应 208 字符，余量为后续维护。",
     "Assets/Scripts/Logic/Actor/EnemyLogic.cs": "335 → 800：新增身体半径探针覆盖与卡死脱困（StuckSpeedSqr / StuckFramesMax / EscapeFrames 三个魔法值来源、八邻域依据、速度读取二义性规避、读速度必须在移动层之后）。这些约束错了不报错、只表现为贴墙卡死或误判，属第 7 节「非直觉算法依据」必须写明的一类。",
     "Assets/Scripts/Data/Config/ConfigModule.cs": "1943 → 2040：新增 SceneObstacleMargin 访问器（取全部怪种最大值），与既有 PathMaxSteps / PathRecalcFrames 同层，跨层时序约定必须写明。",
-    "Assets/Scripts/Presentation/Grid/SceneObstacleBaker.cs": "402 → 560：烘焙判据由点采样改成带身体半径的空间查询；新增「每格占用来源碰撞体＋已排除角色碰撞体」归因日志，用于区分角色被烘进去与地块格被误判 —— 这两类错了都不报错，只表现为隐形墙。段内非直觉依据（半径语义、命中上限、两条角色排除口子）必须写明。"
+    "Assets/Scripts/Presentation/Grid/SceneObstacleBaker.cs": "402 → 560：烘焙判据由点采样改成带身体半径的空间查询；新增「每格占用来源碰撞体＋已排除角色碰撞体」归因日志，用于区分角色被烘进去与地块格被误判 —— 这两类错了都不报错，只表现为隐形墙。段内非直觉依据（半径语义、命中上限、两条角色排除口子）必须写明。",
+    "Assets/Tests/Runtime/Editor/场景碰撞体烘焙Tests.cs": "1560 → 1680：格域挪到 (0.5,0.5) 并加干净基线（EditMode 的 Physics2D 查询是全局的，Range 道具会污染断言）；长条占用改由碰撞体实测包围盒推出。两条都必须写明，否则下一个人会把「速度清零写在 Tick 之前」再犯一次 —— 那会让假物理被移动层当帧覆盖，卡死判定永远不触发且测试仍然通过。"
   },
   "files": {
     "Assets/Scripts/Data/Asset/AssetModule.cs": 856,
@@ -203,7 +204,7 @@
     "Assets/Scripts/Presentation/Visual/RenderOrder.cs": 189,
     "Assets/Scripts/Presentation/Visual/YSortAgent.cs": 171,
     "Assets/Scripts/Presentation/World/Fountain.cs": 153,
-    "Assets/Tests/Runtime/Editor/场景碰撞体烘焙Tests.cs": 1560,
+    "Assets/Tests/Runtime/Editor/场景碰撞体烘焙Tests.cs": 1680,
     "Assets/Tests/Runtime/Editor/表清单Tests.cs": 239,
     "Assets/Tests/Runtime/Editor/测试夹具.cs": 1874,
     "Assets/Tests/Runtime/Editor/地块效果Tests.cs": 1943,

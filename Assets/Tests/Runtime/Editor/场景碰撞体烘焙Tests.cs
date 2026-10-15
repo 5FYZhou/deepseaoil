@@ -3,17 +3,13 @@
 //
 // 【为什么在这里】本文件守三条「改错了不报错」的约定：
 //   ① 烘焙判据按**身体半径**算距离：退回点采样时薄栅栏整道漏判，敌人正面顶住。
-//   ② 排除口径：触发器、IManagedActor、IActorMotor、阻挡地貌池、动态体都不算障碍；
-//      漏排除会把地图边界（BoundsArea 是 trigger）与角色自身烘成墙。
-//   ③ 重复烘焙幂等：先 Clear 再标记，否则改一次场景重进游戏会越积越多；
-//   速度被物理压到零而大脑仍在追时，EnemyLogic 还必须自己挤出脱困缝。
-//
-// 覆盖边界：实机手感仍须 PlayMode 目视（步骤见 Docs/待办.md）。
+//   ② 排除口径：触发器、IManagedActor、IActorMotor、阻挡地貌池、动态体都不算障碍。
+//   ③ 重复烘焙幂等：先 Clear 再标记；速度被物理压到零而大脑仍在追时还必须挤出脱困缝。
 //
 // 【测试格域为什么挪到 (0.5,0.5)】EditMode 跑在当前打开的场景里、Physics2D 查询又是全局的，
 //   而 Range 的栅栏/树/路牌就落在原点附近；断言因此错开半格以上，并先量干净基线、只断言增量。
 //
-// 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
+// 覆盖边界：实机手感须 PlayMode 目视。跑法：Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
 
 using System.Collections.Generic;
@@ -175,7 +171,7 @@ namespace DeepseaOil.Tests
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(1, 4, 0)), "距墙 3 格的排被误标");
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(4, 4, 0)), "远处的空格被误标");
 
-            // 同样半格厚、但纵向占满 2 格的墙：半径必须把上下两格都算进来
+            // 同样半格厚、但纵向占满 2 格的墙：上下两格都必须被标
             var go = new GameObject("竖薄墙");
 
             _spawned.Add(go);
@@ -191,7 +187,7 @@ namespace DeepseaOil.Tests
             Assert.IsTrue(_grid.IsSolidCell(new Vector3Int(3, 1, 0)), "薄墙纵向第 1 格没被标");
             Assert.IsTrue(_grid.IsSolidCell(new Vector3Int(3, 2, 0)), "薄墙纵向第 2 格没被标");
 
-            // 半径归零：0.1 厚的墙压不住任何格心，一格都不该标（证明半径真的参与了判据）
+            // 半径归零：0.1 厚的墙压不住任何格心，一格都不该标
             Assert.AreEqual(0, SceneObstacleBaker.Bake(_grid, 0f), "半径 0 时 0.1 厚的墙仍占用了格");
         }
 
@@ -202,15 +198,55 @@ namespace DeepseaOil.Tests
             NewBox("栅栏", new Vector2(TestOrigin.x + 3.5f, TestOrigin.y + 2.5f), new Vector2(1f, 4f), yOffset: -0.3f);
             Sync();
 
+            var fence = (BoxCollider2D)_spawned[_spawned.Count - 1].GetComponent<Collider2D>();
+
+            // 期望占用由碰撞体自己量出的包围盒推出（与烘焙同一套按半径判距），不靠手算坐标
+            var occupied = new List<Vector3Int>();
+
+            for (int y = 0; y < Height; y++)
+            {
+                for (int x = 0; x < Width; x++)
+                {
+                    var cell = new Vector3Int(x, y, 0);
+                    Vector2 center = _grid.Geometry.CellCenter(cell);
+
+                    if (Vector2.Distance(center, fence.ClosestPoint(center)) <= 0.5f) occupied.Add(cell);
+                }
+            }
+
             CleanBaseline();
             SceneObstacleBaker.Bake(_grid, 0.5f);
 
-            // 实体范围 x∈[3,4]、y∈[0.2,4.2]：南端第 0 排已进半径、北端只到第 4 排
-            Assert.IsTrue(_grid.IsSolidCell(new Vector3Int(3, 0, 0)), "长条南端格没被标（offset y=-0.3 没算进去）");
-            Assert.IsTrue(_grid.IsSolidCell(new Vector3Int(3, 1, 0)), "长条中段格没被标");
-            Assert.IsTrue(_grid.IsSolidCell(new Vector3Int(4, 4, 0)), "长条北端格没被标");
-            Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(1, 2, 0)), "距长条 2 列外被误标：半径算成了整格外扩");
+            Debug.Log($"[DIAG] bounds=({fence.bounds.min.x},{fence.bounds.min.y})..({fence.bounds.max.x},{fence.bounds.max.y}) " +
+                $"offset.y={fence.offset.y} 期望占用={occupied.Count} 实测={SolidText()}");
+
+            for (int i = 0; i < occupied.Count; i++)
+            {
+                Assert.IsTrue(_grid.IsSolidCell(occupied[i]), $"栅栏实占格 {occupied[i]} 没被标");
+            }
+
+            // 负偏移必须体现在包围盒上：1×4 居中在 y=3 时下沿应为 1，实际必须更低
+            Assert.Less(fence.bounds.min.y, TestOrigin.y + 2.5f - 2f, "offset y=-0.3 没落到包围盒上");
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(3, 5, 0)), "长条上方第 5 排被误标：offset 没算进去");
+            Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(0, 2, 0)), "距长条 3 列外被误标：半径算成了整格外扩");
+        }
+
+        /// <summary>已标占用格清单，只给烘焙日志做对照</summary>
+        private string SolidText()
+        {
+            var text = new System.Text.StringBuilder();
+
+            for (int y = 0; y < Height; y++)
+            {
+                for (int x = 0; x < Width; x++)
+                {
+                    if (!_grid.IsSolidCell(new Vector3Int(x, y, 0))) continue;
+
+                    text.Append('(').Append(x).Append(',').Append(y).Append(')');
+                }
+            }
+
+            return text.ToString();
         }
 
         /// <summary>③ 排除口径：触发器、角色标记、动态体都不算障碍</summary>
@@ -277,14 +313,15 @@ namespace DeepseaOil.Tests
 
             Vector2 intoWall = new Vector2(1f, 1f);
 
-            // 物理把速度压到零：引擎侧速度始终为 0，模拟顶墙
+            // 引擎侧速度必须在 Tick **之后**清零：移动层每帧都会把期望速度写回执行器，
+            // 写在前面会被当帧覆盖，模拟不出"物理把角色顶住"，卡死判定就永远不触发。
             float now = 0f;
 
             for (int i = 0; i < 40; i++)
             {
                 now += 0.02f;
-                motor.EngineVelocity = Vector2.zero;
                 enemy.Tick(now, 0.02f);
+                motor.EngineVelocity = Vector2.zero;
             }
 
             Vector2 resolved = enemy.ResolveObstacle(intoWall);
@@ -308,11 +345,12 @@ namespace DeepseaOil.Tests
             Vector2 intoCorner = new Vector2(1f, 1f);
             float now = 0f;
 
+            // 与⑤同理：引擎侧速度必须在 Tick 之后清零，才模拟得出"顶住不动"
             for (int i = 0; i < 40; i++)
             {
                 now += 0.02f;
-                motor.EngineVelocity = Vector2.zero;
                 enemy.Tick(now, 0.02f);
+                motor.EngineVelocity = Vector2.zero;
             }
 
             Vector2 resolved = enemy.ResolveObstacle(intoCorner);
