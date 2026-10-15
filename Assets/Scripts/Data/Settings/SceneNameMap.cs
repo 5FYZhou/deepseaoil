@@ -11,5 +11,10 @@ namespace DeepseaOil.Data
     {
         public static string Begin = "Begin";
         public static string Game = "Level_1";
+
+        public static string GetLevel(int id)
+        {
+            return "Level_" + id.ToString(); 
+        }
     } 
 }

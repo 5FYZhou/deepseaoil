@@ -292,6 +292,7 @@ namespace DeepseaOil.Presentation
         private void FixedUpdate()
         {
             if (!IsReady) return;
+            if (Game.CurState == GameState.SceneTransition) return;
 
             RunFixedSteps();
         }

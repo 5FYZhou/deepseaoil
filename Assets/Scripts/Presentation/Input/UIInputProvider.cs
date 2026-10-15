@@ -60,14 +60,7 @@ namespace DeepseaOil.Presentation.Input
 
         private void OnGameStateChange(GameStateChanged evt)
         {
-            if(evt.state == Logic.GameState.CG)
-            {
-                SetInputEnabled(false);
-            }
-            else
-            {
-                SetInputEnabled(true);
-            }
+            SetInputEnabled(evt.state != Logic.GameState.SceneTransition);
         }
 
     }

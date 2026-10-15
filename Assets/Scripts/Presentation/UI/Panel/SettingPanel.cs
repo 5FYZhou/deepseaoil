@@ -2,6 +2,7 @@
 using TMPro;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
+using UnityEngine.UI;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -9,15 +10,19 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Top;
         public override bool CanBeHideByKey => true;
+        public override bool CloseOnSceneTransition => true;
 
         private TMP_Text txtSfxNum;
         private TMP_Text txtBgmNum;
+
+        private Button btnSave;
 
         protected override void Awake()
         {
             base.Awake();
             txtSfxNum = GetComponent<TMP_Text>("txtSfxNum");
             txtBgmNum = GetComponent<TMP_Text>("txtBgmNum");
+            btnSave = GetComponent<Button>("BtnSave");
         }
 
         public override void ShowMe()
@@ -29,6 +34,13 @@ namespace DeepseaOil.Presentation.UI
         public override void HideMe()
         {
         }
+
+        public void CanSave(bool canSave)
+        {
+            btnSave.interactable = canSave;
+        }
+
+
         protected override ButtonStyle SetBtnStyle(string name)
         {
             switch (name)
@@ -66,14 +78,13 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
 
-                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, true));
                     break;
                 case "BtnSave":
-
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Save));
                     break;
                 case "BtnLoad":
-
-                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Load));
                     break;
             }
         }

@@ -20,8 +20,7 @@ namespace DeepseaOil.Presentation
             GameRoot root = GameRoot.Instance;
             if (root == null || root.Game == null) return;
 
-            // ChangeState 内部已有幂等早退：目标与当前一致时无副作用
-            root.Game.ChangeState(entryState);
+            root.Game.SetSceneTransitionTargetState(entryState);
 
             Debug.Log($"[Flow] 场景声明入口状态 {entryState}（{gameObject.scene.name}）");
         }
@@ -41,7 +40,10 @@ namespace DeepseaOil.Presentation
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (entryState == GameState.None || entryState == GameState.Exit)
+            if (entryState == GameState.None
+                || entryState == GameState.Exit
+                || entryState == GameState.Settle
+                || entryState == GameState.SceneTransition)
             {
                 Debug.LogWarning(
                     $"[Flow] SceneFlowConfig.entryState = {entryState} 非法：只允许 Menu / CG / Running / Paused。",
