@@ -293,11 +293,13 @@ namespace DeepseaOil.Presentation
             if (inputProvider.AttackPressedThisFrame && Logic.RequestThrow(BallType.Water, now))
             {
                 _animView?.Trigger(PlayerAnimHashes.TriggerThrow);
+                GameRoot.Instance.Audio.EnqueueSfx(AudioId.PlayerThrowStart);
             }
 
             if (inputProvider.AltAttackPressedThisFrame && Logic.RequestThrow(BallType.Earth, now))
             {
                 _animView?.Trigger(PlayerAnimHashes.TriggerThrow);
+                GameRoot.Instance.Audio.EnqueueSfx(AudioId.PlayerThrowStart);
             }
         }
 

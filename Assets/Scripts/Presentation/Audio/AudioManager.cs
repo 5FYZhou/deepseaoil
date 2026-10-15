@@ -265,7 +265,7 @@ namespace DeepseaOil.Presentation
             var clip = GetClip(id);
             if (clip == null)
                 return;
-
+            if (clip == _bgmSource.clip) return;
             _bgmSource.clip = clip;
             _bgmSource.volume = _bgmVolume;
             _bgmSource.Play();
