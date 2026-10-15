@@ -109,14 +109,19 @@ namespace DeepseaOil.Presentation.Grid
             return body == null || body.isKinematic;
         }
 
-        /// <remarks>逐格坐标＋来源碰撞体是关键：只报总数分不清"格子被误判"与"角色被烘进去"</remarks>
+        /// <remarks>常态只报总数与排除口径：43 格逐格带名字会淹掉 Console。逐格归因加 LOG_BAKE_DETAIL 编译符号</remarks>
         private static void LogBake(GridLogic grid, int marked, float margin)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             var report = new StringBuilder();
 
             report.Append("[ObstacleBake] 半径 ").Append(margin.ToString("F2"))
-                .Append(" 占用 ").Append(marked).Append(" / ").Append(grid.CellCount).Append(" 格：");
+                .Append(" 占用 ").Append(marked).Append(" / ").Append(grid.CellCount).Append(" 格");
+
+            report.Append("；已排除 ").Append(Rejected.Count).Append(" 个非障碍碰撞体");
+
+#if LOG_BAKE_DETAIL
+            report.Append("：");
 
             foreach (Vector3Int cell in grid.Cells)
             {
@@ -138,6 +143,7 @@ namespace DeepseaOil.Presentation.Grid
                     report.Append(Rejected[i].gameObject.name);
                 }
             }
+#endif
 
             Debug.Log(report.ToString());
 #endif

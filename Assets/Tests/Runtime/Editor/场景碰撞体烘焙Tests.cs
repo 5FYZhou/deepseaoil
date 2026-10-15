@@ -107,6 +107,12 @@ namespace DeepseaOil.Tests
             return go;
         }
 
+        /// <summary>置件口：所有造件都按格心定位，避免"格坐标"与"世界坐标"两套口径各说各话</summary>
+        private Vector2 Center(int x, int y)
+        {
+            return _grid.Geometry.CellCenter(new Vector3Int(x, y, 0));
+        }
+
         private static void Sync()
         {
             Physics2D.SyncTransforms();
@@ -119,12 +125,12 @@ namespace DeepseaOil.Tests
             var player = (GameObject)Object.Instantiate(Resources.Load<GameObject>("scane_prebs/Player"));
 
             _spawned.Add(player);
-            player.transform.position = new Vector3(2.5f, 2.5f, 0f);
+            player.transform.position = Center(2, 2);
 
             var enemy = (GameObject)Object.Instantiate(Resources.Load<GameObject>("enemies/Enemy_1"));
 
             _spawned.Add(enemy);
-            enemy.transform.position = new Vector3(4.5f, 4.5f, 0f);
+            enemy.transform.position = Center(4, 4);
 
             Sync();
 
@@ -134,7 +140,7 @@ namespace DeepseaOil.Tests
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(4, 4, 0)), "敌人所在格被标占用");
 
             // 反面锚点：同位置换成没有角色的静态碰撞体，必须判得出来
-            GameObject staticProp = NewBox("静态道具", new Vector2(2.5f, 2.5f), new Vector2(1f, 1f));
+            GameObject staticProp = NewBox("静态道具", Center(2, 2), new Vector2(1f, 1f));
 
             Sync();
 
@@ -151,7 +157,7 @@ namespace DeepseaOil.Tests
             var logic = new EnemyLogic(motor, spec);
 
             logic.AttachGrid(_grid);
-            logic.SetTarget(new Vector2(TestOrigin.x + 0.5f, TestOrigin.y + 0.5f));
+            logic.SetTarget(Center(0, 0));
 
             return logic;
         }
@@ -160,13 +166,14 @@ namespace DeepseaOil.Tests
         [Test]
         public void 薄墙按身体半径挡住两侧格()
         {
-            // 贴在 y=1.5 的 1 格宽薄墙：格心与四角都不落在它体内，只有按半径算距离才判得出来
-            NewBox("薄墙", new Vector2(TestOrigin.x + 1f, TestOrigin.y + 1f), new Vector2(1.2f, 0.1f));
+            // 半格厚的墙压在格 (1,1) 与 (2,1) 之间的行线上：格心与四角都不落在它体内
+            NewBox("薄墙", new Vector2((Center(1, 0).x + Center(2, 0).x) * 0.5f, Center(1, 0).y + 0.5f), new Vector2(2f, 0.1f));
             Sync();
 
             SceneObstacleBaker.Bake(_grid, 0.5f);
 
             Assert.IsTrue(_grid.IsSolidCell(new Vector3Int(1, 1, 0)), "墙正下方（同排）的格没被标占用：判据退回了点采样");
+            Assert.IsTrue(_grid.IsSolidCell(new Vector3Int(2, 1, 0)), "墙正下方第二格没被标");
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(1, 2, 0)), "距墙 1 格的排被误标：半径算成了整格外扩");
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(1, 4, 0)), "距墙 3 格的排被误标");
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(4, 4, 0)), "远处的空格被误标");
@@ -175,7 +182,7 @@ namespace DeepseaOil.Tests
             var go = new GameObject("竖薄墙");
 
             _spawned.Add(go);
-            go.transform.position = new Vector3(TestOrigin.x + 3f, TestOrigin.y + 1.5f, 0f);
+            go.transform.position = new Vector3(Center(3, 1).x, Center(3, 1).y + 0.5f, 0f);
 
             var box = go.AddComponent<BoxCollider2D>();
 
@@ -195,7 +202,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void 带偏移的长条碰撞体按真实范围占用()
         {
-            NewBox("栅栏", new Vector2(TestOrigin.x + 3.5f, TestOrigin.y + 2.5f), new Vector2(1f, 4f), yOffset: -0.3f);
+            NewBox("栅栏", new Vector2(Center(3, 0).x + 0.5f, Center(3, 2).y), new Vector2(1f, 4f), yOffset: -0.3f);
             Sync();
 
             var fence = (BoxCollider2D)_spawned[_spawned.Count - 1].GetComponent<Collider2D>();
@@ -225,8 +232,8 @@ namespace DeepseaOil.Tests
                 Assert.IsTrue(_grid.IsSolidCell(occupied[i]), $"栅栏实占格 {occupied[i]} 没被标");
             }
 
-            // 负偏移必须体现在包围盒上：1×4 居中在 y=3 时下沿应为 1，实际必须更低
-            Assert.Less(fence.bounds.min.y, TestOrigin.y + 2.5f - 2f, "offset y=-0.3 没落到包围盒上");
+            // 负偏移必须体现在包围盒上：1×4 居中在中心行时下沿应正好压住第 0 行，实际必须更低
+            Assert.Less(fence.bounds.min.y, Center(3, 0).y, "offset y=-0.3 没落到包围盒上");
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(3, 5, 0)), "长条上方第 5 排被误标：offset 没算进去");
             Assert.IsFalse(_grid.IsSolidCell(new Vector3Int(0, 2, 0)), "距长条 3 列外被误标：半径算成了整格外扩");
         }
@@ -255,13 +262,14 @@ namespace DeepseaOil.Tests
         {
             int baseline = CleanBaseline();
 
-            NewBox("地图边界", new Vector2(TestOrigin.x + 3f, TestOrigin.y + 3f), new Vector2(60f, 30f), trigger: true);
+            // 占满接近全域的触发器：任何一格被标出来都说明触发器没被排除
+            NewBox("地图边界", new Vector2(3f, 3f), new Vector2(60f, 30f), trigger: true);
 
-            GameObject actor = NewBox("角色", new Vector2(TestOrigin.x + 1.5f, TestOrigin.y + 1.5f), new Vector2(1f, 1f));
+            GameObject actor = NewBox("角色", Center(2, 2), new Vector2(1f, 1f));
 
             actor.AddComponent<ManagedActorStub>();
 
-            GameObject crate = NewBox("木箱", new Vector2(TestOrigin.x + 4.5f, TestOrigin.y + 4.5f), new Vector2(1f, 1f));
+            GameObject crate = NewBox("木箱", Center(5, 5), new Vector2(1f, 1f));
 
             Rigidbody2D body = crate.AddComponent<Rigidbody2D>();
 
@@ -280,7 +288,7 @@ namespace DeepseaOil.Tests
         {
             int baseline = CleanBaseline();
 
-            NewBox("薄墙", new Vector2(TestOrigin.x + 2f, TestOrigin.y + 1f), new Vector2(1.2f, 0.1f));
+            NewBox("薄墙", new Vector2(Center(2, 0).x, Center(2, 0).y + 0.5f), new Vector2(2f, 0.1f));
             Sync();
 
             int first = SceneObstacleBaker.Bake(_grid, 0.5f);
@@ -302,8 +310,8 @@ namespace DeepseaOil.Tests
         [Test]
         public void 卡死满帧后给出脱困方向()
         {
-            // 障碍占 (1,1)(1,2)(2,1)(2,2)，敌人贴在其西南角 (0,0)：直扑方向被墙挡住
-            NewBox("墙", new Vector2(TestOrigin.x + 2f, TestOrigin.y + 2f), new Vector2(2f, 2f));
+            // 障碍占 (1,1)(1,2)(2,1)(2,2)：2×2 盒的角点正落在四格交汇处
+            NewBox("墙", new Vector2(Center(1, 1).x + 0.5f, Center(1, 1).y + 0.5f), new Vector2(2f, 2f));
             Sync();
 
             SceneObstacleBaker.Bake(_grid, 0.5f);
@@ -334,7 +342,7 @@ namespace DeepseaOil.Tests
         public void 地图角落脱困方向非零()
         {
             // 敌人落在已登记区最左下角 (0,0)，只有 (1,1) 挡着：其余邻格要么是空处、要么在图外
-            NewBox("角墙", new Vector2(TestOrigin.x + 1.5f, TestOrigin.y + 1.5f), new Vector2(1f, 1f));
+            NewBox("角墙", Center(1, 1), new Vector2(1f, 1f));
             Sync();
 
             SceneObstacleBaker.Bake(_grid, 0.5f);
