@@ -83,7 +83,6 @@ namespace DeepseaOil.Logic
         public Vector2 ResolveObstacle(Vector2 direction)
         {
             if (_grid == null || !_grid.Geometry.IsValid) return direction;
-
             if (direction.sqrMagnitude <= 0f) return direction;
 
             if (_pathCooldown-- > 0) return _pathDirection.sqrMagnitude > 0f ? _pathDirection : direction;
@@ -91,20 +90,17 @@ namespace DeepseaOil.Logic
             _pathCooldown = _pathRecalcFrames;
 
             Vector2 position = Motor.Position;
+            Vector2 dirNormalized = direction.normalized;
 
-            Vector2 ahead = position + direction.normalized * (_grid.Geometry.CellSize * 0.6f);
-
-            if (!_grid.IsObstacle(_grid.WorldToCell(ahead)))
+            if (!IsBlockedAhead(position, dirNormalized))
             {
                 _pathDirection = direction;
-
                 return direction;
             }
 
             if (!_target.HasValue)
             {
                 _pathDirection = direction;
-
                 return direction;
             }
 
@@ -123,15 +119,33 @@ namespace DeepseaOil.Logic
             if (!found)
             {
                 _pathDirection = direction;
-
                 return direction;
             }
 
             Vector2 toStep = _grid.Geometry.CellCenter(step) - position;
-
             _pathDirection = toStep.sqrMagnitude > 0f ? toStep.normalized : direction;
 
             return _pathDirection;
+        }
+
+        private bool IsBlockedAhead(Vector2 position, Vector2 dirNormalized)
+        {
+            float probeDistance = _grid.Geometry.CellSize * 0.7f;
+            float sideOffset = _grid.Geometry.CellSize * 0.35f;
+
+            Vector2 centerAhead = position + dirNormalized * probeDistance;
+            if (IsCellBlocked(_grid.WorldToCell(centerAhead))) return true;
+
+            Vector2 normal = new Vector2(-dirNormalized.y, dirNormalized.x) * sideOffset;
+            if (IsCellBlocked(_grid.WorldToCell(centerAhead + normal))) return true;
+            if (IsCellBlocked(_grid.WorldToCell(centerAhead - normal))) return true;
+
+            return false;
+        }
+
+        private bool IsCellBlocked(Vector3Int cell)
+        {
+            return !_grid.HasCell(cell) || _grid.IsObstacle(cell);
         }
 
         private bool IsWalkable(Vector3Int cell)
