@@ -1,4 +1,4 @@
----
+﻿---
 
 > 🔴 **本文件的表契约对齐「战斗与元素反应重构」之后的状态。**
 > 温湿度电三轴、`tile_effect` 效果档位表、`TileEffectValue` 多槽位结构体**已物理删除**。
@@ -155,7 +155,7 @@
 
 ### 三、ScriptableObject 承接体系（程序调参盘）
 
-在 `Assets/Scripts/Data/Settings/` 下，程序持有以下 SO 文件（**下面这五份由 `ConfigModule.BindAssets` 装载，并经 `ConfigModule` 暴露给上层**；`Resources/config/` 里是 `PlayerConfig` / `UIConfig` / `AudioConfig`（这三份与 `EffectTuning` 也由 `BindAssets` / `EffectModule.Init` 装载），其余调参资产在 `Resources/tuning/`）：
+在 `Assets/Scripts/Data/Settings/` 下，程序持有以下 SO 文件（**下面这五份由 `ConfigModule.BindAssets` 装载，并经 `ConfigModule` 暴露给上层**；`Resources/config/` 里是 `PlayerConfig` / `UIConfig` / `AudioConfig`（这三份与 `EffectTuning` 也由 `BindAssets` / `EffectModule.Init` 装载），其余调参资产在 `Resources/tuning/`。`AudioConfig` 仅保存音量等调参，音频编号与文件名映射维护在 `audio_map` 表）：
 
 1. **`PlayerConfig.cs`**（继承 `CharacterConfig`：`moveSpeed` / `snapToEightDirections` / `moveAcceleration` / `turnDecayRate` / `hurtDecay` / `extraForceScale` / `dashSpeed` / `dashDuration`）：
    - 自身只有输入与冲刺三项：`inputBufferTime`、`dashCooldown`、`dashBufferTime`。

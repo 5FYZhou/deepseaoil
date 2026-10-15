@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using TMPro;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Events;
@@ -76,6 +77,11 @@ namespace DeepseaOil.Presentation.UI
         private const string UI_PANEL_PREFIX  = "ui/Panel/";
 
         private readonly Dictionary<string, BasePanelInfo> panelDic = new Dictionary<string, BasePanelInfo>();
+        private readonly Dictionary<TxtStyle, TMP_FontAsset> fontAssets = new Dictionary<TxtStyle, TMP_FontAsset>();
+        private readonly Dictionary<string, TMP_FontAsset> fontAssetsByKey = new Dictionary<string, TMP_FontAsset>();
+        private readonly HashSet<string> fontAssetKeys = new HashSet<string>();
+        private readonly HashSet<TxtStyle> requestedFontStyles = new HashSet<TxtStyle>();
+        private readonly HashSet<TxtStyle> failedFontStyles = new HashSet<TxtStyle>();
 
         private readonly Dictionary<E_UILayer, Stack<BasePanelInfo>> openPanels = new()
         { 
@@ -149,7 +155,14 @@ namespace DeepseaOil.Presentation.UI
             AssetModule.Release(UI_EVENT_SYS_KEY);
             AssetModule.Release(UI_CANVAS_KEY);
             AssetModule.Release(UI_CAMERA_KEY);
+            foreach (string key in fontAssetKeys)
+                AssetModule.Release(key);
 
+            fontAssets.Clear();
+            fontAssetsByKey.Clear();
+            fontAssetKeys.Clear();
+            requestedFontStyles.Clear();
+            failedFontStyles.Clear();
             uiEventSystem = null;
             uiCanvas = null;
             uiCamera = null;
@@ -222,6 +235,7 @@ namespace DeepseaOil.Presentation.UI
         {
             if (!IsPanelOpen<HudPanel>()) ShowPanel<HudPanel>();
             if (!IsPanelOpen<GamePlayPanel>()) ShowPanel<GamePlayPanel>();
+            if (!IsPanelOpen<SettingPanel>()) ShowPanel<SettingPanel>();
         }
 
         public void ExitGameplayUi()
@@ -299,7 +313,11 @@ namespace DeepseaOil.Presentation.UI
             GameObject panelObj = GameObject.Instantiate(prefab, middleLayer, false);
 
             T panel = panelObj.GetComponent<T>();
-            panel.InitUIStyle(ConfigModule.GetUIConfig());
+            UIConfig uiConfig = ConfigModule.GetUIConfig();
+            requestedFontStyles.Clear();
+            panel.CollectFontStyles(requestedFontStyles);
+            LoadFontAssets(uiConfig, requestedFontStyles);
+            panel.InitUIStyle(uiConfig, fontAssets);
             Transform father = GetLayerFather(panel.Layer) ?? middleLayer;
             if (panel.transform.parent != father) 
                 panel.transform.SetParent(father, false);
@@ -310,6 +328,59 @@ namespace DeepseaOil.Presentation.UI
             panelInfo.callBack = null;
             panelInfo.panel = panel;
             openPanels[panelInfo.Layer].Push(panelInfo);
+        }
+
+        private void LoadFontAssets(UIConfig config, HashSet<TxtStyle> styles)
+        {
+            foreach (TxtStyle style in styles)
+            {
+                if (fontAssets.ContainsKey(style) || failedFontStyles.Contains(style))
+                    continue;
+
+                if (config == null || !config.TryGetFontStyleInfo(style, out FontStyleInfo info))
+                {
+                    Debug.LogError($"[UI] 字体样式 {style} 没有对应的 UIConfig 配置。");
+                    failedFontStyles.Add(style);
+                    continue;
+                }
+
+                string key = BuildFontResourceKey(info);
+                if (string.IsNullOrEmpty(key))
+                {
+                    Debug.LogError($"[UI] {info.style} 字体配置缺少资源路径或名称。");
+                    failedFontStyles.Add(style);
+                    continue;
+                }
+
+                if (!fontAssetsByKey.TryGetValue(key, out TMP_FontAsset fontAsset))
+                {
+                    fontAsset = AssetModule.Load<TMP_FontAsset>(key);
+                    if (fontAsset == null)
+                    {
+                        Debug.LogError($"[UI] 加载字体失败：{key}");
+                        failedFontStyles.Add(style);
+                        continue;
+                    }
+
+                    fontAssetsByKey.Add(key, fontAsset);
+                    fontAssetKeys.Add(key);
+                }
+
+                fontAssets.Add(style, fontAsset);
+            }
+        }
+
+        private static string BuildFontResourceKey(FontStyleInfo info)
+        {
+            string path = info.path == null ? string.Empty : info.path.Trim('/');
+            string name = info.name == null ? string.Empty : info.name.Trim('/');
+
+            if (string.IsNullOrEmpty(path))
+                return name;
+            if (string.IsNullOrEmpty(name))
+                return path;
+
+            return path + "/" + name;
         }
 
         public void HidePanel<T>(bool isDestory = false) where T : BasePanel

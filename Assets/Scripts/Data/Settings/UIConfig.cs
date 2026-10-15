@@ -36,10 +36,28 @@ namespace DeepseaOil.Data
         public Vector2 size;
     }
 
+    public enum TxtStyle
+    {
+        None = 0,
+        Title,
+        Body
+    }
+
+    [Serializable]
+    public struct FontStyleInfo
+    {
+        public string path;
+        public string name;
+        public int size;
+        public TxtStyle style;
+        public FontStyle fontStyle;
+    }
+
     [CreateAssetMenu(fileName = "UIConfig", menuName = "DeepseaOil/Settings/UIConfig")]
     public class UIConfig : BaseConfig
     {
         public List<ButtonStyleInfo> buttonStyles;
+        public List<FontStyleInfo> fontStyles;
 
         public bool TryGetBtnStyleInfo(ButtonStyle style, out ButtonStyleInfo styleInfo)
         {
@@ -51,6 +69,24 @@ namespace DeepseaOil.Data
                     return true;
                 }
             }
+            styleInfo = default;
+            return false;
+        }
+
+        public bool TryGetFontStyleInfo(TxtStyle style, out FontStyleInfo styleInfo)
+        {
+            if (fontStyles != null)
+            {
+                foreach (FontStyleInfo info in fontStyles)
+                {
+                    if (info.style == style)
+                    {
+                        styleInfo = info;
+                        return true;
+                    }
+                }
+            }
+
             styleInfo = default;
             return false;
         }

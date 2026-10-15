@@ -37,3 +37,14 @@ MonoBehaviour:
     selectedName: ui_panel_save_1
     disabledName: ui_panel_save_0
     size: {x: 411, y: 661}
+  fontStyles:
+  - path: Fonts
+    name: "\u8499\u9ED1\u4F53 SDF"
+    size: 0
+    style: 1
+    fontStyle: 0
+  - path: Fonts
+    name: SourceHanSansSC-Normal SDF
+    size: 0
+    style: 2
+    fontStyle: 0
