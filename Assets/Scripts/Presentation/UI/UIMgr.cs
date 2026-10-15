@@ -522,7 +522,7 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-            SetUIInputEnabled(evt.state != Logic.GameState.CG);
+            //SetUIInputEnabled(evt.state != Logic.GameState.CG);
 
             switch (evt.state)
             {
@@ -536,6 +536,7 @@ namespace DeepseaOil.Presentation.UI
 
                 case Logic.GameState.Menu:
                 case Logic.GameState.Exit:
+                    ShowPanel<LoadingPanel>();
                     ExitGameplayUi();
                     break;
             }
