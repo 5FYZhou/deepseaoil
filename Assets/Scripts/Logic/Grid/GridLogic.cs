@@ -471,6 +471,7 @@ namespace DeepseaOil.Logic.Grid
                 RegisterStateFactories(machine);
             }
 
+            TileStateType previous = machine.CurrentId;
             bool changed = machine.SwitchTo(next, BuildContext(cell), durationOverride);
 
             if (!changed)
@@ -483,7 +484,7 @@ namespace DeepseaOil.Logic.Grid
             if (machine.CurrentId == TileStateType.Normal) _machines.Remove(cell);
             else _machines[cell] = machine;
 
-            EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, next));
+            EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, previous, next));
 
             return true;
         }

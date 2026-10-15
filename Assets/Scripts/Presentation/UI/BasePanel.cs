@@ -101,6 +101,7 @@ namespace DeepseaOil.Presentation.UI
                     button.onClick.AddListener(() =>
                     {
                         OnButtonClicked(buttonName);
+                        GameRoot.Instance.Audio.EnqueueSfx(cfg.dso.AudioId.UIButtonClick);
                     });
                 }
                 else if (component is TMP_Text text)
