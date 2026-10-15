@@ -133,6 +133,14 @@ namespace cfg.dso
         /// CG演出开车门
         /// </summary>
         StoryCGcardoor = 29,
+        /// <summary>
+        /// 主题bgm
+        /// </summary>
+        BgmMain = 30,
+        /// <summary>
+        /// 升华bgm
+        /// </summary>
+        BgmAscensio = 31,
     }
 
 } 
