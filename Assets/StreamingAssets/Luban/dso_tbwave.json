@@ -39,7 +39,7 @@
     "id": 5,
     "name": "第三四关",
     "prep_time": 3,
-    "battle_time": 50,
+    "battle_time": 30,
     "settle_time": 8,
     "spawn_interval": 0.2,
     "grant_seed": 1
@@ -48,7 +48,7 @@
     "id": 6,
     "name": "第四关",
     "prep_time": 4,
-    "battle_time": 50,
+    "battle_time": 30,
     "settle_time": 5,
     "spawn_interval": 0.2,
     "grant_seed": 1
