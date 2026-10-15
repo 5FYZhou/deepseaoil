@@ -394,6 +394,8 @@ namespace DeepseaOil.Presentation
                 _registry,
                 actor.transform.parent != null ? actor.transform.parent : actorRoot);
 
+            actor.Died = OnSceneEnemyDied;
+
             Track(actor);
         }
 
@@ -613,6 +615,13 @@ namespace DeepseaOil.Presentation
             _drops.TrySpawn(new DropSpawnRequest(DropType.Seed, position, position));
 
             Debug.Log("[Combat] 精英怪被击杀，掉落了 1 颗战备种子。");
+        }
+
+        private void OnSceneEnemyDied(EnemyActor enemy)
+        {
+            EnemySpec spec = enemy != null && enemy.Stats != null ? enemy.Stats.Spec : null;
+
+            if (spec != null) OnEnemyKilled(spec, enemy.Position);
         }
 
         private const int EliteEnemyId = 2;
