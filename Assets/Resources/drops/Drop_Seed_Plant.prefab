@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 262991689533676254}
   - component: {fileID: 7688303397676093517}
   - component: {fileID: 2185013317063658807}
-  - component: {fileID: 8782074069008301407}
   m_Layer: 0
   m_Name: Drop_Seed_Plant
   m_TagString: Untagged
@@ -134,19 +133,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7810748770890414ab0e6b374f108032, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &8782074069008301407
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6547677392216654669}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a8106154c344504797788c84527ef4c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  layers:
-  - Target: {fileID: 262991689533676254}
-    Offset: 0
-  anchorOffsetY: 0

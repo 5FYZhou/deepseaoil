@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 1699833465298350191}
   - component: {fileID: 7112314029321778250}
   - component: {fileID: 9175232019465081317}
-  - component: {fileID: 497729001718619984}
   m_Layer: 0
   m_Name: Drop_Earth
   m_TagString: Untagged
@@ -134,19 +133,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7810748770890414ab0e6b374f108032, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &497729001718619984
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2164875585896808004}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a8106154c344504797788c84527ef4c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  layers:
-  - Target: {fileID: 1699833465298350191}
-    Offset: 0
-  anchorOffsetY: 0

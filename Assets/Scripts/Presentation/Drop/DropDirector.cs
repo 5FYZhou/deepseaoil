@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Drop;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation.Drop
 {
@@ -44,13 +45,32 @@ namespace DeepseaOil.Presentation.Drop
                 return false;
             }
 
-            DropActor actor = CreateActor(request.Type);
+            string prefabKey = ResolvePrefabKey(request.Type, request.Seed);
 
-            if (actor == null) return false;
+            GameObject prefab = AssetModule.IsInitialized ? AssetModule.Load<GameObject>(prefabKey) : null;
 
-            if (_root != null) actor.transform.SetParent(_root, true);
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    $"[Drop] 严重阻断：未找到掉落物预制体 Assets/Resources/{prefabKey}.prefab！本次产出已取消。");
 
-            actor.Initialize(in request, request.Type, definition, _player);
+                return false;
+            }
+
+            GameObject go = Object.Instantiate(prefab, _root != null ? _root : null);
+
+            DropActor actor = go.GetComponent<DropActor>();
+
+            if (actor == null)
+            {
+                Debug.LogError($"[Drop] 预制体 {prefabKey} 根节点未挂载 DropActor/WaterBallDrop 组件！产出已作废。");
+
+                Object.Destroy(go);
+
+                return false;
+            }
+
+            actor.Initialize(in request, request.Type, request.Seed, definition, _player);
 
             _drops.Add(actor);
 
@@ -89,24 +109,11 @@ namespace DeepseaOil.Presentation.Drop
             _drops.Clear();
         }
 
-        private static DropActor CreateActor(DropType type)
+        private static string ResolvePrefabKey(DropType type, SeedType seed)
         {
-            var go = new GameObject($"Drop_{type}");
+            if (type == DropType.Seed) return $"drops/Drop_Seed_{seed}";
 
-            switch (type)
-            {
-                case DropType.Water:
-                case DropType.Earth:
-                case DropType.Seed:
-                    // 三种掉落物运动学一致，只有颜色与载荷不同（载荷由 OnDropCollected 裁决）
-                    // 加一种掉落物 = DropType 成员 + 这一行 + CreateActor 一行
-                    return go.AddComponent<WaterBallDrop>();
-
-                default:
-                    Debug.LogError($"[Drop] {type} 没有对应的掉落物实体，请在 CreateActor 里补一行。");
-                    UnityEngine.Object.Destroy(go);
-                    return null;
-            }
+            return $"drops/Drop_{type}";
         }
     }
 }
