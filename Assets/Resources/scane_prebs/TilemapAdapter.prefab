@@ -1,0 +1,117 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7093064849640651245
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7946498349918333279}
+  - component: {fileID: 318561825777201083}
+  - component: {fileID: 2555490538150854394}
+  m_Layer: 0
+  m_Name: TilemapAdapter
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7946498349918333279
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7093064849640651245}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &318561825777201083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7093064849640651245}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7171130770de1e0489b66b50d9965c81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  groundTilemap: {fileID: 0}
+  effectLayers:
+  - Tilemap: {fileID: 0}
+    States: 
+  - Tilemap: {fileID: 0}
+    States: 1000000015000000
+  - Tilemap: {fileID: 0}
+    States: 0e000000
+  - Tilemap: {fileID: 0}
+    States: 08000000
+  fallbackEffectTilemap: {fileID: 0}
+  stateTiles: []
+  initialSetupTilemap: {fileID: 0}
+  overlayDirector: {fileID: 0}
+  obstacleDirector: {fileID: 0}
+--- !u!114 &2555490538150854394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7093064849640651245}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b775c025db05c8740988d2786f867723, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bindings:
+  - State: 16
+    OverlaySprite: {fileID: -2110302984, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 21
+    OverlaySprite: {fileID: -1416169379, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 2100000, guid: cb1342ad2de4fc74585ae8602a13300b, type: 2}
+    ExtraOffsetY: 0
+  - State: 19
+    OverlaySprite: {fileID: 1664075843, guid: 60f28caded1c88e4585752947d21b638, type: 3}
+    OverrideMaterial: {fileID: 2100000, guid: 2721df5c671b8a240b6a120e0c416767, type: 2}
+    ExtraOffsetY: 0.25
+  - State: 3
+    OverlaySprite: {fileID: 486566183, guid: 16a0e0938155cfa49a684c2fce10b228, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 20
+    OverlaySprite: {fileID: -1955949074, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 22
+    OverlaySprite: {fileID: -684320319, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 6
+    OverlaySprite: {fileID: 1938936451, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 5
+    OverlaySprite: {fileID: 1252658650, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 8
+    OverlaySprite: {fileID: 1205560795, guid: ddbf910d7f219644d93d3db2fb0cdd63, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  - State: 24
+    OverlaySprite: {fileID: 574237452, guid: 60f28caded1c88e4585752947d21b638, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
+  defaultMaterial: {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  maxPoolSize: 256

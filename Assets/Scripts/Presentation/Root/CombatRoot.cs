@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
+using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Drop;
 using DeepseaOil.Logic.Element;
@@ -394,6 +395,8 @@ namespace DeepseaOil.Presentation
                 _registry,
                 actor.transform.parent != null ? actor.transform.parent : actorRoot);
 
+            actor.Died = OnSceneEnemyDied;
+
             Track(actor);
         }
 
@@ -602,20 +605,58 @@ namespace DeepseaOil.Presentation
             return director;
         }
 
-        // 精英怪战利品：只有 EliteEnemyId 那一行会掉种子
-        // 掉落方式走既有 IDropSpawner 约定，本类不加新规则
         private void OnEnemyKilled(EnemySpec spec, Vector2 position)
         {
-            if (spec == null || spec.Id != EliteEnemyId) return;
+            if (spec == null || _drops == null) return;
 
-            if (_drops == null) return;
+            IReadOnlyList<EnemyDropSpec> dropRules = ConfigModule.GetEnemyDrops(spec.Id);
 
-            _drops.TrySpawn(new DropSpawnRequest(DropType.Seed, position, position));
+            if (dropRules == null || dropRules.Count == 0) return;
 
-            Debug.Log("[Combat] 精英怪被击杀，掉落了 1 颗战备种子。");
+            if (!TryRollDrop(dropRules, out SeedType selectedSeed)) return;
+
+            Vector2 landing = position + Rng.InsideUnitCircle() * 0.8f;
+
+            _drops.TrySpawn(new DropSpawnRequest(DropType.Seed, position, landing, selectedSeed));
         }
 
-        private const int EliteEnemyId = 2;
+        private void OnSceneEnemyDied(EnemyActor enemy)
+        {
+            EnemySpec spec = enemy != null && enemy.Stats != null ? enemy.Stats.Spec : null;
+
+            if (spec != null) OnEnemyKilled(spec, enemy.Position);
+        }
+
+        private static bool TryRollDrop(IReadOnlyList<EnemyDropSpec> rules, out SeedType selected)
+        {
+            selected = SeedType.None;
+
+            if (rules == null || rules.Count == 0) return false;
+
+            if (Rng.Value01() > rules[0].Probability) return false;
+
+            int totalWeight = 0;
+
+            for (int i = 0; i < rules.Count; i++) totalWeight += rules[i].Weight;
+
+            if (totalWeight <= 0) return false;
+
+            int roll = Rng.Range(0, totalWeight);
+            int current = 0;
+
+            for (int i = 0; i < rules.Count; i++)
+            {
+                current += rules[i].Weight;
+
+                if (roll < current)
+                {
+                    selected = rules[i].SeedType;
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         // 裁决在这里而不在掉落物里（掉落物只发事实）；加一种掉落物在这里加 case
         private void OnDropCollected(DropCollected evt)
@@ -635,7 +676,7 @@ namespace DeepseaOil.Presentation
                     return;
 
                 case DropType.Seed:
-                    stats.GrantSeed(ConfigModule.GetWave().GrantSeed);
+                    stats.GrantSeed(evt.Seed);
                     return;
 
                 default:

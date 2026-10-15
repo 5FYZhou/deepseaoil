@@ -87,10 +87,13 @@ namespace DeepseaOil.Logic.Events
 
         public readonly int Amount;
 
-        public DropCollected(DropType type, int amount)
+        public readonly SeedType Seed;
+
+        public DropCollected(DropType type, int amount, SeedType seed = SeedType.None)
         {
             Type = type;
             Amount = amount;
+            Seed = seed;
         }
     }
 
