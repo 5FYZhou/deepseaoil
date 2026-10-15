@@ -21287,7 +21287,7 @@ MonoBehaviour:
   - State: 19
     OverlaySprite: {fileID: 1664075843, guid: 60f28caded1c88e4585752947d21b638, type: 3}
     OverrideMaterial: {fileID: 2100000, guid: 2721df5c671b8a240b6a120e0c416767, type: 2}
-    ExtraOffsetY: 0
+    ExtraOffsetY: 0.25
   - State: 3
     OverlaySprite: {fileID: 486566183, guid: 16a0e0938155cfa49a684c2fce10b228, type: 3}
     OverrideMaterial: {fileID: 0}
@@ -23256,6 +23256,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   player: {fileID: 1326551225}
   gridView: {fileID: 478400894}
+  levelReader: {fileID: 0}
   ballRoot: {fileID: 0}
   actorRoot: {fileID: 0}
   fountains:
@@ -23263,6 +23264,7 @@ MonoBehaviour:
   - {fileID: 1995222771}
   - {fileID: 1572748583}
   enableLevel: 0
+  enablePlayerRespawn: 0
   spawnCamera: {fileID: 0}
 --- !u!4 &1871689014
 Transform:
