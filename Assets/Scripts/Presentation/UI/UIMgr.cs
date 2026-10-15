@@ -235,7 +235,7 @@ namespace DeepseaOil.Presentation.UI
         {
             if (!IsPanelOpen<HudPanel>()) ShowPanel<HudPanel>();
             if (!IsPanelOpen<GamePlayPanel>()) ShowPanel<GamePlayPanel>();
-            if (!IsPanelOpen<SettingPanel>()) ShowPanel<SettingPanel>();
+            if (!IsPanelOpen<SettlePanel>()) ShowPanel<SettlePanel>();
         }
 
         public void ExitGameplayUi()
@@ -521,7 +521,6 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-            SetUIInputEnabled(evt.state != Logic.GameState.CG);
 
             switch (evt.state)
             {
@@ -535,6 +534,7 @@ namespace DeepseaOil.Presentation.UI
 
                 case Logic.GameState.Menu:
                 case Logic.GameState.Exit:
+                    ShowPanel<LoadingPanel>();
                     ExitGameplayUi();
                     break;
             }

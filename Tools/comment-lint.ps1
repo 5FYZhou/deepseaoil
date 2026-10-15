@@ -10,7 +10,8 @@
   ① 预算：每个文件的「注释有效字符数」不得超过 Tools/comment-budget.json 里登记的上限。
           预算只降不升；确需上调必须在 PR 里显式说明并重跑 -Mode seal。
   ② 标签：注释里出现 <summary> / <remarks> 以外的 XML 标签即为违规
-          （<see cref> 必须降级成纯文本类型名）；<summary>/<remarks> 必须在本行内开闭。
+          （<see cref> 必须降级成纯文本类型名）；<summary>/<remarks> 允许跨行，
+          但必须在同一个连续注释块内配平。
   ③ 代码零改动：-Mode verify -Base <rev> 逐行比对非注释代码与某个 git 版本是否一致。
 
 覆盖面：Assets/Scripts/** 与 Assets/Tests/**（测试也是手写代码，同样会单调膨胀）。
@@ -177,25 +178,38 @@ function Get-BadTags {
     return @($bad | Sort-Object -Unique)
 }
 
-# 「注释一律单行」的可判定形态：**任何一条注释行内部，`<summary>` / `<remarks>` 的开闭必须配平**。
-# 拆行写（`/// <remarks>` 换行接正文再接 `/// </remarks>`）就是这里要拦的形态；
+# 「注释是否配平」的可判定形态：**`<summary>` / `<remarks>` 允许跨行，但必须在同一个连续注释块内开闭**。
+# 块与块之间由非注释行分隔；块结束时仍有未闭合的开标签、或出现多余的闭合标签，才是违规。
 # 同一行里 `<summary>…</summary>` 与另一行 `<remarks>…</remarks>` 是两条独立注释，合法。
 function Get-UnbalancedLines {
     param([string[]]$ComLines)
 
     $bad = New-Object System.Collections.ArrayList
+    $opened = @{}
     for ($i = 0; $i -lt $ComLines.Count; $i++) {
         $cl = $ComLines[$i]
-        if ([string]::IsNullOrEmpty($cl)) { continue }
+        if ([string]::IsNullOrEmpty($cl)) {
+            foreach ($tag in @($opened.Keys)) {
+                # Scan-Cs 的 Com 数组是逐物理行产出的，下标 = 行号 - 1
+                [void]$bad.Add([pscustomobject]@{ Line = $opened[$tag]; Tag = $tag; Text = $ComLines[$opened[$tag] - 1] })
+            }
+            $opened = @{}
+            continue
+        }
         foreach ($tag in @('summary', 'remarks')) {
             $open = ([regex]::Matches($cl, "<$tag(\s[^<>]*)?>")).Count
             $close = ([regex]::Matches($cl, "</$tag>")).Count
-            if ($open -ne $close) {
-                # Scan-Cs 的 Com 数组是逐物理行产出的，下标 = 行号 - 1
-                [void]$bad.Add([pscustomobject]@{ Line = ($i + 1); Tag = $tag; Text = $cl })
-                break
+            if ($open -gt $close) {
+                if (-not $opened.ContainsKey($tag)) { $opened[$tag] = $i + 1 }
+            }
+            elseif ($close -gt $open) {
+                if ($opened.ContainsKey($tag)) { $opened.Remove($tag) }
+                else { [void]$bad.Add([pscustomobject]@{ Line = ($i + 1); Tag = $tag; Text = $cl }) }
             }
         }
+    }
+    foreach ($tag in @($opened.Keys)) {
+        [void]$bad.Add([pscustomobject]@{ Line = $opened[$tag]; Tag = $tag; Text = $ComLines[$opened[$tag] - 1] })
     }
     return $bad
 }
@@ -259,7 +273,7 @@ if ($Mode -eq 'seal') {
 
     $head = & git -C $Root rev-parse --short HEAD 2>$null
     $obj = [ordered]@{
-        note      = '注释预算表：每个文件的注释有效字符上限。只降不升；上调必须走 PR 说明 + -Mode seal。口径见 Docs/注释规范.md。覆盖面：Assets/Scripts/** 与 Assets/Tests/**；测试文件按文件单独登记（测试的注释/代码比天然高于实现文件，不吃 densityCap）。'
+        note      = '注释预算表：每个文件的注释有效字符上限。只降不升；上调必须写明理由（个别文件定点上调该条目，全表重封印才跑 -Mode seal）。口径见 Docs/工程/注释规范.md。覆盖面：Assets/Scripts/** 与 Assets/Tests/**；测试文件按文件单独登记（测试的注释/代码比天然高于实现文件，不吃 densityCap）。'
         sealedAt  = [string]$head
         sealedOn  = (Get-Date -Format 'yyyy-MM-dd')
         densityCap = $densityCap
@@ -314,11 +328,11 @@ if ($Mode -eq 'tags') {
         $rel = Get-RelPath $f.FullName
         if ($bad.Count -gt 0) { Write-Host ("{0}`n    违规标签: {1}" -f $rel, ($bad -join ', ')) -ForegroundColor Red }
         foreach ($u in ($unbal | Select-Object -First 5)) {
-            Write-Host ("{0}:{1}`n    跨行注释: <{2}> 未在本行闭合" -f $rel, $u.Line, $u.Tag) -ForegroundColor Red
+            Write-Host ("{0}:{1}`n    注释块未配平: <{2}> 自本行开启后未闭合" -f $rel, $u.Line, $u.Tag) -ForegroundColor Red
         }
     }
     if ($hit -eq 0) {
-        Write-Host ("TAGS OK：{0} 个文件，注释里只出现 <summary>/<remarks>，且标签均在单行内开闭" -f $files.Count) -ForegroundColor Green
+        Write-Host ("TAGS OK：{0} 个文件，注释里只出现 <summary>/<remarks>，且均在各自的连续注释块内配平" -f $files.Count) -ForegroundColor Green
         exit 0
     }
     Write-Host ("`n共 {0} 个文件有注释形态违规。" -f $hit) -ForegroundColor Red
@@ -391,7 +405,7 @@ foreach ($f in $files) {
     }
     if ($unbal.Count -gt 0) {
         $first = $unbal[0]
-        [void]$violations.Add(("[跨行] {0}:{1}`n        <{2}> 未在本行闭合 —— 注释必须单行" -f $rel, $first.Line, $first.Tag))
+        [void]$violations.Add(("[未配平] {0}:{1}`n        <{2}> 自本行开启后在注释块内未闭合" -f $rel, $first.Line, $first.Tag))
     }
 }
 
