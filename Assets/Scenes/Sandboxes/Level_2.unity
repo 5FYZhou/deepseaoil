@@ -153,7 +153,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   player: {fileID: 273545354}
-  gridView: {fileID: 0}
+  gridView: {fileID: 1460470243}
   levelReader: {fileID: 186304001}
   ballRoot: {fileID: 0}
   actorRoot: {fileID: 0}
@@ -8824,6 +8824,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 16f3d7ea0475f3d4da6ac081fdcebd4c, type: 3}
+--- !u!114 &1460470243 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 318561825777201083, guid: 16f3d7ea0475f3d4da6ac081fdcebd4c, type: 3}
+  m_PrefabInstance: {fileID: 1234134523}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7171130770de1e0489b66b50d9965c81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1314282787
 GameObject:
   m_ObjectHideFlags: 0
