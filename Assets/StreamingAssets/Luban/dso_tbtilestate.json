@@ -158,5 +158,15 @@
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": false
+  },
+  {
+    "id": 24,
+    "name": "基础花",
+    "duration": -1,
+    "dot_damage": 0,
+    "slow_rate": 1,
+    "touch_stun": 0,
+    "is_obstacle": false,
+    "is_conductor": false
   }
 ]
