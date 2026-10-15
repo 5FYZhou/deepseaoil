@@ -122,11 +122,14 @@ namespace DeepseaOil.Logic.Events
     {
         public readonly Vector3Int Cell;
 
+        public readonly TileStateType Previous;
+
         public readonly TileStateType State;
 
-        public TileStateChanged(Vector3Int cell, TileStateType state)
+        public TileStateChanged(Vector3Int cell, TileStateType previous, TileStateType state)
         {
             Cell = cell;
+            Previous = previous;
             State = state;
         }
     }
