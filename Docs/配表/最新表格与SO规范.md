@@ -57,10 +57,10 @@
   | `attack_interval`       | `float`  | 投掷间隔/CD（秒）                  |
 
 #### 3. `enemy.xlsx`（敌人配置表）
-- **表里现在是五列**：`id` / `name` / `max_speed` / `hp` / `contact_damage`。`radius` / `acceleration` / `knockback_decay` / `stop_distance` / `chase_range` 在 `EnemyTuning`（`Assets/Resources/tuning/EnemyTuning.asset`，`ConfigModule.BindAssets` 取不到即抛 `ConfigLoadException`），`flash_hz` 归 `VisualPalette`（字段名 `enemyFlashHz`）。
+- **表里现在是五列**：`id` / `name` / `max_speed` / `hp` / `contact_damage`。`radius` / `acceleration` / `knockback_decay` / `stop_distance` 在 `EnemyTuning`（`Assets/Resources/tuning/EnemyTuning.asset`，`ConfigModule.BindAssets` 取不到即抛 `ConfigLoadException`），`flash_hz` 归 `VisualPalette`（字段名 `enemyFlashHz`）。
 - **`contact_damage` 是敌人伤害的唯一权威**，类型 `int!#range=[0,999]`，两行分别是 1 / 2。`ContactProbe` 经 `IContactDamager` 从敌人自己身上读 `EnemySpec.ContactDamage`；`player` 表根本没有这一列。
 - **表里保留的列**：
-  - **不在表里、在 SO**：`enemyFlashHz`（受击闪烁频率）在 `VisualPalette`；`radius`（碰撞半径）、`acceleration`（加速度）、`knockbackDecay`（受击滑停衰减）、`stopDistance`（停止逼近距离）、`chaseRange`（脱战距离）在 `EnemyTuning`。
+  - **不在表里、在 SO**：`enemyFlashHz`（受击闪烁频率）在 `VisualPalette`；`radius`（碰撞半径）、`acceleration`（加速度）、`knockbackDecay`（受击滑停衰减）、`stopDistance`（停止逼近距离）在 `EnemyTuning`。
   - **保留在 Excel**（支持普通怪与精英怪两行）：
     | 字段             | 类型              | 说明                                           |
     | :--------------- | :---------------- | :--------------------------------------------- |
@@ -142,7 +142,7 @@
 | `result_duration` | `float` | 结果存续秒数 |
 | `effect_radius` | `float` | 波及半径（格，欧氏距离） |
 | `pull_strength` | `float` | 向心吸力（单位/秒，0 = 不吸；当前只有 `超导` = 5） |
-| `break_aggro` | `bool` | 是否清空范围内敌人的仇恨（当前只有 `白雾` = True） |
+| `break_aggro` | `bool` | 是否清空范围内敌人的仇恨（当前只有 `白雾` = True）；**已退役**：仇恨系统已下线，该列不再有任何效果 |
 | `trigger_chain` | `bool` | 是否沿网格继续泛洪 |
 
 > `(elem_a, elem_b)` 与 `(elem_b, elem_a)` 是同一条：`DuoReactionCatalog` 建**双向字典**，
@@ -163,7 +163,8 @@
 2. **`ThrowTuning.cs`**：
    - 包含：抛物线基准时长 `flightDuration`、弧高 `arcHeight`、投掷最大/小距离、瞄准环压扁比例与透视。
 3. **`EnemyTuning.cs`**：
-   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`、脱战距离 `chaseRange`。
+   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`。
+   - **已退役、但字段保留在 SO 里**（改它们不会有任何反应，只为不让旧资产丢字段）：`chaseRange`（追逐已无距离上限）、`visionRange` / `sustainRange` / `loseDelay`（仇恨系统已下线）。
    - 每行还带一组**受击形变**调参 `squash`：强度 `amount`、普通一击时长 `normalDuration`、致死一击时长 `deathDuration`、X 压扁比 `compressRatio`、回弹曲线指数 `easePower`、强度硬上限 `maxAmount`。改这里即改观感，不用碰 `ScalePunchDriver`；`amount = 0` 即关掉该怪种的形变。**资产缺失即抛 `ConfigLoadException`**（不退回默认值）。
 4. **`VisualPalette.cs`**：
    - 包含：球种颜色、敌人两态颜色（`enemyBodyNormal` / `enemyBodySlowed`）、高亮提示色、贴地件阴影色、伤害飘字四色（`damagePhysical` / `damageFire` / `damageElectric` / `damageIce`）。**受击闪白不吃色值**：它走材质属性块（见 `Docs/表现/粒子特效系统.md` §8），本表只管颜色乘数。

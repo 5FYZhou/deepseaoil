@@ -54,7 +54,6 @@
     "Assets/Scripts/Foundation/StateMachine.cs": 132,
     "Assets/Scripts/Foundation/YSort.cs": 248,
     "Assets/Scripts/Logic/Actor/ActorLogic.cs": 321,
-    "Assets/Scripts/Logic/Actor/AggroState.cs": 170,
     "Assets/Scripts/Logic/Actor/EnemyBrain.cs": 85,
     "Assets/Scripts/Logic/Actor/EnemyIntent.cs": 124,
     "Assets/Scripts/Logic/Actor/EnemyLogic.cs": 335,

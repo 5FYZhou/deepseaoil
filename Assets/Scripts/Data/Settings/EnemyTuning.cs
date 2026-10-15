@@ -27,12 +27,10 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("绕障方向重算间隔（物理帧）；实际间隔比它多 1 帧")]
         public int pathRecalcFrames = 5;
 
-        // 条目填 0 的字段逐级回落（→defaultEntry→第一条），全 0 视野会让敌人站桩
+        // 条目填 0 的字段逐级回落（→defaultEntry→第一条）
         private Dictionary<int, EnemyTuningEntry> _merged;
 
         private readonly HashSet<int> _warned = new HashSet<int>();
-
-        private bool _warnedDefault;
 
         public bool TryGet(int id, out EnemyTuningEntry entry)
         {
@@ -57,8 +55,6 @@ namespace DeepseaOil.Data.Settings
             _merged = new Dictionary<int, EnemyTuningEntry>();
 
             if (entries == null) return;
-
-            WarnIfDefaultEmpty();
 
             for (int i = 0; i < entries.Count; i++)
             {
@@ -96,19 +92,6 @@ namespace DeepseaOil.Data.Settings
             if (own > 0f) return own;
 
             return def > 0f ? def : last;
-        }
-
-        private void WarnIfDefaultEmpty()
-        {
-            if (_warnedDefault) return;
-
-            if (defaultEntry != null && (defaultEntry.visionRange > 0f || defaultEntry.sustainRange > 0f || defaultEntry.loseDelay > 0f)) return;
-
-            _warnedDefault = true;
-
-            Debug.LogWarning(
-                $"[Config] EnemyTuning.defaultEntry 的仇恨三项（visionRange / sustainRange / loseDelay）全是 0，" +
-                $"已回落到 entries 第一条。请在 Assets/Resources/{ResourceKey}.asset 里补上默认值。", this);
         }
 
         private EnemyTuningEntry Fallback(int id)

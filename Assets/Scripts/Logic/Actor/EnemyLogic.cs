@@ -13,8 +13,6 @@ namespace DeepseaOil.Logic
         private readonly StatusGroup _status;
         private readonly EnemyMoveGroup _move;
 
-        private readonly AggroState _aggro;
-
         // 绕障网格，null = 不绕障
         private GridLogic _grid;
 
@@ -48,7 +46,6 @@ namespace DeepseaOil.Logic
             Brain = brain ?? EnemyBrainFactory.Create(in spec);
             _status = new StatusGroup(this);
             _move = new EnemyMoveGroup(this, motor);
-            _aggro = new AggroState(spec.VisionRange, spec.SustainRange, spec.LoseDelay);
         }
 
         public IEnemyBrain Brain { get; }
@@ -80,7 +77,6 @@ namespace DeepseaOil.Logic
 
         public void ForceLoseAggro()
         {
-            _aggro.ForceLose();
         }
 
         /// <summary>绕障方向：被挡时给 BFS 第一步，找不到就原方向</summary>
@@ -152,11 +148,9 @@ namespace DeepseaOil.Logic
 
         public void Tick(float now, float deltaTime)
         {
-            _aggro.Tick(Motor.Position, _target, now);
-
             // 意图必须先入上下文，故大脑决策放此处
             var brainContext = _target.HasValue
-                ? new EnemyBrainContext(Motor.Position, _target.Value, true, _aggro.HasAggro)
+                ? new EnemyBrainContext(Motor.Position, _target.Value, true)
                 : EnemyBrainContext.WithoutTarget(Motor.Position);
 
             Intent = Brain.Decide(in brainContext);
