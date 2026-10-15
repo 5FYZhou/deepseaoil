@@ -1,5 +1,6 @@
 using System;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic.Projectile;
 using DeepseaOil.Presentation.Projectile;
 using DeepseaOil.Presentation.Visual;

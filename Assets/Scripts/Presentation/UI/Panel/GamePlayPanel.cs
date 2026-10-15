@@ -74,6 +74,7 @@ namespace DeepseaOil.Presentation.UI
         private Material _healthMaterial;
         private TMP_Text _txtCountdown;
         private TMP_Text _txtNextWave;
+        private TMP_Text _txtLevel;
         private TMP_Text _txtWater;
         private TMP_Text _txtEarth;
         private Image _imgWaterBG;
@@ -100,10 +101,7 @@ namespace DeepseaOil.Presentation.UI
 
             _txtCountdown = GetComponent<TMP_Text>("TxtCountdown");
             _txtNextWave = GetComponent<TMP_Text>("TxtNextWave");
-            if (_txtCountdown != null)
-                _txtCountdown.gameObject.SetActive(true);
-            if (_txtNextWave != null)
-                _txtNextWave.gameObject.SetActive(false);
+            _txtLevel = GetComponent<TMP_Text>("TxtLevel");
             _txtWater = GetComponent<TMP_Text>("TxtWater");
             _txtEarth = GetComponent<TMP_Text>("TxtEarth");
             Image healthImage = GetComponent<Image>("ImgHealth");
@@ -169,16 +167,6 @@ namespace DeepseaOil.Presentation.UI
             {
                 case "BtnPause":
                     GameRoot.Instance.Game.ChangeState(GameState.Paused);
-                    GameRoot.Instance.UI.ShowPanel<PausePanel>();
-                    break;
-
-                case "BtnSetting":
-
-
-
-
-
-
                     break;
             }
         }
@@ -191,6 +179,8 @@ namespace DeepseaOil.Presentation.UI
             EventBus<PlayerHealthChanged>.Subscribe(OnHealthChanged);
             EventBus<PlayerAmmoChanged>.Subscribe(OnAmmoChanged);
             EventBus<WavePhaseChanged>.Subscribe(OnWavePhaseChanged);
+            EventBus<WaveCountdownChanged>.Subscribe(OnWaveCountdownChanged);
+            EventBus<LevelStateChanged>.Subscribe(OnLevelChanged);
         }
 
         private void Unsubscribe()
@@ -201,22 +191,23 @@ namespace DeepseaOil.Presentation.UI
             EventBus<PlayerHealthChanged>.Unsubscribe(OnHealthChanged);
             EventBus<PlayerAmmoChanged>.Unsubscribe(OnAmmoChanged);
             EventBus<WavePhaseChanged>.Unsubscribe(OnWavePhaseChanged);
+            EventBus<WaveCountdownChanged>.Unsubscribe(OnWaveCountdownChanged);
+            EventBus<LevelStateChanged>.Unsubscribe(OnLevelChanged);
         }
 
         private void OnWavePhaseChanged(WavePhaseChanged evt)
         {
-            if (_txtCountdown != null)
-            {
-                _txtCountdown.gameObject.SetActive(true);
-                _txtCountdown.text = $"倒计时：{Mathf.CeilToInt(Mathf.Max(0f, evt.SecondsLeft))}";
-            }
-
             if (_txtNextWave == null) return;
 
-            bool isPrepPhase = evt.Phase == DeepseaOil.Logic.Wave.WavePhase.Prep;
-            _txtNextWave.gameObject.SetActive(isPrepPhase);
-            if (isPrepPhase)
-                _txtNextWave.text = $"下一波：{evt.WaveIndex}";
+            _txtNextWave.text = $"{evt.Phase.ToString()}";//下一波：{evt.WaveIndex}";
+        }
+
+        private void OnWaveCountdownChanged(WaveCountdownChanged evt)
+        {
+            if (_txtCountdown == null) return;
+
+            _txtCountdown.gameObject.SetActive(true);
+            _txtCountdown.text = $"倒计时：{evt.SecondsRemaining}";
         }
 
         private void OnAmmoChanged(PlayerAmmoChanged evt)
@@ -366,6 +357,11 @@ namespace DeepseaOil.Presentation.UI
                 return Mathf.Lerp(MaterialAtOneHealth, MaterialAtTwoHealth, health - 1f);
 
             return Mathf.Lerp(MaterialAtTwoHealth, MaterialAtThreeHealth, health - 2f);
+        }
+
+        private void OnLevelChanged(LevelStateChanged evt)
+        {
+            _txtLevel.text = evt.Level.ToString();
         }
     }
 }

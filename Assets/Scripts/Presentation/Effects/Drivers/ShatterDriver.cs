@@ -104,7 +104,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             int count = Mathf.Max(1, PieceCount);
 
             Color color = ctx.Tint;
-            float scale = Mathf.Max(ctx.Scale, 1e-3f);
+            float scale = Mathf.Max(ctx.Value, 1e-3f);
 
             for (int i = 0; i < count; i++)
             {

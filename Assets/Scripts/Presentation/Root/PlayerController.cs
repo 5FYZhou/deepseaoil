@@ -1,5 +1,6 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
@@ -233,6 +234,8 @@ namespace DeepseaOil.Presentation
         {
             if (Logic == null) return;
 
+            if (!Logic.IsAlive) return;
+
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 
             Vector2 move = SnapMoveToEightDirections(raw.Move, _spec.SnapToEightDirections);
@@ -303,7 +306,7 @@ namespace DeepseaOil.Presentation
         {
             if (dt <= 0f) return;
 
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             float speed = EngineVelocity.magnitude;
 
@@ -325,7 +328,7 @@ namespace DeepseaOil.Presentation
             _dustTimer = feel.dustInterval / ratio;
 
             EffectContext ctx = EffectContext.At(Position);
-            ctx.Intensity = Mathf.Clamp01(speed / feel.dustReferenceSpeed);
+            ctx.Value = Mathf.Clamp01(speed / feel.dustReferenceSpeed);
 
             EffectModule.Play(EffectId.Dust, in ctx);
         }

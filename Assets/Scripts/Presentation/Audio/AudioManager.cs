@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Service;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation
 {
@@ -24,8 +26,6 @@ namespace DeepseaOil.Presentation
     /// <remarks>EnqueueSfx/EnqueueBgm 只入队，播放统一在 Tick 里消费；单帧只消费本 Tick 开始时已有的请求，播放中新产生的留到下一 Tick。由 GameRoot 持有并驱动。队列只为请求/消费解耦，非线程安全设施。</remarks>
     public sealed class AudioManager : IService
     {
-        private const string CONFIGKEY = "Config/AudioConfig";
-
         private enum AudioRequestType
         {
             Sfx,
@@ -87,7 +87,7 @@ namespace DeepseaOil.Presentation
                 return;
             }
 
-            LoadConfig(CONFIGKEY);
+            LoadConfig();
 
             // 音频根：GameRoot 的子物体（GameRoot 常驻 ⇒ 音频根跨场景常驻）
             _rootGo = new GameObject("AudioRoot");
@@ -135,21 +135,15 @@ namespace DeepseaOil.Presentation
 
         // 消息队列
 
-        /// <summary>请求播放音效，只入队，None 丢弃</summary>
+        /// <summary>请求播放音效，只入队</summary>
         public void EnqueueSfx(AudioId id)
         {
-            if (id == AudioId.None)
-                return;
-
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Sfx, id));
         }
 
-        /// <summary>请求播放 BGM，只入队，None 丢弃</summary>
+        /// <summary>请求播放 BGM，只入队</summary>
         public void EnqueueBgm(AudioId id)
         {
-            if (id == AudioId.None)
-                return;
-
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id));
         }
 
@@ -306,7 +300,7 @@ namespace DeepseaOil.Presentation
             return clip;
         }
 
-        private void LoadConfig(string key)
+        private void LoadConfig()
         {
             var config = ConfigModule.GetAudioConfig();
 
@@ -322,19 +316,16 @@ namespace DeepseaOil.Presentation
 
             _idToFileName.Clear();
 
-            foreach (var m in config.AudioMaps)
+            foreach (var m in ConfigModule.GetAudioMaps())
             {
-                if (m.id == AudioId.None)
-                    continue;
-
-                if (string.IsNullOrEmpty(m.fileName))
+                if (string.IsNullOrEmpty(m.FileName))
                 {
-                    Debug.LogWarning($"AudioConfig: {m.id} 没有配置文件名");
+                    Debug.LogWarning($"audio_map: {m.Id} 没有配置文件名");
                     continue;
                 }
 
-                if (!_idToFileName.TryAdd(m.id, m.fileName))
-                    Debug.LogWarning($"AudioConfig: 重复的 AudioId：{m.id}");
+                if (!_idToFileName.TryAdd(m.Id, m.FileName))
+                    Debug.LogWarning($"audio_map: 重复的 AudioId：{m.Id}");
             }
         }
 

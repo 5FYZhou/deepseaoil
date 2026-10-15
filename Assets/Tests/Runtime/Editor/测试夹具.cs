@@ -11,6 +11,7 @@
 // ---------------------------------------------------------------------------
 
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic.Movement;
 using Luban.SimpleJSON;

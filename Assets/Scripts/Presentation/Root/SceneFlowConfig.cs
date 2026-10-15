@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace DeepseaOil.Presentation
 {
-    /// <summary>场景声明的入口状态：Attach 时推一次，取代 GameRoot 装配末尾的默认 Menu</summary>
-    /// <remarks>Order 取 SceneOrder.Entry：其余场景根的 Attach 都排在它之后，首次装配时就已在入口状态。</remarks>
+    /// <summary>入口状态：Attach 时推一次</summary>
+    /// <remarks>Order 取 SceneOrder.Entry：其余场景根的 Attach 都排在它之后。</remarks>
     [DisallowMultipleComponent]
     public sealed class SceneFlowConfig : MonoBehaviour, ISceneRoot
     {
@@ -34,6 +34,7 @@ namespace DeepseaOil.Presentation
 
         private void OnDestroy()
         {
+            // 用 Start 缓存的 _root：销毁期再问 GameRoot.Instance 可能当场造一个新的
             if (_root != null) _root.UnregisterSceneRoot(this);
         }
 

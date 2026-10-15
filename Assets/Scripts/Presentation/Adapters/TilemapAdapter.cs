@@ -64,6 +64,8 @@ namespace DeepseaOil.Presentation.Adapters
 
         private bool _warnedNoLayer;
 
+        private bool _attached;
+
         /// 热路径缓存：只缓存取到过的贴图，避免反复寻址资源系统。
         private readonly Dictionary<TileStateType, TileBase> _runtimeTileCache = new();
 
@@ -75,6 +77,8 @@ namespace DeepseaOil.Presentation.Adapters
         /// 先自愈装饰件再订阅；必须在灌入初始状态之前调。
         public void Attach()
         {
+            if (_attached) return;
+
             GridGeometry geometry = ReadGeometry();
 
             EnsureOverlay(in geometry);
@@ -82,15 +86,21 @@ namespace DeepseaOil.Presentation.Adapters
             EnsureObstacle(in geometry);
 
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
+
+            _attached = true;
         }
 
         public void Detach()
         {
+            if (!_attached) return;
+
             EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
 
             overlayDirector?.Detach();
 
             obstacleDirector?.Detach();
+
+            _attached = false;
         }
 
         /// 清空全部装饰件实例；切场景/清场用

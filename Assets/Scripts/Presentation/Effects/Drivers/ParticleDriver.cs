@@ -5,7 +5,7 @@ using UnityEngine;
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
     /// <summary>粒子驱动，管理一个 EffectId 对应粒子预制体的播放、回收与池化</summary>
-    /// <remarks>单例型重复 Play 合并到当前实例（取最大强度、不重置计时），多实例型每次新建。回收：按估算时长计时，到点问一次 IsAlive(false)，超 +5s 强制回收。强度乘数属作者，须存下来只做相对缩放，见 _authoredSizeMul。池满走 CreateOrDrop，丢弃并节流警告，不用 DropSilently（未预热时会连第一次 Play 一起丢）。位置写世界坐标并保留预制体自带 z，缩放 = 预制体缩放 × ctx.Scale，不按 ctx.Direction 旋转。</remarks>
+    /// <remarks>单例型重复 Play 合并到当前实例（取最大强度、不重置计时），多实例型每次新建。回收：按估算时长计时，到点问一次 IsAlive(false)，超 +5s 强制回收。强度乘数属作者，须存下来只做相对缩放，见 _authoredSizeMul。池满走 CreateOrDrop，丢弃并节流警告，不用 DropSilently（未预热时会连第一次 Play 一起丢）。位置写世界坐标并保留预制体自带 z，缩放 = 预制体缩放 × ctx.Value，不按 ctx.Direction 旋转。</remarks>
     public sealed class ParticleDriver : IEffectDriver
     {
         /// <summary>Intensity=0 时粒子量与大小的缩放，相对预制体作者值，1 时原样播</summary>
@@ -113,7 +113,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             // 单例：已在播就合并到当前实例
             if (_isSingleton && _singleton != null)
             {
-                if (ctx.Intensity > _singleton.Intensity) _singleton.Intensity = ctx.Intensity;
+                float merged = Mathf.Clamp01(ctx.Value);
+                if (merged > _singleton.Intensity) _singleton.Intensity = merged;
                 return HandleOf(_singleton);
             }
 
@@ -155,7 +156,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 if (psr != null) psr.sortingOrder = dynamicOrder;
             }
 
-            ApplyIntensity(systems, ctx.Intensity);
+            float value = Mathf.Clamp01(ctx.Value);
+
+            ApplyIntensity(systems, value);
 
             // 池化复用：先清掉上一轮残留粒子再播
             for (int i = 0; i < systems.Length; i++)
@@ -170,10 +173,10 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 Epoch = _epoch,
                 Go = go,
                 Systems = systems,
-                Follow = ctx.Follow,
-                FollowRequested = ctx.FollowRequested,
+                Follow = ctx.Anchor,
+                FollowRequested = ctx.Anchor != null,
                 Duration = EstimateDuration(systems),
-                Intensity = ctx.Intensity,
+                Intensity = value,
             };
 
             _active[inst.Id] = inst;
@@ -300,7 +303,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             // 保留预制体自带的 z（2D 排序看 Sorting Layer），抹成 0 是隐性坑
             t.position = new Vector3(p.x, p.y, t.position.z);
-            t.localScale = _prefabScale * ctx.Scale;
+            t.localScale = _prefabScale * Mathf.Clamp01(ctx.Value);
         }
 
         private static void FollowTarget(ParticleInstance inst)

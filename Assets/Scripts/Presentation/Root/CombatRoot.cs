@@ -1,11 +1,13 @@
 ﻿using System.Collections.Generic;
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Drop;
 using DeepseaOil.Logic.Element;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
+using DeepseaOil.Logic.Level;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.World;
 using DeepseaOil.Presentation.Actor;
@@ -15,6 +17,7 @@ using DeepseaOil.Presentation.Drop;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.Input;
+using DeepseaOil.Presentation.Level;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
@@ -36,6 +39,9 @@ namespace DeepseaOil.Presentation
         [Tooltip("格子视图（提供格子几何与地板）。")]
         [SerializeField] private TilemapAdapter gridView = default;
 
+        [Tooltip("当前场景的关卡配置读取器。")]
+        [SerializeField] private LevelReader levelReader = default;
+
         [Header("可选接线")]
         [Tooltip("球与瞄准件的父物体。留空则建在场景根下。")]
         [SerializeField] private Transform ballRoot = default;
@@ -47,7 +53,10 @@ namespace DeepseaOil.Presentation
         [SerializeField] private Fountain[] fountains = new Fountain[0];
 
         [Tooltip("是否刷敌人。关掉可以只验投掷链路。")]
-        [SerializeField] private bool enableWaves = true;
+        [SerializeField] private bool enableLevel = true;
+
+        [Tooltip("玩家死亡后是否自动回到出生点并清理当前战斗。")]
+        [SerializeField] private bool enablePlayerRespawn = false;
 
         [Tooltip("算屏幕外出生点用的相机。留空则由 EnemyDirector 回落 Camera.main。")]
         [SerializeField] private Camera spawnCamera = default;
@@ -63,6 +72,7 @@ namespace DeepseaOil.Presentation
         private DropDirector _drops;
 
         private CombatDirector _combat;
+        private LevelLogic _levelLogic;
         private TileHighlightView _highlight;
 
         private LifeFountainState _lifeFountain;
@@ -132,6 +142,9 @@ namespace DeepseaOil.Presentation
 
             _balls.Tick(deltaTime);
 
+            // 若玩家死亡 喷泉不活动
+            if (player != null && player.Logic != null && !player.Logic.IsAlive) return;
+
             _drops.Tick(deltaTime);
 
             for (int i = 0; i < fountains.Length; i++)
@@ -170,13 +183,19 @@ namespace DeepseaOil.Presentation
                 }
             }
 
-            if (_combat != null) _combat.FixedTick(now, deltaTime);
+            if (_combat != null)
+            {
+                //if (_levelLogic != null && _levelLogic.State == LevelState.NotStarted)
+                    //_levelLogic.Start();
+
+                //bool playerAlive = player != null && player.Logic != null && player.Logic.IsAlive;
+                _combat.FixedTick(now, deltaTime);
+            }
 
             // ③ 玩家受击：读物理体位置，须在敌人移动之后
             UpdatePlayerContact(now);
         }
 
-        // 播种：E 键把手上的种子落成地貌
         private void TickPlanting()
         {
             InputProvider input = player != null ? player.Input : null;
@@ -207,7 +226,7 @@ namespace DeepseaOil.Presentation
 
             EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(cell));
 
-            ctx.Radius = _grid.Geometry.CellSize * 0.5f;
+            ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
             EffectModule.Play(EffectId.Highlight, in ctx);
         }
@@ -253,9 +272,16 @@ namespace DeepseaOil.Presentation
 
                 _retryAt = float.PositiveInfinity;
 
-                player.RespawnToSpawn();
-                ClearAll();
-
+                if (enablePlayerRespawn)
+                {
+                    player.RespawnToSpawn();
+                    ClearAll();
+                }
+                else
+                {
+                    _levelLogic?.ChangeState(LevelState.Defeat);
+                    GameRoot.Instance.Game.ChangeState(Logic.GameState.CG);
+                }
                 return;
             }
 
@@ -289,10 +315,10 @@ namespace DeepseaOil.Presentation
             if (!logic.TakeDamage(in damage, now)) return;
 
             // 受创反馈：世界侧只报事实，播什么由玩家侧与特效模块决定
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext hitShake = EffectContext.At(position);
-            hitShake.Intensity = feel.hitShakeAmplitude;
+            hitShake.Value = feel.hitShakeAmplitude;
             hitShake.Duration = feel.hitShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in hitShake);
@@ -311,6 +337,11 @@ namespace DeepseaOil.Presentation
         public void ClearAll()
         {
             if (_combat != null) _combat.ClearAll();
+            if (_levelLogic != null)
+            {
+                _levelLogic.Reset();
+                _levelLogic.Start();
+            }
 
             // 球也要清，否则复活后会被上一局的球砸出一片泥
             _balls?.ClearAll();
@@ -407,6 +438,12 @@ namespace DeepseaOil.Presentation
                 return;
             }
 
+            if (enableLevel && levelReader == null)
+            {
+                Debug.LogError("CombatRoot 未接入 LevelReader；关卡流程与波次刷怪不会装配。", this);
+                return;
+            }
+
             if (!gridView.IsWired)
             {
                 Debug.LogError("CombatRoot 的 TilemapAdapter 没有接 Tilemap，战斗内容已停用。", this);
@@ -477,12 +514,19 @@ namespace DeepseaOil.Presentation
 
             player.Logic.ConfigureAim(in geometry, playerSpec.MaxThrowDistance, this);
 
-            if (enableWaves)
+            if (enableLevel)
             {
-                _combat = CreateCombatDirector();
+                _levelLogic = new LevelLogic(levelReader);
+                _levelLogic.Start();
+                _combat = CreateCombatDirector(_levelLogic);
             }
 
             IsReady = true;
+
+            // 只装配时入队一次，勿挪进状态切换
+            if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmNormal);
+
+            if (_root != null) _root.UI.EnterGameplayUi();
 
             OnRequestHudRefresh(new RequestHudRefresh());
         }
@@ -537,7 +581,7 @@ namespace DeepseaOil.Presentation
             return view;
         }
 
-        private CombatDirector CreateCombatDirector()
+        private CombatDirector CreateCombatDirector(LevelLogic levelLogic)
         {
             var go = new GameObject("EnemyDirector");
 
@@ -548,7 +592,7 @@ namespace DeepseaOil.Presentation
             director.Initialize(
                 this,
                 player,
-                ConfigModule.GetWaves(),
+                levelLogic,
                 ConfigModule.GetEnemy,
                 actorRoot,
                 spawnCamera,
@@ -606,25 +650,25 @@ namespace DeepseaOil.Presentation
         {
             player?.Logic?.Stats.Announce();
             _combat?.Announce();
+            _levelLogic?.Announce();
         }
 
         private void OnGridBlastOccurred(GridBlastOccurred evt)
         {
             if (evt.ResultTile != TileStateType.Steam) return;
 
-            CombatFeelTuning feel = ConfigModule.Feel;
+            VisualFeelTuning feel = ConfigModule.VisualFeel;
 
             EffectContext ctx = EffectContext.At(evt.Center);
-            ctx.Radius = evt.Radius;
-            ctx.Scale = evt.Radius; // ParticleDriver 会将预制体缩放与 Scale 相乘，使扩散范围与半径对齐
+            ctx.Value = evt.Radius; // ParticleDriver 会将预制体缩放与 Value 相乘，使扩散范围与半径对齐
             ctx.Tint = new Color(0.92f, 0.96f, 1f, 0.85f);
             EffectModule.Play(EffectId.SteamBlast, in ctx);
 
-            // 半径映射到 0.4..1：EffectContext.Intensity 读时 Clamp01，塞原始半径会被拍成恒定满档
+            // 半径映射到 0.4..1：ScreenShakeDriver 自持 Clamp01，塞原始半径会被拍成恒定满档
             float shake = Mathf.Lerp(feel.blastShakeAmplitudeMin, feel.blastShakeAmplitudeMax, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
 
             EffectContext shakeCtx = EffectContext.At(evt.Center);
-            shakeCtx.Intensity = shake;
+            shakeCtx.Value = shake;
             shakeCtx.Duration = feel.blastShakeDuration;
 
             EffectModule.Play(EffectId.ScreenShake, in shakeCtx);

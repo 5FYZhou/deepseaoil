@@ -60,7 +60,7 @@ namespace DeepseaOil.Tests
         }
 
         /// <summary>格上目标替身：只记次数；减速转发给**真** StatusGroup，读到的 SlowScale 就是运行时那一份。</summary>
-        private sealed class GridTarget : IDamageable, ISlowable, IStunnable
+        private sealed class GridTarget : IDamageable, ISlowable, IStunnable, IKnockBackable
         {
             private readonly StatusGroup _status;
 
@@ -83,6 +83,8 @@ namespace DeepseaOil.Tests
 
             /// <summary>累计收到的击退格数：位移意图只经 TakeDamage 这一条路进来。</summary>
             public float KnockbackTotal;
+
+            public int RawKnockbackCalls;
 
             public int StunHits;
 
@@ -107,6 +109,11 @@ namespace DeepseaOil.Tests
             {
                 StunHits++;
                 StunSeconds = seconds;
+            }
+
+            public void ApplyKnockback(Vector2 impulse)
+            {
+                RawKnockbackCalls++;
             }
         }
 
@@ -352,6 +359,47 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(2, target.DamageHits, "TriggerChain 为真时必须真的泛洪：只写一列标记等于连锁根本不存在");
             Assert.AreEqual(2, target.StunHits, "泛洪的麻痹与落地冲击是两次独立施加");
             Assert.AreEqual(1.5f, target.StunSeconds, 1e-4f, "连锁电击的麻痹时长");
+        }
+
+        [Test]
+        public void 每条带击退的规则都要把格数递交到受击者()
+        {
+            var cell = Vector3Int.zero;
+
+            foreach (ElementRuleSpec rule in ConfigModule.GetElementRules())
+            {
+                if (rule.ImpactKnockback <= 0f) continue;
+
+                var registry = new EnemyCellRegistry();
+
+                GridLogic grid = NewGrid(registry, cell);
+
+                var target = new GridTarget(NewStatus()) { Position = grid.Geometry.CellCenter(cell) };
+
+                registry.Register(cell, target);
+
+                grid.SwitchTileState(cell, rule.SourceTile);
+
+                string who = $"element_rule #{rule.Id}（{rule.SourceTile} + {rule.BallType}）";
+
+                Assert.IsTrue(grid.OnBallHit(cell, rule.BallType), $"{who} 必须命中并产生冲击");
+
+                Assert.AreEqual(
+                    1,
+                    target.DamageHits,
+                    $"{who}：伤害为 0 只是「不扣血」，反应仍必须进受击入口 —— 被伤害门挡住时格数就没人折算成初速度");
+
+                Assert.AreEqual(
+                    rule.ImpactKnockback,
+                    target.KnockbackTotal,
+                    1e-3f,
+                    $"{who}：击退格数必须原样进 Damage，由受击者按自身阻尼反解 v0");
+
+                Assert.AreEqual(
+                    0,
+                    target.RawKnockbackCalls,
+                    $"{who}：格层不许把格数当速度域冲量直推 —— 那会让 1 格退成 0.03 格（v²/2a，a=30），与表值差两个数量级");
+            }
         }
     }
 }

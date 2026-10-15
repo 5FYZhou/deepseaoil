@@ -1,4 +1,5 @@
 using DeepseaOil.Data;
+using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Grid;
@@ -16,7 +17,7 @@ namespace DeepseaOil.Presentation.Actor
         Stand = 1,
     }
 
-    /// 一只敌人的组合根：抓预制体上的执行器与视效、推进逻辑层、结算伤害与死亡
+    /// 一只敌人的组合根：推进逻辑层，结算伤害与死亡
     [DisallowMultipleComponent]
     public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor, IAggroBreakable
     {
@@ -42,15 +43,11 @@ namespace DeepseaOil.Presentation.Actor
 
         public bool IsInitialized => Stats != null;
 
-        /// 权属：true = 场景木桩（吃 Inspector 打靶配置，清场归位）
+        /// 吃 Inspector 打靶配置，清场归位
         public bool IsScenePlaced { get; set; }
 
         /// 本预制体对应 enemy 表的哪一行；场景接管路径读它，波次路径用注入的 spec
         public int EnemyId => enemyId;
-
-        [Header("临时调试件")]
-        [Tooltip("头顶耐久数字（预制体上的 Hp_txt 节点）。留空则自取子节点；这是可视化调试件，正式表现应做进预制体美术")]
-        [SerializeField] private TextMesh hpText = default;
 
         private EnemySpec _spec;
         private EnemyLogic _logic;
@@ -82,10 +79,15 @@ namespace DeepseaOil.Presentation.Actor
 
         private bool _deathFired;
 
-        /// 减速垫色的句柄：减速期间持有，离开减速格 Stop
+        /// 减速期间持有，离开减速格 Stop
         private EffectHandle _slowTintHandle;
 
-        /// 上一物理帧是否减速：只在跨阶时通知 EffectModule，不逐帧重发
+        /// 尸体淡出句柄：复活前必须 Stop
+        private EffectHandle _fadeHandle;
+
+        private bool _deathDone;
+
+        /// 上一物理帧的减速态
         private bool _slowOn;
 
         /// 麻痹到期时刻（Time.time 口径）
@@ -106,7 +108,7 @@ namespace DeepseaOil.Presentation.Actor
 
         public Vector2 EngineVelocity => _motor == null ? Vector2.zero : _motor.EngineVelocity;
 
-        /// 本帧生效的减速乘数（1=没被减速）：诊断面板读数，与身体颜色读同一份数据
+        /// 诊断面板读数
         public float SlowMultiplier => _slowMultiplier;
 
         private void Awake()
@@ -114,7 +116,6 @@ namespace DeepseaOil.Presentation.Actor
             BindPrefabParts();
         }
 
-        /// 抓预制体上的执行器与视效
         /// 补空不覆盖：Awake 与 Initialize 都会调，编辑器装配路径不跑 Awake
         private void BindPrefabParts()
         {
@@ -129,14 +130,11 @@ namespace DeepseaOil.Presentation.Actor
                     : GetComponentInChildren<SpriteRenderer>(true);
             }
 
-            if (hpText == null) hpText = GetComponentInChildren<TextMesh>(true);
-
             if (_collider == null) _collider = GetComponent<Collider2D>();
         }
 
         /// 组装一只敌人，依赖全由参数给出；target=null 则滑停，registry=null 则不登记
         /// IsScenePlaced 为真才吃 Inspector 打靶配置与复活；权属由 CombatRoot 的接管入口置位
-        /// 预制体缺 EnemyMotor 是本类唯一当场作废生成的装配错误
         public void Initialize(
             Vector2 position,
             in EnemySpec spec,
@@ -186,8 +184,6 @@ namespace DeepseaOil.Presentation.Actor
 
             _motor.Facing = facing;
 
-            UpdateHpText();
-
             UpdateCell(force: true);
 
         }
@@ -209,17 +205,24 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasDamage)
             {
-                CombatFeelTuning feel = ConfigModule.Feel;
+                VisualFeelTuning feel = ConfigModule.VisualFeel;
 
                 // 耐久是整数，伤害舍入到整数
                 Stats.ApplyDamage(damage.Amount);
 
-                // 实体只报告事实：Follow 给 Root，真身渲染器由驱动自己下探（会跳过 ShadowView）
+                // Anchor 给驱动，真身渲染器由驱动自己下探（跳过 ShadowView）
                 EffectContext flash = EffectContext.OnTarget(transform);
                 flash.Duration = feel.flashDuration;
                 flash.Tint = Color.white;
 
                 EffectModule.Play(EffectId.Flash, in flash);
+
+                // 元素序号由 Logic 定，数据层按序号查色
+                EffectContext popup = EffectContext.At(Position);
+                popup.Value = damage.Amount;
+                popup.Tint = ConfigModule.Visuals.DamageColor((int)damage.Element);
+
+                EffectModule.Play(EffectId.DamagePopup, in popup);
 
                 // 写 View 不写 Root：Root.localScale.x 是朝向镜像，叠乘会变胖；旋钮在 EnemyTuning 行
                 if (_spec != null && _spec.Squash.amount > 0f)
@@ -236,9 +239,8 @@ namespace DeepseaOil.Presentation.Actor
                     EffectContext punch = EffectContext.OnTarget(
                         _animView != null ? _animView.transform : transform);
                     punch.Duration = duration;
-                    punch.Intensity = Mathf.Min(squash.amount, cap);
-                    punch.SquashRatio = squash.compressRatio;
-                    punch.SquashPower = squash.easePower;
+                    punch.Value = Mathf.Min(squash.amount, cap);
+                    punch.Modulation = new Vector2(squash.compressRatio, squash.easePower);
 
                     EffectModule.Play(EffectId.Squash, in punch);
                 }
@@ -248,7 +250,6 @@ namespace DeepseaOil.Presentation.Actor
 
                 EffectModule.Play(EffectId.BurstSparks, in spark);
 
-                // 受击顿帧：定格动画
                 StartCoroutine(CoHitStop(feel.hitStopSeconds));
             }
 
@@ -261,19 +262,24 @@ namespace DeepseaOil.Presentation.Actor
 
                 // 非数/无穷会被账本原样写进刚体，整段位移直接作废
                 if (!float.IsNaN(v0) && !float.IsInfinity(v0)) _logic.ApplyKnockback(v0, damage.Direction);
+
+                // 抬 View 不抬 Root：Y-Sort 读物理体位置
+                if (_animView != null)
+                {
+                    EffectContext hop = EffectContext.OnTarget(_animView.transform);
+                    hop.Value = v0 / ConfigModule.VisualFeel.hopReferenceSpeed;
+
+                    EffectModule.Play(EffectId.Hop, in hop);
+                }
             }
 
             if (!Stats.IsAlive)
             {
-                _animView?.TriggerDie();
-
                 Die(damage.Direction);
                 return;
             }
 
             _animView?.TriggerHurt();
-
-            UpdateHpText();
         }
 
         /// <summary>格边长（世界单位）；网格未接线时退化为 1f</summary>
@@ -289,19 +295,6 @@ namespace DeepseaOil.Presentation.Actor
             float accel = _spec != null ? _spec.Config.moveAcceleration : 0f;
 
             return accel > 0f && !float.IsNaN(accel) ? accel : 10f;
-        }
-
-        /// 头顶耐久数字（临时调试件）；只在数值变了才写
-        /// 数字挂 Root 下，朝左时 localScale.x 为负，文字会跟着镜像
-        private void UpdateHpText()
-        {
-            if (hpText == null) return;
-
-            string text = Hp > 0 ? Hp.ToString() : string.Empty;
-
-            if (hpText.text == text) return;
-
-            hpText.text = text;
         }
 
         /// 由 CombatRoot 每物理帧调：速度一帧只提交一次，视效同频刷新
@@ -346,7 +339,6 @@ namespace DeepseaOil.Presentation.Actor
             _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + seconds);
         }
 
-        /// 麻痹是否还在生效；只读、暂无消费者
         public bool IsStunned => Time.time < _stunnedUntil;
 
         public void ForceLoseAggro()
@@ -441,6 +433,10 @@ namespace DeepseaOil.Presentation.Actor
 
         private void Die(Vector2 hitDirection)
         {
+            if (_deathFired) return;
+
+            _deathFired = true;
+
             if (_motor != null) _motor.Move(Vector2.zero);
 
             // 死亡即刻摘掉归属，否则这一格继续"有目标"且结算方拿到正在销毁的对象
@@ -451,32 +447,91 @@ namespace DeepseaOil.Presentation.Actor
             }
 
             // 先发事实再销毁：回调方要用位置（战利品落在死亡那一刻的地方）
-            if (!_deathFired)
-            {
-                _deathFired = true;
+            Died?.Invoke(this);
 
-                Died?.Invoke(this);
-            }
+            if (_collider != null) _collider.enabled = false;
+
+            _animView?.TriggerDie();
 
             EffectContext ctx = EffectContext.At(Position, hitDirection);
             ctx.Tint = ConfigModule.Visuals.enemyBodyNormal;
+            ctx.Value = ConfigModule.VisualFeel.shatterIntensity;
 
             // 播哪个特效由预制体说了算，本类不写死
             EffectModule.Play(deathEffect, in ctx);
 
+            // 尸体淡出：alpha 源是 Animator 的 FadeAlpha 曲线
+            if (_animView != null)
+            {
+                EffectContext fade = EffectContext.OnTarget(_animView.transform);
+
+                _fadeHandle = EffectModule.Play(EffectId.AlphaTint, in fade);
+            }
+
+            // 回收触发口：事件到了立刻收；到点还没来（未挂 AnimationEvent / 无可用 Animator）也收
+            bool waitForEvent = _animView != null && _animView.HasValidAnimator;
+
+            if (waitForEvent) _animView.DeathAnimationEnd += OnDeathAnimationDone;
+
+            float fallbackSeconds = ConfigModule.VisualFeel.deathFallbackSeconds;
+
+            if (fallbackSeconds > 0f)
+            {
+                _respawnRoutine = StartCoroutine(CoFallbackDeath(fallbackSeconds));
+            }
+            else if (!waitForEvent)
+            {
+                OnDeathAnimationDone();
+            }
+        }
+
+        private void OnDeathAnimationDone()
+        {
+            if (_deathDone) return;
+
+            _deathDone = true;
+
+            if (_animView != null) _animView.DeathAnimationEnd -= OnDeathAnimationDone;
+
+            if (_respawnRoutine != null)
+            {
+                StopCoroutine(_respawnRoutine);
+
+                _respawnRoutine = null;
+            }
+
             if (IsScenePlaced && respawnDelay > 0f)
             {
                 _respawnRoutine = StartCoroutine(CoRespawn());
+
                 return;
             }
 
             Destroy(gameObject);
         }
 
+        private System.Collections.IEnumerator CoFallbackDeath(float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+
+            _respawnRoutine = null;   // 这条协程就是 _respawnRoutine，先摘句柄再收口
+
+            OnDeathAnimationDone();
+        }
+
         /// 满血归位：打靶复活与清场复位共用；未接管过的对象（无 spec）不动
         public void ResetToSpawn()
         {
             if (_spec == null) return;
+
+            // 退订并清句柄：否则复活后仍被上条命的淡出压 alpha
+            if (_animView != null) _animView.DeathAnimationEnd -= OnDeathAnimationDone;
+
+            if (_fadeHandle.IsValid)
+            {
+                EffectModule.Stop(_fadeHandle);
+                _fadeHandle = EffectHandle.None;
+            }
 
             if (_respawnRoutine != null)
             {
@@ -495,19 +550,20 @@ namespace DeepseaOil.Presentation.Actor
 
             Stats = new EnemyStats(_spec);
             _deathFired = false;
+            _deathDone = false;
 
             if (_collider != null) _collider.enabled = true;
             if (_body != null) _body.enabled = true;
 
-            UpdateHpText();
             UpdateCell(force: true);
             _animView?.ResetToDefault();
+
+            if (_animView != null && _animView.Animator != null) _animView.Animator.speed = 1f;
         }
 
         private System.Collections.IEnumerator CoRespawn()
         {
             if (_body != null) _body.enabled = false;
-            if (hpText != null) hpText.text = string.Empty;
             if (_collider != null) _collider.enabled = false;
 
             yield return new WaitForSeconds(respawnDelay);
