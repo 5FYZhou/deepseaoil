@@ -74,7 +74,7 @@ namespace DeepseaOil.Presentation.UI
             SetResult(evt.curId);
             _root.SetActive(true);
             StartFadeIn();
-            GameRoot.Instance.Game.ChangeState(GameState.Paused);
+            //GameRoot.Instance.Game.ChangeState(GameState.Paused);
         }
 
         private void SetResult(int currentLevelId)
