@@ -282,7 +282,7 @@ namespace DeepseaOil.Presentation
                 else
                 {
                     _levelLogic?.ChangeState(LevelState.Defeat);
-                    GameRoot.Instance.Game.ChangeState(Logic.GameState.CG);
+                    GameRoot.Instance.Game.ChangeState(Logic.GameState.Settle);
                 }
                 return;
             }

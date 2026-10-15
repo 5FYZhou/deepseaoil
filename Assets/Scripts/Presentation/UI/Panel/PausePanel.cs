@@ -8,12 +8,14 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Middle;
         public override bool CanBeHideByKey => true;
+        public override bool CloseOnSceneTransition => true;
 
         public override void ShowMe() { }
 
         public override void HideMe()
         {
-            GameRoot.Instance.Game.ChangeState(GameState.Running);
+            if (GameRoot.Instance.Game.CurState == GameState.Paused)
+                GameRoot.Instance.Game.ChangeState(GameState.Running);
         }
 
         protected override ButtonStyle SetBtnStyle(string name)
@@ -35,8 +37,8 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
-                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
-                    GameRoot.Instance.UI.CloseAllPanels();
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, true));
+                    //GameRoot.Instance.UI.CloseAllPanels();
                     break;
             }
         }

@@ -23,6 +23,7 @@ namespace DeepseaOil.Presentation.UI
 
         public abstract E_UILayer Layer { get; }
         public abstract bool CanBeHideByKey { get; }
+        public abstract bool CloseOnSceneTransition { get; }
 
         private UIConfig _config;
         private readonly HashSet<string> _assetKeys = new();

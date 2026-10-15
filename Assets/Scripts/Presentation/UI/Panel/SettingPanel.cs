@@ -9,6 +9,7 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Top;
         public override bool CanBeHideByKey => true;
+        public override bool CloseOnSceneTransition => true;
 
         private TMP_Text txtSfxNum;
         private TMP_Text txtBgmNum;
@@ -66,7 +67,7 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.Menu);
 
-                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
+                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, true));
                     break;
                 case "BtnSave":
                     GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Save));

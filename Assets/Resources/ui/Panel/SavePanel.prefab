@@ -1391,10 +1391,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 4234507922688421578}
     m_Modifications:
-    - target: {fileID: -410559194986391030, guid: 8582713efb581de4099d1d3cf67b3d9a, type: 3}
-      propertyPath: btnDelete
-      value: 
-      objectReference: {fileID: 1611037371788285671}
     - target: {fileID: 4718576731761835406, guid: 8582713efb581de4099d1d3cf67b3d9a, type: 3}
       propertyPath: m_Name
       value: SaveInfoSlot
@@ -1484,17 +1480,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8582713efb581de4099d1d3cf67b3d9a, type: 3}
---- !u!114 &1611037371788285671 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3451344796149970132, guid: 8582713efb581de4099d1d3cf67b3d9a, type: 3}
-  m_PrefabInstance: {fileID: 4160813934036165171}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!224 &7995068449541141055 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6289873224212516876, guid: 8582713efb581de4099d1d3cf67b3d9a, type: 3}

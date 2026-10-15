@@ -24,6 +24,25 @@ namespace DeepseaOil.Logic.Events
         public RequestActiveScene(string n) { sceneName = n; }
     }
 
+    public readonly struct LoadingPanelReady
+    {
+        public readonly string sceneName;
+        public LoadingPanelReady(string n) { sceneName = n; }
+    }
+
+    public readonly struct SceneTransitionFinished
+    {
+        public readonly string sceneName;
+        public SceneTransitionFinished(string n) { sceneName = n; }
+    }
+
+    public readonly struct SceneTransitionFailed
+    {
+        public readonly string sceneName;
+        public readonly string error;
+        public SceneTransitionFailed(string n, string e) { sceneName = n; error = e; }
+    }
+
     // 请求 HUD 重新播报一次当前值：面板异步加载晚一帧，而事实事件只在变化时发布
     public readonly struct RequestHudRefresh { }
 
@@ -65,19 +84,15 @@ namespace DeepseaOil.Logic.Events
             SlotIndex = slotIndex;
         }
     }
-
-    public readonly struct RequestOpenSavePanel
-    {
-        public readonly SavePanelMode Mode;
-
-        public RequestOpenSavePanel(SavePanelMode mode)
-        {
-            Mode = mode;
-        }
-    }
     #endregion
 
     #region 事实
+    public readonly struct SceneLoadStarted
+    {
+        public readonly string sceneName;
+        public readonly bool isAsync;
+        public SceneLoadStarted(string n, bool i) { sceneName = n; isAsync = i; }
+    }
 
     public readonly struct SceneLoaded
     {

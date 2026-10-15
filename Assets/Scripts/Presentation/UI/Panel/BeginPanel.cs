@@ -9,6 +9,7 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Middle;
         public override bool CanBeHideByKey => false;
+        public override bool CloseOnSceneTransition => false;
 
         public RectTransform maskStart;
 
@@ -44,8 +45,6 @@ namespace DeepseaOil.Presentation.UI
                                     GameRoot.Instance.UI.HidePanel<BeginPanel>();
                                     GameRoot.Instance.UI.HidePanel<TransitionPanel>();
                                     cgPanel.StartTimeLine();
-
-                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Game, true));
                                 }
                             );
                         });

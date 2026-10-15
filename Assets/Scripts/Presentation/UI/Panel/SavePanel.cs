@@ -11,6 +11,7 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Top;
         public override bool CanBeHideByKey => true;
+        public override bool CloseOnSceneTransition => true;
 
         [SerializeField]
         private GameObject saveInfoPre;
@@ -119,7 +120,7 @@ namespace DeepseaOil.Presentation.UI
 
         private void OnSaveLoaded(SaveLoaded evt)
         {
-            string sceneName = $"Level_{evt.Data.currentLevelId}";
+            string sceneName = SceneName.GetLevel(evt.Data.currentLevelId);
             if (!Application.CanStreamedLevelBeLoaded(sceneName))
             {
                 Debug.LogError($"[Save] 存档关卡场景 '{sceneName}' 不存在或未加入 Build Settings，无法读取存档。");
@@ -127,9 +128,9 @@ namespace DeepseaOil.Presentation.UI
             }
 
             GameRoot root = GameRoot.Instance;
-            root.UI.CloseAllPanels();
+            //root.UI.CloseAllPanels();
             //root.Game.ChangeState(GameState.Running);
-            EventBus<RequestLoadScene>.Publish(new RequestLoadScene(sceneName, false));
+            EventBus<RequestLoadScene>.Publish(new RequestLoadScene(sceneName, true));
         }
 
         private void OnSaveResult(SaveResult evt)

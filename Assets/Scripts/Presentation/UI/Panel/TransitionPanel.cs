@@ -9,6 +9,7 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Transition;
         public override bool CanBeHideByKey => false;
+        public override bool CloseOnSceneTransition => true;
 
         [SerializeField] private Material material;
         [SerializeField] private Material materialInside;
