@@ -7,8 +7,9 @@
   而且没有任何机器判据能拦住它。本脚本就是那条判据。
 
 三条判据：
-  ① 预算：每个文件的「注释有效字符数」不得超过 Tools/comment-budget.json 里登记的上限。
-          预算只降不升；确需上调必须在 PR 里显式说明并重跑 -Mode seal。
+  ① 预算：每个文件的「注释有效字符数」不得超过 Tools/comment-budget.json 里登记的上限 + 容差。
+          上限 < 实测 <= 上限+容差 → 黄字 WARN，不阻断（吸收合并带进来的噪声）；
+          实测 > 上限+容差 → exit 1。预算只降不升；确需净增必须走 PR 说明 + -Mode seal。
   ② 标签：注释里出现 <summary> / <remarks> 以外的 XML 标签即为违规
           （<see cref> 必须降级成纯文本类型名）；<summary>/<remarks> 允许跨行，
           但必须在同一个连续注释块内配平。
@@ -16,9 +17,18 @@
 
 覆盖面：Assets/Scripts/** 与 Assets/Tests/**（测试也是手写代码，同样会单调膨胀）。
 
+容差缓冲（为什么不是零容差）：-Mode seal 登记的是封印当时的实测值，逐文件额度天然零余量，
+  于是"上游分支多写一行注释"这种与本次改动无关的噪声，也会让合并方当场变红——
+  实测两例：UIMgr.cs 合并溢出 39 字符、GamePlayPanel.cs 溢出 21 字符，都靠手工删注释 / 定点上调预算收场。
+  所以给每个文件留一条**有界**缓冲：容差 = 预算 0 → 0（封印语义是"此处不许有注释"），
+  否则 clamp(预算 ÷ 2, 20, 50)。下限 20 是因为口径把 "// " 后那个空格也计 1 个字符——
+  一行 15 字符的注释实际记 16，留 20 才兜得住"一行短注释"。
+  硬线仍在"上限 + 容差"，且天花板 50 远小于一次严重膨胀的量级。
+
 口径（与预算表同源，别另立一套）：
-  逐行取注释正文，剔除 `//`、`///`、`/* */` 标记；行首行尾空白不计、换行符不计；
-  其余（文字/标点/空格/XML 标签）全部计入。// 与 /* */ 均按 C# 词法处理，
+  逐行取注释正文，剔除 `//`、`///`、`/*`、`*/` 标记本身与换行符；**标记之后的空格、
+  行尾空格、块注释续行的缩进都计入**（`// 文本` 比 `//文本` 多算 1 个字符，实测口径）；
+  其余（文字/标点/XML 标签）自然全部计入。// 与 /* */ 均按 C# 词法处理，
   字符串字面量与字符字面量里的 `//` 不会被误判成注释。
 
 用法：
@@ -48,13 +58,26 @@ $ErrorActionPreference = 'Stop'
 $scriptDir = $PSScriptRoot
 if (-not $Root) { $Root = Split-Path -Parent $scriptDir }
 $budgetPath = Join-Path $scriptDir 'comment-budget.json'
-$excludeRe = '\\Generated\\'
+$excludeRe = '[\\/]Generated[\\/]'
 
 # ======================================================================
-# 0 · 新文件密度上限（未登记进预算表的文件按此判定）
+# 0 · 判定常数
 # ======================================================================
 
+# 未登记进预算表的文件按此密度上限判定
 $densityCap = 5.37
+
+# 容差缓冲：上限 < 实测 <= 上限+容差 → WARN（exit 0）；超出容差才 exit 1。
+# 取值理由见文件头的「容差缓冲」段；预算 0 的文件不享受容差。
+$tolCap = 50
+$tolFloor = 20
+
+function Get-Tolerance {
+    param([int]$Budget)
+
+    if ($Budget -le 0) { return 0 }
+    return [math]::Min($tolCap, [math]::Max($tolFloor, [int][math]::Floor($Budget / 2)))
+}
 
 # ======================================================================
 # 1 · C# 词法扫描：把源码切成「代码行」与「注释正文」
@@ -227,20 +250,23 @@ function Get-TargetFiles {
             if ($r -notmatch '\.cs$') { continue }
             if ($r -notmatch '^Assets/(Scripts|Tests)/') { continue }
             if ($r -match 'Generated/') { continue }
-            $p = Join-Path $Root ($r -replace '/', '\')
+            $p = Join-Path $Root $r
             if (Test-Path -LiteralPath $p) { [void]$out.Add((Get-Item -LiteralPath $p)) }
         }
         return @($out | Sort-Object FullName -Unique)
     }
 
-    return @(Get-ChildItem -Path (Join-Path $Root 'Assets\Scripts'), (Join-Path $Root 'Assets\Tests') `
+    $assets = Join-Path $Root 'Assets'
+    return @(Get-ChildItem -Path (Join-Path $assets 'Scripts'), (Join-Path $assets 'Tests') `
                 -Recurse -Filter *.cs -File |
             Where-Object { $_.FullName -notmatch $excludeRe } | Sort-Object FullName)
 }
 
 function Get-RelPath {
     param([string]$FullName)
-    return ($FullName.Replace("$Root\", '') -replace '\\', '/')
+
+    # 用 .NET 而非字符串替换：$Root 是否带尾分隔符、分隔符是 / 还是 \ 都能算对
+    return ([System.IO.Path]::GetRelativePath($Root, $FullName) -replace '\\', '/')
 }
 
 # ======================================================================
@@ -308,7 +334,9 @@ foreach ($f in $files) {
             CodeLn  = @($s.Code | Where-Object { $_ -ne '' }).Count
             Density = 0.0
             Budget  = 0
+            Tol     = 0
             Over    = 0
+            State   = 'OK'
             BadTags = @()
         })
 }
@@ -384,6 +412,7 @@ if (-not $budget) {
 }
 
 $violations = New-Object System.Collections.ArrayList
+$warnings = New-Object System.Collections.ArrayList
 foreach ($f in $files) {
     $rel = Get-RelPath $f.FullName
     $s = Scan-Cs -Text ([System.IO.File]::ReadAllText($f.FullName))
@@ -393,12 +422,19 @@ foreach ($f in $files) {
     $row.BadTags = $bad
 
     if ($budget.Map.ContainsKey($rel)) { $row.Budget = $budget.Map[$rel] }
-    else { $row.Budget = [math]::Floor($densityCap * $row.CodeLn) }
+    else { $row.Budget = [int][math]::Floor($densityCap * $row.CodeLn) }
 
     $row.Over = $row.C - $row.Budget
-    if ($row.Over -gt 0) {
+    $row.Tol = Get-Tolerance -Budget $row.Budget
+    if ($row.Over -gt $row.Tol) {
+        $row.State = 'FAIL'
         # 注意：-f 的逗号参数表在**方法实参**里会被当成参数分隔符，必须再套一层括号。
-        [void]$violations.Add(("[预算] {0}`n        注释 {1} 字符 > 上限 {2}（超 {3}）" -f $rel, $row.C, $row.Budget, $row.Over))
+        [void]$violations.Add(("[预算] {0}`n        注释 {1} 字符 > 上限 {2} + 容差 {3}（超 {4}）" -f $rel, $row.C, $row.Budget, $row.Tol, $row.Over))
+    }
+    elseif ($row.Over -gt 0) {
+        $row.State = 'WARN'
+        # 容差区只告警不阻断：合并带进来的上游注释常常落在这里
+        [void]$warnings.Add(("[预算·容差区] {0}`n        注释 {1} 字符 = 上限 {2} + {3}（容差 {4}，未阻断）" -f $rel, $row.C, $row.Budget, $row.Over, $row.Tol))
     }
     if ($bad.Count -gt 0) {
         [void]$violations.Add(("[标签] {0}`n        违规标签: {1}" -f $rel, ($bad -join ', ')))
@@ -410,17 +446,21 @@ foreach ($f in $files) {
 }
 
 # 预算表里的孤儿条目（文件被删/改名）
-$orphans = @($budget.Map.Keys | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root ($_ -replace '/', '\'))) })
+$orphans = @($budget.Map.Keys | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
 
 if ($Mode -eq 'report') {
-    $rows | Sort-Object Over -Descending | Select-Object -First $Top File, C, Budget, Over, Density, CodeLn |
-        Format-Table -AutoSize | Out-String -Width 200 | Write-Host
+    $rows | Sort-Object Over -Descending | Select-Object -First $Top File, C, Budget, Tol, Over, State, Density, CodeLn |
+        Format-Table -AutoSize | Out-String -Width 240 | Write-Host
     $totC = ($rows | Measure-Object C -Sum).Sum
     $totL = ($rows | Measure-Object CodeLn -Sum).Sum
     $totB = ($rows | Measure-Object Budget -Sum).Sum
     Write-Host ("合计：注释 {0} 字符 / 代码 {1} 行 = 密度 {2}（新文件上限 {3}）" -f `
             $totC, $totL, [math]::Round($totC / $totL, 3), $densityCap)
-    Write-Host ("预算合计 {0}；超上限文件 {1} 个" -f $totB, @($rows | Where-Object { $_.Over -gt 0 }).Count)
+    Write-Host ("预算合计 {0}；硬超标 {1} 个 / 容差区 {2} 个 / 合规 {3} 个" -f `
+            $totB, @($rows | Where-Object { $_.State -eq 'FAIL' }).Count, `
+            @($rows | Where-Object { $_.State -eq 'WARN' }).Count, `
+            @($rows | Where-Object { $_.State -eq 'OK' }).Count)
+    Write-Host ("容差：上限 < 实测 <= 上限+容差 记 WARN 不阻断（预算 0 → 0，否则 clamp(预算/2, {0}, {1})）" -f $tolFloor, $tolCap)
     if ($orphans.Count) { Write-Host ("预算表孤儿条目 {0} 个（文件已不存在，建议重跑 -Mode seal）" -f $orphans.Count) -ForegroundColor Yellow }
     exit 0
 }
@@ -428,13 +468,20 @@ if ($Mode -eq 'report') {
 # ---------- check ----------
 $totC = ($rows | Measure-Object C -Sum).Sum
 $totL = ($rows | Measure-Object CodeLn -Sum).Sum
-Write-Host ("注释 {0} 字符 / 代码 {1} 行 = 密度 {2}；文件 {3} 个；超上限 {4} 个" -f `
-        $totC, $totL, [math]::Round($totC / $totL, 3), $rows.Count, @($rows | Where-Object { $_.Over -gt 0 }).Count)
+Write-Host ("注释 {0} 字符 / 代码 {1} 行 = 密度 {2}；文件 {3} 个；硬超标 {4} 个；容差区 {5} 个（WARN，不阻断）" -f `
+        $totC, $totL, [math]::Round($totC / $totL, 3), $rows.Count, `
+        @($rows | Where-Object { $_.State -eq 'FAIL' }).Count, @($rows | Where-Object { $_.State -eq 'WARN' }).Count)
 
 if ($orphans.Count) {
     Write-Host ("`n预算表孤儿条目 {0} 个（文件已不存在）：" -f $orphans.Count) -ForegroundColor Yellow
     $orphans | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
     Write-Host '  这不是失败，但预算表该重跑 -Mode seal 了。' -ForegroundColor Yellow
+}
+
+if ($warnings.Count -gt 0) {
+    Write-Host ("`n容差区告警 {0} 条（不阻断；建议下次集中清理时压回）：" -f $warnings.Count) -ForegroundColor Yellow
+    $warnings | Select-Object -First 20 | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+    if ($warnings.Count -gt 20) { Write-Host ("  … 其余 {0} 条见 -Mode report" -f ($warnings.Count - 20)) -ForegroundColor Yellow }
 }
 
 if ($violations.Count -gt 0) {
@@ -444,5 +491,5 @@ if ($violations.Count -gt 0) {
     exit 1
 }
 
-Write-Host 'LINT OK：全部文件在预算内，且注释里没有白名单之外的 XML 标签。' -ForegroundColor Green
+Write-Host 'LINT OK：没有硬超标，且注释里没有白名单之外的 XML 标签。' -ForegroundColor Green
 exit 0
