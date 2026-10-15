@@ -27,6 +27,54 @@ namespace DeepseaOil.Logic.Events
     // 请求 HUD 重新播报一次当前值：面板异步加载晚一帧，而事实事件只在变化时发布
     public readonly struct RequestHudRefresh { }
 
+
+    public enum SavePanelMode
+    {
+        Save,
+        Load,
+    }
+
+    public readonly struct RequestSave
+    {
+        public readonly int SlotIndex;
+        public readonly GameData Data;
+
+        public RequestSave(int slotIndex, GameData data)
+        {
+            SlotIndex = slotIndex;
+            Data = data;
+        }
+    }
+
+    public readonly struct RequestLoad
+    {
+        public readonly int SlotIndex;
+
+        public RequestLoad(int slotIndex)
+        {
+            SlotIndex = slotIndex;
+        }
+    }
+
+    public readonly struct RequestDeleteSave
+    {
+        public readonly int SlotIndex;
+
+        public RequestDeleteSave(int slotIndex)
+        {
+            SlotIndex = slotIndex;
+        }
+    }
+
+    public readonly struct RequestOpenSavePanel
+    {
+        public readonly SavePanelMode Mode;
+
+        public RequestOpenSavePanel(SavePanelMode mode)
+        {
+            Mode = mode;
+        }
+    }
     #endregion
 
     #region 事实
@@ -239,6 +287,57 @@ namespace DeepseaOil.Logic.Events
         {
             curId = currentLevelId;
             nextId = nextLevelId;
+        }
+    }
+
+
+    public readonly struct SaveChanged
+    {
+        public readonly int SlotIndex;
+        public readonly string SavedAtUtc;
+        public readonly int CurrentLevelId;
+
+        public SaveChanged(int slotIndex, string savedAtUtc, int currentLevelId)
+        {
+            SlotIndex = slotIndex;
+            SavedAtUtc = savedAtUtc;
+            CurrentLevelId = currentLevelId;
+        }
+    }
+
+    public readonly struct SaveSlotsRefreshed
+    {
+        public readonly SaveSlotInfo[] Slots;
+
+        public SaveSlotsRefreshed(SaveSlotInfo[] slots)
+        {
+            Slots = slots;
+        }
+    }
+
+    public readonly struct SaveLoaded
+    {
+        public readonly int SlotIndex;
+        public readonly GameData Data;
+
+        public SaveLoaded(int slotIndex, GameData data)
+        {
+            SlotIndex = slotIndex;
+            Data = data;
+        }
+    }
+
+    public readonly struct SaveResult
+    {
+        public readonly int SlotIndex;
+        public readonly bool Success;
+        public readonly string Error;
+
+        public SaveResult(int slotIndex, bool success, string error)
+        {
+            SlotIndex = slotIndex;
+            Success = success;
+            Error = error;
         }
     }
     #endregion

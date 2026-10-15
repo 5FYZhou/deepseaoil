@@ -69,11 +69,10 @@ namespace DeepseaOil.Presentation.UI
                     EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, false));
                     break;
                 case "BtnSave":
-
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Save));
                     break;
                 case "BtnLoad":
-
-                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Load));
                     break;
             }
         }

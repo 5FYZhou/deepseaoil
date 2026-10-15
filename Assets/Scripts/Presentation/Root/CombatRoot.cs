@@ -92,6 +92,8 @@ namespace DeepseaOil.Presentation
 
         public GridLogic Grid => _grid;
 
+        public int CurrentLevelId => IsReady && _levelLogic != null ? _levelLogic.CurrentLevel.Id : 0;
+
         private void Start()
         {
             _root = GameRoot.Instance;

@@ -52,8 +52,8 @@ namespace DeepseaOil.Presentation.UI
                     });
 
                     break;
-                case "BtnContinue":
-                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
+                case "BtnLoad":
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Load));
                     break;
                 case "BtnSetting":
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>();

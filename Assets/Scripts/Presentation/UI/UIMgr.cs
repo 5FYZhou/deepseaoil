@@ -233,9 +233,10 @@ namespace DeepseaOil.Presentation.UI
 
         public void EnterGameplayUi()
         {
+            HidePanel<BeginPanel>();
             if (!IsPanelOpen<HudPanel>()) ShowPanel<HudPanel>();
             if (!IsPanelOpen<GamePlayPanel>()) ShowPanel<GamePlayPanel>();
-            if (!IsPanelOpen<SettingPanel>()) ShowPanel<SettingPanel>();
+            if (!IsPanelOpen<SettlePanel>()) ShowPanel<SettlePanel>();
         }
 
         public void ExitGameplayUi()

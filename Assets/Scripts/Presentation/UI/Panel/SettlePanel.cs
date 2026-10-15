@@ -74,7 +74,6 @@ namespace DeepseaOil.Presentation.UI
             SetResult(evt.curId);
             _root.SetActive(true);
             StartFadeIn();
-            GameRoot.Instance.Game.ChangeState(GameState.Paused);
         }
 
         private void SetResult(int currentLevelId)
@@ -122,6 +121,13 @@ namespace DeepseaOil.Presentation.UI
             _canvasGroup.interactable = true;
             _canvasGroup.blocksRaycasts = true;
             _fadeInRoutine = null;
+            OnFadeInEnd();
+        }
+
+        private void OnFadeInEnd()
+        {
+            // 完全淡入后切到暂停状态 挡住暂停面板
+            GameRoot.Instance.Game.ChangeState(GameState.Paused);
         }
 
         private void HideResult()
