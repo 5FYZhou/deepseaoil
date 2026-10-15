@@ -373,50 +373,80 @@ namespace DeepseaOil.Data
             }
         }
 
-        public static int PathMaxSteps
+        /// <summary>净空皮厚（世界单位）：净空 &gt; 体半径 + 皮厚才可通行</summary>
+        public static float NavSkin
         {
             get
             {
                 EnsureAssets();
 
-                return _enemyTuning.pathMaxSteps;
+                return _enemyTuning.navSkin;
             }
         }
 
-        public static int PathRecalcFrames
+        /// <summary>净空烘焙解析上限：查询盒半边长与净空饱和值都是它，必须大于最大体半径</summary>
+        public static float NavClearanceCap
         {
             get
             {
                 EnsureAssets();
 
-                return _enemyTuning.pathRecalcFrames;
+                return _enemyTuning.navClearanceCap;
             }
         }
 
-        /// <summary>场景碰撞体烘焙余量：取全部怪种的最大值，一套烘焙要服务所有怪</summary>
-        public static float SceneObstacleMargin
+        /// <summary>入弯最低速度倍率：路线方向与当前速度对齐度为 0 时的目标速度倍率</summary>
+        public static float CornerSpeedFactor
         {
             get
             {
                 EnsureAssets();
 
-                IReadOnlyList<EnemyTuningEntry> entries = _enemyTuning.entries;
+                return _enemyTuning.cornerSpeedFactor;
+            }
+        }
 
-                if (entries == null || entries.Count == 0)
-                {
-                    return _enemyTuning.defaultEntry != null ? _enemyTuning.defaultEntry.sceneObstacleMargin : 0f;
-                }
+        /// <summary>软分离生效距离（世界单位）</summary>
+        public static float SeparationRadius
+        {
+            get
+            {
+                EnsureAssets();
 
-                float max = 0f;
+                return _enemyTuning.separationRadius;
+            }
+        }
 
-                for (int i = 0; i < entries.Count; i++)
-                {
-                    if (entries[i] == null) continue;
+        /// <summary>软分离权重：与流场方向相加后归一，越大越容易挤开流场方向</summary>
+        public static float SeparationWeight
+        {
+            get
+            {
+                EnsureAssets();
 
-                    if (entries[i].sceneObstacleMargin > max) max = entries[i].sceneObstacleMargin;
-                }
+                return _enemyTuning.separationWeight;
+            }
+        }
 
-                return max;
+        /// <summary>卡死判定帧数：速度被压到零满这么多物理帧才算卡死</summary>
+        public static int StuckFrames
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.stuckFrames;
+            }
+        }
+
+        /// <summary>卡死换步持续帧数：这段时间走次优邻格，绕开卡住的那条边</summary>
+        public static int JamFrames
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.jamFrames;
             }
         }
 

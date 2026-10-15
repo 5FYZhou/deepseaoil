@@ -220,7 +220,7 @@ GameObject:
   - component: {fileID: 1512719368502853732}
   - component: {fileID: 6997008930223060870}
   - component: {fileID: 5714008255813001455}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Enemy_2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -333,7 +333,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   deathEffect: 6
   enemyId: 2
-  aiType: 1
+  aiType: 0
   respawnDelay: 0
 --- !u!114 &5714008255813001455
 MonoBehaviour:

@@ -35,9 +35,6 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("已退役：仇恨系统已下线，改这个字段不会有反应；仅为旧资产序列化保留")]
         public float loseDelay = 0f;
 
-        [Tooltip("场景碰撞体烘焙余量：实际取全部怪种的最大值，照碰撞体半径填即可；填小了身体仍会蹭墙")]
-        public float sceneObstacleMargin = 0.5f;
-
         [Tooltip("受击形变：一怪一套，改这里即改观感，不用碰代码")]
         public SquashTuning squash = new SquashTuning();
     }

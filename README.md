@@ -39,7 +39,7 @@ Assets/Scripts/
 - 打开 `Assets/Scenes/Range.unity`（**主场景**：`SceneName.Game` 指向它，Build Settings 里也只有 `Begin` / `Range` 两份）进 Play；主菜单入口是 `Assets/Scenes/Begin.unity`，四份关卡件在 `Assets/Scenes/Levels/`（`Level_1` / `Level_2` / `Level_Template` / `Level_1 - 副本`，均不在 Build Settings 内），`Empty.unity` 是空白件，三个切片沙盒在 `Assets/Scenes/Sandboxes/`（`Slice_CombatSandbox` / `Slice_GridReaction` / `Slice_PlayerFeel`）。
 - **`Begin.unity` 的 `SceneFlowConfig.entryState = Menu`**：`BeginSceneInitializer` 打开 `BeginPanel`，`PauseService` 把非 `Running` 的状态一律当暂停（`timeScale = 0`，一切冻结）；点 `BtnStart` 经 `CGPanel` 发 `RequestLoadScene(SceneName.Game)` 才载入 `Range` 进 `Running`。直接开 `Range.unity` 则 `entryState = Running`，进 Play 就是 Running。
 - 导表：菜单 **Luban ▸ 表格数据导入**（`Ctrl/Cmd+Shift+D`）。
-- 测试：`Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All`（当前合计 87 条：`Assets/Tests/Runtime/Editor/` 79 条（77 个 `[Test]` ＋ 2 个 `[UnityTest]`）走 `DeepseaOil.Tests.EditMode` ＋ `Assets/Tests/Tools/` 8 条走 `DeepseaOil.EditorTools.Tests`）。
+- 测试：`Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All`（当前合计 105 条：`Assets/Tests/Runtime/Editor/` 97 条（95 个 `[Test]` ＋ 2 个 `[UnityTest]`）走 `DeepseaOil.Tests.EditMode` ＋ `Assets/Tests/Tools/` 8 条走 `DeepseaOil.EditorTools.Tests`）。
   重数：`(Get-ChildItem -Recurse Assets/Tests -Filter *.cs | Select-String '^\s*\[(Test|UnityTest)').Count`。
 - 只想验投掷链路：`CombatRoot` 的 Inspector 上把 **`enableWaves`（"是否刷敌人"）** 取消勾选即可（此时不会有敌人，但格子、球、掉落物、喷泉照常跑）。
 - 编译门（不打开 Unity 也能查编译）：`pwsh Tools/compile-gate.ps1`。

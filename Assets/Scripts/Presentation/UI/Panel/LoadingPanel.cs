@@ -41,24 +41,20 @@ namespace DeepseaOil.Presentation.UI
 
         public void Show(RequestLoadScene evt)
         {
-            Debug.Log("LoadingShow");
             mask.gameObject.SetActive(true);
         }
 
         public void Hide(SceneLoaded evt)
         {
-            Debug.Log("LoadingHide");
             mask.gameObject.SetActive(false);
         }
 
         public void Hide(RequestActiveScene evt)
         {
-            Debug.Log("LoadingHideActive");
             mask.gameObject.SetActive(false);
         }
         public void Hide(SceneActivated evt)
         {
-            Debug.Log("LoadingSceneActivated");
             mask.gameObject.SetActive(false);
         }
     }

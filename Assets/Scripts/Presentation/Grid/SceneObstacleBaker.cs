@@ -1,73 +1,80 @@
-using System.Collections.Generic;
-using System.Text;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Grid
 {
-    /// <summary>把场景预制体的碰撞体一次性烘焙成逻辑层阻挡格；不烘焙则敌人只认格子障碍</summary>
-    /// <remarks>按身体半径查询格心周围：半径内的碰撞体占用该格，否则敌人站在格心也会蹭墙。热路径不查询物理。</remarks>
+    /// <summary>把场景预制体的碰撞体烘成逻辑层净空图：每格固定采样点到碰撞体的最近距离</summary>
+    /// <remarks>烘"距离"而不是"能不能过"：判据含体半径，留在逻辑层比，一张图服务所有怪种。热路径不查询物理。</remarks>
     public static class SceneObstacleBaker
     {
-        /// <summary>单格查询上限：超出会漏判，宁可报错也不要静默漏</summary>
-        private const int HitCapacity = 16;
+        /// <summary>单点查询上限：超出会高估净空（站不住的点判成可走），宁可报错也不要静默漏</summary>
+        private const int HitCapacity = 32;
 
         private static readonly Collider2D[] Hits = new Collider2D[HitCapacity];
 
-        /// <summary>格 → 判它占用的碰撞体，仅供日志归因</summary>
-        private static readonly Dictionary<Vector3Int, Collider2D> Sources = new();
-
-        /// <summary>命中却因"是角色"被排除的碰撞体，仅供日志归因</summary>
-        private static readonly List<Collider2D> Rejected = new();
-
-        /// <summary>烘焙已登记格的阻挡；margin=角色碰撞半径。返回新标记的格数，重复调用先清空旧结果</summary>
-        public static int Bake(GridLogic grid, float margin)
+        /// <summary>烘焙净空图；clearanceCap 是解析上限（世界单位），更远一律饱和到它</summary>
+        /// <remarks>净空 = min(到静态碰撞体的距离, 到阻挡地貌格的距离)：阻挡地貌的碰撞体按口径不进障碍集，不按格再补一次距离，怪就会贴着它站。未登记格的采样点留 0；合法格为空或几何非法时返回 null（拿 null 就是"没烘焙"）。</remarks>
+        public static NavMap Bake(GridLogic grid, float clearanceCap)
         {
-            if (grid == null || !grid.Geometry.IsValid) return 0;
+            if (grid == null || !grid.Geometry.IsValid) return null;
 
-            grid.ClearSolidCells();
+            float cap = clearanceCap > 0f && !float.IsNaN(clearanceCap) ? clearanceCap : 1f;
 
-            Sources.Clear();
-            Rejected.Clear();
+            if (!TryBounds(grid, out Vector2Int min, out Vector2Int size)) return null;
 
             GridGeometry geometry = grid.Geometry;
-            int marked = 0;
+            var map = new NavMap(min, size, in geometry);
+            var blocked = new byte[map.CellCount];
+            float half = geometry.CellSize * 0.5f;
+            int ring = Mathf.CeilToInt(cap / geometry.CellSize);
 
-            foreach (Vector3Int cell in grid.Cells)
+            for (int i = 0; i < map.CellCount; i++)
             {
-                if (!IsCellSolid(geometry, cell, margin, out Collider2D source)) continue;
+                Vector3Int cell = map.CellOf(i);
 
-                grid.MarkSolidCell(cell);
-                Sources[cell] = source;
-                marked++;
+                // 登记表是"这里有没有地板"的唯一真源；阻挡地貌另算一档，两者都不留净空
+                blocked[i] = !grid.HasCell(cell) || grid.IsObstacle(cell) ? (byte)1 : (byte)0;
             }
 
-            LogBake(grid, marked, margin);
+            for (int i = 0; i < map.CellCount; i++)
+            {
+                if (blocked[i] != 0) continue;
 
-            return marked;
+                Vector3Int cell = map.CellOf(i);
+
+                for (int j = 0; j < NavMap.Subdivision; j++)
+                {
+                    for (int k = 0; k < NavMap.Subdivision; k++)
+                    {
+                        int sampleIndex = map.SampleIndexOf(i, k, j);
+                        Vector2 point = map.SampleCenter(sampleIndex);
+                        float clearance = SampleClearance(point, cap);
+                        float terrain = TerrainClearance(map, blocked, cell, point, half, ring, cap);
+
+                        map.SetSampleClearance(sampleIndex, Mathf.Min(clearance, terrain));
+                    }
+                }
+            }
+
+            return map;
         }
 
-        /// <remarks>查询盒 = 格宽 + 2×半径，命中后按最近点距离复判：包围盒相交不算，仅接触也不算</remarks>
-        private static bool IsCellSolid(
-            in GridGeometry geometry,
-            Vector3Int cell,
-            float margin,
-            out Collider2D source)
+        /// <summary>取点到最近阻挡碰撞体的距离，超过 cap 饱和到 cap</summary>
+        /// <remarks>查询盒半边长恰为 cap：最近点落在 cap 内的碰撞体必与该盒相交，漏不掉；漏判的方向是"高估净空"，故命中数触顶仍要报错。
+        /// 实测最近点比几何距离近约 0.01（Physics2D 默认接触偏移），净空因此偏保守：一格宽缺口量出来是 0.5 而不是 0.5+，皮厚预算要留出这 0.01。</remarks>
+        private static float SampleClearance(Vector2 point, float cap)
         {
-            source = null;
-
-            Vector2 center = geometry.CellCenter(cell);
-            float extent = geometry.CellSize * 0.5f + Mathf.Max(0f, margin);
-
-            int count = Physics2D.OverlapBoxNonAlloc(center, new Vector2(extent * 2f, extent * 2f), 0f, Hits);
+            int count = Physics2D.OverlapBoxNonAlloc(point, new Vector2(cap * 2f, cap * 2f), 0f, Hits);
 
             if (count >= HitCapacity)
             {
                 Debug.LogError(
-                    $"[ObstacleBake] 格 {cell} 的碰撞体查询命中 {count} 个，已达上限 {HitCapacity}：" +
-                    "结果可能漏判。排查该处是否叠了过多碰撞体。");
+                    $"[ObstacleBake] 点 ({point.x:F2}, {point.y:F2}) 的碰撞体查询命中 {count} 个，已达上限 {HitCapacity}：" +
+                    "净空可能被高估（站不住的点会被判成可走）。排查该处是否叠了过多碰撞体。");
             }
+
+            float nearest = cap;
 
             for (int i = 0; i < count; i++)
             {
@@ -75,21 +82,65 @@ namespace DeepseaOil.Presentation.Grid
 
                 if (hit == null) continue;
 
-                if (!IsBlocking(hit))
-                {
-                    if (!Rejected.Contains(hit)) Rejected.Add(hit);
+                if (!IsBlocking(hit)) continue;
 
-                    continue;
-                }
+                float distance = Vector2.Distance(point, hit.ClosestPoint(point));
 
-                if (Vector2.Distance(center, hit.ClosestPoint(center)) > margin) continue;
-
-                source = hit;
-
-                return true;
+                if (distance < nearest) nearest = distance;
             }
 
-            return false;
+            return nearest;
+        }
+
+        /// <summary>取点到最近"阻挡地貌格"的距离；圈内没有阻挡地貌时饱和到 cap</summary>
+        /// <remarks>圈数由解析上限推：cap 之外的点都饱和成 cap，多搜没有意义。地貌格按整格矩形算距离。</remarks>
+        private static float TerrainClearance(NavMap map, byte[] blocked, Vector3Int cell, Vector2 point, float half, int ring, float cap)
+        {
+            float nearest = cap;
+
+            for (int dy = -ring; dy <= ring; dy++)
+            {
+                for (int dx = -ring; dx <= ring; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+
+                    var probe = new Vector3Int(cell.x + dx, cell.y + dy, 0);
+
+                    if (!map.TryIndex(probe, out int index) || blocked[index] == 0) continue;
+
+                    float ox = Mathf.Max(Mathf.Abs(point.x - map.CellCenter(probe).x) - half, 0f);
+                    float oy = Mathf.Max(Mathf.Abs(point.y - map.CellCenter(probe).y) - half, 0f);
+                    float distance = Mathf.Sqrt(ox * ox + oy * oy);
+
+                    if (distance < nearest) nearest = distance;
+                }
+            }
+
+            return nearest;
+        }
+
+        private static bool TryBounds(GridLogic grid, out Vector2Int min, out Vector2Int size)
+        {
+            int minX = int.MaxValue;
+            int minY = int.MaxValue;
+            int maxX = int.MinValue;
+            int maxY = int.MinValue;
+            bool any = false;
+
+            foreach (Vector3Int cell in grid.Cells)
+            {
+                any = true;
+
+                if (cell.x < minX) minX = cell.x;
+                if (cell.y < minY) minY = cell.y;
+                if (cell.x > maxX) maxX = cell.x;
+                if (cell.y > maxY) maxY = cell.y;
+            }
+
+            min = any ? new Vector2Int(minX, minY) : Vector2Int.zero;
+            size = any ? new Vector2Int(maxX - minX + 1, maxY - minY + 1) : Vector2Int.zero;
+
+            return any;
         }
 
         /// <remarks>会动的角色一律不算障碍：IManagedActor 认标记，IActorMotor 兜住标记与碰撞体不同级的预制体</remarks>
@@ -107,46 +158,6 @@ namespace DeepseaOil.Presentation.Grid
             Rigidbody2D body = collider.attachedRigidbody;
 
             return body == null || body.isKinematic;
-        }
-
-        /// <remarks>常态只报总数与排除口径：43 格逐格带名字会淹掉 Console。逐格归因加 LOG_BAKE_DETAIL 编译符号</remarks>
-        private static void LogBake(GridLogic grid, int marked, float margin)
-        {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            var report = new StringBuilder();
-
-            report.Append("[ObstacleBake] 半径 ").Append(margin.ToString("F2"))
-                .Append(" 占用 ").Append(marked).Append(" / ").Append(grid.CellCount).Append(" 格");
-
-            report.Append("；已排除 ").Append(Rejected.Count).Append(" 个非障碍碰撞体");
-
-#if LOG_BAKE_DETAIL
-            report.Append("：");
-
-            foreach (Vector3Int cell in grid.Cells)
-            {
-                if (!grid.IsSolidCell(cell)) continue;
-
-                report.Append('(').Append(cell.x).Append(',').Append(cell.y).Append(")<-")
-                    .Append(Sources.TryGetValue(cell, out Collider2D src) && src != null ? src.gameObject.name : "?")
-                    .Append(' ');
-            }
-
-            if (Rejected.Count > 0)
-            {
-                report.Append("| 已排除角色碰撞体：");
-
-                for (int i = 0; i < Rejected.Count; i++)
-                {
-                    if (i > 0) report.Append(',');
-
-                    report.Append(Rejected[i].gameObject.name);
-                }
-            }
-#endif
-
-            Debug.Log(report.ToString());
-#endif
         }
     }
 }

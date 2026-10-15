@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
 using DeepseaOil.Foundation;
@@ -32,6 +32,9 @@ namespace DeepseaOil.Presentation
     {
         /// 世界侧排在玩家侧之后
         public int Order => SceneOrder.World;
+
+        /// <summary>怪所在的 Unity 层号：与预制体根节点层、ProjectSettings 里的层名三处必须一致</summary>
+        private const int EnemyLayer = 8;
 
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
@@ -168,6 +171,12 @@ namespace DeepseaOil.Presentation
 
             // ① 落地冲量：必须在物理帧施加，渲染帧施加会漂
             _impulses.FixedTick();
+
+            // 导航流场先追玩家本帧所在格：必须早于敌人循环，否则怪读的是上一帧的场
+            if (player != null && _grid != null)
+            {
+                _grid.RefreshNavFields(_grid.WorldToCell(player.Position), ConfigModule.NavSkin);
+            }
 
             // ② 全场敌人先按本帧位置追一步，再让格子按新位置结算（顺序不能反）
             for (int i = _enemies.Count - 1; i >= 0; i--)
@@ -477,6 +486,10 @@ namespace DeepseaOil.Presentation
 
             _registry = new EnemyCellRegistry();
 
+            // 关掉怪与怪的物理推挤：一格宽的缺口塞不下两只，互相顶住会让速度归零、整群卡成一团。
+            // 与层级设置是同一件事的两个入口（Physics 2D ▸ Layer Collision Matrix），这里写死一份免得换机器漏配。
+            Physics2D.IgnoreLayerCollision(EnemyLayer, EnemyLayer, true);
+
             GridGeometry geometry = gridView.ReadGeometry();
 
             _grid = new GridLogic(
@@ -500,8 +513,8 @@ namespace DeepseaOil.Presentation
                 initialStates = _grid.LoadInitialStates(ConfigModule.GetTileInitials());
             }
 
-            // 必须早于任何敌人生成：否则首帧绕障仍会直扑场景障碍
-            SceneObstacleBaker.Bake(_grid, ConfigModule.SceneObstacleMargin);
+            // 必须早于任何敌人生成：否则首帧绕障拿不到净空图，只能直扑场景障碍
+            _grid.SetNavMap(SceneObstacleBaker.Bake(_grid, ConfigModule.NavClearanceCap));
 
             _highlight = CreateHighlightView(geometry);
             _highlight.Attach();

@@ -20,9 +20,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private float _appliedX;
         private float _appliedY;
 
-        /// <summary>只报一次受理日志：整条链路没有编译期兜底，它是「有没有真的震」的唯一现场证据</summary>
-        private bool _shownOnce;
-
         private void Awake()
         {
             _instance = this;
@@ -53,12 +50,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _amplitude = Mathf.Max(_amplitude, amplitude);
             _duration = Mathf.Max(_duration, duration);
             _remaining = _duration;
-
-            if (_shownOnce) return;
-
-            _shownOnce = true;
-
-            Debug.Log($"[Shake] 首次受理：幅度 {amplitude:F3}，时长 {duration:F2} 秒（相机 {name}）");
         }
 
         /// <summary>无相机系统时的施加点；有虚拟相机时机位已在回调里写过</summary>

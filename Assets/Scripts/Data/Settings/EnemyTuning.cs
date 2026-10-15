@@ -21,11 +21,26 @@ namespace DeepseaOil.Data.Settings
             loseDelay = 3f,
         };
 
-        [Tooltip("绕障 BFS 深度上限（格）；<=0 即不绕障，敌人退回直线撞墙")]
-        public int pathMaxSteps = 16;
+        [Tooltip("净空皮厚（世界单位）：净空 > 体半径 + 皮厚才可通行。调大更保守（更容易在窄口贴墙停）")]
+        public float navSkin = 0.05f;
 
-        [Tooltip("绕障方向重算间隔（物理帧）；实际间隔比它多 1 帧")]
-        public int pathRecalcFrames = 5;
+        [Tooltip("净空烘焙解析上限（世界单位）：查询盒半边长与净空饱和值都是它，必须大于最大体半径")]
+        public float navClearanceCap = 1.0f;
+
+        [Tooltip("入弯最低速度倍率：路线方向与当前速度对齐度为 0 时的目标速度倍率。0.4 把 90° 转弯半径收到约 0.4 格")]
+        public float cornerSpeedFactor = 0.4f;
+
+        [Tooltip("软分离生效距离（世界单位）：近了互相让开，避免叠在同一个位置")]
+        public float separationRadius = 0.6f;
+
+        [Tooltip("软分离权重：与流场方向相加后归一。0 = 不分离，过大 = 挤开流场方向绕远")]
+        public float separationWeight = 0.5f;
+
+        [Tooltip("卡死判定帧数：速度被压到零满这么多物理帧才算卡死")]
+        public int stuckFrames = 10;
+
+        [Tooltip("卡死换步持续帧数：这段时间走次优邻格")]
+        public int jamFrames = 12;
 
         // 条目填 0 的字段逐级回落（→defaultEntry→第一条）
         private Dictionary<int, EnemyTuningEntry> _merged;

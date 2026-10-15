@@ -25,11 +25,9 @@ namespace DeepseaOil.Logic
 
         public override void Tick(LogicContext ctx)
         {
-            EnemyIntent intent = _logic.Intent;
+            Steering steering = _logic.ResolveSteering();
 
-            var direction = _logic.ResolveObstacle(intent.Direction);
-
-            Host.MoveTowards(direction, intent.Speed);
+            Host.MoveTowards(steering.Direction, steering.Speed);
         }
 
         /// <summary>不动就让位</summary>
