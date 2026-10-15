@@ -23262,7 +23262,7 @@ MonoBehaviour:
   - {fileID: 644031765}
   - {fileID: 1995222771}
   - {fileID: 1572748583}
-  enableWaves: 0
+  enableLevel: 0
   spawnCamera: {fileID: 0}
 --- !u!4 &1871689014
 Transform:
