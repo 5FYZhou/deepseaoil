@@ -1,7 +1,9 @@
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Level;
 using cfg.dso;
 
 namespace DeepseaOil.Logic.Wave
@@ -17,7 +19,7 @@ namespace DeepseaOil.Logic.Wave
         Settle = 2,
     }
 
-        // 波次状态机：只算何时刷、刷哪个怪种、刷几只，不建物体也不认识相机
+    // 波次状态机：只算何时刷、刷哪个怪种、刷几只，不建物体也不认识相机
     public sealed class WaveLogic
     {
         public readonly struct SpawnRequest
@@ -38,8 +40,10 @@ namespace DeepseaOil.Logic.Wave
         }
 
         private const float MinSpawnInterval = 0.05f;
+        private const int MaxPhaseTransitionsPerTick = 3;
 
         private readonly IReadOnlyList<WaveSpec> _waves;
+        private readonly WavePlayMode _playMode;
 
         // 本波待刷序列：开战那刻按 count 展开
         private readonly List<WaveEnemySpec> _pending = new List<WaveEnemySpec>();
@@ -63,13 +67,31 @@ namespace DeepseaOil.Logic.Wave
 
         private float _spawnTimer;
 
+        private bool _isCompleted;
+
+        private bool _settleDelayStarted;
+
+        private bool _hasPublishedCountdown;
+
+        private int _publishedCountdownWaveIndex;
+
+        private WavePhase _publishedCountdownPhase;
+
+        private int _publishedCountdownSeconds;
+
         public int WaveIndex => _waveIndex;
 
         public int Remaining => _remaining;
 
+        public int WaveCount => _waves.Count;
+
+        public WavePlayMode PlayMode => _playMode;
+
         public WavePhase Phase => _phase;
 
         public float PhaseRemaining => _timer > 0f ? _timer : 0f;
+
+        public bool IsSequenceCompleted => _isCompleted;
 
         public bool IsSpawning => _phase == WavePhase.Battle && _pendingCursor < _pending.Count;
 
@@ -77,15 +99,21 @@ namespace DeepseaOil.Logic.Wave
 
         public string CurrentWaveName => Current != null ? Current.Name : string.Empty;
 
-        public int WaveCount => _waves?.Count ?? 0;
-
-        public WaveLogic(IReadOnlyList<WaveSpec> waves)
+        public WaveLogic(
+            IReadOnlyList<WaveSpec> waves,
+            WavePlayMode playMode = WavePlayMode.Sequential)
         {
+            if (waves == null) throw new ArgumentNullException(nameof(waves));
+            if (waves.Count == 0) throw new ArgumentException("At least one wave is required.", nameof(waves));
+            if (!Enum.IsDefined(typeof(WavePlayMode), playMode))
+                throw new ArgumentOutOfRangeException(nameof(playMode), playMode, "Unknown wave play mode.");
+
             _waves = waves;
+            _playMode = playMode;
         }
 
         private WaveSpec Current
-            => _waves == null || _waves.Count == 0 ? null : _waves[_cursor % _waves.Count];
+            => _waves[_playMode == WavePlayMode.Loop ? _cursor % _waves.Count : _cursor];
 
         public void Reset()
         {
@@ -96,6 +124,10 @@ namespace DeepseaOil.Logic.Wave
             _phase = WavePhase.Prep;
             _phaseEntered = false;
             _pendingSeed = SeedType.None;
+            _spawnTimer = 0f;
+            _isCompleted = false;
+            _settleDelayStarted = false;
+            _hasPublishedCountdown = false;
 
             _pending.Clear();
             _pendingCursor = 0;
@@ -120,9 +152,13 @@ namespace DeepseaOil.Logic.Wave
 
             output.Clear();
 
-            WaveSpec spec = Current;
+            if (_isCompleted)
+            {
+                PublishCountdownIfChanged();
+                return;
+            }
 
-            if (spec == null) return;
+            WaveSpec spec = Current;
 
             if (!_phaseEntered)
             {
@@ -132,19 +168,24 @@ namespace DeepseaOil.Logic.Wave
 
             _timer -= dt;
 
-            while (_timer <= 0f)
-            {
-                if (!AdvancePhase(spec, anyEnemyAlive)) return;
+            int transitions = 0;
 
-                _timer += DurationOf(_phase, spec, anyEnemyAlive);
+            while (_timer <= 0f && transitions < MaxPhaseTransitionsPerTick)
+            {
+                if (!AdvancePhase(anyEnemyAlive)) break;
+
+                transitions++;
+                _timer += DurationOf(_phase, Current, anyEnemyAlive);
             }
+
+            PublishCountdownIfChanged();
 
             if (_phase != WavePhase.Battle) return;
 
-            SpawnDue(spec, dt, output);
+            SpawnDue(Current, dt, output);
         }
 
-        private bool AdvancePhase(WaveSpec spec, bool anyEnemyAlive)
+        private bool AdvancePhase(bool anyEnemyAlive)
         {
             switch (_phase)
             {
@@ -153,14 +194,34 @@ namespace DeepseaOil.Logic.Wave
                     return true;
 
                 case WavePhase.Battle:
+                    if (_pendingCursor < _pending.Count) return false;
+
+                    _settleDelayStarted = !anyEnemyAlive;
                     EnterPhase(WavePhase.Settle);
                     return true;
 
                 default:
+                    if (anyEnemyAlive)
+                    {
+                        _settleDelayStarted = false;
+                        return false;
+                    }
 
-                    if (anyEnemyAlive) return false;
+                    if (!_settleDelayStarted)
+                    {
+                        _settleDelayStarted = true;
+                        _timer = DurationOf(WavePhase.Settle, Current, anyEnemyAlive);
+                        return false;
+                    }
 
-                    _cursor++;
+                    if (_playMode == WavePlayMode.Sequential && _cursor == _waves.Count - 1)
+                    {
+                        _isCompleted = true;
+                        _timer = 0f;
+                        return false;
+                    }
+
+                    _cursor = (_cursor + 1) % _waves.Count;
                     _waveIndex++;
 
                     EnterPhase(WavePhase.Prep);
@@ -175,8 +236,7 @@ namespace DeepseaOil.Logic.Wave
                 case WavePhase.Prep: return Sanitize(spec.PrepTime);
                 case WavePhase.Battle: return Sanitize(spec.BattleTime);
                 default:
-
-                    return anyEnemyAlive ? 0f : Sanitize(spec.SettleTime);
+                    return _settleDelayStarted ? Sanitize(spec.SettleTime) : 0f;
             }
         }
 
@@ -263,6 +323,31 @@ namespace DeepseaOil.Logic.Wave
                 _phase,
                 Current?.GrantSeed ?? SeedType.None,
                 PhaseRemaining));
+        }
+
+        private void PublishCountdownIfChanged(bool force = false)
+        {
+            int seconds = Mathf.CeilToInt(PhaseRemaining);
+            if (!force
+                && _hasPublishedCountdown
+                && _publishedCountdownWaveIndex == _waveIndex
+                && _publishedCountdownPhase == _phase
+                && _publishedCountdownSeconds == seconds)
+                return;
+
+            _hasPublishedCountdown = true;
+            _publishedCountdownWaveIndex = _waveIndex;
+            _publishedCountdownPhase = _phase;
+            _publishedCountdownSeconds = seconds;
+
+            EventBus<WaveCountdownChanged>.Publish(
+                new WaveCountdownChanged(_waveIndex, _phase, seconds));
+        }
+
+        public void Announce()
+        {
+            PublishPhase();
+            PublishCountdownIfChanged(true);
         }
     }
 }

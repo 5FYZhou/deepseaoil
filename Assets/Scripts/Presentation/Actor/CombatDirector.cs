@@ -1,8 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Level;
 using DeepseaOil.Logic.Wave;
 using UnityEngine;
 
@@ -16,7 +17,7 @@ namespace DeepseaOil.Presentation.Actor
         private const int MaxSpawnTries = 8;
 
         private CombatRoot _combatRoot;
-        private WaveLogic _logic;
+        private LevelLogic _levelLogic;
         private Transform _player;
         private Transform _actorRoot;
 
@@ -44,7 +45,7 @@ namespace DeepseaOil.Presentation.Actor
 
         public int AliveCount { get; private set; }
 
-        public WaveLogic Logic => _logic;
+        public WaveLogic Logic => _levelLogic?.Waves;
 
         public float FirstAliveEnemyDistance { get; private set; } = -1f;
 
@@ -53,16 +54,16 @@ namespace DeepseaOil.Presentation.Actor
         public void Initialize(
             CombatRoot combatRoot,
             PlayerController player,
-            IReadOnlyList<WaveSpec> waves,
+            LevelLogic levelLogic,
             System.Func<int, EnemySpec> specOf,
             Transform actorRoot,
             Camera camera,
             in BoundsArea bounds,
             System.Action<EnemySpec, Vector2> onKilled = null)
         {
-            if (combatRoot == null || player == null || player.Logic == null)
+            if (combatRoot == null || player == null || player.Logic == null || levelLogic == null)
             {
-                Debug.LogError("CombatDirector 没有战斗根或玩家引用（或玩家逻辑层没装配好），敌人不会生成，已停用。", this);
+                Debug.LogError("CombatDirector 缺少战斗根、玩家逻辑或关卡逻辑，敌人不会生成，已停用。", this);
                 enabled = false;
                 return;
             }
@@ -75,12 +76,12 @@ namespace DeepseaOil.Presentation.Actor
             }
 
             _combatRoot = combatRoot;
+            _levelLogic = levelLogic;
             _player = player.transform;
             _specOf = specOf;
             _actorRoot = actorRoot;
             _bounds = bounds;
             _onKilled = onKilled;
-            _logic = new WaveLogic(waves);
 
             ResolveSpawnCamera(camera);
 
@@ -91,8 +92,6 @@ namespace DeepseaOil.Presentation.Actor
         {
             // 销毁权归 CombatRoot 的权属分流，本类只清自己的账
             _enemies.Clear();
-
-            _logic?.Reset();
 
             AliveCount = 0;
             FirstAliveEnemyDistance = -1f;
@@ -109,14 +108,14 @@ namespace DeepseaOil.Presentation.Actor
         // 暂停时 deltaTime 为 0；恢复那帧不补欠的生成量
         public void FixedTick(float now, float deltaTime)
         {
-            if (_logic == null || _player == null) return;
+            if (_levelLogic == null || _player == null) return;
 
             ClearDestroyed();
 
             AliveCount = CountAlive();
             UpdateReadouts();
 
-            _logic.Tick(deltaTime, AliveCount > 0, _spawnBuffer);
+            _levelLogic.Tick(deltaTime, AliveCount > 0, _spawnBuffer);
 
             for (int i = 0; i < _spawnBuffer.Count; i++)
             {
@@ -294,7 +293,7 @@ namespace DeepseaOil.Presentation.Actor
 
         private void PublishIfChanged()
         {
-            int wave = _logic != null ? _logic.WaveIndex : 0;
+            int wave = _levelLogic != null ? _levelLogic.Waves.WaveIndex : 0;
 
             if (wave == _publishedWave && AliveCount == _publishedAlive) return;
 

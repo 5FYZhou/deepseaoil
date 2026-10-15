@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DeepseaOil.Data;
 using cfg.dso;
+using DeepseaOil.Logic.Level;
 
 namespace DeepseaOil.Logic.Events
 {
@@ -166,6 +167,23 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
+    public readonly struct WaveCountdownChanged
+    {
+        public readonly int WaveIndex;
+        public readonly DeepseaOil.Logic.Wave.WavePhase Phase;
+        public readonly int SecondsRemaining;
+
+        public WaveCountdownChanged(
+            int waveIndex,
+            DeepseaOil.Logic.Wave.WavePhase phase,
+            int secondsRemaining)
+        {
+            WaveIndex = waveIndex;
+            Phase = phase;
+            SecondsRemaining = secondsRemaining;
+        }
+    }
+
     public readonly struct GridBlastOccurred
     {
         public readonly Vector2 Center;
@@ -202,5 +220,26 @@ namespace DeepseaOil.Logic.Events
         public CGCompleted(CGType t) { type = t; }
     }
 
+    public readonly struct LevelStateChanged
+    {
+        public readonly LevelState Level;
+
+        public LevelStateChanged(LevelState level)
+        {
+            Level = level;
+        }
+    }
+
+    public readonly struct LevelEnded
+    {
+        public readonly int curId;
+        public readonly int nextId;
+
+        public LevelEnded(int currentLevelId, int nextLevelId)
+        {
+            curId = currentLevelId;
+            nextId = nextLevelId;
+        }
+    }
     #endregion
 }

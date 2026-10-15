@@ -1985,6 +1985,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1871689014}
   - component: {fileID: 1871689013}
+  - component: {fileID: 1871689015}
   m_Layer: 0
   m_Name: CombatRoot
   m_TagString: Untagged
@@ -2006,13 +2007,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   player: {fileID: 1326551225}
   gridView: {fileID: 478400894}
+  levelReader: {fileID: 1871689015}
   ballRoot: {fileID: 0}
   actorRoot: {fileID: 0}
   fountains:
   - {fileID: 644031765}
   - {fileID: 1995222771}
   - {fileID: 1572748583}
-  enableWaves: 0
+  enableLevel: 1
+  enablePlayerRespawn: 0
   spawnCamera: {fileID: 0}
 --- !u!4 &1871689014
 Transform:
@@ -2029,6 +2032,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1871689015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1871689012}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8accf1d7bd1f37a479d5996891cb6baa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _curLevelId: 0
+  _nextLevelId: 0
+  _wavePlayMode: 0
 --- !u!114 &1995222771 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 11760661753709382, guid: fa5c717c81c1cde44817dab1888e8c2a, type: 3}
