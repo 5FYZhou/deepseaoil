@@ -14454,7 +14454,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8accf1d7bd1f37a479d5996891cb6baa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _curLevelId: 0
   _nextLevelId: 2
   _wavePlayMode: 0
 --- !u!1001 &1935998479
@@ -14823,6 +14822,10 @@ PrefabInstance:
       propertyPath: m_Follow
       value: 
       objectReference: {fileID: 1326551231}
+    - target: {fileID: 5878379499498285295, guid: 5aee356aa285ac84a841e3a3df8935d3, type: 3}
+      propertyPath: m_BoundingShape2D
+      value: 
+      objectReference: {fileID: 553542504}
     - target: {fileID: 7129660151314957644, guid: 5aee356aa285ac84a841e3a3df8935d3, type: 3}
       propertyPath: m_Name
       value: Virtual Camera

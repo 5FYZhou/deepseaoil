@@ -16,6 +16,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>燎原火海每步蔓延的间隔（秒）</summary>
         public const float FlameSpreadStep = 0.2f;
 
+        /// <summary>导电连锁麻痹秒数：导体 touch_stun 皆 0（白皮书§6.4）</summary>
+        public const float ChainStunSeconds = 1.5f;
+
         private static readonly Queue<Vector3Int> _queue = new Queue<Vector3Int>(64);
 
         private static readonly HashSet<Vector3Int> _visited = new HashSet<Vector3Int>();
@@ -146,8 +149,7 @@ namespace DeepseaOil.Logic.Grid
                 // 兜底 1：地貌没配 dot_damage 时链锁不该变成 0 伤害
                 if (damage <= 0) damage = 1;
 
-                // 麻痹取 1.5 下限：导电体表值多为 0，只读表就不麻痹且特效翻成火花
-                grid.ApplyInstantShock(current, damage, Mathf.Max(grid.TouchStunOf(current), 1.5f));
+                grid.ApplyInstantShock(current, damage, ChainStunSeconds);
 
                 GridQuery.GetNeighbors4(current, _neighbors);
 
@@ -184,7 +186,6 @@ namespace DeepseaOil.Logic.Grid
 
             int damage = grid.DotDamageOf(cell);
 
-            // 兜底 1：地貌没配 dot_damage 时链锁不该变成 0 伤害
             if (damage <= 0) damage = 1;
 
             // stun>0 会被 ApplyInstantShock 判成电弧特效：火海 touch_stun=0 出火花，带电荆棘 1.5 出电弧

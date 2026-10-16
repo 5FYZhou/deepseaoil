@@ -16,7 +16,7 @@ using UnityEngine;
 namespace DeepseaOil.Presentation
 {
     /// <summary>唯一真单例：谁造、谁清、别人怎么拿到它</summary>
-    /// <remarks>常驻对象（DontDestroyOnLoad），每场景重建会多出一份 UIMgr/音频池/GameState。驱动入口收敛到 1 个渲染帧 + 1 个物理帧（顺序是数据，见 UpdateSteps）。三个 static 模块的生命周期也在这里：ConfigModule 先于 AssetModule，EffectModule.Preload 又依赖 AssetModule；拆除顺序必须反过来，AssetModule.Dispose 必须最后。</remarks>
+    /// <remarks>常驻对象（DontDestroyOnLoad），每场景重建会多出一份 UIMgr/音频池/GameState。驱动入口收敛到 1 个渲染帧 + 1 个物理帧（顺序是数据，见 UpdateSteps）。三个 static 模块的生命周期也在这里：ConfigModule 先于 AssetModule，EffectModule.Preload 又依赖 AssetModule。</remarks>
     public sealed class GameRoot : Singleton<GameRoot>
     {
         private readonly List<ISceneRoot> _sceneRoots = new();
@@ -26,6 +26,8 @@ namespace DeepseaOil.Presentation
         private readonly List<IService> _services = new();
 
         private InputProvider _input;
+
+        private SaveService _saveService;
 
         private UIInputProvider _uiInputProvider;
         private ITickable _uiInput;
@@ -65,6 +67,8 @@ namespace DeepseaOil.Presentation
         public GameManager Game { get; private set; }
 
         public AudioManager Audio { get; private set; }
+
+        public SaveService Save => _saveService;
 
         /// <summary>全局计时器（时间轮）：麻痹/冷却/倒计时这类"持续到某时刻"的排这里，不排给已有钟的格子</summary>
         public TimerManager Timer { get; private set; }
@@ -125,6 +129,9 @@ namespace DeepseaOil.Presentation
         /// <remarks>顺序不能反：AssetModule 的 Key 来自 ConfigModule，EffectModule.Preload 走 AssetModule；UIMgr.Init 与 AudioManager.Init 都要读资源。失败即抛。</remarks>
         private void Assemble()
         {
+            // 每局重播种：固定种子会让每次启动的掉落剧本一模一样
+            Rng.Reset(unchecked((int)DateTime.UtcNow.Ticks));
+
             if (!ConfigModule.IsReady)
                 ConfigModule.InitFromStreamingAssets();
 
@@ -158,20 +165,21 @@ namespace DeepseaOil.Presentation
 
             var pauseService = new PauseService(_gameTime);
             var sceneService = new SceneService(pauseService);
-            var saveService = new SaveService();
+
+            _saveService = new SaveService();
 
             Timer = new TimerManager(0.1f, 512);
 
             // 顺序 [Pause, Scene, Save, Audio, Timer] 既是 Init 序也是 Tick 序
             pauseService.Init();
             sceneService.Init();
-            saveService.Init();
+            _saveService.Init();
             Audio.Init();
             Timer.Init();
 
             _services.Add(pauseService);
             _services.Add(sceneService);
-            _services.Add(saveService);
+            _services.Add(_saveService);
             _services.Add(Audio);
             _services.Add(Timer);
 

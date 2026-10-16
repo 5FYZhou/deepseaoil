@@ -1006,15 +1006,6 @@ namespace DeepseaOil.Generated
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""Jump"",
-                    ""type"": ""Button"",
-                    ""id"": ""87f718bb-0c57-4cfa-a6df-34916b368509"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
                     ""name"": ""Dash"",
                     ""type"": ""Button"",
                     ""id"": ""8b28e6f9-47d5-40c2-b166-77c33bd3f72a"",
@@ -1024,19 +1015,10 @@ namespace DeepseaOil.Generated
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""Grab"",
-                    ""type"": ""Button"",
-                    ""id"": ""288495f6-3874-48af-a100-34e86e548cc1"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
                     ""name"": ""Attack"",
                     ""type"": ""Button"",
                     ""id"": ""ec1a7f10-2b64-4d8a-9c31-5f0a7b2d4e01"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
@@ -1064,6 +1046,15 @@ namespace DeepseaOil.Generated
                     ""type"": ""PassThrough"",
                     ""id"": ""ec1a7f10-2b64-4d8a-9c31-5f0a7b2d4e04"",
                     ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Discard"",
+                    ""type"": ""Button"",
+                    ""id"": ""ade2f736-9759-4a71-8b78-65913c4f2206"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
@@ -1325,34 +1316,12 @@ namespace DeepseaOil.Generated
                 },
                 {
                     ""name"": """",
-                    ""id"": ""0921fc23-00e1-4d25-a65b-8791579bf291"",
+                    ""id"": ""89e41a19-7e3d-4ba3-963a-85cf64946589"",
                     ""path"": ""<Keyboard>/space"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""Jump"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""89e41a19-7e3d-4ba3-963a-85cf64946589"",
-                    ""path"": ""<Keyboard>/leftShift"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
                     ""action"": ""Dash"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""b1e5ba64-86e6-43ce-ace0-36522a3fa690"",
-                    ""path"": ""<Keyboard>/e"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""Grab"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -1399,6 +1368,17 @@ namespace DeepseaOil.Generated
                     ""action"": ""Aim"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""270d231f-4085-4a5b-9c15-f557de5913c2"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Discard"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -1425,13 +1405,12 @@ namespace DeepseaOil.Generated
             m_Player_Move = m_Player.FindAction("Move", throwIfNotFound: true);
             m_Player_Interaction = m_Player.FindAction("Interaction", throwIfNotFound: true);
             m_Player_Pause = m_Player.FindAction("Pause", throwIfNotFound: true);
-            m_Player_Jump = m_Player.FindAction("Jump", throwIfNotFound: true);
             m_Player_Dash = m_Player.FindAction("Dash", throwIfNotFound: true);
-            m_Player_Grab = m_Player.FindAction("Grab", throwIfNotFound: true);
             m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
             m_Player_AltAttack = m_Player.FindAction("AltAttack", throwIfNotFound: true);
             m_Player_Plant = m_Player.FindAction("Plant", throwIfNotFound: true);
             m_Player_Aim = m_Player.FindAction("Aim", throwIfNotFound: true);
+            m_Player_Discard = m_Player.FindAction("Discard", throwIfNotFound: true);
         }
 
         ~@InputSys()
@@ -1744,13 +1723,12 @@ namespace DeepseaOil.Generated
         private readonly InputAction m_Player_Move;
         private readonly InputAction m_Player_Interaction;
         private readonly InputAction m_Player_Pause;
-        private readonly InputAction m_Player_Jump;
         private readonly InputAction m_Player_Dash;
-        private readonly InputAction m_Player_Grab;
         private readonly InputAction m_Player_Attack;
         private readonly InputAction m_Player_AltAttack;
         private readonly InputAction m_Player_Plant;
         private readonly InputAction m_Player_Aim;
+        private readonly InputAction m_Player_Discard;
         /// <summary>
         /// Provides access to input actions defined in input action map "Player".
         /// </summary>
@@ -1775,17 +1753,9 @@ namespace DeepseaOil.Generated
             /// </summary>
             public InputAction @Pause => m_Wrapper.m_Player_Pause;
             /// <summary>
-            /// Provides access to the underlying input action "Player/Jump".
-            /// </summary>
-            public InputAction @Jump => m_Wrapper.m_Player_Jump;
-            /// <summary>
             /// Provides access to the underlying input action "Player/Dash".
             /// </summary>
             public InputAction @Dash => m_Wrapper.m_Player_Dash;
-            /// <summary>
-            /// Provides access to the underlying input action "Player/Grab".
-            /// </summary>
-            public InputAction @Grab => m_Wrapper.m_Player_Grab;
             /// <summary>
             /// Provides access to the underlying input action "Player/Attack".
             /// </summary>
@@ -1802,6 +1772,10 @@ namespace DeepseaOil.Generated
             /// Provides access to the underlying input action "Player/Aim".
             /// </summary>
             public InputAction @Aim => m_Wrapper.m_Player_Aim;
+            /// <summary>
+            /// Provides access to the underlying input action "Player/Discard".
+            /// </summary>
+            public InputAction @Discard => m_Wrapper.m_Player_Discard;
             /// <summary>
             /// Provides access to the underlying input action map instance.
             /// </summary>
@@ -1837,15 +1811,9 @@ namespace DeepseaOil.Generated
                 @Pause.started += instance.OnPause;
                 @Pause.performed += instance.OnPause;
                 @Pause.canceled += instance.OnPause;
-                @Jump.started += instance.OnJump;
-                @Jump.performed += instance.OnJump;
-                @Jump.canceled += instance.OnJump;
                 @Dash.started += instance.OnDash;
                 @Dash.performed += instance.OnDash;
                 @Dash.canceled += instance.OnDash;
-                @Grab.started += instance.OnGrab;
-                @Grab.performed += instance.OnGrab;
-                @Grab.canceled += instance.OnGrab;
                 @Attack.started += instance.OnAttack;
                 @Attack.performed += instance.OnAttack;
                 @Attack.canceled += instance.OnAttack;
@@ -1858,6 +1826,9 @@ namespace DeepseaOil.Generated
                 @Aim.started += instance.OnAim;
                 @Aim.performed += instance.OnAim;
                 @Aim.canceled += instance.OnAim;
+                @Discard.started += instance.OnDiscard;
+                @Discard.performed += instance.OnDiscard;
+                @Discard.canceled += instance.OnDiscard;
             }
 
             /// <summary>
@@ -1878,15 +1849,9 @@ namespace DeepseaOil.Generated
                 @Pause.started -= instance.OnPause;
                 @Pause.performed -= instance.OnPause;
                 @Pause.canceled -= instance.OnPause;
-                @Jump.started -= instance.OnJump;
-                @Jump.performed -= instance.OnJump;
-                @Jump.canceled -= instance.OnJump;
                 @Dash.started -= instance.OnDash;
                 @Dash.performed -= instance.OnDash;
                 @Dash.canceled -= instance.OnDash;
-                @Grab.started -= instance.OnGrab;
-                @Grab.performed -= instance.OnGrab;
-                @Grab.canceled -= instance.OnGrab;
                 @Attack.started -= instance.OnAttack;
                 @Attack.performed -= instance.OnAttack;
                 @Attack.canceled -= instance.OnAttack;
@@ -1899,6 +1864,9 @@ namespace DeepseaOil.Generated
                 @Aim.started -= instance.OnAim;
                 @Aim.performed -= instance.OnAim;
                 @Aim.canceled -= instance.OnAim;
+                @Discard.started -= instance.OnDiscard;
+                @Discard.performed -= instance.OnDiscard;
+                @Discard.canceled -= instance.OnDiscard;
             }
 
             /// <summary>
@@ -2060,26 +2028,12 @@ namespace DeepseaOil.Generated
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnPause(InputAction.CallbackContext context);
             /// <summary>
-            /// Method invoked when associated input action "Jump" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-            /// </summary>
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-            void OnJump(InputAction.CallbackContext context);
-            /// <summary>
             /// Method invoked when associated input action "Dash" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
             /// </summary>
             /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnDash(InputAction.CallbackContext context);
-            /// <summary>
-            /// Method invoked when associated input action "Grab" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-            /// </summary>
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-            void OnGrab(InputAction.CallbackContext context);
             /// <summary>
             /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
             /// </summary>
@@ -2108,6 +2062,13 @@ namespace DeepseaOil.Generated
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnAim(InputAction.CallbackContext context);
+            /// <summary>
+            /// Method invoked when associated input action "Discard" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+            /// </summary>
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+            void OnDiscard(InputAction.CallbackContext context);
         }
     }
 }

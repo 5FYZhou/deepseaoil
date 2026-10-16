@@ -11,7 +11,6 @@ namespace DeepseaOil.Tests.Scene
             GameRoot root = GameRoot.Instance;
             root.Game.ChangeState(Logic.GameState.Running);
             root.UI.ShowPanel<GamePlayPanel>();
-            root.UI.ShowPanel<HudPanel>();
         }
     }
 }

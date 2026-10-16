@@ -17,6 +17,8 @@ namespace DeepseaOil.Presentation.Drop
         private Transform _root;
         private Transform _player;
 
+        private DropActor _lastSpawned;
+
         public int AliveCount => _drops.Count;
 
         public bool IsReady => _player != null;
@@ -72,9 +74,65 @@ namespace DeepseaOil.Presentation.Drop
 
             actor.Initialize(in request, request.Type, request.Seed, definition, _player);
 
+            _lastSpawned = actor;
+
             _drops.Add(actor);
 
             return true;
+        }
+
+        /// <summary>给最近一次 TrySpawn 的产物加拾取冷却：供 Q 键丢弃防脚下自吸</summary>
+        public void SetLastPickupCooldown(float duration)
+        {
+            if (_lastSpawned == null) return;
+
+            _lastSpawned.SetPickupCooldown(duration);
+        }
+
+        public List<DropSaveData> ExportDrops()
+        {
+            var result = new List<DropSaveData>(_drops.Count);
+
+            for (int i = 0; i < _drops.Count; i++)
+            {
+                DropActor drop = _drops[i];
+
+                if (drop == null || !drop.IsAlive) continue;
+
+                Vector2 landing = drop.LandingPosition;
+
+                result.Add(new DropSaveData
+                {
+                    type = (int)drop.Type,
+                    seed = (int)drop.Seed,
+                    posX = landing.x,
+                    posY = landing.y
+                });
+            }
+
+            return result;
+        }
+
+        /// <summary>读盘重建：一律在落点静态生成，在途弹道不还原</summary>
+        public void RestoreDrops(List<DropSaveData> list)
+        {
+            if (list == null) return;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                DropSaveData data = list[i];
+
+                if (data == null) continue;
+
+                var landing = new Vector2(data.posX, data.posY);
+
+                var request = new DropSpawnRequest(
+                    (DropType)data.type, landing, landing, (SeedType)data.seed);
+
+                if (!TrySpawn(in request)) continue;
+
+                if (_lastSpawned != null) _lastSpawned.PlaceAtLanding();
+            }
         }
 
         public void Tick(float deltaTime)
@@ -86,6 +144,8 @@ namespace DeepseaOil.Presentation.Drop
 
                 if (drop == null)
                 {
+                    if (ReferenceEquals(_lastSpawned, drop)) _lastSpawned = null;
+
                     _drops.RemoveAt(i);
                     continue;
                 }
@@ -93,6 +153,8 @@ namespace DeepseaOil.Presentation.Drop
                 drop.Tick(deltaTime);
 
                 if (drop.IsAlive) continue;
+
+                if (ReferenceEquals(_lastSpawned, drop)) _lastSpawned = null;
 
                 drop.Dispose();
                 _drops.RemoveAt(i);
