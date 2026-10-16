@@ -1327,6 +1327,17 @@ namespace DeepseaOil.Generated
                 },
                 {
                     ""name"": """",
+                    ""id"": ""c9522ff5-8962-4795-b6ea-1db4026a919e"",
+                    ""path"": ""<Keyboard>/leftShift"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Dash"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
                     ""id"": ""0a1b2c3d-0001-4001-8001-0000000000a1"",
                     ""path"": ""<Mouse>/leftButton"",
                     ""interactions"": """",
