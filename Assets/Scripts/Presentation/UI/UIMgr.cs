@@ -6,6 +6,7 @@ using TMPro;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Level;
 
 namespace DeepseaOil.Presentation.UI
 {
@@ -82,6 +83,11 @@ namespace DeepseaOil.Presentation.UI
         private readonly HashSet<string> fontAssetKeys = new HashSet<string>();
         private readonly HashSet<TxtStyle> requestedFontStyles = new HashSet<TxtStyle>();
         private readonly HashSet<TxtStyle> failedFontStyles = new HashSet<TxtStyle>();
+        private bool _sceneTransitionPending;
+        private bool _loadingPanelCanFade;
+        private bool _sceneTransitionFailed;
+        private string _pendingSceneName;
+        private LevelState _levelState = LevelState.NotStarted;
 
         private readonly Dictionary<E_UILayer, Stack<BasePanelInfo>> openPanels = new()
         { 
@@ -122,6 +128,12 @@ namespace DeepseaOil.Presentation.UI
             GameObject.DontDestroyOnLoad(uiEventSystem.gameObject);
 
             EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
+            EventBus<LevelStateChanged>.Subscribe(OnLevelStateChanged);
+            EventBus<LevelEnded>.Subscribe(OnLevelEnded);
+            EventBus<RequestLoadScene>.Subscribe(OnRequestLoadScene);
+            EventBus<SceneActivated>.Subscribe(OnSceneActivated);
+            EventBus<SceneTransitionFinished>.Subscribe(OnSceneTransitionFinished);
+            EventBus<SceneTransitionFailed>.Subscribe(OnSceneTransitionFailed);
 
             IsReady = true;
         }
@@ -135,6 +147,12 @@ namespace DeepseaOil.Presentation.UI
             IsReady = false;
 
             EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
+            EventBus<LevelStateChanged>.Unsubscribe(OnLevelStateChanged);
+            EventBus<LevelEnded>.Unsubscribe(OnLevelEnded);
+            EventBus<RequestLoadScene>.Unsubscribe(OnRequestLoadScene);
+            EventBus<SceneActivated>.Unsubscribe(OnSceneActivated);
+            EventBus<SceneTransitionFinished>.Unsubscribe(OnSceneTransitionFinished);
+            EventBus<SceneTransitionFailed>.Unsubscribe(OnSceneTransitionFailed);
 
             foreach (KeyValuePair<string, BasePanelInfo> kv in panelDic)
             {
@@ -231,20 +249,6 @@ namespace DeepseaOil.Presentation.UI
                 && !info.isHide;
         }
 
-        public void EnterGameplayUi()
-        {
-            if (!IsPanelOpen<HudPanel>()) ShowPanel<HudPanel>();
-            if (!IsPanelOpen<GamePlayPanel>()) ShowPanel<GamePlayPanel>();
-            if (!IsPanelOpen<SettlePanel>()) ShowPanel<SettlePanel>();
-        }
-
-        public void ExitGameplayUi()
-        {
-            HidePanel<PausePanel>();
-            HidePanel<GamePlayPanel>();
-            HidePanel<HudPanel>();
-        }
-
         public void ShowPanel<T>(UnityAction<T> callBack = null) where T : BasePanel
         {
             string panelName = typeof(T).Name;
@@ -307,12 +311,22 @@ namespace DeepseaOil.Presentation.UI
                 //降级资源也可能为 null，摘掉占位以免永久占坑
                 Debug.LogError($"[UI] 面板加载失败，已放弃显示：{panelName}");
                 panelDic.Remove(panelName);
+                NotifyLoadingPanelFailure(panelName, "面板资源加载失败。");
                 yield break;
             }
 
             GameObject panelObj = GameObject.Instantiate(prefab, middleLayer, false);
 
             T panel = panelObj.GetComponent<T>();
+            if (panel == null)
+            {
+                Debug.LogError($"[UI] 面板预制体缺少 {typeof(T).Name} 组件：{panelName}", panelObj);
+                GameObject.Destroy(panelObj);
+                panelDic.Remove(panelName);
+                NotifyLoadingPanelFailure(panelName, $"面板预制体缺少 {typeof(T).Name} 组件。");
+                yield break;
+            }
+
             UIConfig uiConfig = ConfigModule.GetUIConfig();
             requestedFontStyles.Clear();
             panel.CollectFontStyles(requestedFontStyles);
@@ -454,7 +468,6 @@ namespace DeepseaOil.Presentation.UI
         public bool TryCloseTopmostPanel()
         {
             E_UILayer[] layers = { E_UILayer.System, E_UILayer.Top, E_UILayer.Middle, E_UILayer.Bottom, E_UILayer.Transition };
-
             foreach (var layer in layers)
             {
                 var stack = openPanels[layer];
@@ -462,7 +475,6 @@ namespace DeepseaOil.Presentation.UI
                 while (stack.Count > 0)
                 {
                     BasePanelInfo info = stack.Peek();
-
                     if (info.Panel == null || info.isHide)
                     {
                         stack.Pop();
@@ -473,7 +485,6 @@ namespace DeepseaOil.Presentation.UI
                     {
                         return false;
                     }
-
                     stack.Pop();
                     info.Hide(false);
                     return true;
@@ -495,6 +506,17 @@ namespace DeepseaOil.Presentation.UI
 
                     info.Hide(false);
                 }
+            }
+        }
+
+        private void ClosePanelsOnSceneTransition()
+        {
+            foreach (BasePanelInfo info in panelDic.Values)
+            {
+                if (info.Panel == null || info.isHide || !info.Panel.CloseOnSceneTransition)
+                    continue;
+
+                info.Hide(false);
             }
         }
 
@@ -521,10 +543,11 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-
+            SetUIInputEnabled(evt.state != Logic.GameState.SceneTransition);
             switch (evt.state)
             {
                 case Logic.GameState.Running:
+                    EnterGameplayUi();
                     HidePanel<PausePanel>();
                     break;
 
@@ -534,10 +557,152 @@ namespace DeepseaOil.Presentation.UI
 
                 case Logic.GameState.Menu:
                 case Logic.GameState.Exit:
-                    ShowPanel<LoadingPanel>();
                     ExitGameplayUi();
                     break;
             }
+        }
+
+        private void OnLevelStateChanged(LevelStateChanged evt)
+        {
+            _levelState = evt.Level;
+        }
+
+        private void OnLevelEnded(LevelEnded evt)
+        {
+            if (_levelState == LevelState.Defeat)
+            {
+                ShowPanel<SettlePanel>(panel => panel.ShowDefeat(evt.curId));
+                return;
+            }
+
+            if (_levelState != LevelState.Victory)
+            {
+                Debug.LogError($"[UI] 收到关卡结束事件，但当前关卡状态为 {_levelState}。");
+                return;
+            }
+
+            if (evt.nextId <= 0)
+            {
+                ShowPanel<EndPanel>();
+                return;
+            }
+
+            string nextScene = SceneName.GetLevel(evt.nextId);
+            if (!Application.CanStreamedLevelBeLoaded(nextScene))
+            {
+                Debug.LogError($"[Level] 下一关场景 '{nextScene}' 不存在或未加入 Build Settings。");
+                return;
+            }
+
+            EventBus<RequestLoadScene>.Publish(new RequestLoadScene(nextScene, true));
+        }
+
+        public void EnterGameplayUi()
+        {
+            HidePanel<BeginPanel>();
+            HidePanel<SettlePanel>();
+            HidePanel<EndPanel>();
+            if (!IsPanelOpen<HudPanel>()) ShowPanel<HudPanel>();
+            if (!IsPanelOpen<GamePlayPanel>()) ShowPanel<GamePlayPanel>();
+        }
+
+        public void ExitGameplayUi()
+        {
+            if(!IsPanelOpen<BeginPanel>()) ShowPanel<BeginPanel>();
+            HidePanel<PausePanel>();
+            HidePanel<SettlePanel>();
+            HidePanel<EndPanel>();
+            HidePanel<GamePlayPanel>();
+            HidePanel<HudPanel>();
+        }
+
+        // 加载场景时开关加载面板(System)，不然会影响Esc关闭判定
+        private void OnRequestLoadScene(RequestLoadScene evt)
+        {
+            if (!evt.isAsync)
+                return;
+
+            if (_sceneTransitionPending)
+            {
+                Debug.LogError($"[UI] 场景切换 '{_pendingSceneName}' 尚未完成，拒绝重复请求 '{evt.sceneName}'。");
+                return;
+            }
+
+            _sceneTransitionPending = true;
+            _loadingPanelCanFade = false;
+            _sceneTransitionFailed = false;
+            _pendingSceneName = evt.sceneName;
+            GameRoot.Instance.Game.BeginSceneTransition();
+            ShowPanel<LoadingPanel>(OnLoadingPanelReady);
+        }
+
+        private void OnLoadingPanelReady(LoadingPanel panel)
+        {
+            if (panel == null || !panel.CanRunTransition)
+            {
+                string sceneName = _pendingSceneName;
+                GameRoot.Instance.StartCoroutine(
+                    CoPublishTransitionFailure(sceneName, "LoadingPanel 未绑定遮罩 Image。"));
+                return;
+            }
+
+            _loadingPanelCanFade = true;
+            GameRoot.Instance.StartCoroutine(CoPublishLoadingPanelReady(_pendingSceneName));
+        }
+
+        private void NotifyLoadingPanelFailure(string panelName, string error)
+        {
+            if (panelName != nameof(LoadingPanel) || !_sceneTransitionPending)
+                return;
+
+            EventBus<SceneTransitionFailed>.Publish(
+                new SceneTransitionFailed(_pendingSceneName, error));
+        }
+
+        private System.Collections.IEnumerator CoPublishLoadingPanelReady(string sceneName)
+        {
+            yield return null;
+
+            if (_sceneTransitionPending && _pendingSceneName == sceneName)
+                EventBus<LoadingPanelReady>.Publish(new LoadingPanelReady(sceneName));
+        }
+
+        private System.Collections.IEnumerator CoPublishTransitionFailure(string sceneName, string error)
+        {
+            yield return null;
+
+            if (_sceneTransitionPending && _pendingSceneName == sceneName)
+                EventBus<SceneTransitionFailed>.Publish(new SceneTransitionFailed(sceneName, error));
+        }
+
+        private void OnSceneActivated(SceneActivated evt)
+        {
+            ClosePanelsOnSceneTransition();
+        }
+
+        private void OnSceneTransitionFailed(SceneTransitionFailed evt)
+        {
+            if (!_sceneTransitionPending || _pendingSceneName != evt.sceneName)
+                return;
+
+            _sceneTransitionFailed = true;
+            ClosePanelsOnSceneTransition();
+
+            if (!IsPanelOpen<LoadingPanel>() || !_loadingPanelCanFade)
+                EventBus<SceneTransitionFinished>.Publish(new SceneTransitionFinished(evt.sceneName));
+        }
+
+        private void OnSceneTransitionFinished(SceneTransitionFinished evt)
+        {
+            if (!_sceneTransitionPending || _pendingSceneName != evt.sceneName)
+                return;
+
+            GameRoot.Instance.Game.FinishSceneTransition(!_sceneTransitionFailed);
+            _sceneTransitionPending = false;
+            _loadingPanelCanFade = false;
+            _sceneTransitionFailed = false;
+            _pendingSceneName = null;
+            HidePanel<LoadingPanel>();
         }
     }
 }

@@ -8,6 +8,7 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Middle;
         public override bool CanBeHideByKey => false;
+        public override bool CloseOnSceneTransition => true;
 
         private TMP_Text _txt1;
         private TMP_Text _txt2;
