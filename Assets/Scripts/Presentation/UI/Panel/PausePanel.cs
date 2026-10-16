@@ -41,7 +41,6 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnReturnMenu":
                     EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, true));
-                    //GameRoot.Instance.UI.CloseAllPanels();
                     break;
             }
         }

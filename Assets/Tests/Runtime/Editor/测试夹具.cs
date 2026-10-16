@@ -1,13 +1,10 @@
 // ---------------------------------------------------------------------------
 // 测试夹具 · 共享底座
 //
-// 【为什么单独一个文件】
-//   `cfg.dso.*` 的生成行**只有 `JSONNode` 构造**（字段 `readonly`，没有参数构造、没有可续写的
-//   第二个构造点），而收口后的取值口径是"包装中间类持有生成行引用"。于是"造一行"这件事在测试里
-//   绕不开拼 JSON —— 把它收在这一个文件里，schema 耦合就只有一个落点（改表时改这里）。
-//
-// 【本目录的硬约束】Assets/Tests/Runtime/Editor/ 的末级 `Editor` 保留为目录约定；
-//   真正决定平台的是 DeepseaOil.Tests.EditMode.asmdef 的 includePlatforms: [Editor]。
+// `cfg.dso.*` 的生成行只有 JSONNode 构造（readonly 字段），测试造行绕不开拼 JSON；收在这一个文件里，
+//   schema 耦合就只有一个落点（改表时改这里）。
+// Assets/Tests/Runtime/Editor/ 的末级 `Editor` 是目录约定；真正决定平台的是
+//   DeepseaOil.Tests.EditMode.asmdef 的 includePlatforms: [Editor]。
 // ---------------------------------------------------------------------------
 
 using DeepseaOil.Data;
@@ -22,11 +19,11 @@ using cfg.dso;
 namespace DeepseaOil.Tests
 {
     /// <summary>生成行的工厂：用 JSON 字面量造 cfg.dso.* 行</summary>
-        /// <remarks>缺一个键就会抛 SerializationException：Luban 的惰性占位 IsNumber / IsString 都是 false，不是留 null。</remarks>
+    /// <remarks>缺一个键就抛 SerializationException：Luban 的惰性占位 IsNumber / IsString 都是 false，不是留 null。</remarks>
     internal static class RowFactory
     {
-        /// <summary>一行水球：id 本身就是球种，只有这两列。</summary>
-        /// <remarks>抛物线与投掷距离（flight_duration / max_height / max_*_throw_distance）已从表移交 ThrowTuning SO，用它们请给 ProjectileSpec 传真的调参实例。落地切成什么状态由 element_rule 决定。</remarks>
+        /// <summary>一行水球：id 本身就是球种，只有这两列</summary>
+        /// <remarks>抛物线与投掷距离已从表移交 ThrowTuning SO，用它们请给 ProjectileSpec 传真的调参实例。落地切成什么状态由 element_rule 决定。</remarks>
         public static Projectile WaterRow()
             => new Projectile(JSON.Parse("{\"id\":0,\"name\":\"纯水\"}"));
 
@@ -35,7 +32,7 @@ namespace DeepseaOil.Tests
             => new Enemy(JSON.Parse(
                 $"{{\"id\":{id},\"name\":\"测试敌人\",\"max_speed\":3.6,\"hp\":{hp},\"contact_damage\":{contactDamage}}}"));
 
-        /// <summary>一行玩家：受击 / 投掷 / 回血三条链用到的列全在。</summary>
+        /// <summary>一行玩家：受击 / 投掷 / 回血三条链用到的列全在</summary>
         public static Player PlayerRow()
             => new Player(JSON.Parse(
                 "{\"id\":1,\"name\":\"玩家\",\"max_hp\":3," +
@@ -44,18 +41,18 @@ namespace DeepseaOil.Tests
                 "\"water_capacity\":5,\"water_start\":5,\"earth_capacity\":5,\"earth_start\":5," +
                 "\"life_heal_interval\":3}"));
 
-        /// <summary>一行波次：三阶段时长与出生参数；出哪些怪由 wave_enemy 配。</summary>
+        /// <summary>一行波次：三阶段时长与出生参数；出哪些怪由 wave_enemy 配</summary>
         public static Wave WaveRow(int id = 1, int grantSeed = 1)
             => new Wave(JSON.Parse(
                 $"{{\"id\":{id},\"name\":\"测试波次\",\"prep_time\":10,\"battle_time\":30,\"settle_time\":8," +
                 $"\"spawn_interval\":0.4,\"grant_seed\":{grantSeed}}}"));
 
-        /// <summary>一行波次敌种：某一波出某个怪种几只；顺序即刷怪顺序。</summary>
+        /// <summary>一行波次敌种：某一波出某个怪种几只；顺序即刷怪顺序</summary>
         public static WaveEnemy WaveEnemyRow(int id, int waveId, int enemyId, int count)
             => new WaveEnemy(JSON.Parse(
                 $"{{\"id\":{id},\"wave_id\":{waveId},\"enemy_id\":{enemyId},\"count\":{count}}}"));
 
-        /// <summary>一行地块状态；默认是一个"永久、不减速、无伤害、不麻痹、不导通"的空地。</summary>
+        /// <summary>一行地块状态；默认是"永久、不减速、无伤害、不麻痹、不导通"的空地</summary>
         public static TileState TileStateRow(
             int id,
             float duration = -1f,
@@ -71,7 +68,7 @@ namespace DeepseaOil.Tests
                 $"\"is_obstacle\":{(isObstacle ? "true" : "false")}," +
                 $"\"is_conductor\":{(isConductor ? "true" : "false")}}}"));
 
-        /// <summary>一行元素反应规则：原格 + 球种 → 结果与冲击；radius 默认 1 格。</summary>
+        /// <summary>一行元素反应规则：原格 + 球种 → 结果与冲击；radius 默认 1 格</summary>
         public static ElementRule ElementRuleRow(
             int id,
             int sourceTile,
@@ -88,7 +85,7 @@ namespace DeepseaOil.Tests
                 $"\"impact_stun\":{stun},\"impact_radius\":{radius}," +
                 $"\"trigger_chain\":{(triggerChain ? "true" : "false")}}}"));
 
-        /// <summary>一行二级元素反应：两个发生器地貌 → 激发的产物与波及。</summary>
+        /// <summary>一行二级元素反应：两个发生器地貌 → 激发的产物与波及</summary>
         public static ElementDuoReaction DuoRow(
             int id,
             int elemA,
@@ -108,19 +105,19 @@ namespace DeepseaOil.Tests
                 $"\"pull_strength\":{pullStrength},\"break_aggro\":{(breakAggro ? "true" : "false")}," +
                 $"\"trigger_chain\":{(triggerChain ? "true" : "false")}}}"));
 
-        /// <summary>一行种子基建配置。</summary>
+        /// <summary>一行种子基建配置</summary>
         public static Seed SeedRow(int id, int spawnTile, string name = "测试种子", string iconKey = "Icons/Seed_Test")
             => new Seed(JSON.Parse(
                 $"{{\"id\":{id},\"name\":\"{name}\",\"spawn_tile\":{spawnTile},\"icon_key\":\"{iconKey}\"}}"));
 
-        /// <summary>一行关卡初始格（状态 1 = 空地）。</summary>
+        /// <summary>一行关卡初始格；状态 1 = 空地</summary>
         public static TileInitial TileInitialRow(int cellX, int cellY, int stateId)
             => new TileInitial(JSON.Parse(
                 $"{{\"id\":1,\"cell_x\":{cellX},\"cell_y\":{cellY},\"state_id\":{stateId}}}"));
 
         // 下面两个是**包装件**工厂：求解器与二级反应查询表只吃 Spec，不吃生成行
 
-        /// <summary>一条元素反应规则（已包装）。</summary>
+        /// <summary>一条元素反应规则（已包装）</summary>
         public static ElementRuleSpec ElementRuleSpecOf(
             int id,
             int sourceTile,
@@ -134,7 +131,7 @@ namespace DeepseaOil.Tests
             => new ElementRuleSpec(
                 ElementRuleRow(id, sourceTile, ballType, resultTile, damage, knockback, stun, triggerChain, radius));
 
-        /// <summary>一条二级元素反应（已包装）。</summary>
+        /// <summary>一条二级元素反应（已包装）</summary>
         public static DuoReactionSpec DuoSpecOf(
             int id,
             int elemA,
@@ -152,7 +149,7 @@ namespace DeepseaOil.Tests
     // 调参条目工厂：EnemyTuning.entries 是手写在 SO 里的，测试按同一条路造条目
     internal static class TuningFactory
     {
-        /// <summary>一条怪种调参：字段默认值即迁移前的表值。</summary>
+        /// <summary>一条怪种调参：字段默认值即迁移前的表值</summary>
         public static EnemyTuningEntry EnemyEntry(int id = 1)
             => new EnemyTuningEntry { id = id };
     }

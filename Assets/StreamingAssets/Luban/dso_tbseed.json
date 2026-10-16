@@ -20,7 +20,7 @@
   {
     "id": 4,
     "name": "植物种子",
-    "spawn_tile": 19,
+    "spawn_tile": 24,
     "icon_key": "Icons/Seed_Plant"
   }
 ]

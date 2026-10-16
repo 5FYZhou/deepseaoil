@@ -299,13 +299,8 @@ namespace DeepseaOil.Presentation.Adapters
                 {
                     Tilemap layer = effectLayers[i].Tilemap;
 
-                    if (layer == null)
-                    {
-                        Debug.LogError(
-                            $"[Grid] TilemapAdapter.effectLayers 第 {i} 行没有接 Tilemap：这一层被跳过，它登记的状态不显示。", this);
-
-                        continue;
-                    }
+                    // 空槽合法（预制体上这几行只留 None 占位）：没接层就跳过，与 ValidateStateTiles 的空表口径一致
+                    if (layer == null) continue;
 
                     usable++;
 
