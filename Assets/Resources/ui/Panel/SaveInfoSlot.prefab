@@ -755,6 +755,7 @@ MonoBehaviour:
   txtProcessLeft: {fileID: 2949204399905192933}
   txtProcessRight: {fileID: 8226881202117893037}
   btnDelete: {fileID: 3451344796149970132}
+  imgThumbnail: {fileID: 6372372242994081867}
 --- !u!1 &6059183152344509848
 GameObject:
   m_ObjectHideFlags: 0

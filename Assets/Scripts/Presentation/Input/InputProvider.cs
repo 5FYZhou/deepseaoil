@@ -20,15 +20,19 @@ namespace DeepseaOil.Presentation.Input
 
         private InputAction _plant;
 
+        private InputAction _discard;
+
         private InputAction _aim;
 
         private Vector2 _move;
 
-        private bool _grabHeld;
-
         private bool _dashPressed;
 
-        private bool _inputEnabled = true;
+        private bool _gameStateAllowsInput = true;
+
+        private bool _storyInputLocked;
+
+        private bool _inputEnabled;
 
         /// <summary>本渲染帧瞄准屏幕坐标；是"当前位置"不是"按下沿"</summary>
         public Vector2 AimScreen { get; private set; }
@@ -37,8 +41,10 @@ namespace DeepseaOil.Presentation.Input
 
         public bool AltAttackPressedThisFrame { get; private set; }
 
-        /// <summary>E 键：播种当前战备种子</summary>
         public bool PlantPressedThisFrame { get; private set; }
+
+        /// <summary>Q 键：丢弃当前种子</summary>
+        public bool DiscardJustPressed { get; private set; }
 
         /// <summary>本渲染帧的移动输入（已夹到单位长度）；生命神泉的"完全静止"判据之一</summary>
         public Vector2 MoveInput { get; private set; }
@@ -61,6 +67,7 @@ namespace DeepseaOil.Presentation.Input
             _attack = Resolve("Player/Attack");
             _altAttack = Resolve("Player/AltAttack");
             _plant = Resolve("Player/Plant");
+            _discard = Resolve("Player/Discard");
             _aim = Resolve("Player/Aim");
         }
 
@@ -117,8 +124,6 @@ namespace DeepseaOil.Presentation.Input
 
             MoveInput = _move;
 
-            _grabHeld = _input.Player.Grab.IsPressed();
-
             // 瞬时输入累积，物理帧侧取走
             _dashPressed |= _input.Player.Dash.WasPressedThisFrame();
         }
@@ -131,6 +136,7 @@ namespace DeepseaOil.Presentation.Input
                 AttackPressedThisFrame = false;
                 AltAttackPressedThisFrame = false;
                 PlantPressedThisFrame = false;
+                DiscardJustPressed = false;
 
                 return;
             }
@@ -142,6 +148,8 @@ namespace DeepseaOil.Presentation.Input
             AltAttackPressedThisFrame = Pressed(_altAttack);
 
             PlantPressedThisFrame = Pressed(_plant);
+
+            DiscardJustPressed = Pressed(_discard);
         }
 
         private static bool Pressed(InputAction action)
@@ -154,8 +162,7 @@ namespace DeepseaOil.Presentation.Input
         {
             var snapshot = new InputSnapshot(
                 _move,
-                _dashPressed,
-                _grabHeld
+                _dashPressed
             );
 
             _dashPressed = false;
@@ -166,13 +173,27 @@ namespace DeepseaOil.Presentation.Input
         public void Clear()
         {
             _move = Vector2.zero;
-            _grabHeld = false;
+            MoveInput = Vector2.zero;
             _dashPressed = false;
         }
 
         public void SetInputEnabled(bool enabled)
         {
+            _gameStateAllowsInput = enabled;
+            RefreshInputEnabled();
+        }
+
+        public void SetStoryInputLocked(bool locked)
+        {
+            _storyInputLocked = locked;
+            RefreshInputEnabled();
+        }
+
+        private void RefreshInputEnabled()
+        {
+            bool enabled = _gameStateAllowsInput && !_storyInputLocked;
             if (_inputEnabled == enabled) return; 
+
             _inputEnabled = enabled;
 
             if (!enabled)

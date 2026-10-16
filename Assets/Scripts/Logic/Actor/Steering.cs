@@ -18,12 +18,11 @@ namespace DeepseaOil.Logic
 
         public bool IsIdle => Direction.sqrMagnitude <= 0f || Speed <= 0f;
 
-        /// <remarks>静态纯函数，只吃参数、不持状态；两个距离都是世界单位。三个"不动"各对应一类缺陷：stopDistance 内不动（否则贴脸抖动）；chaseRange 外不动（否则"跑得够远能脱离"永不成立）；零向量不动（必须先于距离判断，零向量归一化是 NaN）。</remarks>
+        /// <remarks>静态纯函数，只吃参数、不持状态；距离是世界单位。两个"不动"各对应一类缺陷：stopDistance 内不动（否则贴脸抖动）；零向量不动（必须先于距离判断，零向量归一化是 NaN）。</remarks>
         public static Steering Resolve(
             Vector2 self,
             Vector2 target,
             float stopDistance,
-            float chaseRange,
             float maxSpeed)
         {
             Vector2 delta = target - self;
@@ -31,8 +30,6 @@ namespace DeepseaOil.Logic
             if (delta.sqrMagnitude <= 0f) return default;
 
             float distance = delta.magnitude;
-
-            if (distance > chaseRange) return default;
 
             float speed = distance <= stopDistance ? 0f : maxSpeed;
 

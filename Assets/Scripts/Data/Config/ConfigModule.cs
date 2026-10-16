@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using DeepseaOil.Data.Settings;
 using UnityEngine;
@@ -373,23 +373,80 @@ namespace DeepseaOil.Data
             }
         }
 
-        public static int PathMaxSteps
+        /// <summary>净空皮厚（世界单位）：净空 &gt; 体半径 + 皮厚才可通行</summary>
+        public static float NavSkin
         {
             get
             {
                 EnsureAssets();
 
-                return _enemyTuning.pathMaxSteps;
+                return _enemyTuning.navSkin;
             }
         }
 
-        public static int PathRecalcFrames
+        /// <summary>净空烘焙解析上限：查询盒半边长与净空饱和值都是它，必须大于最大体半径</summary>
+        public static float NavClearanceCap
         {
             get
             {
                 EnsureAssets();
 
-                return _enemyTuning.pathRecalcFrames;
+                return _enemyTuning.navClearanceCap;
+            }
+        }
+
+        /// <summary>入弯最低速度倍率：路线方向与当前速度对齐度为 0 时的目标速度倍率</summary>
+        public static float CornerSpeedFactor
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.cornerSpeedFactor;
+            }
+        }
+
+        /// <summary>软分离生效距离（世界单位）</summary>
+        public static float SeparationRadius
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.separationRadius;
+            }
+        }
+
+        /// <summary>软分离权重：与流场方向相加后归一，越大越容易挤开流场方向</summary>
+        public static float SeparationWeight
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.separationWeight;
+            }
+        }
+
+        /// <summary>卡死判定帧数：速度被压到零满这么多物理帧才算卡死</summary>
+        public static int StuckFrames
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.stuckFrames;
+            }
+        }
+
+        /// <summary>卡死换步持续帧数：这段时间走次优邻格，绕开卡住的那条边</summary>
+        public static int JamFrames
+        {
+            get
+            {
+                EnsureAssets();
+
+                return _enemyTuning.jamFrames;
             }
         }
 
@@ -510,6 +567,22 @@ namespace DeepseaOil.Data
             for (int i = 0; i < rows.Count; i++)
             {
                 result.Add(new AudioMapSpec(rows[i]));
+            }
+
+            return result;
+        }
+
+        public static IReadOnlyList<DialogueSpec> GetDialogueParagraph(int paragraph)
+        {
+            EnsureReady();
+
+            IReadOnlyList<cfg.dso.SlotDialogue> rows = _holder.Tables.TbSlotDialogue.DataList;
+            var result = new List<DialogueSpec>();
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Paragraph == paragraph)
+                    result.Add(new DialogueSpec(rows[i]));
             }
 
             return result;

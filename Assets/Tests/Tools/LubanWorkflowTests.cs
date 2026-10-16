@@ -208,11 +208,14 @@ namespace DeepseaOil.EditorTools.Tests
         static readonly Dictionary<string, string> RequiredPlayerBindings = new Dictionary<string, string>
         {
             { "Move", "2DVector" },
-            { "Dash", "<Keyboard>/leftShift" },
+            { "Dash", "<Keyboard>/space" },
             { "Attack", "<Mouse>/leftButton" },
             { "AltAttack", "<Mouse>/rightButton" },
+            { "Interaction", "<Keyboard>/enter" },
             { "Plant", "<Keyboard>/e" },
             { "Aim", "<Mouse>/position" },
+            { "Discard", "<Keyboard>/q" },
+            { "Pause", "<Keyboard>/escape" },
         };
 
         [Test]

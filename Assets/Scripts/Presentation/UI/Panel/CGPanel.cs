@@ -59,7 +59,6 @@ namespace DeepseaOil.Presentation.UI
 
             // 播完 请求加载新场景
             EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Game, true));
-            //GameRoot.Instance.Game.ChangeState(GameState.Running);
         }
 
         public void Hide(SceneActivated evt)
