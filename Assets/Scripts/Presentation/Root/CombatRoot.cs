@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
 using DeepseaOil.Foundation;
+using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Drop;
 using DeepseaOil.Logic.Element;
@@ -10,6 +11,7 @@ using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
 using DeepseaOil.Logic.Level;
 using DeepseaOil.Logic.Player;
+using DeepseaOil.Logic.Service;
 using DeepseaOil.Logic.World;
 using DeepseaOil.Presentation.Actor;
 using DeepseaOil.Presentation.Adapters;
@@ -96,6 +98,8 @@ namespace DeepseaOil.Presentation
 
         public GridLogic Grid => _grid;
 
+        public int CurrentLevelId => IsReady && _levelLogic != null ? _levelLogic.CurrentLevel.Id : 0;
+
         private void Start()
         {
             _root = GameRoot.Instance;
@@ -123,6 +127,7 @@ namespace DeepseaOil.Presentation
             Current = this;
 
             EventBus<DropCollected>.Subscribe(OnDropCollected);
+            EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Subscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Subscribe(OnGridPointVfxOccurred);
@@ -133,6 +138,7 @@ namespace DeepseaOil.Presentation
             if (ReferenceEquals(Current, this)) Current = null;
 
             EventBus<DropCollected>.Unsubscribe(OnDropCollected);
+            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
             EventBus<RequestHudRefresh>.Unsubscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Unsubscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Unsubscribe(OnGridPointVfxOccurred);
@@ -290,7 +296,7 @@ namespace DeepseaOil.Presentation
                 else
                 {
                     _levelLogic?.ChangeState(LevelState.Defeat);
-                    GameRoot.Instance.Game.ChangeState(Logic.GameState.CG);
+                    GameRoot.Instance.Game.ChangeState(Logic.GameState.Settle);
                 }
                 return;
             }
@@ -708,6 +714,22 @@ namespace DeepseaOil.Presentation
             player?.Logic?.Stats.Announce();
             _combat?.Announce();
             _levelLogic?.Announce();
+        }
+
+        private void OnGameStateChanged(GameStateChanged evt)
+        {
+            if (evt.state != GameState.Paused || !IsReady)
+                return;
+
+            int currentLevelId = CurrentLevelId;
+            if (currentLevelId <= 0)
+            {
+                Debug.LogError("[Save] 暂停自动存档失败：当前关卡 ID 无效。", this);
+                return;
+            }
+
+            EventBus<RequestAutoSave>.Publish(
+                new RequestAutoSave(new GameData(currentLevelId)));
         }
 
         private void OnGridBlastOccurred(GridBlastOccurred evt)

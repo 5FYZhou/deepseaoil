@@ -11,8 +11,9 @@ namespace DeepseaOil.Presentation.UI
     [RequireComponent(typeof(PlayableDirector))]
     public class CGPanel : BasePanel
     {
-        public override E_UILayer Layer => E_UILayer.System;
+        public override E_UILayer Layer => E_UILayer.Top;
         public override bool CanBeHideByKey => false;
+        public override bool CloseOnSceneTransition => true;
 
         private PlayableDirector _director;
         private Image _img1;
@@ -56,9 +57,8 @@ namespace DeepseaOil.Presentation.UI
             if (director != _director)
                 return;
 
-            // 播完才激活新场景
-            EventBus<RequestActiveScene>.Publish(new RequestActiveScene(SceneName.Game));
-            GameRoot.Instance.Game.ChangeState(GameState.Running);
+            // 播完 请求加载新场景
+            EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Game, true));
         }
 
         public void Hide(SceneActivated evt)

@@ -9,11 +9,15 @@
         Menu,
 
         CG,
-
+        /// <summary> 专指关卡进行中的暂停 </summary>
         Paused,
 
         Running,
+        /// <summary> 关卡内玩家死亡后-切换下一关前的状态 </summary>
+        Settle,
 
         Exit,
+
+        SceneTransition,
     }
 }

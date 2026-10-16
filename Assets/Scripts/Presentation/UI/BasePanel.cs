@@ -23,9 +23,11 @@ namespace DeepseaOil.Presentation.UI
 
         public abstract E_UILayer Layer { get; }
         public abstract bool CanBeHideByKey { get; }
+        public abstract bool CloseOnSceneTransition { get; }
 
         private UIConfig _config;
         private readonly HashSet<string> _assetKeys = new();
+        private readonly Dictionary<string, SpriteAtlas> _spriteAtlases = new();
 
         protected virtual void Awake()
         {
@@ -230,10 +232,19 @@ namespace DeepseaOil.Presentation.UI
 
         protected SpriteAtlas LoadSpriteAtlas(string key)
         {
-            SpriteAtlas sprite = AssetModule.Load<SpriteAtlas>(key);
+            if (string.IsNullOrEmpty(key))
+                return AssetModule.Load<SpriteAtlas>(key);
+
+            if (_spriteAtlases.TryGetValue(key, out SpriteAtlas sprite))
+                return sprite;
+
+            sprite = AssetModule.Load<SpriteAtlas>(key);
 
             if (sprite != null)
+            {
                 _assetKeys.Add(key);
+                _spriteAtlases.Add(key, sprite);
+            }
 
             return sprite;
         }
@@ -244,6 +255,7 @@ namespace DeepseaOil.Presentation.UI
                 AssetModule.Release(key);
 
             _assetKeys.Clear();
+            _spriteAtlases.Clear();
         }
         #endregion
 
