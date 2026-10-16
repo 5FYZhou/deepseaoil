@@ -1,12 +1,8 @@
 // ---------------------------------------------------------------------------
 // 敌人寻路 · 运行期测试（纯逻辑：不碰物理、不读场景）
 //
-// 【为什么在这里】本文件守四条「改错了不报错」的链路：① 目标格自己站不住（玩家贴栅栏站）时场也要建成；
-//   ② 可走判据落在**采样点**上而不是格心上（回归用例：栅栏压在格心上）；③ 入弯降速（回归用例：满速进弯）；
-//   ④ 动态阻挡翻转必须作废流场。
-//
-// 【地形怎么造】ASCII：'#' 墙、'.' 空地、'=' 窄口，首行是**最上面**那排；净空按"采样点到最近墙格矩形的距离"逐点铺开
-//   并封顶 Cap（整格填常数会让贴墙那半格假装站得住），'=' 再封顶到 Narrow。距离一律以**采样点**为单位：一格 = 4 个采样点。
+// ASCII 地形：'#' 墙、'.' 空地、'=' 窄口，首行是**最上面**那排；净空逐采样点铺开（见 NewMaze 与 WallDistance）。
+//   距离一律以**采样点**为单位：一格 = 4 个采样点。
 //
 // 跑法：Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
@@ -43,7 +39,7 @@ namespace DeepseaOil.Tests
         private static float MaxSpeed => RowFactory.EnemyRow().MaxSpeed;
 
         /// <summary>手写地形 → 已登记格的 GridLogic ＋ 净空图；墙格也登记</summary>
-        /// <remarks>'=' 是窄口：整格再封顶到 Narrow。</remarks>
+        /// <remarks>净空按采样点铺成"到最近墙格矩形的距离"并封顶 Cap：整格填常数会让贴墙那半格假装站得住。</remarks>
         private static GridLogic NewMaze(string[] rows, out NavMap map)
         {
             int height = rows.Length;
@@ -82,7 +78,7 @@ namespace DeepseaOil.Tests
             return grid;
         }
 
-        /// <summary>采样点到最近墙格矩形的距离（封顶 Cap；图外不算墙）</summary>
+        /// <summary>采样点到最近墙格矩形的距离；封顶 Cap，图外不算墙</summary>
         private static float WallDistance(string[] rows, int x, int y, int i, int j)
         {
             float best = Cap;
@@ -112,7 +108,7 @@ namespace DeepseaOil.Tests
             return x + y * width;
         }
 
-        /// <summary>格内一个采样点的索引；与 NavMap 同为采样坐标行主序</summary>
+        /// <remarks>必须是**采样坐标的行主序**：流场按 ±1 / ±SampleWidth 走四邻，格内分块布局会让"相邻"落到别的格上。</remarks>
         private static int Node(int x, int y, int width, int i, int j)
         {
             int sub = NavMap.Subdivision;
@@ -120,7 +116,7 @@ namespace DeepseaOil.Tests
             return (x * sub + i) + (y * sub + j) * width * sub;
         }
 
-        /// <summary>格心附近那个采样点（(1,1)）：种子与"从这里出发"都用它</summary>
+        /// <summary>格心附近那个采样点：种子与"从这里出发"都用它</summary>
         private static int CenterNode(int x, int y, int width)
         {
             return Node(x, y, width, 1, 1);
@@ -142,7 +138,7 @@ namespace DeepseaOil.Tests
             return spec != null ? new TableTileState(spec) : null;
         }
 
-        /// <summary>造一只只认网格与执行的敌人；半径与加速度按测试需要给</summary>
+        /// <summary>造一只只认网格与执行的敌人</summary>
         private static EnemyLogic NewEnemy(GridLogic grid, MotorProbe motor, float radius = Radius, float acceleration = Acceleration)
         {
             var entry = new EnemyTuningEntry { id = 1, radius = radius, acceleration = acceleration };
@@ -188,8 +184,7 @@ namespace DeepseaOil.Tests
         }
 
         /// <summary>从出发节点沿链走到第一个拐点，返回拐点的世界坐标；链上没拐点就返回链尾</summary>
-        /// <remarks>与转向器同一个判据（相邻两步方向点积 &lt; 0.9 即拐），用来独立量出刹车距离该按多远算。
-        /// leg 必须归一：拿未归一的方向去比点积会把"同向"判成"拐弯"。</remarks>
+        /// <remarks>与转向器同一个判据：相邻两步方向点积 &lt; 0.9 即拐。leg 必须归一，否则"同向"会被判成"拐弯"。</remarks>
         private static Vector2 CornerPoint(NavMap map, NavField field, Vector2 position)
         {
             Assert.IsTrue(field.TryFindStart(position, out int node), "找不到出发节点");
@@ -263,7 +258,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void 迷宫里的下一步不朝墙()
         {
-            // 一道 x=4 的竖墙从 y=1 到 y=5：只剩 y=0 与 y=6 两排能绕过去
+            // 一道 x=4 的竖墙从 y=1 到 y=5：只剩 y=0 与 y=6 两排
             string[] rows =
             {
                 ".........",
@@ -285,11 +280,11 @@ namespace DeepseaOil.Tests
 
             int start = CenterNode(0, 3, 9);
 
-            // 绕行 54：净下 11 采样点 ＋ 横移 32 ＋ 上来 11；y=0 那排只到 j=2（j=3 离上侧墙格只剩 0.125）
+            // 54 = 净下 11 ＋ 横移 32 ＋ 上来 11；y=0 那排只到 j=2
             Assert.AreEqual(NavMap.Subdivision * 13 + 2, field.DistOf(start), $"绕行距离不对：场没绕墙（直走 8 格）可达={field.ReachableCount}");
             Assert.AreEqual(NavMap.Subdivision * 13 + 2, WalkTo(field, start, CenterNode(8, 3, 9)), "沿场走不到玩家");
 
-            // 贴墙那一格（x=3）的链必须沿着格内往下/往右走，不能一步跨进 x=4 的墙格
+            // 贴墙那一格（x=3）的链必须沿格内往下/往右走，不能一步跨进 x=4 的墙格
             int current = CenterNode(3, 3, 9);
 
             for (int i = 0; i < 8; i++)
@@ -368,7 +363,7 @@ namespace DeepseaOil.Tests
 
             Assert.AreEqual(NavMap.Subdivision * 4, field.DistOf(start), "空地直走该是 4 格");
 
-            // 一条竖墙压在 (2,2) 与 (3,2) 的格界上：界两侧最靠界的那两列采样点都站不住
+            // 一条竖墙压在 (2,2) 与 (3,2) 的格界上：界两侧最靠界的那列采样点都站不住
             for (int j = 0; j < NavMap.Subdivision; j++)
             {
                 map.SetSampleClearance(Node(2, 2, 5, NavMap.Subdivision - 1, j), 0f);
@@ -390,7 +385,7 @@ namespace DeepseaOil.Tests
         {
             GridLogic grid = NewMaze(OpenField(5, 3), out NavMap map);
 
-            // 一条横栅栏正压在 y=1 那排的格心线上：j=1、j=2 两排采样点全站不住，通道只剩格的上下两条边（判格心会把这排整片判死）
+            // 一条横栅栏正压在 y=1 那排的格心线上：j=1、j=2 两排采样点全站不住，通道只剩格的上下两条边
             for (int x = 0; x < 5; x++)
             {
                 for (int j = 1; j < 3; j++)
@@ -465,7 +460,7 @@ namespace DeepseaOil.Tests
         }
 
         /// <summary>L 形走廊：底排 x=0..2 接 (2,0)→(2,5) 竖排，唯一拐角在 (2,0) 那格</summary>
-        /// <remarks>竖排往上多留两格：追逐到停止距离后靠减速滑行（旧账本没有急停），滑行段必须落在可走格里</remarks>
+        /// <remarks>竖排往上多留两格：滑行段必须落在可走格里</remarks>
         private static string[] CornerMaze()
         {
             return new[]
@@ -496,7 +491,7 @@ namespace DeepseaOil.Tests
 
             enemy.SetTarget(new Vector2(2.5f, 3.5f));
 
-            // 远离拐角：刹车速度还高于满速，不该降速（取走廊中间那排：0.875 那排离上侧墙格只剩 0.125，站不住）
+            // 远离拐角：刹车速度还高于满速，不该降速（取走廊中间那排：0.875 那排离上侧墙格只剩 0.125）
             motor.Position = new Vector2(0.5f, 0.625f);
             motor.EngineVelocity = new Vector2(MaxSpeed, 0f);
             enemy.Tick(0.02f, 0.02f);
@@ -548,7 +543,7 @@ namespace DeepseaOil.Tests
 
                 Assert.IsTrue(map.TrySampleAt(motor.Position, out int node), $"第 {i} 帧跑出了图（位置 {motor.Position}）");
 
-                // 假物理没有碰撞体：逐帧只判"还在不在有地方站的格"（真身靠刚体贴墙滑，拦的是整格冲进实心墙）
+                // 假物理没有碰撞体：逐帧只判"还在不在有地方站的格"（真身靠刚体贴墙滑）
                 Assert.IsTrue(map.IsWalkable(map.CellOfSample(node), Radius, Skin), $"第 {i} 帧进了实心墙格（位置 {motor.Position}）：入弯降速没生效");
 
                 if (motor.Position.y > 0.55f) maxDrift = Mathf.Max(maxDrift, motor.Position.x - 2f);
@@ -579,7 +574,7 @@ namespace DeepseaOil.Tests
 
             grid.RefreshNavFields(new Vector3Int(5, 1, 0), Skin);
 
-            // 站在种子那一排采样点上（j=5）：流场方向正好正东，横向分量只剩软分离一个来源
+            // 站在种子那一排采样点上（j=5）：流场方向正好正东，横向分量只剩软分离
             var motor = new MotorProbe { Position = new Vector2(1.5f, 1.375f) };
             EnemyLogic enemy = NewEnemy(grid, motor);
 
@@ -614,7 +609,7 @@ namespace DeepseaOil.Tests
 
             grid.RefreshNavFields(new Vector3Int(7, 1, 0), Skin);
 
-            // 站在目标格心那一排采样点上：上下邻点的场距都更远，首选只能是东边那一个
+            // 站在目标格心那一排采样点上：上下邻点的场距都更远
             var motor = new MotorProbe { Position = new Vector2(2.375f, 1.375f) };
             EnemyLogic enemy = NewEnemy(grid, motor);
 
@@ -641,6 +636,7 @@ namespace DeepseaOil.Tests
             Assert.AreNotEqual(primary, detour, "换步又选回了卡住的那条边");
             Assert.GreaterOrEqual(field.DistOf(detour), 0, "换步走到了场外");
 
+            // 换步方向按 TryGetStepOption(node, true) 量：同距的南北邻节点先到先得，故是南侧
             Steering steered = enemy.ResolveSteering();
 
             Assert.Greater(steered.Direction.sqrMagnitude, 0f, "换步方向算成了零向量：账本会当停住，卡死再也解不开");
@@ -665,11 +661,15 @@ namespace DeepseaOil.Tests
             Assert.Greater(steered.Direction.sqrMagnitude, 0f, "退回直线意图时给了零向量");
             Assert.Greater(Vector2.Dot(steered.Direction.normalized, new Vector2(1f, 1f).normalized), 0.9f, "退回的不是直线意图方向");
 
-            // 图外同理：场给不出一步，也不能给零向量
+            // 图外同理：场给不出一步，也不能给零向量；方向仍是直线意图（目标 − 自己）
             motor.Position = new Vector2(20f, 20f);
             enemy.Tick(0.04f, 0.02f);
 
-            Assert.Greater(enemy.ResolveSteering().Direction.sqrMagnitude, 0f, "图外给了零向量");
+            Steering outside = enemy.ResolveSteering();
+            Vector2 intent = new Vector2(3.5f, 2.5f) - motor.Position;
+
+            Assert.Greater(outside.Direction.sqrMagnitude, 0f, "图外给了零向量");
+            Assert.Greater(Vector2.Dot(outside.Direction.normalized, intent.normalized), 0.99f, "图外退回的不是直线意图方向");
         }
     }
 }

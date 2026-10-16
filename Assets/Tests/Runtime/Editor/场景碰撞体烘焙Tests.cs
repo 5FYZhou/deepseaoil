@@ -1,16 +1,10 @@
 // ---------------------------------------------------------------------------
 // 场景碰撞体烘焙 · 运行期测试
 //
-// 【为什么在这里】本文件守两条「改错了不报错」的约定：
-//   ① 烘焙产的是**到碰撞体的距离**（每格固定的一排排采样点），可通行判据在逻辑层按体半径算：
-//      退回"点是否落在碰撞体里"时薄栅栏整道漏判，敌人正面顶住。
-//   ② 排除口径：触发器、IManagedActor、IActorMotor、阻挡地貌池、动态体都不算障碍。
-//   ③ 重复烘焙幂等（换场景重进不越积越多）。
+// 烘焙产的是**到碰撞体的距离**（每格一排排采样点），可通行判据在逻辑层按体半径算；触发器、IManagedActor、
+//   IActorMotor、阻挡地貌池、动态体都不算障碍；重复烘焙幂等（SetUp 把格域推到场景碰撞体之外见 SafeOrigin）。
 //
-// 【测试格域为什么挪到场景道具之外】EditMode 跑在当前打开的场景里、Physics2D 查询又是全局的，
-//   故 SetUp 先把格域推到全部已存在碰撞体之外，断言只依赖本用例自己造的件。
-//
-// 覆盖边界：绕障/卡死换步的用例在 寻路Tests.cs（那边是纯逻辑，不碰物理）。
+// 覆盖边界：绕障/卡死换步的用例在 寻路Tests.cs。
 // 跑法：Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
 
@@ -61,8 +55,8 @@ namespace DeepseaOil.Tests
             _spawned.Clear();
         }
 
-        /// <summary>把格域推到场景全部 2D 碰撞体之外：EditMode 的 Physics2D 查询是全局的，Range 的栅栏/路牌/树会白占格子</summary>
-        /// <remarks>必须在造测试件之前调用：只按场景里已存在的碰撞体算边界，测试自己造的墙不参与</remarks>
+        /// <summary>把格域推到场景全部 2D 碰撞体之外：EditMode 的 Physics2D 查询是全局的，场景道具会白占格子</summary>
+        /// <remarks>必须在造测试件之前调用：只按场景里已存在的碰撞体算边界</remarks>
         private static Vector2 SafeOrigin()
         {
             Collider2D[] existing = Object.FindObjectsOfType<Collider2D>();
@@ -124,7 +118,7 @@ namespace DeepseaOil.Tests
             return go;
         }
 
-        /// <summary>置件口：所有造件都按格心定位，避免"格坐标"与"世界坐标"两套口径各说各话</summary>
+        /// <summary>置件口：所有造件都按格心定位，避免"格坐标"与"世界坐标"两套口径</summary>
         private Vector2 Center(int x, int y)
         {
             return _grid.Geometry.CellCenter(new Vector3Int(x, y, 0));
@@ -135,7 +129,7 @@ namespace DeepseaOil.Tests
             Physics2D.SyncTransforms();
         }
 
-        /// <summary>烘焙口：断言一律读净空值与 IsWalkable，不再从日志或全局计数里推</summary>
+        /// <summary>烘焙口：断言一律读净空值与 IsWalkable</summary>
         private static NavMap Bake(GridLogic grid, float cap)
         {
             NavMap map = SceneObstacleBaker.Bake(grid, cap);
@@ -203,7 +197,7 @@ namespace DeepseaOil.Tests
 
             NavMap map = Bake(_grid, Cap);
 
-            // 几何距离是 0.075 / 0.575；实测比它小约 0.01（Physics2D 默认接触偏移把最近点算在略微外扩的形状上），故断言给带宽而不是点值
+            // 几何距离是 0.075 / 0.575；实测小约 0.01（Physics2D 接触偏移把最近点算在略微外扩的形状上），故断言给带宽
             float near = map.SampleClearance(Sample(map, 1, 1, 2, 2));
 
             Assert.AreEqual(near, map.SampleClearance(Sample(map, 2, 1, 1, 2)), 0.02f, "(1,1) 与 (2,1) 对称位置的净空不一致");
@@ -237,7 +231,7 @@ namespace DeepseaOil.Tests
             var fence = (BoxCollider2D)_spawned[_spawned.Count - 1].GetComponent<Collider2D>();
             NavMap map = Bake(_grid, Cap);
 
-            // 期望占用由碰撞体自己量出（与烘焙同一套按半径判距），逐采样点对：格心在墙边不代表整格站不住
+            // 期望占用由碰撞体自己量出（与烘焙同一套按半径判距），逐采样点对
             for (int y = 0; y < Height; y++)
             {
                 for (int x = 0; x < Width; x++)
@@ -291,7 +285,7 @@ namespace DeepseaOil.Tests
             Assert.IsTrue(map.IsWalkable(new Vector3Int(1, 1, 0), 0.5f, 0f), "挂了 IManagedActor 的角色把格子压成了墙");
         }
 
-        /// <summary>④ 幂等：重复烘焙（换场景重进）不能越积越多</summary>
+        /// <summary>④ 幂等：重复烘焙不能越积越多</summary>
         [Test]
         public void 重复烘焙结果一致()
         {
@@ -317,7 +311,7 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(baseline, Affected(Bake(_grid, Cap), Cap), "障碍已拆，旧净空没清干净");
         }
 
-        /// <summary>⑤ 真实预制体：玩家与敌人的碰撞体绝不能被烘成墙，否则角色脚下会长出隐形障碍</summary>
+        /// <summary>⑤ 真实预制体：玩家与敌人的碰撞体绝不能被烘成墙，否则角色脚下长出隐形障碍</summary>
         [Test]
         public void 真实角色预制体不被烘焙()
         {
