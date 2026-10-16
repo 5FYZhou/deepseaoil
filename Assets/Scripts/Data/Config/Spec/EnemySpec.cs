@@ -42,6 +42,11 @@ namespace DeepseaOil.Data
 
         public float StopDistance => _tuning.stopDistance;
 
+        /// <summary>转向闸门：角速率上限（度/秒）与低通时间常数（秒）</summary>
+        public float TurnRateLimit => _tuning.turnRateLimit;
+
+        public float TurnSmoothSeconds => _tuning.turnSmoothSeconds;
+
         public int Hp => _row.Hp;
 
         /// <summary>贴身一次对玩家造成的伤害；敌人伤害的唯一权威，玩家表的 contact_damage 不用在这条链上</summary>

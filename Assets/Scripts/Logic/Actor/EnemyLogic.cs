@@ -18,6 +18,8 @@ namespace DeepseaOil.Logic
         /// <summary>低速线：物理把速度压到零才算卡住，慢速蹭墙不算</summary>
         private const float StuckSpeedSqr = 0.01f;
 
+        private const float JamExemptRange = 1f;
+
         private int _stuckFrames;
         private int _stuckFramesMax;
 
@@ -37,7 +39,7 @@ namespace DeepseaOil.Logic
             Brain = brain ?? EnemyBrainFactory.Create(in spec);
             _status = new StatusGroup(this);
             _move = new EnemyMoveGroup(this, motor);
-            _navigator = new EnemyNavigator(spec.Radius);
+            _navigator = new EnemyNavigator(spec.Radius, spec.TurnRateLimit, spec.TurnSmoothSeconds);
         }
 
         public IEnemyBrain Brain { get; }
@@ -73,7 +75,12 @@ namespace DeepseaOil.Logic
         /// <summary>本帧可执行的方向与速度：流场跟随、入弯降速、软分离、卡死换步都在转向器里落地</summary>
         public Steering ResolveSteering()
         {
-            return _navigator.Resolve(Intent, Motor.Position, ((IMovementMotor)Motor).Velocity, Motor.Motion.MoveAcceleration);
+            return _navigator.Resolve(
+                Intent,
+                Motor.Position,
+                ((IMovementMotor)Motor).Velocity,
+                Motor.Motion.MoveAcceleration,
+                Ctx.now);
         }
 
         /// <summary>卡死判定：物理把速度压到零而大脑仍在追，连续满帧即换步</summary>
@@ -90,6 +97,13 @@ namespace DeepseaOil.Logic
             }
 
             if (Intent.IsIdle || _pendingKnockback.sqrMagnitude > 0f)
+            {
+                _stuckFrames = 0;
+                return;
+            }
+
+            // 目标贴脸：流场不认识目标身体，换步换的还是一张不认它的场 ⇒ 顶住/侧移会来回抖
+            if (_target.HasValue && (_target.Value - Motor.Position).sqrMagnitude <= JamExemptRange * JamExemptRange)
             {
                 _stuckFrames = 0;
                 return;

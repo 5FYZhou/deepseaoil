@@ -26,23 +26,25 @@ namespace DeepseaOil.Logic
         private const float TurnCosine = 0.9f;
 
         private readonly float _radius;
+        private readonly EnemySteeringGate _gate;
         private readonly List<Vector3Int> _neighborCells = new(8);
 
         private GridLogic _grid;
         private int _jamFrames;
         private bool _straightMode;
 
-        public EnemyNavigator(float radius)
+        public EnemyNavigator(float radius, float turnRate, float turnSeconds)
         {
             _radius = radius > 0f ? radius : 0f;
+            _gate = new EnemySteeringGate(turnRate, turnSeconds);
         }
 
         public int JamCount { get; private set; }
 
-        public bool IsJamming => _jamFrames > 0;
-
-        /// <summary>L0 分诊：原始方向在直线/阶梯之间翻转的次数</summary>
+        /// <summary>原始方向翻转次数，诊断用</summary>
         public int ModeSwitches { get; private set; }
+
+        public bool IsJamming => _jamFrames > 0;
 
         public void AttachGrid(GridLogic grid)
         {
@@ -57,17 +59,24 @@ namespace DeepseaOil.Logic
             JamCount++;
         }
 
-        /// <remarks>deceleration 是执行器的减速能力（MotionParams.MoveAcceleration）：刹车距离要按它算，拍脑袋的系数会在拐角处飘出走廊。</remarks>
-        public Steering Resolve(EnemyIntent intent, Vector2 position, Vector2 velocity, float deceleration)
+        /// <remarks>deceleration 是执行器的减速能力（MotionParams.MoveAcceleration）：刹车距离要按它算，拍脑袋的系数会在拐角处飘出走廊。
+        /// now 由调用方给（闸门按它判同帧幂等）。</remarks>
+        public Steering Resolve(EnemyIntent intent, Vector2 position, Vector2 velocity, float deceleration, float now)
         {
             if (intent.IsIdle)
             {
                 _jamFrames = 0;
+                _gate.Reset(intent.Direction, now);
 
                 return new Steering(intent.Direction, intent.Speed);
             }
 
-            if (_grid == null || !_grid.Geometry.IsValid) return new Steering(intent.Direction, intent.Speed);
+            if (_grid == null || !_grid.Geometry.IsValid)
+            {
+                _gate.Reset(intent.Direction, now);
+
+                return new Steering(intent.Direction, intent.Speed);
+            }
 
             float skin = ConfigModule.NavSkin;
             bool jamming = _jamFrames > 0;
@@ -80,7 +89,6 @@ namespace DeepseaOil.Logic
             Vector2 desired;
             float cornerDistance;
             bool cornerAhead;
-
             bool straight = !jamming && IsStraightDescend(field, position, position + intent.Direction);
 
             if (straight != _straightMode)
@@ -98,6 +106,8 @@ namespace DeepseaOil.Logic
             else if (!TryResolveFieldDirection(field, position, jamming, out desired, out cornerDistance, out cornerAhead))
             {
                 // 场给不出一步（图外 / 不可达 / 已在目标）：交回直线意图，绝不给零向量
+                _gate.Reset(intent.Direction, now);
+
                 return new Steering(intent.Direction, intent.Speed);
             }
 
@@ -117,18 +127,29 @@ namespace DeepseaOil.Logic
                 if (brake < speed) speed = brake;
             }
 
-            if (jamming) return new Steering(dHat, speed);
+            // 换步那几帧是在脱困：横向滑开还要减速只会更出不来
+            if (jamming)
+            {
+                _gate.Reset(dHat, now);
+
+                return new Steering(dHat, speed);
+            }
 
             Vector2 push = ComputeSeparation(position, skin);
 
-            if (push.sqrMagnitude <= 0f) return new Steering(dHat, speed);
+            if (push.sqrMagnitude <= 0f) return Emit(dHat, speed, velocity, now);
 
             Vector2 blended = dHat + push * ConfigModule.SeparationWeight;
 
             // 合成过小就只走流场方向：方向化成噪声会把怪送进墙里
-            if (blended.sqrMagnitude < 0.01f) return new Steering(dHat, speed);
+            if (blended.sqrMagnitude < 0.01f) return Emit(dHat, speed, velocity, now);
 
-            return new Steering(blended.normalized, speed);
+            return Emit(blended.normalized, speed, velocity, now);
+        }
+
+        private Steering Emit(Vector2 direction, float speed, Vector2 velocity, float now)
+        {
+            return new Steering(_gate.Step(direction, velocity, now), speed);
         }
 
         /// <summary>目标方向上的采样点都在场里且场距单调下降时，直线就是一条合法下坡：可以不走阶梯</summary>
