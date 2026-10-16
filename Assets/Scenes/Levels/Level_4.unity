@@ -14293,8 +14293,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8accf1d7bd1f37a479d5996891cb6baa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _curLevelId: 0
-  _nextLevelId: 1
+  _nextLevelId: 5
   _wavePlayMode: 0
 --- !u!1001 &1956235953
 PrefabInstance:
