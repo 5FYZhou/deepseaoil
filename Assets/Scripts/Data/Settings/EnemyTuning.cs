@@ -31,16 +31,16 @@ namespace DeepseaOil.Data.Settings
         public float cornerSpeedFactor = 0.4f;
 
         [Tooltip("软分离生效距离（世界单位）：近了互相让开，避免叠在同一个位置")]
-        public float separationRadius = 0.6f;
+        public float separationRadius = 0.45f;
 
         [Tooltip("软分离权重：与流场方向相加后归一。0 = 不分离，过大 = 挤开流场方向绕远")]
-        public float separationWeight = 0.5f;
+        public float separationWeight = 0.25f;
 
         [Tooltip("卡死判定帧数：速度被压到零满这么多物理帧才算卡死")]
-        public int stuckFrames = 10;
+        public int stuckFrames = 18;
 
         [Tooltip("卡死换步持续帧数：这段时间走次优邻格")]
-        public int jamFrames = 12;
+        public int jamFrames = 6;
 
         // 条目填 0 的字段逐级回落（→defaultEntry→第一条）
         private Dictionary<int, EnemyTuningEntry> _merged;
@@ -94,6 +94,8 @@ namespace DeepseaOil.Data.Settings
                 acceleration = Pick(entry.acceleration, def.acceleration, first.acceleration),
                 knockbackDecay = Pick(entry.knockbackDecay, def.knockbackDecay, first.knockbackDecay),
                 stopDistance = Pick(entry.stopDistance, def.stopDistance, first.stopDistance),
+                turnRateLimit = Pick(entry.turnRateLimit, def.turnRateLimit, first.turnRateLimit),
+                turnSmoothSeconds = Pick(entry.turnSmoothSeconds, def.turnSmoothSeconds, first.turnSmoothSeconds),
                 chaseRange = Pick(entry.chaseRange, def.chaseRange, first.chaseRange),
                 visionRange = Pick(entry.visionRange, def.visionRange, first.visionRange),
                 sustainRange = Pick(entry.sustainRange, def.sustainRange, first.sustainRange),
