@@ -602,7 +602,6 @@ namespace DeepseaOil.Presentation.UI
             HidePanel<BeginPanel>();
             HidePanel<SettlePanel>();
             HidePanel<EndPanel>();
-            if (!IsPanelOpen<HudPanel>()) ShowPanel<HudPanel>();
             if (!IsPanelOpen<GamePlayPanel>()) ShowPanel<GamePlayPanel>();
         }
 
@@ -613,7 +612,6 @@ namespace DeepseaOil.Presentation.UI
             HidePanel<SettlePanel>();
             HidePanel<EndPanel>();
             HidePanel<GamePlayPanel>();
-            HidePanel<HudPanel>();
         }
 
         // 加载场景时开关加载面板(System)，不然会影响Esc关闭判定

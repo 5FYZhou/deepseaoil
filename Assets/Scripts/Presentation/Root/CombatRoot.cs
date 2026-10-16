@@ -12,6 +12,7 @@ using DeepseaOil.Logic.Grid.States;
 using DeepseaOil.Logic.Level;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Service;
+using DeepseaOil.Logic.Wave;
 using DeepseaOil.Logic.World;
 using DeepseaOil.Presentation.Actor;
 using DeepseaOil.Presentation.Adapters;
@@ -22,6 +23,7 @@ using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.Level;
 using DeepseaOil.Presentation.Lighting;
+using DeepseaOil.Presentation.RenderPass;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
@@ -30,14 +32,16 @@ using cfg.dso;
 
 namespace DeepseaOil.Presentation
 {
-    /// 战斗切片的组合根：装配一次，每帧驱动
+    /// <summary>战斗切片的组合根：装配一次，每帧驱动</summary>
     public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
     {
-        /// 世界侧排在玩家侧之后
         public int Order => SceneOrder.World;
 
         /// <summary>怪所在的 Unity 层号：与预制体根节点层、ProjectSettings 里的层名三处必须一致</summary>
         private const int EnemyLayer = 8;
+
+        // Q 键丢弃后脚下掉落物的不可拾取窗口，秒
+        private const float SeedDiscardPickupCooldown = 1.2f;
 
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
@@ -94,6 +98,10 @@ namespace DeepseaOil.Presentation
 
         private float _retryAt = float.PositiveInfinity;
 
+        private bool _autoSaveRequested;
+
+        private bool _restoring;
+
         /// 场景作用域注册点（非 DontDestroyOnLoad 单例）：供运行时拖入的木桩自我报到
         public static CombatRoot Current { get; private set; }
 
@@ -131,10 +139,11 @@ namespace DeepseaOil.Presentation
             Current = this;
 
             EventBus<DropCollected>.Subscribe(OnDropCollected);
-            EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Subscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Subscribe(OnGridPointVfxOccurred);
+            EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
+            EventBus<WavePhaseChanged>.Subscribe(OnWavePhaseChanged);
         }
 
         private void OnDisable()
@@ -142,10 +151,11 @@ namespace DeepseaOil.Presentation
             if (ReferenceEquals(Current, this)) Current = null;
 
             EventBus<DropCollected>.Unsubscribe(OnDropCollected);
-            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
             EventBus<RequestHudRefresh>.Unsubscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Unsubscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Unsubscribe(OnGridPointVfxOccurred);
+            EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
+            EventBus<WavePhaseChanged>.Unsubscribe(OnWavePhaseChanged);
         }
 
         public void RenderTick(float deltaTime)
@@ -158,7 +168,6 @@ namespace DeepseaOil.Presentation
 
             _balls.Tick(deltaTime);
 
-            // 若玩家死亡 喷泉不活动
             if (player != null && player.Logic != null && !player.Logic.IsAlive) return;
 
             _drops.Tick(deltaTime);
@@ -172,7 +181,15 @@ namespace DeepseaOil.Presentation
 
             TickLifeFountain(deltaTime);
 
-            TickPlanting();
+            TickSeedInput();
+
+            UpdateSeedHighlight();
+
+            if (!_autoSaveRequested) return;
+
+            _autoSaveRequested = false;
+
+            EventBus<RequestAutoSave>.Publish(new RequestAutoSave(CollectGameState(0, true)));
         }
 
         public void FixedTick(float deltaTime)
@@ -207,10 +224,6 @@ namespace DeepseaOil.Presentation
 
             if (_combat != null)
             {
-                //if (_levelLogic != null && _levelLogic.State == LevelState.NotStarted)
-                    //_levelLogic.Start();
-
-                //bool playerAlive = player != null && player.Logic != null && player.Logic.IsAlive;
                 _combat.FixedTick(now, deltaTime);
             }
 
@@ -218,39 +231,135 @@ namespace DeepseaOil.Presentation
             UpdatePlayerContact(now);
         }
 
-        private void TickPlanting()
+        private void TickSeedInput()
         {
             InputProvider input = player != null ? player.Input : null;
 
-            if (input == null || !input.PlantPressedThisFrame) return;
+            if (input == null) return;
 
             PlayerLogic logic = player.Logic;
 
-            if (logic == null || !logic.Combat.HasAim) return;
+            if (logic == null || !logic.IsAlive) return;
+
+            if (input.PlantPressedThisFrame) TryThrowSeed(logic);
+
+            if (input.DiscardJustPressed) TryDiscardSeed(logic);
+        }
+
+        // 拒收必须早于扣次数：CanPlant 为假时既不扣次数也不发射
+        private void TryThrowSeed(PlayerLogic logic)
+        {
+            if (!logic.Combat.HasAim) return;
+
+            SeedType seed = logic.Stats.Seed;
+
+            if (logic.Stats.SeedCount <= 0 || seed == SeedType.None) return;
 
             Vector3Int cell = logic.Combat.AimCell;
 
-            if (!SeedPlanter.CanPlant(_grid, cell, logic.Stats.Seed)) return;
-
-            SeedSpec seed = ConfigModule.GetSeed(logic.Stats.Seed);
-
-            if (seed == null) return;
-
-            if (!logic.Stats.TryConsumeSeed()) return;
-
-            if (!SeedPlanter.ExecutePlant(_grid, cell, seed.Id, seed, ConfigModule.GetDuoReactions()))
+            if (!SeedPlanter.CanPlant(_grid, cell, seed))
             {
-                // 执行失败必须原样退回：种子已扣，静默少一颗是看不出来的
-                logic.Stats.GrantSeed(seed.Id);
+                _root?.Audio.EnqueueSfx(cfg.dso.AudioId.PlayerDiscard);
 
                 return;
             }
 
-            EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(cell));
+            if (!logic.Stats.TryConsumeSeed()) return;
+
+            Vector2 origin = player.Position;
+
+            Vector2 target = _grid.Geometry.CellCenter(cell);
+
+            // 发射失败原样退回：种子已扣，静默少一颗是看不出来的
+            if (_balls == null || !_balls.ThrowSeed(origin, target, seed, out _))
+            {
+                logic.Stats.GrantSeed(seed);
+            }
+        }
+
+        // 落地只走播种：不调 OnBallHit，故无元素冲量与伤害
+        private void OnSeedBallLanded(SeedType seed, Vector2 point)
+        {
+            PlayerStats stats = player?.Logic?.Stats;
+
+            if (_grid == null || !_grid.Geometry.IsValid)
+            {
+                stats?.GrantSeed(seed);
+
+                return;
+            }
+
+            SeedSpec spec = ConfigModule.GetSeed(seed);
+
+            if (spec == null)
+            {
+                stats?.GrantSeed(seed);
+
+                return;
+            }
+
+            // 飞行途中落点格可能已被别的球改掉，失败一律退回
+            if (!SeedPlanter.ExecutePlant(_grid, _grid.WorldToCell(point), seed, spec, ConfigModule.GetDuoReactions()))
+            {
+                stats?.GrantSeed(seed);
+
+                return;
+            }
+
+            EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(_grid.WorldToCell(point)));
 
             ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
             EffectModule.Play(EffectId.Highlight, in ctx);
+
+            PlaySfx(AudioId.PlayerPlant);
+        }
+
+        private void UpdateSeedHighlight()
+        {
+            if (_highlight == null) return;
+
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            if (logic == null || logic.Stats.SeedCount <= 0 || logic.Stats.Seed == SeedType.None)
+            {
+                _highlight.SetSeedTint(null);
+
+                return;
+            }
+
+            if (!logic.Combat.HasAim)
+            {
+                _highlight.SetSeedTint(null);
+
+                return;
+            }
+
+            _highlight.SetSeedTint(SeedPlanter.CanPlant(_grid, logic.Combat.AimCell, logic.Stats.Seed));
+        }
+
+        private void TryDiscardSeed(PlayerLogic logic)
+        {
+            PlayerStats stats = logic.Stats;
+
+            if (!stats.TryDiscardSeed(out SeedType discarded, out _)) return;
+
+            Vector2 facing = logic.Motor.Facing;
+
+            if (facing.sqrMagnitude < 1e-6f) facing = Vector2.right;
+
+            Vector2 origin = player.Position;
+
+            Vector2 landing = origin + facing.normalized * 0.5f;
+
+            if (_drops != null)
+            {
+                _drops.TrySpawn(new DropSpawnRequest(DropType.Seed, origin, landing, discarded));
+
+                _drops.SetLastPickupCooldown(SeedDiscardPickupCooldown);
+            }
+
+            _root?.Audio.EnqueueSfx(cfg.dso.AudioId.PlayerDiscard);
         }
 
         // 三重静止判据（无输入＋速度近零＋位移近零）由驱动方给定
@@ -277,8 +386,7 @@ namespace DeepseaOil.Presentation
 
             if (!healed) return;
 
-            // 不看 TryHeal 的返回值：healed 已经保证这次该回血，满血顶掉不算错
-            logic.Stats.TryHeal();
+            if (logic.Stats.TryHeal()) PlaySfx(AudioId.PlayerHeal);
         }
 
         // 判定是纯函数（ContactProbe.TryFindAttacker），可在 EditMode 测
@@ -419,6 +527,7 @@ namespace DeepseaOil.Presentation
                 _registry,
                 actor.transform.parent != null ? actor.transform.parent : actorRoot);
 
+            actor.SfxRequested = PlaySfx;
             actor.Died = OnSceneEnemyDied;
 
             Track(actor);
@@ -432,6 +541,9 @@ namespace DeepseaOil.Presentation
             actor.IsScenePlaced = false;
 
             actor.Initialize(position, in spec, player.transform, facing, _grid, _registry, actorRoot);
+
+            actor.SfxRequested = PlaySfx;
+            if (actor.IsInitialized) PlaySfx(AudioId.EnemySpawn);
 
             Track(actor);
         }
@@ -547,7 +659,8 @@ namespace DeepseaOil.Presentation
             _impulses = new ImpulseExecutor();
 
             _balls = new BallDirector();
-            _balls.Attach(_grid, balls, _impulses, ballRoot);
+            _balls.Attach(_grid, balls, _impulses, ballRoot, PlaySfx);
+            _balls.SetSeedLandingHandler(OnSeedBallLanded);
 
             _drops = new DropDirector();
             _drops.Attach(actorRoot, player.transform);
@@ -568,11 +681,18 @@ namespace DeepseaOil.Presentation
             IsReady = true;
 
             // 只装配时入队一次，勿挪进状态切换
-            if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmNormal);
+            if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
 
             if (_root != null) _root.UI.EnterGameplayUi();
 
             OnRequestHudRefresh(new RequestHudRefresh());
+
+            // 场景已重载干净，这里盖回填
+            if (_root != null && _root.Save != null
+                && _root.Save.TryConsumePendingRestore(out GameSaveData pending))
+            {
+                RestoreGameState(pending);
+            }
         }
 
         private void AttachFountains()
@@ -699,24 +819,28 @@ namespace DeepseaOil.Presentation
             return false;
         }
 
-        // 裁决在这里而不在掉落物里（掉落物只发事实）；加一种掉落物在这里加 case
+        // 裁决在掉落物之外；加一种掉落物在这里加 case
         private void OnDropCollected(DropCollected evt)
         {
+            PlaySfx(AudioId.PlayerPickup);
+
             PlayerStats stats = player?.Logic?.Stats;
 
             if (stats == null) return;
 
+            // 水土按次 +1：满额不涨点，但掉落物照样回池
             switch (evt.Type)
             {
                 case DropType.Water:
-                    stats.Refill(ResourceKind.Water);
+                    stats.TryAddAmmo(ResourceKind.Water, 1);
                     return;
 
                 case DropType.Earth:
-                    stats.Refill(ResourceKind.Earth);
+                    stats.TryAddAmmo(ResourceKind.Earth, 1);
                     return;
 
                 case DropType.Seed:
+                    // 二次防线：持种时上游已拦下
                     stats.GrantSeed(evt.Seed);
                     return;
 
@@ -735,20 +859,94 @@ namespace DeepseaOil.Presentation
             _levelLogic?.Announce();
         }
 
-        private void OnGameStateChanged(GameStateChanged evt)
+        /// <summary>备战期自动存档；只在渲染帧采集落盘</summary>
+        private void OnWavePhaseChanged(WavePhaseChanged evt)
         {
-            if (evt.state != GameState.Paused || !IsReady)
-                return;
+            if (_restoring) return;
 
-            int currentLevelId = CurrentLevelId;
-            if (currentLevelId <= 0)
+            if (evt.Phase != WavePhase.Prep) return;
+
+            _autoSaveRequested = true;
+        }
+
+        /// <summary>抓当前帧快照；缩略图抓帧在此发起</summary>
+        public GameSaveData CollectGameState(int slotIndex, bool isAuto)
+        {
+            var data = new GameSaveData
             {
-                Debug.LogError("[Save] 暂停自动存档失败：当前关卡 ID 无效。", this);
-                return;
+                schemaVersion = GameSaveData.CurrentSchemaVersion,
+                header = new SaveHeaderDTO
+                {
+                    schemaVersion = GameSaveData.CurrentSchemaVersion,
+                    slotIndex = slotIndex,
+                    isAuto = isAuto,
+                    currentLevelId = CurrentLevelId,
+                    waveIndex = _levelLogic != null ? _levelLogic.Waves.WaveIndex : 0
+                },
+                wave = _levelLogic != null ? _levelLogic.Waves.ExportSave() : null,
+                tiles = _grid != null ? _grid.ExportTiles() : new List<TileSaveData>(),
+                enemies = _combat != null ? _combat.ExportEnemies() : new List<EnemySaveData>(),
+                drops = _drops != null ? _drops.ExportDrops() : new List<DropSaveData>()
+            };
+
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            if (logic != null)
+            {
+                Vector2 position = player.Position;
+
+                Vector2 facing = logic.Motor.Facing;
+
+                PlayerSaveData save = logic.Stats.ExportSave();
+
+                save.posX = position.x;
+                save.posY = position.y;
+                save.faceX = facing.x;
+                save.faceY = facing.y;
+
+                data.player = save;
             }
 
-            EventBus<RequestAutoSave>.Publish(
-                new RequestAutoSave(new GameData(currentLevelId)));
+            SaveCaptureFeature.TryRequestCapture(slotIndex);
+
+            return data;
+        }
+
+        /// <summary>整档回填；先清场再逐块还原</summary>
+        public void RestoreGameState(GameSaveData data)
+        {
+            if (!IsReady || data == null) return;
+
+            // 清场与回填都会发相位事件，期间掐掉自动存档
+            _restoring = true;
+
+            ClearAll();
+
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            if (logic != null && data.player != null)
+            {
+                var position = new Vector2(data.player.posX, data.player.posY);
+
+                logic.Motor.StopMove();
+                logic.Motor.Move(Vector2.zero);
+                logic.Motor.SetPosition(position);
+                logic.Motor.Facing = new Vector2(data.player.faceX, data.player.faceY);
+
+                logic.Stats.ImportSave(data.player);
+            }
+
+            if (_levelLogic != null) _levelLogic.Waves.ImportSave(data.wave);
+
+            if (_grid != null) _grid.RestoreTiles(data.tiles);
+
+            if (_combat != null) _combat.RestoreEnemies(data.enemies);
+
+            if (_drops != null) _drops.RestoreDrops(data.drops);
+
+            _restoring = false;
+
+            OnRequestHudRefresh(new RequestHudRefresh());
         }
 
         private void OnGridBlastOccurred(GridBlastOccurred evt)
@@ -781,6 +979,84 @@ namespace DeepseaOil.Presentation
                 EffectModule.Play(EffectId.FlameEmbers, in ctx);
             else
                 EffectModule.Play(EffectId.ChainShock, in ctx);
+        }
+
+        private void OnTileStateChanged(TileStateChanged evt)
+        {
+            if (!IsReady || !TryGetTileSfx(evt.Previous, evt.State, out AudioId id)) return;
+
+            PlaySfx(id);
+        }
+
+        private static bool TryGetTileSfx(TileStateType previous, TileStateType state, out AudioId id)
+        {
+            id = default;
+
+            if (state == TileStateType.Normal)
+            {
+                switch (previous)
+                {
+                    case TileStateType.BasicFire:
+                    case TileStateType.FlameField:
+                        id = AudioId.TileAsh;
+                        return true;
+                    case TileStateType.BasicIce:
+                        id = AudioId.TileGlassBreak;
+                        return true;
+                }
+
+                return false;
+            }
+
+            switch (state)
+            {
+                case TileStateType.Steam:
+                    id = AudioId.TileSteam;
+                    return true;
+                case TileStateType.Freeze:
+                    id = AudioId.TileFreeze;
+                    return true;
+                case TileStateType.FrostSpike:
+                    id = AudioId.TileIceShard;
+                    return true;
+                case TileStateType.BasicFire:
+                case TileStateType.FlameField:
+                    id = AudioId.TileBurn;
+                    return true;
+                case TileStateType.Mud:
+                case TileStateType.MudSkid:
+                    id = AudioId.TileMud;
+                    return true;
+                case TileStateType.BasicIce:
+                    id = AudioId.TileFrozenSoil;
+                    return true;
+                case TileStateType.TerracottaBrick:
+                    id = AudioId.TileBrick;
+                    return true;
+                case TileStateType.BasicEarth:
+                    id = AudioId.Tile;
+                    return true;
+                case TileStateType.ChargedThorn:
+                    id = AudioId.TileThorn;
+                    return true;
+                case TileStateType.BasicElectricity:
+                case TileStateType.ConductZone:
+                    id = AudioId.TileConduct;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private void PlaySfx(AudioId id)
+        {
+            if (_root == null || _root.Audio == null)
+            {
+                Debug.LogError("[Combat] 音效请求时 GameRoot/AudioManager 未装配。", this);
+                return;
+            }
+
+            _root.Audio.EnqueueSfx(id);
         }
 
         // 装配期扫一次场景预摆怪（运行时拖入的由 Start 报到）

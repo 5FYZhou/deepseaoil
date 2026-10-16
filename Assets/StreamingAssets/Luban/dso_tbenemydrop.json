@@ -1,28 +1,28 @@
 [
   {
     "id": 1,
-    "enemy_id": 1,
+    "enemy_id": 2,
     "seed_type": 1,
     "weight": 25,
     "probability": 1
   },
   {
     "id": 2,
-    "enemy_id": 1,
+    "enemy_id": 2,
     "seed_type": 2,
     "weight": 25,
     "probability": 1
   },
   {
     "id": 3,
-    "enemy_id": 1,
+    "enemy_id": 2,
     "seed_type": 3,
     "weight": 25,
     "probability": 1
   },
   {
     "id": 4,
-    "enemy_id": 1,
+    "enemy_id": 2,
     "seed_type": 4,
     "weight": 25,
     "probability": 1

@@ -131,7 +131,7 @@ namespace DeepseaOil.Logic
 
             Intent = Brain.Decide(in brainContext);
 
-            var snapshot = new InputSnapshot(Intent.Direction, false, false);
+            var snapshot = new InputSnapshot(Intent.Direction, false);
             var context = new LogicContext(now, deltaTime, default, snapshot);
 
             FixedTick(context);

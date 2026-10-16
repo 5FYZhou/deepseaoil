@@ -39,7 +39,7 @@ namespace DeepseaOil.Tests
                 "\"invulnerable_duration\":0.8,\"retry_delay\":1.2,\"attack_interval\":0.35," +
                 "\"knockback_impulse\":12,\"knockback_speed_limit\":12,\"contact_radius\":1," +
                 "\"water_capacity\":5,\"water_start\":5,\"earth_capacity\":5,\"earth_start\":5," +
-                "\"life_heal_interval\":3}"));
+                "\"life_heal_interval\":3,\"seed_capacity\":3}"));
 
         /// <summary>一行波次：三阶段时长与出生参数；出哪些怪由 wave_enemy 配</summary>
         public static Wave WaveRow(int id = 1, int grantSeed = 1)

@@ -59,6 +59,8 @@ namespace DeepseaOil.Logic.Grid
 
         private readonly List<Vector3Int> _crossCells = new(4);
 
+        private readonly List<Vector3Int> _restoreCells = new();
+
         private float _now;
         private float _deltaTime;
 
@@ -192,6 +194,66 @@ namespace DeepseaOil.Logic.Grid
             return applied;
         }
 
+        /// <summary>导出非空地地貌与剩余秒数，-1 = 无倒计时</summary>
+        public List<TileSaveData> ExportTiles()
+        {
+            var result = new List<TileSaveData>(_machines.Count);
+
+            foreach (KeyValuePair<Vector3Int, TileStateMachine> pair in _machines)
+            {
+                ITileState state = pair.Value.Current;
+
+                if (state == null) continue;
+
+                float remaining = state.RemainingDuration;
+
+                // 本帧到期的格不存：回填会变回满时长
+                if (remaining == 0f) continue;
+
+                result.Add(new TileSaveData
+                {
+                    cellX = pair.Key.x,
+                    cellY = pair.Key.y,
+                    stateId = (int)state.Id,
+                    remaining = remaining
+                });
+            }
+
+            return result;
+        }
+
+        /// <summary>覆盖重建地貌；先全清回空地再落档</summary>
+        public void RestoreTiles(List<TileSaveData> list)
+        {
+            _restoreCells.Clear();
+
+            foreach (Vector3Int cell in _machines.Keys) _restoreCells.Add(cell);
+
+            for (int i = 0; i < _restoreCells.Count; i++)
+            {
+                SwitchTileState(_restoreCells[i], TileStateType.Normal);
+            }
+
+            _restoreCells.Clear();
+
+            if (list == null) return;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                TileSaveData data = list[i];
+
+                if (data == null) continue;
+
+                var cell = new Vector3Int(data.cellX, data.cellY, 0);
+
+                var next = (TileStateType)data.stateId;
+
+                if (next == TileStateType.Normal) continue;
+
+                SwitchTileState(cell, next, data.remaining > 0f ? data.remaining : 0f);
+            }
+        }
+
         public void Tick(float now, float deltaTime)
         {
             _now = now;
@@ -271,7 +333,6 @@ namespace DeepseaOil.Logic.Grid
         {
             bool any = false;
 
-            // 范围判定：半径 > 1.0 格时走广域冲击
             if (outcome.ImpactRadius > 1.0f)
             {
                 if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f)
@@ -512,6 +573,7 @@ namespace DeepseaOil.Logic.Grid
                 RegisterStateFactories(machine);
             }
 
+            TileStateType previous = machine.CurrentId;
             bool changed = machine.SwitchTo(next, BuildContext(cell), durationOverride);
 
             if (!changed)
@@ -524,7 +586,7 @@ namespace DeepseaOil.Logic.Grid
             if (machine.CurrentId == TileStateType.Normal) _machines.Remove(cell);
             else _machines[cell] = machine;
 
-            EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, next));
+            EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, previous, next));
 
             if (IsObstacle(cell) != wasObstacle) _navFields.MarkDirty();
 

@@ -8,6 +8,7 @@ using DeepseaOil.Presentation.Adapters;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Visual;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation.Actor
 {
@@ -77,6 +78,8 @@ namespace DeepseaOil.Presentation.Actor
         /// 死亡回调，只触发一次
         public System.Action<EnemyActor> Died;
 
+        public System.Action<AudioId> SfxRequested;
+
         private bool _deathFired;
 
         /// 减速期间持有，离开减速格 Stop
@@ -89,9 +92,6 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 上一物理帧的减速态
         private bool _slowOn;
-
-        /// 麻痹到期时刻（Time.time 口径）
-        private float _stunnedUntil;
 
         public bool IsAlive => Stats != null && Stats.IsAlive;
 
@@ -207,6 +207,8 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasDamage)
             {
+                SfxRequested?.Invoke(AudioId.EnemtHit);
+
                 VisualFeelTuning feel = ConfigModule.VisualFeel;
 
                 // 耐久是整数，伤害舍入到整数
@@ -263,7 +265,11 @@ namespace DeepseaOil.Presentation.Actor
                 float v0 = Mathf.Sqrt(2f * HurtDeceleration() * targetDistance);
 
                 // 非数/无穷会被账本原样写进刚体，整段位移直接作废
-                if (!float.IsNaN(v0) && !float.IsInfinity(v0)) _logic.ApplyKnockback(v0, damage.Direction);
+                if (!float.IsNaN(v0) && !float.IsInfinity(v0))
+                {
+                    _logic.ApplyKnockback(v0, damage.Direction);
+                    SfxRequested?.Invoke(AudioId.EnemyKnockback);
+                }
 
                 // 抬 View 不抬 Root：Y-Sort 读物理体位置
                 if (_animView != null)
@@ -333,15 +339,11 @@ namespace DeepseaOil.Presentation.Actor
             _logic.ApplyKnockback(magnitude, impulse / magnitude);
         }
 
-        /// 只记时长不改移动：麻痹生效需挡输入；不静默丢弃
+        /// 转交逻辑层状态组：麻痹要靠移动门禁才停得住
         public void ApplyStun(float seconds)
         {
-            if (seconds <= 0f) return;
-
-            _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + seconds);
+            _logic?.Status.ApplyStun(seconds);
         }
-
-        public bool IsStunned => Time.time < _stunnedUntil;
 
         public void ForceLoseAggro()
         {
@@ -438,6 +440,8 @@ namespace DeepseaOil.Presentation.Actor
             if (_deathFired) return;
 
             _deathFired = true;
+
+            SfxRequested?.Invoke(AudioId.EnemyDie);
 
             if (_motor != null) _motor.Move(Vector2.zero);
 

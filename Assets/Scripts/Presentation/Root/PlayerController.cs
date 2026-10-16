@@ -241,7 +241,7 @@ namespace DeepseaOil.Presentation
             Vector2 move = SnapMoveToEightDirections(raw.Move, _spec.SnapToEightDirections);
 
             // 归一化后的方向要写回快照：WorldInfo 与 InputBuffer 必须是同一份，否则 MoveGroup 与 PlayerLogic 的最近朝向会看到未处理值。
-            var snapshot = new InputSnapshot(move, raw.DashPressed, raw.GrabHeld);
+            var snapshot = new InputSnapshot(move, raw.DashPressed);
 
             _buffer.Push(in snapshot, Time.fixedTime);
 
@@ -293,11 +293,13 @@ namespace DeepseaOil.Presentation
             if (inputProvider.AttackPressedThisFrame && Logic.RequestThrow(BallType.Water, now))
             {
                 _animView?.Trigger(PlayerAnimHashes.TriggerThrow);
+                GameRoot.Instance.Audio.EnqueueSfx(AudioId.PlayerThrowStart);
             }
 
             if (inputProvider.AltAttackPressedThisFrame && Logic.RequestThrow(BallType.Earth, now))
             {
                 _animView?.Trigger(PlayerAnimHashes.TriggerThrow);
+                GameRoot.Instance.Audio.EnqueueSfx(AudioId.PlayerThrowStart);
             }
         }
 
