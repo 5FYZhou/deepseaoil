@@ -8,6 +8,7 @@ using DeepseaOil.Presentation.Adapters;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Visual;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation.Actor
 {
@@ -76,6 +77,8 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 死亡回调，只触发一次
         public System.Action<EnemyActor> Died;
+
+        public System.Action<AudioId> SfxRequested;
 
         private bool _deathFired;
 
@@ -205,6 +208,8 @@ namespace DeepseaOil.Presentation.Actor
 
             if (damage.HasDamage)
             {
+                SfxRequested?.Invoke(AudioId.EnemtHit);
+
                 VisualFeelTuning feel = ConfigModule.VisualFeel;
 
                 // 耐久是整数，伤害舍入到整数
@@ -261,7 +266,11 @@ namespace DeepseaOil.Presentation.Actor
                 float v0 = Mathf.Sqrt(2f * HurtDeceleration() * targetDistance);
 
                 // 非数/无穷会被账本原样写进刚体，整段位移直接作废
-                if (!float.IsNaN(v0) && !float.IsInfinity(v0)) _logic.ApplyKnockback(v0, damage.Direction);
+                if (!float.IsNaN(v0) && !float.IsInfinity(v0))
+                {
+                    _logic.ApplyKnockback(v0, damage.Direction);
+                    SfxRequested?.Invoke(AudioId.EnemyKnockback);
+                }
 
                 // 抬 View 不抬 Root：Y-Sort 读物理体位置
                 if (_animView != null)
@@ -436,6 +445,8 @@ namespace DeepseaOil.Presentation.Actor
             if (_deathFired) return;
 
             _deathFired = true;
+
+            SfxRequested?.Invoke(AudioId.EnemyDie);
 
             if (_motor != null) _motor.Move(Vector2.zero);
 

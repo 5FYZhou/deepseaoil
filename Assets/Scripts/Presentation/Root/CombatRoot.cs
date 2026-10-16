@@ -128,6 +128,7 @@ namespace DeepseaOil.Presentation
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Subscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Subscribe(OnGridPointVfxOccurred);
+            EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
         }
 
         private void OnDisable()
@@ -139,6 +140,7 @@ namespace DeepseaOil.Presentation
             EventBus<RequestHudRefresh>.Unsubscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Unsubscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Unsubscribe(OnGridPointVfxOccurred);
+            EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
         }
 
         public void RenderTick(float deltaTime)
@@ -236,6 +238,8 @@ namespace DeepseaOil.Presentation
             ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
             EffectModule.Play(EffectId.Highlight, in ctx);
+
+            PlaySfx(AudioId.PlayerPlant);
         }
 
         // 三重静止判据（无输入＋速度近零＋位移近零）由驱动方给定
@@ -262,8 +266,7 @@ namespace DeepseaOil.Presentation
 
             if (!healed) return;
 
-            // 不看 TryHeal 的返回值：healed 已经保证这次该回血，满血顶掉不算错
-            logic.Stats.TryHeal();
+            if (logic.Stats.TryHeal()) PlaySfx(AudioId.PlayerHeal);
         }
 
         // 判定是纯函数（ContactProbe.TryFindAttacker），可在 EditMode 测
@@ -401,6 +404,7 @@ namespace DeepseaOil.Presentation
                 _registry,
                 actor.transform.parent != null ? actor.transform.parent : actorRoot);
 
+            actor.SfxRequested = PlaySfx;
             actor.Died = OnSceneEnemyDied;
 
             Track(actor);
@@ -414,6 +418,9 @@ namespace DeepseaOil.Presentation
             actor.IsScenePlaced = false;
 
             actor.Initialize(position, in spec, player.transform, facing, _grid, _registry, actorRoot);
+
+            actor.SfxRequested = PlaySfx;
+            if (actor.IsInitialized) PlaySfx(AudioId.EnemySpawn);
 
             Track(actor);
         }
@@ -512,7 +519,7 @@ namespace DeepseaOil.Presentation
             _impulses = new ImpulseExecutor();
 
             _balls = new BallDirector();
-            _balls.Attach(_grid, balls, _impulses, ballRoot);
+            _balls.Attach(_grid, balls, _impulses, ballRoot, PlaySfx);
 
             _drops = new DropDirector();
             _drops.Attach(actorRoot, player.transform);
@@ -533,7 +540,7 @@ namespace DeepseaOil.Presentation
             IsReady = true;
 
             // 只装配时入队一次，勿挪进状态切换
-            if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmNormal);
+            if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
 
             if (_root != null) _root.UI.EnterGameplayUi();
 
@@ -667,6 +674,8 @@ namespace DeepseaOil.Presentation
         // 裁决在这里而不在掉落物里（掉落物只发事实）；加一种掉落物在这里加 case
         private void OnDropCollected(DropCollected evt)
         {
+            PlaySfx(AudioId.PlayerPickup);
+
             PlayerStats stats = player?.Logic?.Stats;
 
             if (stats == null) return;
@@ -746,6 +755,84 @@ namespace DeepseaOil.Presentation
                 EffectModule.Play(EffectId.FlameEmbers, in ctx);
             else
                 EffectModule.Play(EffectId.ChainShock, in ctx);
+        }
+
+        private void OnTileStateChanged(TileStateChanged evt)
+        {
+            if (!IsReady || !TryGetTileSfx(evt.Previous, evt.State, out AudioId id)) return;
+
+            PlaySfx(id);
+        }
+
+        private static bool TryGetTileSfx(TileStateType previous, TileStateType state, out AudioId id)
+        {
+            id = default;
+
+            if (state == TileStateType.Normal)
+            {
+                switch (previous)
+                {
+                    case TileStateType.BasicFire:
+                    case TileStateType.FlameField:
+                        id = AudioId.TileAsh;
+                        return true;
+                    case TileStateType.BasicIce:
+                        id = AudioId.TileGlassBreak;
+                        return true;
+                }
+
+                return false;
+            }
+
+            switch (state)
+            {
+                case TileStateType.Steam:
+                    id = AudioId.TileSteam;
+                    return true;
+                case TileStateType.Freeze:
+                    id = AudioId.TileFreeze;
+                    return true;
+                case TileStateType.FrostSpike:
+                    id = AudioId.TileIceShard;
+                    return true;
+                case TileStateType.BasicFire:
+                case TileStateType.FlameField:
+                    id = AudioId.TileBurn;
+                    return true;
+                case TileStateType.Mud:
+                case TileStateType.MudSkid:
+                    id = AudioId.TileMud;
+                    return true;
+                case TileStateType.BasicIce:
+                    id = AudioId.TileFrozenSoil;
+                    return true;
+                case TileStateType.TerracottaBrick:
+                    id = AudioId.TileBrick;
+                    return true;
+                case TileStateType.BasicEarth:
+                    id = AudioId.Tile;
+                    return true;
+                case TileStateType.ChargedThorn:
+                    id = AudioId.TileThorn;
+                    return true;
+                case TileStateType.BasicElectricity:
+                case TileStateType.ConductZone:
+                    id = AudioId.TileConduct;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private void PlaySfx(AudioId id)
+        {
+            if (_root == null || _root.Audio == null)
+            {
+                Debug.LogError("[Combat] 音效请求时 GameRoot/AudioManager 未装配。", this);
+                return;
+            }
+
+            _root.Audio.EnqueueSfx(id);
         }
 
         // 装配期扫一次场景预摆怪（运行时拖入的由 Start 报到）
