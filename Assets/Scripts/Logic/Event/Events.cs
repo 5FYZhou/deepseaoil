@@ -363,5 +363,11 @@ namespace DeepseaOil.Logic.Events
             Error = error;
         }
     }
+
+    public struct StoryFlowStateChanged
+    {
+        public string state;
+        public StoryFlowStateChanged(string state) { this.state = state; }
+    }
     #endregion
 }

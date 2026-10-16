@@ -222,6 +222,11 @@ namespace DeepseaOil.Logic.Wave
 
             _timer -= dt;
 
+            if (_phase == WavePhase.Battle
+                && _pendingCursor >= _pending.Count
+                && !anyEnemyAlive)
+                _timer = 0f;
+
             int transitions = 0;
 
             while (_timer <= 0f && transitions < MaxPhaseTransitionsPerTick)

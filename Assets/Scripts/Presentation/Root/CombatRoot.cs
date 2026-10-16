@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
@@ -25,6 +26,7 @@ using DeepseaOil.Presentation.Level;
 using DeepseaOil.Presentation.RenderPass;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
+using DeepseaOil.Presentation.Story;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using cfg.dso;
@@ -61,6 +63,9 @@ namespace DeepseaOil.Presentation
 
         [Tooltip("场景里的泉眼。每帧由本类驱动（落物不是自驱的）。留空则只靠掉落物补给。")]
         [SerializeField] private Fountain[] fountains = new Fountain[0];
+
+        [Tooltip("第一关教学期间监测玩家离开的共享触发区。")]
+        [SerializeField] private PlayerMoveTrigger playerMoveTrigger;
 
         [Tooltip("是否刷敌人。关掉可以只验投掷链路。")]
         [SerializeField] private bool enableLevel = true;
@@ -106,7 +111,13 @@ namespace DeepseaOil.Presentation
 
         public GridLogic Grid => _grid;
 
+        public PlayerController Player => player;
+
+        public IReadOnlyList<Fountain> Fountains => fountains;
+
         public int CurrentLevelId => IsReady && _levelLogic != null ? _levelLogic.CurrentLevel.Id : 0;
+
+        public event Action EnemyKilled;
 
         private void Start()
         {
@@ -119,6 +130,25 @@ namespace DeepseaOil.Presentation
             if (IsReady) return;
 
             Assemble();
+        }
+
+        public void BeginLevel()
+        {
+            if (!IsReady || _levelLogic == null)
+            {
+                Debug.LogError("[CombatRoot] 关卡尚未装配，不能开始关卡。", this);
+                return;
+            }
+
+            _levelLogic.Start();
+        }
+
+        public void ReleaseDeferredLevelEnd()
+        {
+            if (_levelLogic == null || !_levelLogic.ReleaseDeferredVictoryEndEvent())
+            {
+                Debug.LogError("[CombatRoot] 当前关卡没有待释放的剧情胜利结束事件。", this);
+            }
         }
 
         private void OnDestroy()
@@ -654,8 +684,11 @@ namespace DeepseaOil.Presentation
 
             if (enableLevel)
             {
-                _levelLogic = new LevelLogic(levelReader);
+                int levelId = levelReader.CurrentLevelId;
+                _levelLogic = new LevelLogic(levelReader, levelId == 1 || levelId == 6);
+                if (!UsesScriptedStory(_levelLogic.CurrentLevel.Id))
                 _levelLogic.Start();
+
                 _combat = CreateCombatDirector(_levelLogic);
             }
 
@@ -674,6 +707,19 @@ namespace DeepseaOil.Presentation
             {
                 RestoreGameState(pending);
             }
+            if (enableLevel && UsesScriptedStory(CurrentLevelId))
+            {
+                StoryFlow story = GetComponent<StoryFlow>();
+                if (story == null)
+                    story = gameObject.AddComponent<StoryFlow>();
+
+                story.Initialize(this, _root, playerMoveTrigger);
+            }
+        }
+
+        private static bool UsesScriptedStory(int levelId)
+        {
+            return levelId >= 1 && levelId <= 6;
         }
 
         private void AttachFountains()
@@ -749,6 +795,8 @@ namespace DeepseaOil.Presentation
 
         private void OnEnemyKilled(EnemySpec spec, Vector2 position)
         {
+            EnemyKilled?.Invoke();
+
             if (spec == null || _drops == null) return;
 
             IReadOnlyList<EnemyDropSpec> dropRules = ConfigModule.GetEnemyDrops(spec.Id);
