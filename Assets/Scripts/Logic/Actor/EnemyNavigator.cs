@@ -30,6 +30,7 @@ namespace DeepseaOil.Logic
 
         private GridLogic _grid;
         private int _jamFrames;
+        private bool _straightMode;
 
         public EnemyNavigator(float radius)
         {
@@ -39,6 +40,9 @@ namespace DeepseaOil.Logic
         public int JamCount { get; private set; }
 
         public bool IsJamming => _jamFrames > 0;
+
+        /// <summary>L0 分诊：原始方向在直线/阶梯之间翻转的次数</summary>
+        public int ModeSwitches { get; private set; }
 
         public void AttachGrid(GridLogic grid)
         {
@@ -77,7 +81,15 @@ namespace DeepseaOil.Logic
             float cornerDistance;
             bool cornerAhead;
 
-            if (!jamming && IsStraightDescend(field, position, position + intent.Direction))
+            bool straight = !jamming && IsStraightDescend(field, position, position + intent.Direction);
+
+            if (straight != _straightMode)
+            {
+                _straightMode = straight;
+                ModeSwitches++;
+            }
+
+            if (straight)
             {
                 desired = intent.Direction;
                 cornerDistance = 0f;

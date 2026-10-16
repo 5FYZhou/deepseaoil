@@ -643,6 +643,108 @@ namespace DeepseaOil.Tests
             Assert.Less(steered.Direction.y, -0.9f, "换步该横向滑开（次优邻节点在南侧），却仍在朝东顶");
         }
 
+        /// <summary>验收：玩家在敌人正前方 8 单位/秒横向折返 3 次，再顶住它的脸 —— 命令方向不许翻面、单帧 |Δv| 不许超配置、贴脸不许算卡死</summary>
+        /// <remarks>夹具自己积分位置，并做引擎会做的那件事：身体贴住时把速度压到零（下一帧帧首读到的就是它）。|Δv| 读账本本帧的提交量，不含物理压速。
+        /// 折返段全程保持 1.8 格间距：要让怪在满速上撞见"原始方向掉头"，贴住身体会把速度压没、把这一条盖掉。
+        /// 改前实测：命令方向单帧转过 60° 有 9 次、单帧 |Δv| 4.88（配置加速度 5 的 49 倍）、贴住满帧即换步。</remarks>
+        [Test]
+        public void 玩家折返与贴脸顶住都不该抖()
+        {
+            const float Dt = 0.02f;
+            const float PlayerSpeed = 8f;
+            const float Offset = 1.8f;
+
+            // 身体接触距离：怪 0.3 ＋ 玩家碰撞体 0.4，大于停靠环 0.6 ⇒ 贴住那一线"想走却走不动"
+            const float Contact = 0.7f;
+            const float PressOffset = 0.65f;
+            const float TurnLimit = 60f;
+
+            // 8 单位/秒 × 2.1 秒 ÷（2 × 1.8 格）= 折返 3 次；顶住段要满 stuckFrames 帧才判得出假卡死
+            const float WeaveSeconds = 2.1f;
+            const float PressSeconds = 0.6f;
+
+            GridLogic grid = NewMaze(OpenField(24, 8), out _);
+
+            var motor = new MotorProbe { Position = new Vector2(8f, 4f) };
+            EnemyLogic enemy = NewEnemy(grid, motor);
+
+            float omega = PlayerSpeed / Offset;
+            float time = 0f;
+            int frames = 0;
+            int turns = 0;
+            float peak = 0f;
+            Vector2 previous = Vector2.zero;
+            var witness = new List<string>();
+
+            int weaveSteps = Mathf.RoundToInt(WeaveSeconds / Dt);
+            int steps = weaveSteps + Mathf.RoundToInt(PressSeconds / Dt);
+
+            for (int i = 0; i < steps; i++)
+            {
+                time += Dt;
+                frames++;
+
+                // 折返段：钉在敌人正前方 Offset 格的相对位置上做横向正弦（相对速度恒为 8 单位/秒）
+                // 顶住段：退到贴住它的脸（Contact 内），敌人想走却走不动
+                Vector2 player = i < weaveSteps
+                    ? motor.Position + new Vector2(Mathf.Sin(time * omega) * Offset, Offset)
+                    : motor.Position + new Vector2(PressOffset, 0f);
+
+                // 组合根每物理帧喂目标格，这里照做：流场只认目标格，不认目标身体
+                enemy.SetTarget(player);
+
+                grid.RefreshNavFields(
+                    new Vector3Int(Mathf.FloorToInt(player.x), Mathf.FloorToInt(player.y), 0),
+                    Skin);
+
+                enemy.Tick(time, Dt);
+
+                Steering steered = enemy.ResolveSteering();
+
+                // 只在真的在走的那一帧量方向：停靠环内 speed = 0，此时 direction 仍是"目标−自己"，玩家穿过身边会翻面
+                if (steered.Speed > 0f && steered.Direction.sqrMagnitude > 0f)
+                {
+                    Vector2 unit = steered.Direction.normalized;
+                    float turn = previous.sqrMagnitude > 0f ? Vector2.Angle(previous, unit) : 0f;
+
+                    if (turn > TurnLimit)
+                    {
+                        turns++;
+
+                        if (witness.Count < 6)
+                        {
+                            witness.Add($"第 {frames} 帧：转过 {turn:F0}°，本帧速度 {motor.EngineVelocity.magnitude:F2}");
+                        }
+                    }
+
+                    previous = unit;
+                }
+                else
+                {
+                    previous = Vector2.zero;
+                }
+
+                peak = Mathf.Max(peak, motor.SubmittedDelta.magnitude);
+
+                motor.Position += motor.EngineVelocity * Dt;
+
+                if ((motor.Position - player).sqrMagnitude < Contact * Contact) motor.EngineVelocity = Vector2.zero;
+            }
+
+            float bound = 5f * Acceleration * Dt;
+            string report =
+                $"{frames} 帧：命令方向单帧转过 {TurnLimit:F0}° 共 {turns} 次；" +
+                $"峰值单帧 |Δv| {peak:F2}（{peak / Dt:F0} u/s²，上限 {bound:F2}）；" +
+                $"JamCount {enemy.Navigator.JamCount}；原始方向切换 {enemy.Navigator.ModeSwitches} 次" +
+                (witness.Count > 0 ? "；翻面帧 " + string.Join(" / ", witness) : "");
+
+            TestContext.WriteLine(report);
+
+            Assert.LessOrEqual(turns, 2, $"命令方向还在逐帧翻面：{report}");
+            Assert.LessOrEqual(peak, bound, $"单帧 |Δv| 没被压回配置加速度量级：{report}");
+            Assert.AreEqual(0, enemy.Navigator.JamCount, $"顶住目标身体被当成了卡死：{report}");
+        }
+
         [Test]
         public void 没场可读时退回直线意图()
         {
