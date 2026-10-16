@@ -9,6 +9,7 @@ namespace DeepseaOil.Presentation.UI
     {
         public override E_UILayer Layer => E_UILayer.Middle;
         public override bool CanBeHideByKey => false;
+        public override bool CloseOnSceneTransition => false;
 
         public RectTransform maskStart;
 
@@ -18,6 +19,7 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
+            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
         }
 
         protected override ButtonStyle SetBtnStyle(string name)
@@ -44,19 +46,17 @@ namespace DeepseaOil.Presentation.UI
                                     GameRoot.Instance.UI.HidePanel<BeginPanel>();
                                     GameRoot.Instance.UI.HidePanel<TransitionPanel>();
                                     cgPanel.StartTimeLine();
-
-                                    EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Game, true));
                                 }
                             );
                         });
                     });
 
                     break;
-                case "BtnContinue":
-                    GameRoot.Instance.UI.ShowPanel<SavePanel>();
+                case "BtnLoad":
+                    GameRoot.Instance.UI.ShowPanel<SavePanel>((panel) => panel.SetMode(SavePanelMode.Load));
                     break;
                 case "BtnSetting":
-                    GameRoot.Instance.UI.ShowPanel<SettingPanel>();
+                    GameRoot.Instance.UI.ShowPanel<SettingPanel>((panel) => panel.CanSave(false));
                     break;
                 case "BtnExit":
                     GameRoot.Instance.Game.ChangeState(GameState.Exit);

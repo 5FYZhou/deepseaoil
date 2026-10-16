@@ -39,6 +39,7 @@ namespace DeepseaOil.Presentation.UI
         public override E_UILayer Layer => E_UILayer.Bottom;
 
         public override bool CanBeHideByKey => false;
+        public override bool CloseOnSceneTransition => false;
 
         protected override string SetInitialTxt(string name)
         {
