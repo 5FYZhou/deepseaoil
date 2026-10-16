@@ -27,6 +27,8 @@ namespace DeepseaOil.Presentation
 
         private InputProvider _input;
 
+        private SaveService _saveService;
+
         private UIInputProvider _uiInputProvider;
         private ITickable _uiInput;
         private IGameTime _gameTime;
@@ -65,6 +67,8 @@ namespace DeepseaOil.Presentation
         public GameManager Game { get; private set; }
 
         public AudioManager Audio { get; private set; }
+
+        public SaveService Save => _saveService;
 
         /// <summary>全局计时器（时间轮）：麻痹/冷却/倒计时这类"持续到某时刻"的排这里，不排给已有钟的格子</summary>
         public TimerManager Timer { get; private set; }
@@ -161,20 +165,21 @@ namespace DeepseaOil.Presentation
 
             var pauseService = new PauseService(_gameTime);
             var sceneService = new SceneService(pauseService);
-            var saveService = new SaveService();
+
+            _saveService = new SaveService();
 
             Timer = new TimerManager(0.1f, 512);
 
             // 顺序 [Pause, Scene, Save, Audio, Timer] 既是 Init 序也是 Tick 序
             pauseService.Init();
             sceneService.Init();
-            saveService.Init();
+            _saveService.Init();
             Audio.Init();
             Timer.Init();
 
             _services.Add(pauseService);
             _services.Add(sceneService);
-            _services.Add(saveService);
+            _services.Add(_saveService);
             _services.Add(Audio);
             _services.Add(Timer);
 

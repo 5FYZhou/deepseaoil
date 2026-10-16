@@ -1,4 +1,5 @@
-﻿using DeepseaOil.Data;
+﻿using System.Collections.Generic;
+using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Service;
@@ -19,6 +20,8 @@ namespace DeepseaOil.Presentation.UI
         private SavePanelMode _mode = SavePanelMode.Load;
         private readonly SaveSlot[] _slotViews = new SaveSlot[SaveSlotInfo.SlotCount];
         private readonly ButtonStyle[] _slotStyles = new ButtonStyle[SaveSlotInfo.SlotCount];
+        private readonly Dictionary<int, Sprite> _thumbCache = new Dictionary<int, Sprite>();
+        private readonly List<Texture2D> _thumbTextures = new List<Texture2D>();
         private SaveSlotInfo[] _slotInfos;
         private bool _subscribed;
 
@@ -43,6 +46,7 @@ namespace DeepseaOil.Presentation.UI
         {
             base.OnDestroy();
             Unsubscribe();
+            ReleaseThumbnails();
         }
 
         protected override ButtonStyle SetBtnStyle(string name)
@@ -77,10 +81,16 @@ namespace DeepseaOil.Presentation.UI
                 if (slotIndex == 0)
                     return;
 
+                CombatRoot combat = CombatRoot.Current;
+
+                if (combat == null || !combat.IsReady)
+                {
+                    Debug.LogError("[Save] 战斗场景未就绪，本次保存已取消。", this);
+                    return;
+                }
+
                 EventBus<RequestSave>.Publish(
-                    new RequestSave(slotIndex, new GameData(CombatRoot.Current != null
-                        ? CombatRoot.Current.CurrentLevelId
-                        : 0)));
+                    new RequestSave(slotIndex, combat.CollectGameState(slotIndex, false)));
                 return;
             }
 
@@ -121,20 +131,23 @@ namespace DeepseaOil.Presentation.UI
                 return;
             }
 
+            ReleaseThumbnails();
+
             _slotInfos = evt.Slots;
             RefreshButtons();
         }
 
         private void OnSaveLoaded(SaveLoaded evt)
         {
-            string sceneName = SceneName.GetLevel(evt.Data.currentLevelId);
+            int levelId = evt.Data != null && evt.Data.header != null ? evt.Data.header.currentLevelId : 0;
+
+            string sceneName = SceneName.GetLevel(levelId);
             if (!Application.CanStreamedLevelBeLoaded(sceneName))
             {
                 Debug.LogError($"[Save] 存档关卡场景 '{sceneName}' 不存在或未加入 Build Settings，无法读取存档。");
                 return;
             }
 
-            GameRoot root = GameRoot.Instance;
             EventBus<RequestLoadScene>.Publish(new RequestLoadScene(sceneName, true));
         }
 
@@ -172,8 +185,65 @@ namespace DeepseaOil.Presentation.UI
 
                 _slotViews[i].gameObject.SetActive(hasSave);
                 if (hasSave)
+                {
                     _slotViews[i].SetInfo(slot);
+                    _slotViews[i].SetThumbnail(ResolveThumbnail(i));
+                }
             }
+        }
+
+        private Sprite ResolveThumbnail(int slotIndex)
+        {
+            if (_thumbCache.TryGetValue(slotIndex, out Sprite cached)) return cached;
+
+            GameRoot root = GameRoot.Instance;
+            SaveService save = root != null ? root.Save : null;
+
+            if (save == null || !save.TryGetThumbnail(slotIndex, out byte[] png))
+            {
+                _thumbCache[slotIndex] = null;
+
+                return null;
+            }
+
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+
+            if (!texture.LoadImage(png, false))
+            {
+                Destroy(texture);
+
+                _thumbCache[slotIndex] = null;
+
+                return null;
+            }
+
+            _thumbTextures.Add(texture);
+
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f));
+
+            _thumbCache[slotIndex] = sprite;
+
+            return sprite;
+        }
+
+        private void ReleaseThumbnails()
+        {
+            foreach (KeyValuePair<int, Sprite> pair in _thumbCache)
+            {
+                if (pair.Value != null) Destroy(pair.Value);
+            }
+
+            _thumbCache.Clear();
+
+            for (int i = 0; i < _thumbTextures.Count; i++)
+            {
+                if (_thumbTextures[i] != null) Destroy(_thumbTextures[i]);
+            }
+
+            _thumbTextures.Clear();
         }
 
         private static bool IsLevelInProgress()

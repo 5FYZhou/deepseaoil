@@ -1,3 +1,4 @@
+using System;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Events;
@@ -6,7 +7,6 @@ using cfg.dso;
 
 namespace DeepseaOil.Logic.Player
 {
-    // 玩家三条池子独立：水 / 土 / 种子
     public sealed class PlayerStats : IAlivable
     {
         private readonly PlayerSpec _spec;
@@ -94,6 +94,38 @@ namespace DeepseaOil.Logic.Player
             EventBus<PlayerHealthChanged>.Publish(new PlayerHealthChanged(_current, _spec.MaxHp));
         }
 
+        /// <summary>存档导出；位置与朝向由调用方填</summary>
+        public PlayerSaveData ExportSave()
+        {
+            return new PlayerSaveData
+            {
+                hp = _current,
+                water = Water,
+                earth = Earth,
+                seedType = (int)Seed,
+                seedCount = _seedCount
+            };
+        }
+
+        /// <summary>读盘回填；越界夹取</summary>
+        public void ImportSave(PlayerSaveData data)
+        {
+            if (data == null) return;
+
+            _current = Mathf.Clamp(data.hp, 0f, _spec.MaxHp);
+
+            _invulnerableUntil = float.NegativeInfinity;
+
+            Water = Clamp(data.water, WaterCapacity);
+            Earth = Clamp(data.earth, EarthCapacity);
+
+            Seed = Enum.IsDefined(typeof(SeedType), data.seedType) ? (SeedType)data.seedType : SeedType.None;
+
+            _seedCount = Seed == SeedType.None ? 0 : Clamp(data.seedCount, _seedCapacity);
+
+            Announce();
+        }
+
         public int AmountOf(ResourceKind kind)
         {
             return kind == ResourceKind.Water ? Water : Earth;
@@ -119,7 +151,6 @@ namespace DeepseaOil.Logic.Player
             return true;
         }
 
-        // 泉眼补满：内部走 TryAddAmmo
         public bool Refill(ResourceKind kind)
         {
             return TryAddAmmo(kind, CapacityOf(kind));

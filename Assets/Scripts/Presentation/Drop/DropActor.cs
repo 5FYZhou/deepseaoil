@@ -27,9 +27,9 @@ namespace DeepseaOil.Presentation.Drop
 
         protected DropSpec Definition { get; private set; }
 
-        protected DropType Type { get; private set; }
+        public DropType Type { get; private set; }
 
-        protected SeedType Seed { get; private set; }
+        public SeedType Seed { get; private set; }
 
         protected Phase CurrentPhase { get; private set; }
 
@@ -38,6 +38,17 @@ namespace DeepseaOil.Presentation.Drop
         protected Vector2 Origin { get; private set; }
 
         protected Vector2 Landing { get; private set; }
+
+        /// <summary>存档导出用</summary>
+        public Vector2 LandingPosition => Landing;
+
+        /// <summary>读盘重建；直接进等待态</summary>
+        public void PlaceAtLanding()
+        {
+            transform.position = Landing;
+
+            EnterPhase(Phase.Waiting);
+        }
 
         public bool IsCollected => CurrentPhase == Phase.Done;
 

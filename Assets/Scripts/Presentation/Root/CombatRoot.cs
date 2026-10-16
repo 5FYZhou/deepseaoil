@@ -12,6 +12,7 @@ using DeepseaOil.Logic.Grid.States;
 using DeepseaOil.Logic.Level;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Service;
+using DeepseaOil.Logic.Wave;
 using DeepseaOil.Logic.World;
 using DeepseaOil.Presentation.Actor;
 using DeepseaOil.Presentation.Adapters;
@@ -21,6 +22,7 @@ using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.Level;
+using DeepseaOil.Presentation.RenderPass;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
@@ -29,10 +31,9 @@ using cfg.dso;
 
 namespace DeepseaOil.Presentation
 {
-    /// 战斗切片的组合根：装配一次，每帧驱动
+    /// <summary>战斗切片的组合根：装配一次，每帧驱动</summary>
     public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
     {
-        /// 世界侧排在玩家侧之后
         public int Order => SceneOrder.World;
 
         /// <summary>怪所在的 Unity 层号：与预制体根节点层、ProjectSettings 里的层名三处必须一致</summary>
@@ -94,6 +95,10 @@ namespace DeepseaOil.Presentation
 
         private float _retryAt = float.PositiveInfinity;
 
+        private bool _autoSaveRequested;
+
+        private bool _restoring;
+
         /// 场景作用域注册点（非 DontDestroyOnLoad 单例）：供运行时拖入的木桩自我报到
         public static CombatRoot Current { get; private set; }
 
@@ -130,10 +135,10 @@ namespace DeepseaOil.Presentation
             Current = this;
 
             EventBus<DropCollected>.Subscribe(OnDropCollected);
-            EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Subscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Subscribe(OnGridPointVfxOccurred);
+            EventBus<WavePhaseChanged>.Subscribe(OnWavePhaseChanged);
         }
 
         private void OnDisable()
@@ -141,10 +146,10 @@ namespace DeepseaOil.Presentation
             if (ReferenceEquals(Current, this)) Current = null;
 
             EventBus<DropCollected>.Unsubscribe(OnDropCollected);
-            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
             EventBus<RequestHudRefresh>.Unsubscribe(OnRequestHudRefresh);
             EventBus<GridBlastOccurred>.Unsubscribe(OnGridBlastOccurred);
             EventBus<GridPointVfxOccurred>.Unsubscribe(OnGridPointVfxOccurred);
+            EventBus<WavePhaseChanged>.Unsubscribe(OnWavePhaseChanged);
         }
 
         public void RenderTick(float deltaTime)
@@ -155,7 +160,6 @@ namespace DeepseaOil.Presentation
 
             _balls.Tick(deltaTime);
 
-            // 若玩家死亡 喷泉不活动
             if (player != null && player.Logic != null && !player.Logic.IsAlive) return;
 
             _drops.Tick(deltaTime);
@@ -172,6 +176,12 @@ namespace DeepseaOil.Presentation
             TickSeedInput();
 
             UpdateSeedHighlight();
+
+            if (!_autoSaveRequested) return;
+
+            _autoSaveRequested = false;
+
+            EventBus<RequestAutoSave>.Publish(new RequestAutoSave(CollectGameState(0, true)));
         }
 
         public void FixedTick(float deltaTime)
@@ -650,6 +660,13 @@ namespace DeepseaOil.Presentation
             if (_root != null) _root.UI.EnterGameplayUi();
 
             OnRequestHudRefresh(new RequestHudRefresh());
+
+            // 场景已重载干净，这里盖回填
+            if (_root != null && _root.Save != null
+                && _root.Save.TryConsumePendingRestore(out GameSaveData pending))
+            {
+                RestoreGameState(pending);
+            }
         }
 
         private void AttachFountains()
@@ -814,20 +831,94 @@ namespace DeepseaOil.Presentation
             _levelLogic?.Announce();
         }
 
-        private void OnGameStateChanged(GameStateChanged evt)
+        /// <summary>备战期自动存档；只在渲染帧采集落盘</summary>
+        private void OnWavePhaseChanged(WavePhaseChanged evt)
         {
-            if (evt.state != GameState.Paused || !IsReady)
-                return;
+            if (_restoring) return;
 
-            int currentLevelId = CurrentLevelId;
-            if (currentLevelId <= 0)
+            if (evt.Phase != WavePhase.Prep) return;
+
+            _autoSaveRequested = true;
+        }
+
+        /// <summary>抓当前帧快照；缩略图抓帧在此发起</summary>
+        public GameSaveData CollectGameState(int slotIndex, bool isAuto)
+        {
+            var data = new GameSaveData
             {
-                Debug.LogError("[Save] 暂停自动存档失败：当前关卡 ID 无效。", this);
-                return;
+                schemaVersion = GameSaveData.CurrentSchemaVersion,
+                header = new SaveHeaderDTO
+                {
+                    schemaVersion = GameSaveData.CurrentSchemaVersion,
+                    slotIndex = slotIndex,
+                    isAuto = isAuto,
+                    currentLevelId = CurrentLevelId,
+                    waveIndex = _levelLogic != null ? _levelLogic.Waves.WaveIndex : 0
+                },
+                wave = _levelLogic != null ? _levelLogic.Waves.ExportSave() : null,
+                tiles = _grid != null ? _grid.ExportTiles() : new List<TileSaveData>(),
+                enemies = _combat != null ? _combat.ExportEnemies() : new List<EnemySaveData>(),
+                drops = _drops != null ? _drops.ExportDrops() : new List<DropSaveData>()
+            };
+
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            if (logic != null)
+            {
+                Vector2 position = player.Position;
+
+                Vector2 facing = logic.Motor.Facing;
+
+                PlayerSaveData save = logic.Stats.ExportSave();
+
+                save.posX = position.x;
+                save.posY = position.y;
+                save.faceX = facing.x;
+                save.faceY = facing.y;
+
+                data.player = save;
             }
 
-            EventBus<RequestAutoSave>.Publish(
-                new RequestAutoSave(new GameData(currentLevelId)));
+            SaveCaptureFeature.TryRequestCapture(slotIndex);
+
+            return data;
+        }
+
+        /// <summary>整档回填；先清场再逐块还原</summary>
+        public void RestoreGameState(GameSaveData data)
+        {
+            if (!IsReady || data == null) return;
+
+            // 清场与回填都会发相位事件，期间掐掉自动存档
+            _restoring = true;
+
+            ClearAll();
+
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            if (logic != null && data.player != null)
+            {
+                var position = new Vector2(data.player.posX, data.player.posY);
+
+                logic.Motor.StopMove();
+                logic.Motor.Move(Vector2.zero);
+                logic.Motor.SetPosition(position);
+                logic.Motor.Facing = new Vector2(data.player.faceX, data.player.faceY);
+
+                logic.Stats.ImportSave(data.player);
+            }
+
+            if (_levelLogic != null) _levelLogic.Waves.ImportSave(data.wave);
+
+            if (_grid != null) _grid.RestoreTiles(data.tiles);
+
+            if (_combat != null) _combat.RestoreEnemies(data.enemies);
+
+            if (_drops != null) _drops.RestoreDrops(data.drops);
+
+            _restoring = false;
+
+            OnRequestHudRefresh(new RequestHudRefresh());
         }
 
         private void OnGridBlastOccurred(GridBlastOccurred evt)

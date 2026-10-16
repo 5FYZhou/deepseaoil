@@ -31,9 +31,9 @@ namespace DeepseaOil.Logic.Events
     public readonly struct RequestSave
     {
         public readonly int SlotIndex;
-        public readonly GameData Data;
+        public readonly GameSaveData Data;
 
-        public RequestSave(int slotIndex, GameData data)
+        public RequestSave(int slotIndex, GameSaveData data)
         {
             SlotIndex = slotIndex;
             Data = data;
@@ -42,9 +42,9 @@ namespace DeepseaOil.Logic.Events
 
     public readonly struct RequestAutoSave
     {
-        public readonly GameData Data;
+        public readonly GameSaveData Data;
 
-        public RequestAutoSave(GameData data)
+        public RequestAutoSave(GameSaveData data)
         {
             Data = data;
         }
@@ -338,9 +338,9 @@ namespace DeepseaOil.Logic.Events
     public readonly struct SaveLoaded
     {
         public readonly int SlotIndex;
-        public readonly GameData Data;
+        public readonly GameSaveData Data;
 
-        public SaveLoaded(int slotIndex, GameData data)
+        public SaveLoaded(int slotIndex, GameSaveData data)
         {
             SlotIndex = slotIndex;
             Data = data;

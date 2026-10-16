@@ -89,6 +89,52 @@ namespace DeepseaOil.Presentation.Drop
             _lastSpawned.SetPickupCooldown(duration);
         }
 
+        public List<DropSaveData> ExportDrops()
+        {
+            var result = new List<DropSaveData>(_drops.Count);
+
+            for (int i = 0; i < _drops.Count; i++)
+            {
+                DropActor drop = _drops[i];
+
+                if (drop == null || !drop.IsAlive) continue;
+
+                Vector2 landing = drop.LandingPosition;
+
+                result.Add(new DropSaveData
+                {
+                    type = (int)drop.Type,
+                    seed = (int)drop.Seed,
+                    posX = landing.x,
+                    posY = landing.y
+                });
+            }
+
+            return result;
+        }
+
+        /// <summary>读盘重建：一律在落点静态生成，在途弹道不还原</summary>
+        public void RestoreDrops(List<DropSaveData> list)
+        {
+            if (list == null) return;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                DropSaveData data = list[i];
+
+                if (data == null) continue;
+
+                var landing = new Vector2(data.posX, data.posY);
+
+                var request = new DropSpawnRequest(
+                    (DropType)data.type, landing, landing, (SeedType)data.seed);
+
+                if (!TrySpawn(in request)) continue;
+
+                if (_lastSpawned != null) _lastSpawned.PlaceAtLanding();
+            }
+        }
+
         public void Tick(float deltaTime)
         {
             // 倒序：正序删除会跳过下一个元素

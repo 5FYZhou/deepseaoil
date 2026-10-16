@@ -19,7 +19,6 @@ namespace DeepseaOil.Logic.Wave
         Settle = 2,
     }
 
-    // 波次状态机：只算何时刷、刷哪个怪种、刷几只，不建物体也不认识相机
     public sealed class WaveLogic
     {
         public readonly struct SpawnRequest
@@ -50,7 +49,6 @@ namespace DeepseaOil.Logic.Wave
 
         private int _cursor;
 
-        // 游标等于 Count 即本波刷完
         private int _pendingCursor;
 
         private int _waveIndex = 1;
@@ -133,6 +131,63 @@ namespace DeepseaOil.Logic.Wave
             _pendingCursor = 0;
         }
 
+        /// <summary>回填；待刷序列按 cursor 重展开</summary>
+        public void ImportSave(WaveSaveData data)
+        {
+            if (data == null) return;
+
+            _cursor = data.cursor < 0 ? 0 : (data.cursor >= _waves.Count ? _waves.Count - 1 : data.cursor);
+
+            _waveIndex = data.waveIndex > 0 ? data.waveIndex : 1;
+
+            _phase = data.phase == (int)WavePhase.Battle
+                ? WavePhase.Battle
+                : data.phase == (int)WavePhase.Settle ? WavePhase.Settle : WavePhase.Prep;
+
+            _timer = Sanitize(data.timer);
+
+            _spawnTimer = Sanitize(data.spawnTimer);
+
+            _pendingSeed = Enum.IsDefined(typeof(SeedType), data.pendingSeed)
+                ? (SeedType)data.pendingSeed
+                : SeedType.None;
+
+            _isCompleted = data.isCompleted;
+
+            _settleDelayStarted = data.settleDelayStarted;
+
+            FillPending(Current);
+
+            _pendingCursor = data.pendingCursor < 0
+                ? 0
+                : (data.pendingCursor > _pending.Count ? _pending.Count : data.pendingCursor);
+
+            _remaining = _pending.Count - _pendingCursor;
+
+            // 必须置真，否则下一次 Tick 重入 EnterPhase 洗掉种子与待刷序列
+            _phaseEntered = true;
+
+            PublishPhase();
+
+            PublishCountdownIfChanged(true);
+        }
+
+        public WaveSaveData ExportSave()
+        {
+            return new WaveSaveData
+            {
+                waveIndex = _waveIndex,
+                cursor = _cursor,
+                pendingCursor = _pendingCursor,
+                phase = (int)_phase,
+                timer = _timer,
+                pendingSeed = (int)_pendingSeed,
+                spawnTimer = _spawnTimer,
+                isCompleted = _isCompleted,
+                settleDelayStarted = _settleDelayStarted
+            };
+        }
+
         public SeedType ConsumeSeedGrant()
         {
             SeedType seed = _pendingSeed;
@@ -142,7 +197,6 @@ namespace DeepseaOil.Logic.Wave
             return seed;
         }
 
-        // dt 暂停时为 0，节拍自然冻结
         public void Tick(
             float dt,
             bool anyEnemyAlive,
