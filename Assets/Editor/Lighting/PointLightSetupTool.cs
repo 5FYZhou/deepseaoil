@@ -50,7 +50,7 @@ namespace DeepseaOil.EditorTools.Lighting
 
                 Debug.Log(
                     $"[Light] {director.gameObject.name}：发光格 {director.LitCellCount} 个 → 借出点光 {director.ActiveLightCount} 盏" +
-                    "（连片地貌共用一盏；渲染器一次只混合 16 盏，超出的灯不贡献光且不报错）。", director);
+                    $"（其中连片火海占 {director.FireGroupCount} 盏氛围灯；渲染器一次只混合 16 盏，超出的灯不贡献光且不报错）。", director);
             }
 
             Light2D[] lights = Object.FindObjectsOfType<Light2D>();

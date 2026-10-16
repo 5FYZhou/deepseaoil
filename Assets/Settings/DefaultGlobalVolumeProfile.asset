@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-6437016510623048600
+--- !u!114 &-4430776205056411890
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -9,37 +9,25 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 97c23e3b12dc18c42a140437e53d3951, type: 3}
-  m_Name: Tonemapping
+  m_Script: {fileID: 11500000, guid: 66f335fb1ffd8684294ad653bf1c7564, type: 3}
+  m_Name: ColorAdjustments
   m_EditorClassIdentifier: 
   active: 1
-  mode:
+  postExposure:
     m_OverrideState: 1
-    m_Value: 1
-  neutralHDRRangeReductionMode:
-    m_OverrideState: 1
-    m_Value: 2
-  acesPreset:
-    m_OverrideState: 1
-    m_Value: 3
-  hueShiftAmount:
+    m_Value: 0.2
+  contrast:
     m_OverrideState: 1
     m_Value: 0
-  detectPaperWhite:
+  colorFilter:
+    m_OverrideState: 1
+    m_Value: {r: 1, g: 1, b: 1, a: 1}
+  hueShift:
     m_OverrideState: 1
     m_Value: 0
-  paperWhite:
+  saturation:
     m_OverrideState: 1
-    m_Value: 300
-  detectBrightnessLimits:
-    m_OverrideState: 1
-    m_Value: 1
-  minNits:
-    m_OverrideState: 1
-    m_Value: 0.005
-  maxNits:
-    m_OverrideState: 1
-    m_Value: 1000
+    m_Value: -10
 --- !u!114 &-1733730640121042646
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -61,7 +49,7 @@ MonoBehaviour:
     m_Value: 1.15
   intensity:
     m_OverrideState: 1
-    m_Value: 0.45
+    m_Value: 5
   scatter:
     m_OverrideState: 1
     m_Value: 0.6
@@ -102,7 +90,7 @@ MonoBehaviour:
   components:
   - {fileID: -1733730640121042646}
   - {fileID: 7672451772573151662}
-  - {fileID: -6437016510623048600}
+  - {fileID: -4430776205056411890}
 --- !u!114 &7672451772573151662
 MonoBehaviour:
   m_ObjectHideFlags: 3

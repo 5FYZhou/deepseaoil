@@ -34,7 +34,7 @@ namespace DeepseaOil.EditorTools.Lighting
             EditorUtility.SetDirty(root);
             AssetDatabase.SaveAssets();
 
-            Debug.Log("[Lighting] 环境基座装配完成：Global Light 2D、Global Volume 与 EnvironmentDirector 已就位。");
+            Debug.Log("[Lighting] 环境基座装配完成：Tonemapping 已剔除，Color Adjustments 已注入，Global Light 2D、Global Volume 与 EnvironmentDirector 已就位。");
         }
 
         /// <summary>Sorting Layer 缺失则中止整个装配，绝不代写 ProjectSettings/TagManager.asset</summary>
@@ -226,8 +226,33 @@ namespace DeepseaOil.EditorTools.Lighting
             return component;
         }
 
+        /// <summary>从 profile 与其资产文件里一并抹掉某个覆盖项：只置 active=false 会把它继续留在磁盘上</summary>
+        private static void RemoveComponent<T>(VolumeProfile profile) where T : VolumeComponent
+        {
+            if (!profile.TryGet(out T component)) return;
+
+            profile.components.Remove(component);
+            AssetDatabase.RemoveObjectFromAsset(component);
+
+            UnityEngine.Object.DestroyImmediate(component, true);
+            EditorUtility.SetDirty(profile);
+        }
+
         private static void ApplySealedOverrides(VolumeProfile profile)
         {
+            // 2D 手绘色块不用 3D HDR 曲线：Neutral 会把纯色块的饱和度与对比度二次压缩
+            RemoveComponent<Tonemapping>(profile);
+
+            ColorAdjustments colorAdjustments = EnsureComponent<ColorAdjustments>(profile);
+
+            colorAdjustments.active = true;
+            colorAdjustments.postExposure.overrideState = true;
+            colorAdjustments.postExposure.value = 0f;
+            colorAdjustments.contrast.overrideState = true;
+            colorAdjustments.contrast.value = 10f;
+            colorAdjustments.saturation.overrideState = true;
+            colorAdjustments.saturation.value = 12f;
+
             Bloom bloom = EnsureComponent<Bloom>(profile);
 
             bloom.active = true;
@@ -247,12 +272,6 @@ namespace DeepseaOil.EditorTools.Lighting
             vignette.intensity.value = 0.22f;
             vignette.smoothness.overrideState = true;
             vignette.smoothness.value = 0.40f;
-
-            Tonemapping tonemapping = EnsureComponent<Tonemapping>(profile);
-
-            tonemapping.active = true;
-            tonemapping.mode.overrideState = true;
-            tonemapping.mode.value = TonemappingMode.Neutral;
 
             EditorUtility.SetDirty(profile);
         }

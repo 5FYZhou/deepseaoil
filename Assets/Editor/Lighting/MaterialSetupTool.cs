@@ -217,6 +217,9 @@ namespace DeepseaOil.EditorTools.Lighting
             if (material.HasProperty("_AmbientFloor")) material.SetFloat("_AmbientFloor", 0.35f);
             if (material.HasProperty("_CelBands")) material.SetFloat("_CelBands", 3f);
 
+            // 光斑齿状化基线：0 = 硬边正圆；只对暴露该属性的 CelLit 生效
+            if (material.HasProperty("_OrganicJitter")) material.SetFloat("_OrganicJitter", 0.015f);
+
             EditorUtility.SetDirty(material);
 
             return material;

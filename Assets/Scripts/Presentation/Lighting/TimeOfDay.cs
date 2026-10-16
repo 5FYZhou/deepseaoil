@@ -20,7 +20,7 @@ namespace DeepseaOil.Presentation.Lighting
         [Tooltip("全局主光颜色")]
         public Color LightColor;
 
-        [Tooltip("全局光照强度，白天 0.80，黄昏 0.62，夜晚 0.48")]
+        [Tooltip("全局光照强度，白天 0.98，黄昏 0.62，夜晚 0.48")]
         [Range(0.35f, 1.2f)]
         public float Intensity;
 
@@ -59,8 +59,8 @@ namespace DeepseaOil.Presentation.Lighting
                     return new TimeOfDaySetting
                     {
                         Kind = TimeOfDayKind.Day,
-                        LightColor = Srgb("#FFF5DD"),
-                        Intensity = 0.80f,
+                        LightColor = Srgb("#FFFBF0"),
+                        Intensity = 0.98f,
                         AmbientFloorColor = Srgb("#595959")
                     };
             }

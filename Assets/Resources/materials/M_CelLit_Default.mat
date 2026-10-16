@@ -31,10 +31,12 @@ Material:
     m_Floats:
     - _AmbientFloor: 0.35
     - _CelBands: 3
+    - _EmissiveBoost: 0
     - _EnableRim: 0
     - _FlashAmount: 0
     - _MetalIntensity: 0
     - _MetalThreshold: 0.85
+    - _OrganicJitter: 0.015
     - _RimThreshold: 0.92
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}

@@ -629,6 +629,16 @@ namespace DeepseaOil.Presentation
             // 先订阅格子状态变化再灌初始状态，否则那批泥浆不会被画出来
             gridView.Attach();
 
+            // 同上：点光管理器晚订阅一步，开局那批火/电地块就一个灯都不会亮
+            _tileLights = GetComponentInChildren<TileLightDirector>(true);
+
+            if (_tileLights == null)
+            {
+                _tileLights = new GameObject("TileLightDirector").AddComponent<TileLightDirector>();
+            }
+
+            _tileLights.Attach();
+
             int cells = gridView.RegisterCells(_grid);
 
             // 关卡初始地块优先从场景里的 InitialSetup 笔刷层读（策划在编辑器里画）
@@ -645,16 +655,6 @@ namespace DeepseaOil.Presentation
 
             _highlight = CreateHighlightView(geometry);
             _highlight.Attach();
-
-            // 没挂就自建：不该依赖场景装配是否到位
-            _tileLights = GetComponentInChildren<TileLightDirector>(true);
-
-            if (_tileLights == null)
-            {
-                _tileLights = new GameObject("TileLightDirector").AddComponent<TileLightDirector>();
-            }
-
-            _tileLights.Attach();
 
             _impulses = new ImpulseExecutor();
 
