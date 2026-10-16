@@ -46,5 +46,35 @@
     "wave_id": 6,
     "enemy_id": 2,
     "count": 3
+  },
+  {
+    "id": 9,
+    "wave_id": 7,
+    "enemy_id": 1,
+    "count": 5
+  },
+  {
+    "id": 10,
+    "wave_id": 8,
+    "enemy_id": 2,
+    "count": 4
+  },
+  {
+    "id": 11,
+    "wave_id": 8,
+    "enemy_id": 1,
+    "count": 3
+  },
+  {
+    "id": 12,
+    "wave_id": 9,
+    "enemy_id": 1,
+    "count": 6
+  },
+  {
+    "id": 13,
+    "wave_id": 9,
+    "enemy_id": 2,
+    "count": 5
   }
 ]
