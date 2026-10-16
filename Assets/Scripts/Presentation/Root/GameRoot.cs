@@ -16,7 +16,7 @@ using UnityEngine;
 namespace DeepseaOil.Presentation
 {
     /// <summary>唯一真单例：谁造、谁清、别人怎么拿到它</summary>
-    /// <remarks>常驻对象（DontDestroyOnLoad），每场景重建会多出一份 UIMgr/音频池/GameState。驱动入口收敛到 1 个渲染帧 + 1 个物理帧（顺序是数据，见 UpdateSteps）。三个 static 模块的生命周期也在这里：ConfigModule 先于 AssetModule，EffectModule.Preload 又依赖 AssetModule；拆除顺序必须反过来，AssetModule.Dispose 必须最后。</remarks>
+    /// <remarks>常驻对象（DontDestroyOnLoad），每场景重建会多出一份 UIMgr/音频池/GameState。驱动入口收敛到 1 个渲染帧 + 1 个物理帧（顺序是数据，见 UpdateSteps）。三个 static 模块的生命周期也在这里：ConfigModule 先于 AssetModule，EffectModule.Preload 又依赖 AssetModule。</remarks>
     public sealed class GameRoot : Singleton<GameRoot>
     {
         private readonly List<ISceneRoot> _sceneRoots = new();
@@ -125,6 +125,9 @@ namespace DeepseaOil.Presentation
         /// <remarks>顺序不能反：AssetModule 的 Key 来自 ConfigModule，EffectModule.Preload 走 AssetModule；UIMgr.Init 与 AudioManager.Init 都要读资源。失败即抛。</remarks>
         private void Assemble()
         {
+            // 每局重播种：固定种子会让每次启动的掉落剧本一模一样
+            Rng.Reset(unchecked((int)DateTime.UtcNow.Ticks));
+
             if (!ConfigModule.IsReady)
                 ConfigModule.InitFromStreamingAssets();
 

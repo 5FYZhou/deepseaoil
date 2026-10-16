@@ -90,9 +90,6 @@ namespace DeepseaOil.Presentation.Actor
         /// 上一物理帧的减速态
         private bool _slowOn;
 
-        /// 麻痹到期时刻（Time.time 口径）
-        private float _stunnedUntil;
-
         public bool IsAlive => Stats != null && Stats.IsAlive;
 
         /// 取执行器物理体位置而非 transform.position，两者迟早有一帧对不上且不报错
@@ -333,15 +330,11 @@ namespace DeepseaOil.Presentation.Actor
             _logic.ApplyKnockback(magnitude, impulse / magnitude);
         }
 
-        /// 只记时长不改移动：麻痹生效需挡输入；不静默丢弃
+        /// 转交逻辑层状态组：麻痹要靠移动门禁才停得住
         public void ApplyStun(float seconds)
         {
-            if (seconds <= 0f) return;
-
-            _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + seconds);
+            _logic?.Status.ApplyStun(seconds);
         }
-
-        public bool IsStunned => Time.time < _stunnedUntil;
 
         public void ForceLoseAggro()
         {

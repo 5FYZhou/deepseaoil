@@ -409,7 +409,7 @@ namespace DeepseaOil.Tests
 
         /// <summary>种子单槽账本：只在空仓收种、每次播种扣 1。</summary>
         [Test]
-        public void M22_种子槽位独占与次数扣减()
+        public void M23_种子槽位独占与次数扣减()
         {
             var spec = new PlayerSpec(
                 RowFactory.PlayerRow(), _config, new ProjectileSpec(RowFactory.WaterRow(), null));
@@ -449,7 +449,7 @@ namespace DeepseaOil.Tests
 
         /// <summary>丢弃契约：无种子返回 false。</summary>
         [Test]
-        public void M23_丢弃种子传出种类与余量()
+        public void M24_丢弃种子传出种类与余量()
         {
             var spec = new PlayerSpec(
                 RowFactory.PlayerRow(), _config, new ProjectileSpec(RowFactory.WaterRow(), null));

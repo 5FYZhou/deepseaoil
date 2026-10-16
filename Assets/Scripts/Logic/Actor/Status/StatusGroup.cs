@@ -19,8 +19,9 @@ namespace DeepseaOil.Logic
 
         private float _slowGivenSeconds;
 
-        /// 上拍刚续过减速：跨帧续命靠它活过当拍
         private bool _slowRenewed;
+
+        private float _stunRemaining;
 
         public StatusGroup(ActorLogic logic)
         {
@@ -46,11 +47,21 @@ namespace DeepseaOil.Logic
             _slowRenewed = true;
         }
 
-        /// 受击产出 Forced 门禁不带乘数：外力滑停不该被地面减速拖短
+        /// 麻痹取较长者
+        public void ApplyStun(float seconds)
+        {
+            if (seconds <= 0f) return;
+
+            if (seconds > _stunRemaining) _stunRemaining = seconds;
+        }
+
+        /// 门禁优先级：麻痹归零 > 受击推力 > 减速乘数；外力不叠减速乘数
         public MoveGates Gates
         {
             get
             {
+                if (_stunRemaining > 0f) return MoveGates.Forced(Vector2.zero);
+
                 if (Current == StatusStateTag.Hurt) return MoveGates.Forced(_hurt.ForcedVelocity);
 
                 float scale = SlowScale;
@@ -65,12 +76,24 @@ namespace DeepseaOil.Logic
         {
             TickSlow(in ctx);
 
+            if (_stunRemaining > 0f) _stunRemaining -= ctx.deltaTime;
+
+            // 麻痹期间丢推力并退出硬直：否则解除帧补放成滑步
+            if (_stunRemaining > 0f)
+            {
+                if (Current == StatusStateTag.Hurt) ChangeState(StatusStateTag.Normal, in ctx);
+
+                TickStates(in ctx);
+
+                return;
+            }
+
             EnterHurtIfPending(in ctx, pendingKnockback);
 
             TickStates(in ctx);
         }
 
-        /// 续命窗口来自渲染帧而扣时按物理 Δt，一拍即扣穿 ⇒ 兜底到 SlowFloorTicks 拍；被续过的拍只抬窗口不扣时
+        /// 续命窗口来自渲染帧而扣时按物理 Δt，一拍即扣穿 ⇒ 兜底到 SlowFloorTicks 拍
         private void TickSlow(in LogicContext ctx)
         {
             if (_slowRenewed)
