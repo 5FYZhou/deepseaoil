@@ -246,6 +246,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 300719338575049777, guid: fa5c717c81c1cde44817dab1888e8c2a, type: 3}
   m_PrefabInstance: {fileID: 352462532}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &478400894 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 318561825777201083, guid: 16f3d7ea0475f3d4da6ac081fdcebd4c, type: 3}
+  m_PrefabInstance: {fileID: 614845398}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7171130770de1e0489b66b50d9965c81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &544939641
 GameObject:
   m_ObjectHideFlags: 0
@@ -1082,17 +1093,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 16f3d7ea0475f3d4da6ac081fdcebd4c, type: 3}
---- !u!114 &478400894 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 318561825777201083, guid: 16f3d7ea0475f3d4da6ac081fdcebd4c, type: 3}
-  m_PrefabInstance: {fileID: 614845398}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7171130770de1e0489b66b50d9965c81, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &644031763
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2053,7 +2053,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8accf1d7bd1f37a479d5996891cb6baa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _curLevelId: 0
   _nextLevelId: 0
   _wavePlayMode: 0
 --- !u!114 &1995222771 stripped
@@ -2323,6 +2322,10 @@ PrefabInstance:
       propertyPath: m_Follow
       value: 
       objectReference: {fileID: 1326551231}
+    - target: {fileID: 5878379499498285295, guid: 5aee356aa285ac84a841e3a3df8935d3, type: 3}
+      propertyPath: m_BoundingShape2D
+      value: 
+      objectReference: {fileID: 553542504}
     - target: {fileID: 7129660151314957644, guid: 5aee356aa285ac84a841e3a3df8935d3, type: 3}
       propertyPath: m_Name
       value: Virtual Camera
