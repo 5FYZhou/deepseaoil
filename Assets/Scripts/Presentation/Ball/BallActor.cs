@@ -9,7 +9,7 @@ using cfg.dso;
 
 namespace DeepseaOil.Presentation.Ball
 {
-    /// <remarks>造 → Tick → Dispose 各只有一个调用方 BallDirector，销毁 GameObject 也归它。观感与冲量参数取自注入的 ProjectileSpec.Tuning，不读全局 SO。</remarks>
+    /// <remarks>造 → Tick → Dispose 各只有一个调用方 BallDirector。</remarks>
     public sealed class BallActor : IDrivenEntity
     {
         private readonly GameObject _root;
@@ -20,17 +20,22 @@ namespace DeepseaOil.Presentation.Ball
 
         public BallType Type => Definition.Type;
 
+        // 非 None = 种子弹：落地走播种，不走元素反应
+        public SeedType Seed { get; internal set; }
+
         public bool IsAlive { get; private set; }
 
         public BallActor(
             in ProjectileTrajectory data,
             ProjectileSpec definition,
             Transform ballRoot,
-            Action<BallActor, Vector2> onLanded)
+            Action<BallActor, Vector2> onLanded,
+            SeedType seed = SeedType.None)
         {
             Definition = definition;
             _onLanded = onLanded;
             IsAlive = true;
+            Seed = seed;
 
             ThrowTuning tuning = definition.Tuning;
 
@@ -45,7 +50,7 @@ namespace DeepseaOil.Presentation.Ball
             _root.transform.position = new Vector3(data.Start.x, data.Start.y + originHeight, 0f);
 
             var view = _root.AddComponent<BallView>();
-            view.Initialize(data.Type, definition.BallRadius * 2.2f, definition.BallColor);
+            view.Initialize(data.Type, definition.BallRadius * 2.2f, definition.BallColor, Seed);
 
             // 先 view 再 shadow：AddComponent 会立刻跑子物体 Awake，顺序写死。
             var shadowGo = new GameObject("Shadow");

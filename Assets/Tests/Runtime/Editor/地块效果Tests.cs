@@ -165,7 +165,7 @@ namespace DeepseaOil.Tests
 
             grid.SwitchTileState(cell, TileStateType.Mud);
 
-            var snapshot = new InputSnapshot(Vector2.zero, false, false);
+            var snapshot = new InputSnapshot(Vector2.zero, false);
 
             float now = 0f;
             float accumulator = 0f;
@@ -276,7 +276,7 @@ namespace DeepseaOil.Tests
 
             status.ApplySlow(0.5f, 0f);
 
-            status.Tick(new LogicContext(0f, PhysicsStep, default, new InputSnapshot(Vector2.zero, false, false)), Vector2.zero);
+            status.Tick(new LogicContext(0f, PhysicsStep, default, new InputSnapshot(Vector2.zero, false)), Vector2.zero);
 
             Assert.AreEqual(0.5f, status.SlowScale, 1e-4f, "seconds<=0 = 没给时长，不是「无效」；按续命兜底至少活过一拍");
         }
@@ -286,7 +286,7 @@ namespace DeepseaOil.Tests
         public void 没续命时减速会过期()
         {
             StatusGroup status = NewStatus();
-            var snapshot = new InputSnapshot(Vector2.zero, false, false);
+            var snapshot = new InputSnapshot(Vector2.zero, false);
 
             status.ApplySlow(0.5f, 0f);
 

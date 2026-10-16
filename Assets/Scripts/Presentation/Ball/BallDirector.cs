@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic.Combat;
@@ -9,7 +10,7 @@ using cfg.dso;
 namespace DeepseaOil.Presentation.Ball
 {
     /// <summary>球的调度器，由组合根显式造与驱动</summary>
-    /// <remarks>飞行与改格都在渲染帧，只有冲量跨物理帧。落地只做一件事：把（落点格, 球种）交给格子层，反应与冲击全在那里闭环。</remarks>
+    /// <remarks>飞行与改格都在渲染帧，只有冲量跨物理帧。</remarks>
     public sealed class BallDirector
     {
         private readonly List<BallActor> _flying = new List<BallActor>();
@@ -20,11 +21,15 @@ namespace DeepseaOil.Presentation.Ball
         private ImpulseExecutor _impulses;
         private Transform _ballRoot;
 
+        // 球表只有水/土，种子弹借水球弹道作外壳
+        private const BallType SeedShellBall = BallType.Water;
+
+        private Action<SeedType, Vector2> _seedLanded;
+
         public int FlyingCount => _flying.Count;
 
         public bool IsReady => _grid != null;
 
-        /// <remarks>ballRoot=null 建在场景根下</remarks>
         public void Attach(
             GridLogic grid,
             IReadOnlyList<ProjectileSpec> balls,
@@ -47,7 +52,12 @@ namespace DeepseaOil.Presentation.Ball
             }
         }
 
-        /// <summary>推进一个渲染帧；落地帧改格＋入队冲量再回收；deltaTime=0（暂停）冻结</summary>
+        /// <summary>注入种子弹落地处理</summary>
+        public void SetSeedLandingHandler(Action<SeedType, Vector2> handler)
+        {
+            _seedLanded = handler;
+        }
+
         public void Tick(float deltaTime)
         {
             // 倒序：正序删除会跳过下一个元素
@@ -70,7 +80,7 @@ namespace DeepseaOil.Presentation.Ball
             }
         }
 
-        /// <summary>按已裁决通过的意图投一颗球；球种没定义时丢弃</summary>
+        /// <summary>按已裁决通过的意图投一颗球</summary>
         public bool Throw(in ThrowIntent intent)
         {
             if (!_balls.TryGetValue(intent.Ball, out ProjectileSpec definition))
@@ -88,7 +98,38 @@ namespace DeepseaOil.Presentation.Ball
             return true;
         }
 
-        /// <summary>清空在飞球与待施加冲量；冲量不清会砸在下一局的箱子上</summary>
+        /// <summary>投一颗带种子载荷的球；planted 才是已发射</summary>
+        /// <remarks>校验必须全在这里做完：次数已在上游扣掉，构造后才发现非法就只剩一个拆不掉的球。</remarks>
+        public bool ThrowSeed(Vector2 origin, Vector2 target, SeedType seed, out bool planted)
+        {
+            planted = false;
+
+            if (seed == SeedType.None) return false;
+
+            if (float.IsNaN(origin.x) || float.IsNaN(origin.y)
+                || float.IsNaN(target.x) || float.IsNaN(target.y))
+            {
+                return false;
+            }
+
+            if (!_balls.TryGetValue(SeedShellBall, out ProjectileSpec shell))
+            {
+                Debug.LogError($"[Ball] 球表里没有 {SeedShellBall}，挑不出种子弹壳，这次种子投掷被丢弃。");
+                return false;
+            }
+
+            float distance = Vector2.Distance(origin, target);
+
+            var data = new ProjectileTrajectory(shell.Type, origin, target, distance, shell);
+
+            _flying.Add(new BallActor(in data, shell, _ballRoot, OnLanded, seed));
+
+            planted = true;
+
+            return true;
+        }
+
+        /// <summary>清空在飞球与待施加冲量</summary>
         public void ClearAll()
         {
             for (int i = 0; i < _flying.Count; i++)
@@ -101,10 +142,21 @@ namespace DeepseaOil.Presentation.Ball
             _impulses?.Clear();
         }
 
-        /// <summary>一次落地的完整结算，先改格再排冲量</summary>
-        /// <remarks>顺序即语义：改格在同一帧内结算落地冲击（含首跳伤害与连锁）；冲量下一物理帧才生效。</remarks>
+        /// <remarks>球种先改格再排冲量；种子弹只调播种回调，不进 OnBallHit。</remarks>
         private void OnLanded(BallActor ball, Vector2 point)
         {
+            if (ball.Seed != SeedType.None)
+            {
+                SeedType landed = ball.Seed;
+
+                // 先清载荷再回调，防重入时本球被二次当种子弹
+                ball.Seed = SeedType.None;
+
+                _seedLanded?.Invoke(landed, point);
+
+                return;
+            }
+
             if (_grid != null && _grid.Geometry.IsValid)
             {
                 _grid.OnBallHit(_grid.WorldToCell(point), ball.Definition.Type);

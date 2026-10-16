@@ -176,13 +176,26 @@ namespace DeepseaOil.Logic.Events
 
         public readonly SeedType Seed;
 
-        public PlayerAmmoChanged(int water, int waterCapacity, int earth, int earthCapacity, SeedType seed)
+        public readonly int SeedCount;
+
+        public readonly int SeedCapacity;
+
+        public PlayerAmmoChanged(
+            int water,
+            int waterCapacity,
+            int earth,
+            int earthCapacity,
+            SeedType seed,
+            int seedCount,
+            int seedCapacity)
         {
             Water = water;
             WaterCapacity = waterCapacity;
             Earth = earth;
             EarthCapacity = earthCapacity;
             Seed = seed;
+            SeedCount = seedCount;
+            SeedCapacity = seedCapacity;
         }
     }
 

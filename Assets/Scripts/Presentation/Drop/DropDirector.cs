@@ -17,6 +17,8 @@ namespace DeepseaOil.Presentation.Drop
         private Transform _root;
         private Transform _player;
 
+        private DropActor _lastSpawned;
+
         public int AliveCount => _drops.Count;
 
         public bool IsReady => _player != null;
@@ -72,9 +74,19 @@ namespace DeepseaOil.Presentation.Drop
 
             actor.Initialize(in request, request.Type, request.Seed, definition, _player);
 
+            _lastSpawned = actor;
+
             _drops.Add(actor);
 
             return true;
+        }
+
+        /// <summary>给最近一次 TrySpawn 的产物加拾取冷却：供 Q 键丢弃防脚下自吸</summary>
+        public void SetLastPickupCooldown(float duration)
+        {
+            if (_lastSpawned == null) return;
+
+            _lastSpawned.SetPickupCooldown(duration);
         }
 
         public void Tick(float deltaTime)
@@ -86,6 +98,8 @@ namespace DeepseaOil.Presentation.Drop
 
                 if (drop == null)
                 {
+                    if (ReferenceEquals(_lastSpawned, drop)) _lastSpawned = null;
+
                     _drops.RemoveAt(i);
                     continue;
                 }
@@ -93,6 +107,8 @@ namespace DeepseaOil.Presentation.Drop
                 drop.Tick(deltaTime);
 
                 if (drop.IsAlive) continue;
+
+                if (ReferenceEquals(_lastSpawned, drop)) _lastSpawned = null;
 
                 drop.Dispose();
                 _drops.RemoveAt(i);

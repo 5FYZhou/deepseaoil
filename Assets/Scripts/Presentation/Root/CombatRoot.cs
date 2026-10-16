@@ -38,6 +38,9 @@ namespace DeepseaOil.Presentation
         /// <summary>怪所在的 Unity 层号：与预制体根节点层、ProjectSettings 里的层名三处必须一致</summary>
         private const int EnemyLayer = 8;
 
+        // Q 键丢弃后脚下掉落物的不可拾取窗口，秒
+        private const float SeedDiscardPickupCooldown = 1.2f;
+
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
         [SerializeField] private PlayerController player = default;
@@ -166,7 +169,9 @@ namespace DeepseaOil.Presentation
 
             TickLifeFountain(deltaTime);
 
-            TickPlanting();
+            TickSeedInput();
+
+            UpdateSeedHighlight();
         }
 
         public void FixedTick(float deltaTime)
@@ -201,10 +206,6 @@ namespace DeepseaOil.Presentation
 
             if (_combat != null)
             {
-                //if (_levelLogic != null && _levelLogic.State == LevelState.NotStarted)
-                    //_levelLogic.Start();
-
-                //bool playerAlive = player != null && player.Logic != null && player.Logic.IsAlive;
                 _combat.FixedTick(now, deltaTime);
             }
 
@@ -212,39 +213,133 @@ namespace DeepseaOil.Presentation
             UpdatePlayerContact(now);
         }
 
-        private void TickPlanting()
+        private void TickSeedInput()
         {
             InputProvider input = player != null ? player.Input : null;
 
-            if (input == null || !input.PlantPressedThisFrame) return;
+            if (input == null) return;
 
             PlayerLogic logic = player.Logic;
 
-            if (logic == null || !logic.Combat.HasAim) return;
+            if (logic == null || !logic.IsAlive) return;
+
+            if (input.PlantPressedThisFrame) TryThrowSeed(logic);
+
+            if (input.DiscardJustPressed) TryDiscardSeed(logic);
+        }
+
+        // 拒收必须早于扣次数：CanPlant 为假时既不扣次数也不发射
+        private void TryThrowSeed(PlayerLogic logic)
+        {
+            if (!logic.Combat.HasAim) return;
+
+            SeedType seed = logic.Stats.Seed;
+
+            if (logic.Stats.SeedCount <= 0 || seed == SeedType.None) return;
 
             Vector3Int cell = logic.Combat.AimCell;
 
-            if (!SeedPlanter.CanPlant(_grid, cell, logic.Stats.Seed)) return;
-
-            SeedSpec seed = ConfigModule.GetSeed(logic.Stats.Seed);
-
-            if (seed == null) return;
-
-            if (!logic.Stats.TryConsumeSeed()) return;
-
-            if (!SeedPlanter.ExecutePlant(_grid, cell, seed.Id, seed, ConfigModule.GetDuoReactions()))
+            if (!SeedPlanter.CanPlant(_grid, cell, seed))
             {
-                // 执行失败必须原样退回：种子已扣，静默少一颗是看不出来的
-                logic.Stats.GrantSeed(seed.Id);
+                _root?.Audio.EnqueueSfx(cfg.dso.AudioId.PlayerDiscard);
 
                 return;
             }
 
-            EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(cell));
+            if (!logic.Stats.TryConsumeSeed()) return;
+
+            Vector2 origin = player.Position;
+
+            Vector2 target = _grid.Geometry.CellCenter(cell);
+
+            // 发射失败原样退回：种子已扣，静默少一颗是看不出来的
+            if (_balls == null || !_balls.ThrowSeed(origin, target, seed, out _))
+            {
+                logic.Stats.GrantSeed(seed);
+            }
+        }
+
+        // 落地只走播种：不调 OnBallHit，故无元素冲量与伤害
+        private void OnSeedBallLanded(SeedType seed, Vector2 point)
+        {
+            PlayerStats stats = player?.Logic?.Stats;
+
+            if (_grid == null || !_grid.Geometry.IsValid)
+            {
+                stats?.GrantSeed(seed);
+
+                return;
+            }
+
+            SeedSpec spec = ConfigModule.GetSeed(seed);
+
+            if (spec == null)
+            {
+                stats?.GrantSeed(seed);
+
+                return;
+            }
+
+            // 飞行途中落点格可能已被别的球改掉，失败一律退回
+            if (!SeedPlanter.ExecutePlant(_grid, _grid.WorldToCell(point), seed, spec, ConfigModule.GetDuoReactions()))
+            {
+                stats?.GrantSeed(seed);
+
+                return;
+            }
+
+            EffectContext ctx = EffectContext.At(_grid.Geometry.CellCenter(_grid.WorldToCell(point)));
 
             ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
             EffectModule.Play(EffectId.Highlight, in ctx);
+        }
+
+        private void UpdateSeedHighlight()
+        {
+            if (_highlight == null) return;
+
+            PlayerLogic logic = player != null ? player.Logic : null;
+
+            if (logic == null || logic.Stats.SeedCount <= 0 || logic.Stats.Seed == SeedType.None)
+            {
+                _highlight.SetSeedTint(null);
+
+                return;
+            }
+
+            if (!logic.Combat.HasAim)
+            {
+                _highlight.SetSeedTint(null);
+
+                return;
+            }
+
+            _highlight.SetSeedTint(SeedPlanter.CanPlant(_grid, logic.Combat.AimCell, logic.Stats.Seed));
+        }
+
+        private void TryDiscardSeed(PlayerLogic logic)
+        {
+            PlayerStats stats = logic.Stats;
+
+            if (!stats.TryDiscardSeed(out SeedType discarded, out _)) return;
+
+            Vector2 facing = logic.Motor.Facing;
+
+            if (facing.sqrMagnitude < 1e-6f) facing = Vector2.right;
+
+            Vector2 origin = player.Position;
+
+            Vector2 landing = origin + facing.normalized * 0.5f;
+
+            if (_drops != null)
+            {
+                _drops.TrySpawn(new DropSpawnRequest(DropType.Seed, origin, landing, discarded));
+
+                _drops.SetLastPickupCooldown(SeedDiscardPickupCooldown);
+            }
+
+            _root?.Audio.EnqueueSfx(cfg.dso.AudioId.PlayerDiscard);
         }
 
         // 三重静止判据（无输入＋速度近零＋位移近零）由驱动方给定
@@ -529,6 +624,7 @@ namespace DeepseaOil.Presentation
 
             _balls = new BallDirector();
             _balls.Attach(_grid, balls, _impulses, ballRoot);
+            _balls.SetSeedLandingHandler(OnSeedBallLanded);
 
             _drops = new DropDirector();
             _drops.Attach(actorRoot, player.transform);
@@ -680,24 +776,26 @@ namespace DeepseaOil.Presentation
             return false;
         }
 
-        // 裁决在这里而不在掉落物里（掉落物只发事实）；加一种掉落物在这里加 case
+        // 裁决在掉落物之外；加一种掉落物在这里加 case
         private void OnDropCollected(DropCollected evt)
         {
             PlayerStats stats = player?.Logic?.Stats;
 
             if (stats == null) return;
 
+            // 水土按次 +1：满额不涨点，但掉落物照样回池
             switch (evt.Type)
             {
                 case DropType.Water:
-                    stats.Refill(ResourceKind.Water);
+                    stats.TryAddAmmo(ResourceKind.Water, 1);
                     return;
 
                 case DropType.Earth:
-                    stats.Refill(ResourceKind.Earth);
+                    stats.TryAddAmmo(ResourceKind.Earth, 1);
                     return;
 
                 case DropType.Seed:
+                    // 二次防线：持种时上游已拦下
                     stats.GrantSeed(evt.Seed);
                     return;
 

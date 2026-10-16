@@ -3,8 +3,7 @@ using DeepseaOil.Data.Settings;
 
 namespace DeepseaOil.Data
 {
-    // 玩家取值边界：合并 player 表行与 PlayerConfig SO
-    // 表行管血量与受击，SO 管移动与冲刺，装配期折算一次
+    // 玩家取值边界：合并 player 表行与 PlayerConfig SO，装配期折算一次
     public sealed class PlayerSpec
     {
         private readonly Player _row;
@@ -50,6 +49,9 @@ namespace DeepseaOil.Data
 
         // 生命神泉回 1 点的静止间隔，秒
         public float LifeHealInterval => _row.LifeHealInterval;
+
+        // 种子单槽的可用次数上限
+        public int SeedCapacity => _row.SeedCapacity;
 
         // 移动与冲刺参数：装配期折算成快照，运行期改 SO 不生效
         public PlayerConfig Config => _config;

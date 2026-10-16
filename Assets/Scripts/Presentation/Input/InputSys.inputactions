@@ -927,19 +927,10 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Grab",
-                    "type": "Button",
-                    "id": "288495f6-3874-48af-a100-34e86e548cc1",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "Attack",
                     "type": "Button",
                     "id": "ec1a7f10-2b64-4d8a-9c31-5f0a7b2d4e01",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
@@ -1243,17 +1234,6 @@
                     "processors": "",
                     "groups": "",
                     "action": "Dash",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "b1e5ba64-86e6-43ce-ace0-36522a3fa690",
-                    "path": "<Keyboard>/e",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Grab",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

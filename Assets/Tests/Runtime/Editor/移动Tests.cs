@@ -46,6 +46,7 @@ using DeepseaOil.Presentation;
 using DeepseaOil.Presentation.Adapters;
 using NUnit.Framework;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Tests
 {
@@ -70,9 +71,8 @@ namespace DeepseaOil.Tests
             _config.snapToEightDirections = true;
             _config.extraForceScale = 0f;
 
-            // 零惯性基准：本文件里绝大多数用例钉的是"当帧到位 / 松手当帧停"那套语义，
-            // 而加速度现在是配置项（玩家资产填 60 = 有惯性）。要测惯性本身请在自己的用例里
-            // 显式改这两个值 —— 但注意账本的快照在 PlayerLogic 构造时就固定了（见文件头 M19 的说明）。
+            // 零惯性基准：本文件里绝大多数用例钉的是"当帧到位 / 松手当帧停"那套语义。要测惯性请在自己的用例里
+            // 改这两个值 —— 但账本的快照在 PlayerLogic 构造时就固定了，必须构造之前改。
             _config.moveAcceleration = 0f;
             _config.turnDecayRate = 0f;
 
@@ -97,7 +97,7 @@ namespace DeepseaOil.Tests
         {
             if (resetVelocity) _motor.EngineVelocity = Vector2.zero;
 
-            var snapshot = new InputSnapshot(move, dashPressed, false);
+            var snapshot = new InputSnapshot(move, dashPressed);
             var world = new WorldInfo(move, default(BoundsArea));
 
             _buffer.Push(in snapshot, now);
@@ -231,20 +231,20 @@ namespace DeepseaOil.Tests
         [Test]
         public void M7_冲刺走输入缓冲窗口()
         {
-            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 0f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true), 0f);
 
             Assert.IsTrue(_logic.MoveGroup.CanDash(0.01f), "窗口内的冲刺按下应判定为可冲刺");
             Assert.IsTrue(_logic.MoveGroup.TryConsumeDash(0.01f), "首次消费应成功");
             Assert.IsFalse(_logic.MoveGroup.TryConsumeDash(0.01f), "同一次按下只能消费一次（否则会连冲两次）");
 
-            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 10f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true), 10f);
             Assert.IsFalse(_logic.MoveGroup.CanDash(10f + _config.dashBufferTime + 0.5f), "超出缓冲窗口的按下必须失效");
 
             // 冷却内：即使缓冲有按下也不可冲
-            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 20f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true), 20f);
             Assert.IsTrue(_logic.MoveGroup.TryConsumeDash(20f), "冷却已过应能消费");
 
-            _buffer.Push(new InputSnapshot(Vector2.zero, true, false), 20.1f);
+            _buffer.Push(new InputSnapshot(Vector2.zero, true), 20.1f);
             Assert.IsFalse(_logic.MoveGroup.CanDash(20.1f), "冷却未过时不得再冲");
         }
 
@@ -252,7 +252,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void M14_首帧同样参与抢占()
         {
-            var snap = new InputSnapshot(Vector2.right, true, false);
+            var snap = new InputSnapshot(Vector2.right, true);
             _buffer.Push(in snap, 0f);
 
             Assert.IsTrue(_logic.MoveGroup.CanDash(0f), "前置条件：首帧冷却与缓冲都成立");
@@ -275,7 +275,7 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(Vector2.right, _logic.MoveGroup.Dash.Direction, "Configure 应把入场方向喂成输入方向");
 
             // t=0.15 时冷却（1.5s）远未过：抢占判定为假，本帧什么都不该发生
-            _buffer.Push(new InputSnapshot(Vector2.up, true, false), 0.15f);
+            _buffer.Push(new InputSnapshot(Vector2.up, true), 0.15f);
             Tick(Vector2.up, 0.15f, dashPressed: true, resetVelocity: false);
 
             Assert.AreEqual(MovementStateTag.Dash, _logic.MoveGroup.Current,
@@ -371,7 +371,7 @@ namespace DeepseaOil.Tests
             }
         }
 
-        /// <summary>门禁由状态效果层产出（受击状态），在移动层的状态跑完之后统一施加 —— 写在状态之前会被 SnapVelocity 覆盖掉，表现就是"挨打了却纹丝不动"。</summary>
+        /// <summary>门禁由状态效果层产出（受击状态），在移动层状态跑完之后施加 —— 写在状态之前会被 SnapVelocity 覆盖掉。</summary>
         [Test]
         public void M21_受击期间输入不接管速度()
         {
@@ -392,8 +392,8 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0f, _motor.EngineVelocity.y, 1e-3f, "输入不该在受击帧生效");
         }
 
-        /// <summary>建一个 PlayerMotor 物体（先加 Rigidbody2D 再加组件，顺序不能反），接线与场景一致；物理参数故意留成非默认值，否则"Initialize 真的跑了"与"值恰好就是默认的"区分不开 = 假绿。</summary>
-        /// <remarks>EditMode 下 AddComponent 不触发 Awake，所以本类不能依赖 Awake 里的自取与自检 —— PlayerMotor 的物理体引用因此做成惰性兜底，M12 走的正是那条路径。</remarks>
+        /// <summary>建一个 PlayerMotor 物体（先加 Rigidbody2D 再加组件，顺序不能反）；物理参数故意留成非默认值，否则"Initialize 真跑了"与"值恰好就是默认的"区分不开。</summary>
+        /// <remarks>EditMode 下 AddComponent 不触发 Awake，故本类不能依赖 Awake 里的自取 —— PlayerMotor 的物理体引用因此做成惰性兜底。</remarks>
         private static GameObject CreateMotorObject(string name, out PlayerMotor motor, out Rigidbody2D body)
         {
             var go = new GameObject(name);
@@ -405,6 +405,70 @@ namespace DeepseaOil.Tests
             motor = go.AddComponent<PlayerMotor>();
 
             return go;
+        }
+
+        /// <summary>种子单槽账本：只在空仓收种、每次播种扣 1。</summary>
+        [Test]
+        public void M22_种子槽位独占与次数扣减()
+        {
+            var spec = new PlayerSpec(
+                RowFactory.PlayerRow(), _config, new ProjectileSpec(RowFactory.WaterRow(), null));
+
+            var stats = new PlayerStats(spec);
+
+            Assert.AreEqual(0, stats.SeedCount, "开局不该有种子");
+            Assert.AreEqual(spec.SeedCapacity, stats.SeedCapacity, "上限取 player 表的 seed_capacity");
+            Assert.IsTrue(stats.CanPickupSeed(), "空仓应当可以拾取");
+
+            Assert.IsTrue(stats.GrantSeed(SeedType.Fire), "空仓收种必须成功");
+            Assert.AreEqual(SeedType.Fire, stats.Seed, "收下的就是收到的那一种");
+            Assert.AreEqual(spec.SeedCapacity, stats.SeedCount, "收种即灌满次数");
+            Assert.IsFalse(stats.CanPickupSeed(), "手上还有种子时不该再收");
+
+            Assert.IsFalse(stats.GrantSeed(SeedType.Ice), "槽位独占：持种时第二次授予必须被拒");
+            Assert.AreEqual(SeedType.Fire, stats.Seed, "被拒的授予不得顶替当前种子");
+            Assert.AreEqual(spec.SeedCapacity, stats.SeedCount, "被拒的授予不得重置次数");
+
+            for (int i = 0; i < spec.SeedCapacity; i++)
+            {
+                Assert.IsTrue(stats.TryConsumeSeed(), $"第 {i + 1} 次播种应当成功");
+            }
+
+            Assert.IsFalse(stats.TryConsumeSeed(), "次数耗尽后必须拒绝");
+            Assert.AreEqual(0, stats.SeedCount, "次数耗尽即清空余量");
+            Assert.AreEqual(SeedType.None, stats.Seed, "次数耗尽才清种类");
+            Assert.IsTrue(stats.CanPickupSeed(), "空仓后应当可以再拾取");
+
+            Assert.IsTrue(stats.TryConsume(ResourceKind.Water), "扣一发水弹");
+            Assert.IsTrue(stats.TryAddAmmo(ResourceKind.Water, 1), "拾取水掉落物每次 +1");
+            Assert.AreEqual(spec.WaterCapacity, stats.Water, "补回上限即满");
+
+            Assert.IsFalse(stats.TryAddAmmo(ResourceKind.Water, 1), "满额时不该再涨");
+            Assert.AreEqual(spec.WaterCapacity, stats.Water, "满额不得吃超");
+        }
+
+        /// <summary>丢弃契约：无种子返回 false。</summary>
+        [Test]
+        public void M23_丢弃种子传出种类与余量()
+        {
+            var spec = new PlayerSpec(
+                RowFactory.PlayerRow(), _config, new ProjectileSpec(RowFactory.WaterRow(), null));
+
+            var stats = new PlayerStats(spec);
+
+            Assert.IsFalse(stats.TryDiscardSeed(out SeedType emptyType, out int emptyCount), "空手丢弃必须失败");
+            Assert.AreEqual(SeedType.None, emptyType, "空手丢弃的 out 种类必须是 None");
+            Assert.AreEqual(0, emptyCount, "空手丢弃的 out 余量必须是 0");
+
+            Assert.IsTrue(stats.GrantSeed(SeedType.Plant), "先给一颗种子");
+
+            stats.TryConsumeSeed();
+
+            Assert.IsTrue(stats.TryDiscardSeed(out SeedType type, out int count), "有种子时丢弃必须成功");
+            Assert.AreEqual(SeedType.Plant, type, "out 必须是被丢掉的那一种");
+            Assert.AreEqual(spec.SeedCapacity - 1, count, "out 必须是丢弃前的余量");
+            Assert.AreEqual(0, stats.SeedCount, "丢弃即清零");
+            Assert.AreEqual(SeedType.None, stats.Seed, "丢弃即清种类");
         }
     }
 }

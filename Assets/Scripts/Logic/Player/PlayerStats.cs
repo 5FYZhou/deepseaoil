@@ -6,12 +6,16 @@ using cfg.dso;
 
 namespace DeepseaOil.Logic.Player
 {
-    // 玩家三条池子独立：水弹药 / 土弹药 / 种子
+    // 玩家三条池子独立：水 / 土 / 种子
     public sealed class PlayerStats : IAlivable
     {
         private readonly PlayerSpec _spec;
 
         private float _current;
+
+        private int _seedCapacity;
+
+        private int _seedCount;
 
         private float _invulnerableUntil = float.NegativeInfinity;
 
@@ -22,6 +26,8 @@ namespace DeepseaOil.Logic.Player
             Water = Clamp(spec.WaterStart, spec.WaterCapacity);
             Earth = Clamp(spec.EarthStart, spec.EarthCapacity);
             Seed = SeedType.None;
+            _seedCapacity = spec.SeedCapacity < 0 ? 0 : spec.SeedCapacity;
+            _seedCount = 0;
         }
 
         public PlayerSpec Spec => _spec;
@@ -30,8 +36,11 @@ namespace DeepseaOil.Logic.Player
 
         public int Earth { get; private set; }
 
-        // 手上那一颗种子：GrantSeed 顶替不叠加，放置即清空
         public SeedType Seed { get; private set; }
+
+        public int SeedCount => _seedCount;
+
+        public int SeedCapacity => _seedCapacity;
 
         public int WaterCapacity => _spec.WaterCapacity;
 
@@ -41,13 +50,13 @@ namespace DeepseaOil.Logic.Player
 
         public float Current => _current;
 
-        // 必须写成 !(now < invulnerableUntil)：否则 NaN 时永久无敌且看不出来
+        // 必须写 !(now < until)：否则 NaN 时永久无敌
         public static bool CanTakeDamage(float now, float invulnerableUntil)
         {
             return !(now < invulnerableUntil);
         }
 
-        // 被无敌帧挡掉时不扣血也不写无敌；接触贴住会重复结算，靠无敌帧挡
+        // 被无敌帧挡掉时不扣血也不写无敌
         public bool ApplyDamage(float amount, float now)
         {
             if (amount <= 0f) return false;
@@ -63,7 +72,7 @@ namespace DeepseaOil.Logic.Player
             return true;
         }
 
-        // 满血返回 false：调用方靠它判断这次有没有真回血
+        // 满血返回 false
         public bool TryHeal(float amount = 1f)
         {
             if (amount <= 0f) return false;
@@ -95,7 +104,7 @@ namespace DeepseaOil.Logic.Player
             return kind == ResourceKind.Water ? WaterCapacity : EarthCapacity;
         }
 
-        // 扣成功才发 PlayerAmmoChanged，HUD 只认这条事件
+        // 扣成功才发 PlayerAmmoChanged
         public bool TryConsume(ResourceKind kind, int amount = 1)
         {
             if (amount <= 0) return false;
@@ -110,37 +119,80 @@ namespace DeepseaOil.Logic.Player
             return true;
         }
 
-        // 泉眼补满：已满返回 false，语义同 TryConsume
+        // 泉眼补满：内部走 TryAddAmmo
         public bool Refill(ResourceKind kind)
+        {
+            return TryAddAmmo(kind, CapacityOf(kind));
+        }
+
+        // 返回值 = "确实涨了"；满额也照发事件
+        public bool TryAddAmmo(ResourceKind kind, int amount = 1)
+        {
+            if (amount <= 0) return false;
+
+            return AdvanceAmmo(kind, amount);
+        }
+
+        private bool AdvanceAmmo(ResourceKind kind, int amount)
         {
             int capacity = CapacityOf(kind);
 
-            if (AmountOf(kind) >= capacity) return false;
+            int next = Clamp(AmountOf(kind) + amount, capacity);
 
-            if (kind == ResourceKind.Water) Water = capacity;
-            else Earth = capacity;
+            if (next == AmountOf(kind)) return false;
+
+            if (kind == ResourceKind.Water) Water = next;
+            else Earth = next;
 
             PublishAmmo();
 
             return true;
+        }
+
+        // 种子单槽：GrantSeed 只在空仓时成功
+        public bool CanPickupSeed()
+        {
+            return !(_seedCount > 0 && Seed != SeedType.None);
         }
 
         public bool GrantSeed(SeedType seed)
         {
             if (seed == SeedType.None) return false;
 
+            if (!CanPickupSeed()) return false;
+
             Seed = seed;
+            _seedCount = _seedCapacity;
 
             PublishAmmo();
 
             return true;
         }
 
+        // 每次播种只扣 1 点，扣空才清类型
         public bool TryConsumeSeed()
         {
-            if (Seed == SeedType.None) return false;
+            if (_seedCount <= 0) return false;
+
+            _seedCount--;
+
+            if (_seedCount == 0) Seed = SeedType.None;
+
+            PublishAmmo();
+
+            return true;
+        }
+
+        // 无种子返回 false；out 参数恒被赋值
+        public bool TryDiscardSeed(out SeedType discardedType, out int remainingCount)
+        {
+            discardedType = Seed;
+            remainingCount = _seedCount;
+
+            if (_seedCount <= 0) return false;
 
             Seed = SeedType.None;
+            _seedCount = 0;
 
             PublishAmmo();
 
@@ -157,7 +209,7 @@ namespace DeepseaOil.Logic.Player
         private void PublishAmmo()
         {
             EventBus<PlayerAmmoChanged>.Publish(
-                new PlayerAmmoChanged(Water, WaterCapacity, Earth, EarthCapacity, Seed));
+                new PlayerAmmoChanged(Water, WaterCapacity, Earth, EarthCapacity, Seed, _seedCount, _seedCapacity));
         }
 
         private static int Clamp(int value, int capacity)

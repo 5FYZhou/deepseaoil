@@ -1015,19 +1015,10 @@ namespace DeepseaOil.Generated
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""Grab"",
-                    ""type"": ""Button"",
-                    ""id"": ""288495f6-3874-48af-a100-34e86e548cc1"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
                     ""name"": ""Attack"",
                     ""type"": ""Button"",
                     ""id"": ""ec1a7f10-2b64-4d8a-9c31-5f0a7b2d4e01"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
@@ -1336,17 +1327,6 @@ namespace DeepseaOil.Generated
                 },
                 {
                     ""name"": """",
-                    ""id"": ""b1e5ba64-86e6-43ce-ace0-36522a3fa690"",
-                    ""path"": ""<Keyboard>/e"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""Grab"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
                     ""id"": ""0a1b2c3d-0001-4001-8001-0000000000a1"",
                     ""path"": ""<Mouse>/leftButton"",
                     ""interactions"": """",
@@ -1426,7 +1406,6 @@ namespace DeepseaOil.Generated
             m_Player_Interaction = m_Player.FindAction("Interaction", throwIfNotFound: true);
             m_Player_Pause = m_Player.FindAction("Pause", throwIfNotFound: true);
             m_Player_Dash = m_Player.FindAction("Dash", throwIfNotFound: true);
-            m_Player_Grab = m_Player.FindAction("Grab", throwIfNotFound: true);
             m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
             m_Player_AltAttack = m_Player.FindAction("AltAttack", throwIfNotFound: true);
             m_Player_Plant = m_Player.FindAction("Plant", throwIfNotFound: true);
@@ -1745,7 +1724,6 @@ namespace DeepseaOil.Generated
         private readonly InputAction m_Player_Interaction;
         private readonly InputAction m_Player_Pause;
         private readonly InputAction m_Player_Dash;
-        private readonly InputAction m_Player_Grab;
         private readonly InputAction m_Player_Attack;
         private readonly InputAction m_Player_AltAttack;
         private readonly InputAction m_Player_Plant;
@@ -1778,10 +1756,6 @@ namespace DeepseaOil.Generated
             /// Provides access to the underlying input action "Player/Dash".
             /// </summary>
             public InputAction @Dash => m_Wrapper.m_Player_Dash;
-            /// <summary>
-            /// Provides access to the underlying input action "Player/Grab".
-            /// </summary>
-            public InputAction @Grab => m_Wrapper.m_Player_Grab;
             /// <summary>
             /// Provides access to the underlying input action "Player/Attack".
             /// </summary>
@@ -1840,9 +1814,6 @@ namespace DeepseaOil.Generated
                 @Dash.started += instance.OnDash;
                 @Dash.performed += instance.OnDash;
                 @Dash.canceled += instance.OnDash;
-                @Grab.started += instance.OnGrab;
-                @Grab.performed += instance.OnGrab;
-                @Grab.canceled += instance.OnGrab;
                 @Attack.started += instance.OnAttack;
                 @Attack.performed += instance.OnAttack;
                 @Attack.canceled += instance.OnAttack;
@@ -1881,9 +1852,6 @@ namespace DeepseaOil.Generated
                 @Dash.started -= instance.OnDash;
                 @Dash.performed -= instance.OnDash;
                 @Dash.canceled -= instance.OnDash;
-                @Grab.started -= instance.OnGrab;
-                @Grab.performed -= instance.OnGrab;
-                @Grab.canceled -= instance.OnGrab;
                 @Attack.started -= instance.OnAttack;
                 @Attack.performed -= instance.OnAttack;
                 @Attack.canceled -= instance.OnAttack;
@@ -2066,13 +2034,6 @@ namespace DeepseaOil.Generated
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnDash(InputAction.CallbackContext context);
-            /// <summary>
-            /// Method invoked when associated input action "Grab" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-            /// </summary>
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-            void OnGrab(InputAction.CallbackContext context);
             /// <summary>
             /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
             /// </summary>

@@ -6,7 +6,7 @@ using cfg.dso;
 
 namespace DeepseaOil.Presentation.Drop
 {
-    /// <remarks>不自驱也不自毁，由 DropDirector 每帧推进，领取后由持有者回收</remarks>
+    /// <remarks>不自驱也不自毁，由 DropDirector 每帧推进</remarks>
     public abstract class DropActor : MonoBehaviour, IDrivenEntity
     {
         protected enum Phase
@@ -21,6 +21,9 @@ namespace DeepseaOil.Presentation.Drop
         }
 
         private float _elapsed;
+
+        // Q 键丢弃用：冷却期内忽略接触，防自吸
+        private float _pickupCooldown;
 
         protected DropSpec Definition { get; private set; }
 
@@ -38,11 +41,16 @@ namespace DeepseaOil.Presentation.Drop
 
         public bool IsCollected => CurrentPhase == Phase.Done;
 
-        /// <summary>未被领取即在场</summary>
         public bool IsAlive => CurrentPhase != Phase.Done;
 
-        /// <summary>诊断用整数值；0=Falling 1=Waiting 2=Homing 3=Done</summary>
+        /// <summary>诊断值；0=Falling 1=Waiting 2=Homing 3=Done</summary>
         public int PhaseCode => (int)CurrentPhase;
+
+        /// <summary>负数或 NaN 视为关闭冷却</summary>
+        public void SetPickupCooldown(float duration)
+        {
+            _pickupCooldown = float.IsNaN(duration) || duration < 0f ? 0f : duration;
+        }
 
         public void Dispose()
         {
@@ -71,6 +79,8 @@ namespace DeepseaOil.Presentation.Drop
 
         public void Tick(float deltaTime)
         {
+            if (_pickupCooldown > 0f) _pickupCooldown -= deltaTime;
+
             switch (CurrentPhase)
             {
                 case Phase.Falling:
@@ -97,7 +107,7 @@ namespace DeepseaOil.Presentation.Drop
 
         protected abstract void TickHoming(float deltaTime);
 
-        /// <summary>进入某阶段时的一次性动作</summary>
+        /// <summary>进入某阶段的一次性动作</summary>
         protected virtual void OnPhaseEntered(Phase phase)
         {
         }
@@ -106,7 +116,7 @@ namespace DeepseaOil.Presentation.Drop
         {
         }
 
-        /// <remarks>"时长为 0 就直接落地"护栏只写在这里：各子类自己写迟早除出非数坐标</remarks>
+        /// <remarks>"时长为 0 就直接落地"护栏只写在这里，否则各子类会除出非数坐标</remarks>
         protected float AdvanceFalling(float deltaTime)
         {
             float duration = Definition.FlightDuration;
@@ -126,7 +136,7 @@ namespace DeepseaOil.Presentation.Drop
             OnPhaseEntered(phase);
         }
 
-        /// <remarks>载荷带是什么＋几个：订阅方按类型裁决给玩家什么，掉落物不直接改账本</remarks>
+        /// <remarks>载荷＝什么类别＋几个：订阅方按类型裁决，掉落物不直接改账本</remarks>
         protected void Collect()
         {
             if (CurrentPhase == Phase.Done) return;
@@ -136,7 +146,7 @@ namespace DeepseaOil.Presentation.Drop
             EventBus<DropCollected>.Publish(new DropCollected(Type, Definition.Amount, Seed));
         }
 
-        // 掉落物是触发器、玩家有刚体 ⇒ 回调到两边，Enter 与 Stay 都要听：玩家一直站在上面时 Enter 只发生一次。追踪点取玩家组合根，只认 PlayerController
+        // 掉落物是触发器、玩家有刚体 ⇒ Enter 与 Stay 都要听；冷却与"拿不下"都靠这里拦
         private void OnTriggerEnter2D(Collider2D other)
         {
             TryPlayerReached(other);
@@ -151,13 +161,23 @@ namespace DeepseaOil.Presentation.Drop
         {
             if (CurrentPhase == Phase.Done || CurrentPhase == Phase.Homing) return;
 
+            if (_pickupCooldown > 0f) return;
+
             PlayerController controller = other.GetComponentInParent<PlayerController>();
 
             if (controller == null) return;
 
+            if (IsPickupBlocked(controller)) return;
+
             Player = controller.transform;
 
             OnPlayerReached(Player);
+        }
+
+        /// <summary>领取拦截钩子：默认不拦</summary>
+        protected virtual bool IsPickupBlocked(PlayerController controller)
+        {
+            return false;
         }
     }
 }

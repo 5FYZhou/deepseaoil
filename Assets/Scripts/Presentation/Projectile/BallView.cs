@@ -7,7 +7,7 @@ using cfg.dso;
 namespace DeepseaOil.Presentation.Projectile
 {
     /// <summary>球/瓶罐本体：加载专属 Sprite 并管理视觉层级</summary>
-    /// <remarks>层次由 BallDriver 建：球根=逻辑位置，BallSprite=宿主（本地 y 承载伪高度）。</remarks>
+    /// <remarks>层次由 BallDriver 建，勿在子物体上叠位。</remarks>
     public sealed class BallView : MonoBehaviour
     {
         private SpriteRenderer _renderer;
@@ -16,15 +16,18 @@ namespace DeepseaOil.Presentation.Projectile
 
         public float Height { get; private set; }
 
-        /// <summary>建子物体并配好 sprite，直径单位为米</summary>
-        public void Initialize(BallType type, float diameterMeters, Color fallbackColor)
+        /// <summary>建子物体并配好 sprite；直径单位为米</summary>
+        public void Initialize(BallType type, float diameterMeters, Color fallbackColor, SeedType seed = SeedType.None)
         {
             _renderer = CreateSprite();
 
             Sprite sprite = null;
             if (AssetModule.IsInitialized)
             {
-                sprite = AssetModule.Load<Sprite>($"projectiles/Projectile_{type}");
+                // 种子弹借水球当弹道外壳，贴图必须按种子种类单独取
+                sprite = seed == SeedType.None
+                    ? AssetModule.Load<Sprite>($"projectiles/Projectile_{type}")
+                    : AssetModule.Load<Sprite>($"projectiles/Projectile_Seed_{seed}");
             }
 
             if (sprite != null)
