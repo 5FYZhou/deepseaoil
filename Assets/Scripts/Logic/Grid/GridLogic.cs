@@ -17,6 +17,11 @@ namespace DeepseaOil.Logic.Grid
 
         public EnemyCellRegistry Registry => _registry;
 
+        /// <summary>净空图：场景碰撞体的距离场，由表现层烘焙；null = 没烘焙</summary>
+        public NavMap Nav { get; private set; }
+
+        public NavFieldSet NavFields => _navFields;
+
         public int ActiveStateCount => _machines.Count;
 
         public int CellCount => _cells.Count;
@@ -31,6 +36,9 @@ namespace DeepseaOil.Logic.Grid
 
         /// <summary>合法格；表现层登记，未登记不参与转换</summary>
         private readonly HashSet<Vector3Int> _cells = new();
+
+        /// <summary>导航流场集合；目标格一变、阻挡一变就整体作废</summary>
+        private readonly NavFieldSet _navFields = new();
 
         private readonly Dictionary<Vector3Int, TileStateMachine> _machines = new();
 
@@ -77,14 +85,43 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>登记为合法格；地貌由 SwitchTileState 改</summary>
+        /// <remarks>新增合法格会改变流场的可走集合，故登记即作废旧场</remarks>
         public void RegisterCell(Vector3Int cell)
         {
-            _cells.Add(cell);
+            if (!_cells.Add(cell)) return;
+
+            _navFields.MarkDirty();
         }
 
         public bool HasCell(Vector3Int cell)
         {
             return _cells.Contains(cell);
+        }
+
+        /// <summary>已登记格的枚举口；供表现层一次性烘焙场景碰撞体</summary>
+        public IEnumerable<Vector3Int> Cells => _cells;
+
+        /// <summary>装入烘焙好的净空图；换图即作废全部流场</summary>
+        public void SetNavMap(NavMap map)
+        {
+            Nav = map;
+
+            _navFields.MarkDirty();
+        }
+
+        /// <summary>喂本帧的目标格与皮厚；由组合根每物理帧调一次，未变则不作废</summary>
+        /// <remarks>只作废不重建：真正重建发生在 NavFieldFor 或紧接的 EnsureNavFields，成本出现在调用点而不是散在每只怪里。</remarks>
+        public void RefreshNavFields(Vector3Int goalCell, float skin)
+        {
+            _navFields.SetGoal(goalCell, skin);
+
+            _navFields.RebuildStale(this, Nav);
+        }
+
+        /// <summary>取该体半径的流场；该半径首次出现时建一张（每种怪一次）</summary>
+        public NavField NavFieldFor(float radius, float skin)
+        {
+            return _navFields.Get(radius, skin, this, Nav);
         }
 
         public Vector3Int WorldToCell(Vector2 world)
@@ -107,7 +144,8 @@ namespace DeepseaOil.Logic.Grid
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsConductor;
         }
 
-        /// <summary>该格是否物理阻挡；无表行返回 false</summary>
+        /// <summary>该格是否物理阻挡地貌：只看 tile_state.is_obstacle，无表行返回 false</summary>
+        /// <remarks>静态碰撞体不进这里（它们进 NavMap 的净空），否则绕障会把"贴墙但能过"的格也封死</remarks>
         public bool IsObstacle(Vector3Int cell)
         {
             TileStateType state = StateOf(cell);
@@ -462,6 +500,9 @@ namespace DeepseaOil.Logic.Grid
 
             if (next != TileStateType.Normal && !_specs.ContainsKey(next)) return false;
 
+            // 地貌翻转会改变导航可走集合，且只有这一处能看见"翻转"这件事
+            bool wasObstacle = IsObstacle(cell);
+
             if (!_machines.TryGetValue(cell, out TileStateMachine machine))
             {
                 if (next == TileStateType.Normal) return false;
@@ -485,6 +526,8 @@ namespace DeepseaOil.Logic.Grid
             else _machines[cell] = machine;
 
             EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, previous, next));
+
+            if (IsObstacle(cell) != wasObstacle) _navFields.MarkDirty();
 
             return true;
         }

@@ -42,13 +42,10 @@ namespace DeepseaOil.Data
 
         public float StopDistance => _tuning.stopDistance;
 
-        public float ChaseRange => _tuning.chaseRange;
+        /// <summary>转向闸门：角速率上限（度/秒）与低通时间常数（秒）</summary>
+        public float TurnRateLimit => _tuning.turnRateLimit;
 
-        public float VisionRange => _tuning.visionRange;
-
-        public float SustainRange => _tuning.sustainRange;
-
-        public float LoseDelay => _tuning.loseDelay;
+        public float TurnSmoothSeconds => _tuning.turnSmoothSeconds;
 
         public int Hp => _row.Hp;
 

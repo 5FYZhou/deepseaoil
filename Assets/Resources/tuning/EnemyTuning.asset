@@ -15,9 +15,11 @@ MonoBehaviour:
   entries:
   - id: 1
     radius: 0.3
-    acceleration: 5
+    acceleration: 12
     knockbackDecay: 30
     stopDistance: 0.6
+    turnRateLimit: 540
+    turnSmoothSeconds: 0.05
     chaseRange: 60
     squash:
       amount: 0.3
@@ -28,9 +30,11 @@ MonoBehaviour:
       maxAmount: 0.5
   - id: 2
     radius: 0.5
-    acceleration: 8
+    acceleration: 16
     knockbackDecay: 30
     stopDistance: 0.6
+    turnRateLimit: 540
+    turnSmoothSeconds: 0.05
     chaseRange: 60
     squash:
       amount: 0.3
@@ -39,3 +43,10 @@ MonoBehaviour:
       compressRatio: 0.6
       easePower: 2
       maxAmount: 0.5
+  navSkin: 0.05
+  navClearanceCap: 1
+  cornerSpeedFactor: 0.4
+  separationRadius: 0.45
+  separationWeight: 0.25
+  stuckFrames: 18
+  jamFrames: 6

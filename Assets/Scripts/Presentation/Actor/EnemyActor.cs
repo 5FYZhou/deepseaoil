@@ -20,7 +20,7 @@ namespace DeepseaOil.Presentation.Actor
 
     /// 一只敌人的组合根：推进逻辑层，结算伤害与死亡
     [DisallowMultipleComponent]
-    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor, IAggroBreakable
+    public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor, IAggroBreakable, IEnemyBody
     {
         [Header("死亡反馈")]
         [Tooltip("死亡时播放的特效；由预制体配置")]
@@ -100,6 +100,8 @@ namespace DeepseaOil.Presentation.Actor
 
         /// 取执行器物理体位置而非 transform.position，两者迟早有一帧对不上且不报错
         public Vector2 Position => _motor != null ? _motor.Position : (Vector2)transform.position;
+
+        public float Radius => _spec != null ? _spec.Radius : 0f;
 
         Vector2 IYSortAnchor.SortAnchor => Position;
 
