@@ -21,6 +21,7 @@ using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.Level;
+using DeepseaOil.Presentation.Lighting;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using UnityEngine;
@@ -71,6 +72,8 @@ namespace DeepseaOil.Presentation
 
         private GridLogic _grid; private EnemyCellRegistry _registry;
 
+        private TileLightDirector _tileLights;
+
         private BallDirector _balls;
 
         private ImpulseExecutor _impulses;
@@ -116,6 +119,7 @@ namespace DeepseaOil.Presentation
         private void OnDestroy()
         {
             _highlight?.Detach();
+            _tileLights?.Detach();
             gridView?.Detach();
 
             // 销毁期再问 GameRoot.Instance 会当场造一个新的，只能用 Start 里抓的引用
@@ -149,6 +153,8 @@ namespace DeepseaOil.Presentation
             if (!IsReady) return;
 
             _grid.Tick(Time.time, deltaTime);
+
+            _tileLights?.Tick(Time.time, deltaTime);
 
             _balls.Tick(deltaTime);
 
@@ -368,6 +374,9 @@ namespace DeepseaOil.Presentation
 
             gridView?.ClearAll();
 
+            // 不清会让复活后上一局的火/电光常驻，耗尽池位
+            _tileLights?.ClearAll();
+
             // 权属分流：场景木桩满血归位（物体留着），波次怪彻底销毁
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
@@ -524,6 +533,16 @@ namespace DeepseaOil.Presentation
 
             _highlight = CreateHighlightView(geometry);
             _highlight.Attach();
+
+            // 没挂就自建：不该依赖场景装配是否到位
+            _tileLights = GetComponentInChildren<TileLightDirector>(true);
+
+            if (_tileLights == null)
+            {
+                _tileLights = new GameObject("TileLightDirector").AddComponent<TileLightDirector>();
+            }
+
+            _tileLights.Attach();
 
             _impulses = new ImpulseExecutor();
 

@@ -20,12 +20,18 @@ namespace DeepseaOil.Presentation.Lighting
         [Tooltip("全局主光颜色")]
         public Color LightColor;
 
-        [Tooltip("全局光照强度，白天 0.75，黄昏 0.60，夜晚 0.45")]
+        [Tooltip("全局光照强度，白天 0.80，黄昏 0.62，夜晚 0.48")]
         [Range(0.35f, 1.2f)]
         public float Intensity;
 
         [Tooltip("暗部环境补偿色，用于防止冷色调跌入死黑")]
         public Color AmbientFloorColor;
+
+        /// <summary>把 sRGB 十六进制转成线性空间颜色；工程是 Linear，直接 new Color(hex分量) 会被当成线性值而整体偏暗偏灰</summary>
+        private static Color Srgb(string hex)
+        {
+            return ColorUtility.TryParseHtmlString(hex, out Color parsed) ? parsed.linear : Color.white;
+        }
 
         public static TimeOfDaySetting GetDefault(TimeOfDayKind kind)
         {
@@ -35,27 +41,27 @@ namespace DeepseaOil.Presentation.Lighting
                     return new TimeOfDaySetting
                     {
                         Kind = TimeOfDayKind.Dusk,
-                        LightColor = new Color(0.973f, 0.702f, 0.580f, 1f), // #F8B394 粉橘色
-                        Intensity = 0.60f,
-                        AmbientFloorColor = new Color(0.227f, 0.165f, 0.220f, 1f) // #3A2A38 深粉紫
+                        LightColor = Srgb("#F8B394"),
+                        Intensity = 0.62f,
+                        AmbientFloorColor = Srgb("#3A2A38")
                     };
 
                 case TimeOfDayKind.Night:
                     return new TimeOfDaySetting
                     {
                         Kind = TimeOfDayKind.Night,
-                        LightColor = new Color(0.478f, 0.459f, 0.627f, 1f), // #7A75A0 蓝紫色
-                        Intensity = 0.45f,
-                        AmbientFloorColor = new Color(0.133f, 0.125f, 0.208f, 1f) // #222035 深蓝灰
+                        LightColor = Srgb("#7A75A0"),
+                        Intensity = 0.48f,
+                        AmbientFloorColor = Srgb("#222035")
                     };
 
                 default:
                     return new TimeOfDaySetting
                     {
                         Kind = TimeOfDayKind.Day,
-                        LightColor = new Color(1f, 0.961f, 0.867f, 1f), // #FFF5DD 暖日光
-                        Intensity = 0.75f,
-                        AmbientFloorColor = new Color(0.35f, 0.35f, 0.35f, 1f)
+                        LightColor = Srgb("#FFF5DD"),
+                        Intensity = 0.80f,
+                        AmbientFloorColor = Srgb("#595959")
                     };
             }
         }

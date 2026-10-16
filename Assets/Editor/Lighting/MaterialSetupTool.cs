@@ -18,6 +18,7 @@ namespace DeepseaOil.EditorTools.Lighting
         private const string TileFlowShaderName = "DeepseaOil/2D/TileFlow";
         private const string CelLitMatPath = "Assets/Resources/materials/M_CelLit_Default.mat";
         private const string TileFlowMatPath = "Assets/Resources/materials/M_TileFlow_Water.mat";
+        private const string UnlitMatPath = "Assets/Resources/materials/M_SpriteFlash.mat";
         private const string TilemapAdapterPrefabPath = "Assets/Resources/scane_prebs/TilemapAdapter.prefab";
         private const string ExcludedSceneObject = "AimHighlight";
 
@@ -74,6 +75,13 @@ namespace DeepseaOil.EditorTools.Lighting
             "Assets/Resources/effects/DamagePopup.prefab",
         };
 
+        // 隔离层上挂受光材质会整块被乘成黑；这两件是实测发黑的，其余特效材质虽开 Lights 开关但不受影响
+        private static readonly string[] UnlitSpritePrefabs =
+        {
+            "Assets/Resources/effects/BurstSparks.prefab",
+            "Assets/Resources/effects/MudSplash.prefab",
+        };
+
         [MenuItem(MenuPath)]
         public static void SetupGroundMaterials()
         {
@@ -128,6 +136,7 @@ namespace DeepseaOil.EditorTools.Lighting
             int actorNodes = MigrateSprites(ActorPrefabs, SortingLayerConsts.Actor);
             int effectNodes = MigrateEffectRenderers(EffectPrefabs, SortingLayerConsts.Effect);
             int textNodes = MigrateRenderers(TextPrefabs, SortingLayerConsts.Effect);
+            int unlitNodes = ApplyUnlitToSprites(UnlitSpritePrefabs, EnsureUnlitMaterial());
 
             WireOverlayMaterial(celLit);
 
@@ -141,7 +150,18 @@ namespace DeepseaOil.EditorTools.Lighting
             Debug.Log(
                 $"[Material] 受光材质与图层迁移完成：Tilemap {tilemaps} 个、场景 Sprite {sprites} 个、" +
                 $"世界预制体渲染器 {actorNodes} 个 → Actor、特效预制体渲染器 {effectNodes} 个 → Effect、" +
-                $"文字渲染器 {textNodes} 个 → Effect，失败场景 {failed} 个。");
+                $"文字渲染器 {textNodes} 个 → Effect、隔离层改无光照材质 {unlitNodes} 个，失败场景 {failed} 个。");
+        }
+
+        private static Material EnsureUnlitMaterial()
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(UnlitMatPath);
+
+            if (material != null) return material;
+
+            Debug.LogError($"[Material] 找不到无光照材质：{UnlitMatPath}，隔离层影子渲染件会发黑。");
+
+            return null;
         }
 
         /// <summary>Sorting Layer 缺失则中止整个装配，绝不代写 ProjectSettings/TagManager.asset</summary>
@@ -360,6 +380,47 @@ namespace DeepseaOil.EditorTools.Lighting
                         meshes[j].sortingLayerName = layerName;
                         migrated++;
                     }
+
+                    PrefabUtility.SaveAsPrefabAsset(contents, paths[i]);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(contents);
+                }
+            }
+
+            return migrated;
+        }
+
+        /// <summary>隔离层上的影子渲染件若挂受光材质，会因该层零光照贡献被整块乘成黑</summary>
+        private static int ApplyUnlitToSprites(string[] paths, Material unlit)
+        {
+            int migrated = 0;
+
+            for (int i = 0; i < paths.Length; i++)
+            {
+                GameObject contents = PrefabUtility.LoadPrefabContents(paths[i]);
+
+                if (contents == null) continue;
+
+                try
+                {
+                    SpriteRenderer[] sprites = contents.GetComponentsInChildren<SpriteRenderer>(true);
+
+                    // 逐预制体计数：用累计值判"本件有没有改"会让第二件起永远跳过保存
+                    int changed = 0;
+
+                    for (int j = 0; j < sprites.Length; j++)
+                    {
+                        if (sprites[j].sharedMaterial == unlit) continue;
+
+                        sprites[j].sharedMaterial = unlit;
+                        changed++;
+                    }
+
+                    if (changed == 0) continue;
+
+                    migrated += changed;
 
                     PrefabUtility.SaveAsPrefabAsset(contents, paths[i]);
                 }
