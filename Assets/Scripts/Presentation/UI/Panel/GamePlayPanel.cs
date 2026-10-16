@@ -83,6 +83,7 @@ namespace DeepseaOil.Presentation.UI
         private Image _imgSeedBG;
         private Image _imgWater;
         private Image _imgEarth;
+        private Image _imgSeed;
         private Image _imgSlecteState;
         private Coroutine _healthAnimCoroutine;
         private Coroutine _waterIconCoroutine;
@@ -95,6 +96,7 @@ namespace DeepseaOil.Presentation.UI
         private int _waterAmount;
         private int _earthAmount;
         private SeedType _seedType;
+        private string _seedIconKey;
 
         protected override void Awake()
         {
@@ -111,6 +113,7 @@ namespace DeepseaOil.Presentation.UI
             _imgSeedBG = GetComponent<Image>("ImgSeedBG");
             _imgWater = GetComponent<Image>("ImgWater");
             _imgEarth = GetComponent<Image>("ImgEarth");
+            _imgSeed = GetComponent<Image>("ImgSeed");
             _imgSlecteState = GetComponent<Image>("ImgSlecteState");
             _imgWater.sprite = spriteWater;
             _imgEarth.sprite = spriteEarth;
@@ -144,6 +147,8 @@ namespace DeepseaOil.Presentation.UI
                 StopCoroutine(_seedIconCoroutine);
             if (_selectStateCoroutine != null)
                 StopCoroutine(_selectStateCoroutine);
+
+            ReleaseSeedIcon();
 
             if (_healthMaterial != null)
                 Destroy(_healthMaterial);
@@ -224,6 +229,9 @@ namespace DeepseaOil.Presentation.UI
             _seedType = evt.Seed;
             _hasAmmoSnapshot = true;
 
+            if (initialize || seedChanged)
+                UpdateSeedIcon(evt.Seed);
+
             if (_imgWaterBG != null)
                 UpdateAmmoImage(_imgWaterBG, evt.Water > 0, waterChanged, initialize, ref _waterIconCoroutine);
             if (_imgEarthBG != null)
@@ -237,6 +245,41 @@ namespace DeepseaOil.Presentation.UI
                 QueueSelectedState(2);
             if (seedChanged)
                 QueueSelectedState(4);
+        }
+
+        private void UpdateSeedIcon(SeedType seed)
+        {
+            if (_imgSeed == null) return;
+
+            Data.SeedSpec spec = seed == SeedType.None ? null : Data.ConfigModule.GetSeed(seed);
+            if (spec == null || string.IsNullOrEmpty(spec.IconKey))
+            {
+                ReleaseSeedIcon();
+                _imgSeed.sprite = null;
+                _imgSeed.enabled = false;
+                return;
+            }
+
+            if (spec.IconKey == _seedIconKey)
+            {
+                _imgSeed.enabled = _imgSeed.sprite != null;
+                return;
+            }
+
+            ReleaseSeedIcon();
+            _imgSeed.sprite = Data.AssetModule.Load<Sprite>(spec.IconKey);
+            _imgSeed.enabled = _imgSeed.sprite != null;
+
+            if (_imgSeed.enabled && Data.AssetModule.TryGet<Sprite>(spec.IconKey, out _))
+                _seedIconKey = spec.IconKey;
+        }
+
+        private void ReleaseSeedIcon()
+        {
+            if (string.IsNullOrEmpty(_seedIconKey)) return;
+
+            Data.AssetModule.Release(_seedIconKey);
+            _seedIconKey = null;
         }
 
         private void QueueSelectedState(int stateFlag)
