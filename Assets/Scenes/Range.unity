@@ -187,6 +187,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 6997008930223060870, guid: 6fbd92eb1a5f0ff4d93ce8849513b983, type: 3}
+      propertyPath: aiType
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7412664056323211715, guid: 6fbd92eb1a5f0ff4d93ce8849513b983, type: 3}
       propertyPath: m_Name
       value: Enemy_2 (1)
@@ -21593,6 +21597,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 6997008930223060870, guid: 6fbd92eb1a5f0ff4d93ce8849513b983, type: 3}
+      propertyPath: aiType
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7412664056323211715, guid: 6fbd92eb1a5f0ff4d93ce8849513b983, type: 3}
       propertyPath: m_Name
       value: Enemy_2 (2)
@@ -24459,6 +24467,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 6997008930223060870, guid: 6fbd92eb1a5f0ff4d93ce8849513b983, type: 3}
+      propertyPath: aiType
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7412664056323211715, guid: 6fbd92eb1a5f0ff4d93ce8849513b983, type: 3}
       propertyPath: m_Name
       value: Enemy_2

@@ -366,9 +366,9 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(4f, target.DamageTotal, 1e-3f, "等离子爆轰的瞬发伤害是 4 点，不多不少");
         }
 
-        /// <summary>⑤ 触碰即激发：在火池旁的空地播种，不投球也要当帧燎原，并由前沿烧穿邻格植物。</summary>
+        /// <summary>⑤ 播种落地：种子得基础花，只有邻格火海前沿能把它烧穿。</summary>
         [Test]
-        public void 播种落地当帧激发燎原()
+        public void 播种落地成花并只由火海前沿烧穿()
         {
             TileChainReactor.Clear();
 
@@ -378,14 +378,14 @@ namespace DeepseaOil.Tests
 
             var fire = new Vector3Int(0, 0, 0);
             var dirt = new Vector3Int(1, 0, 0);
-            var fuel = new Vector3Int(2, 0, 0);
 
             grid.RegisterCell(fire);
             grid.RegisterCell(dirt);
-            grid.RegisterCell(fuel);
 
             grid.SwitchTileState(fire, TileStateType.BasicFire);
-            grid.SwitchTileState(fuel, TileStateType.BasicPlant);
+
+            // 直接改 StateOf 只是摆贴图，蔓延引擎不认它：跟 ③ 一样要显式点火
+            TileChainReactor.Trigger(grid, fire, TileStateType.BasicFire);
 
             SeedSpec plantSeed = ConfigModule.GetSeed(SeedType.Plant);
 
@@ -394,15 +394,34 @@ namespace DeepseaOil.Tests
             bool planted = SeedPlanter.ExecutePlant(grid, dirt, SeedType.Plant, plantSeed, ConfigModule.GetDuoReactions());
 
             Assert.IsTrue(planted, "空地上播种必须成功（地貌真的改了才算成功）");
-            Assert.AreEqual(TileStateType.FlameField, grid.StateOf(dirt), "植物 × 火 → 燎原火海：落地当帧就该质变，不能等投球");
-            Assert.AreEqual(TileStateType.BasicPlant, grid.StateOf(fuel), "邻格不在当帧变：二级反应只改发起格，邻格归火海自己的 0.2s 蔓延步");
+
+            Assert.AreEqual(
+                TileStateType.BasicFlower,
+                grid.StateOf(dirt),
+                "植物种子播下得到的是基础花：落成基础植物区等于把两步链压成一步");
 
             float now = 0f;
 
-            Advance(grid, ref now, TileChainReactor.FlameSpreadStep);
+            Advance(grid, ref now, TileChainReactor.FlameSpreadStep * 5f);
 
-            Assert.AreEqual(TileStateType.FlameField, grid.StateOf(fuel), "火海前沿必须烧穿一圈可燃面：不蔓延等于「燎原」只是文案");
-            Assert.AreEqual(TileStateType.BasicFire, grid.StateOf(fire), "火池是永久发生器，只能被元素反应顶掉：0.2s 蔓延步不许把它顶成 3 秒的火海");
+            Assert.AreEqual(
+                TileStateType.BasicFlower,
+                grid.StateOf(dirt),
+                "基础花 × 基础火池 不在 element_duo_reaction 里，火池也不是蔓延源：种子不许凭空燎原");
+
+            Assert.AreEqual(TileStateType.BasicFire, grid.StateOf(fire), "火池是永久发生器，只能被元素反应顶掉");
+
+            // 真正的蔓延源是火海，不是火池
+            var flame = new Vector3Int(2, 0, 0);
+
+            grid.RegisterCell(flame);
+            grid.SwitchTileState(flame, TileStateType.FlameField);
+
+            TileChainReactor.Trigger(grid, flame, TileStateType.FlameField);
+
+            Advance(grid, ref now, TileChainReactor.FlameSpreadStep * 2f);
+
+            Assert.AreEqual(TileStateType.FlameField, grid.StateOf(dirt), "火海前沿必须烧穿相邻的基础花");
         }
 
         /// <summary>⑥ 冲击即激发：投球要用**未改写**原状态裁决，二级激发后跳过一级覆盖。</summary>
