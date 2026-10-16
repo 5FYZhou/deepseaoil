@@ -149,8 +149,8 @@ namespace DeepseaOil.Presentation.Ball
         private void OnLanded(BallActor ball, Vector2 point)
         {
             _requestSfx?.Invoke(AudioId.PlayerThrowLand);
-            if (ball.Seed != SeedType.None)
 
+            if (ball.Seed != SeedType.None)
             {
                 SeedType landed = ball.Seed;
 
