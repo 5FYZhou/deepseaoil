@@ -9,6 +9,19 @@ namespace DeepseaOil.Presentation.Effects.Drivers
     public sealed class HighlightDriver : IEffectDriver
     {
         private const int SortingOrder = RenderOrder.Aim;
+        private const string UnlitMaterialPath = "materials/M_SpriteFlash";
+
+        private static Material _unlitMaterial;
+
+        private static Material UnlitMaterial
+        {
+            get
+            {
+                if (_unlitMaterial == null) _unlitMaterial = Resources.Load<Material>(UnlitMaterialPath);
+
+                return _unlitMaterial;
+            }
+        }
 
         private readonly Transform _root;
         private readonly int _maxSize;
@@ -119,6 +132,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             if (_root != null) _go.transform.SetParent(_root, false);
 
             _renderer = _go.AddComponent<SpriteRenderer>();
+
+            // 留 Default 会被 Tilemap 盖掉；Aim 不受光，受光材质会乘成纯黑
+            _renderer.sortingLayerName = SortingLayerConsts.Aim;
+
+            if (UnlitMaterial != null) _renderer.sharedMaterial = UnlitMaterial;
 
             PrimitiveSprites.Configure(
                 _renderer,

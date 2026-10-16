@@ -73,7 +73,11 @@ namespace DeepseaOil.Presentation.Projectile
             var go = new GameObject("BallSprite");
             go.layer = RenderOrder.OverlayLayer;
             go.transform.SetParent(transform, false);
-            return go.AddComponent<SpriteRenderer>();
+
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sortingLayerName = SortingLayerConsts.Actor;
+
+            return renderer;
         }
     }
 }

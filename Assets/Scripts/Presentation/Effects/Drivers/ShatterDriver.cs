@@ -261,7 +261,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             if (_root != null) go.transform.SetParent(_root, false);
 
-            go.AddComponent<SpriteRenderer>();
+            go.AddComponent<SpriteRenderer>().sortingLayerName = SortingLayerConsts.Actor;
             go.SetActive(false);
 
             return go;

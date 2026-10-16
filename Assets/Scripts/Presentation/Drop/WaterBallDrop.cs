@@ -16,6 +16,7 @@ namespace DeepseaOil.Presentation.Drop
             var renderer = GetComponentInChildren<SpriteRenderer>(true);
             if (renderer != null)
             {
+                renderer.sortingLayerName = SortingLayerConsts.Actor;
                 renderer.sortingOrder = RenderOrder.BallOrder(Landing.y);
             }
 
