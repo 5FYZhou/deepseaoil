@@ -243,6 +243,105 @@ namespace DeepseaOil.Presentation.Actor
             }
         }
 
+        public List<EnemySaveData> ExportEnemies()
+        {
+            var result = new List<EnemySaveData>(_enemies.Count);
+
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                EnemyActor enemy = _enemies[i];
+
+                if (enemy == null || !enemy.IsAlive) continue;
+
+                Vector2 position = enemy.Position;
+
+                result.Add(new EnemySaveData
+                {
+                    enemyId = enemy.EnemyId,
+                    posX = position.x,
+                    posY = position.y,
+                    hp = enemy.Hp
+                });
+            }
+
+            return result;
+        }
+
+        /// <summary>读盘重建波次怪；场景木桩归位由组合根负责</summary>
+        public void RestoreEnemies(List<EnemySaveData> list)
+        {
+            _enemies.Clear();
+
+            if (list != null && _combatRoot != null && _player != null)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    RestoreOne(list[i]);
+                }
+            }
+
+            AliveCount = CountAlive();
+            FirstAliveEnemyDistance = -1f;
+            FirstAliveEnemyVelocity = Vector2.zero;
+
+            _publishedWave = -1;
+            _publishedAlive = -1;
+
+            PublishIfChanged();
+        }
+
+        private void RestoreOne(EnemySaveData data)
+        {
+            if (data == null) return;
+
+            EnemySpec spec = _specOf(data.enemyId);
+
+            if (spec == null)
+            {
+                Debug.LogError(
+                    $"[Combat] 存档里的 enemy id={data.enemyId} 在 enemy 表里不存在，读档已跳过该只。");
+
+                return;
+            }
+
+            string prefabKey = $"enemies/Enemy_{data.enemyId}";
+
+            GameObject prefab = AssetModule.IsInitialized ? AssetModule.Load<GameObject>(prefabKey) : null;
+
+            if (prefab == null)
+            {
+                Debug.LogError($"[Combat] 读档缺少敌人预制体 Assets/Resources/{prefabKey}.prefab，已跳过该只。");
+
+                return;
+            }
+
+            var position = new Vector2(data.posX, data.posY);
+
+            GameObject go = Instantiate(prefab, position, Quaternion.identity, _actorRoot);
+            go.name = $"Enemy_Load_{data.enemyId}";
+
+            EnemyActor actor = go.GetComponent<EnemyActor>();
+
+            if (actor == null)
+            {
+                Debug.LogError($"[Combat] 预制体 {prefabKey} 根节点未挂载 EnemyActor 组件！读档该只已作废。");
+
+                Destroy(go);
+
+                return;
+            }
+
+            if (_onKilled != null) actor.Died = OnEnemyDied;
+
+            _combatRoot.AdoptWaveEnemy(actor, position, in spec, PlayerPosition() - position);
+
+            int missing = spec.Hp - data.hp;
+
+            if (missing > 0) actor.Stats.ApplyDamage(missing);
+
+            _enemies.Add(actor);
+        }
+
         private void OnEnemyDied(EnemyActor enemy)
         {
             EnemySpec spec = enemy != null && enemy.Stats != null ? enemy.Stats.Spec : null;

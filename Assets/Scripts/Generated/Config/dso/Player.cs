@@ -34,6 +34,7 @@ public sealed partial class Player : Luban.BeanBase
         { if(!_buf["earth_capacity"].IsNumber) { throw new SerializationException(); }  EarthCapacity = _buf["earth_capacity"]; }
         { if(!_buf["earth_start"].IsNumber) { throw new SerializationException(); }  EarthStart = _buf["earth_start"]; }
         { if(!_buf["life_heal_interval"].IsNumber) { throw new SerializationException(); }  LifeHealInterval = _buf["life_heal_interval"]; }
+        { if(!_buf["seed_capacity"].IsNumber) { throw new SerializationException(); }  SeedCapacity = _buf["seed_capacity"]; }
     }
 
     public static Player DeserializePlayer(JSONNode _buf)
@@ -97,6 +98,10 @@ public sealed partial class Player : Luban.BeanBase
     /// 神泉回血所需静止秒数
     /// </summary>
     public readonly float LifeHealInterval;
+    /// <summary>
+    /// 种子使用次数上限
+    /// </summary>
+    public readonly int SeedCapacity;
    
     public const int __ID__ = 571649775;
     public override int GetTypeId() => __ID__;
@@ -122,6 +127,7 @@ public sealed partial class Player : Luban.BeanBase
         + "earthCapacity:" + EarthCapacity + ","
         + "earthStart:" + EarthStart + ","
         + "lifeHealInterval:" + LifeHealInterval + ","
+        + "seedCapacity:" + SeedCapacity + ","
         + "}";
     }
 }

@@ -16,7 +16,7 @@ MonoBehaviour:
   cameraPlaneDepth: 100
   flightDuration: 0.6
   maxHeight: 2
-  maxThrowDistance: 5
+  maxThrowDistance: 10
   minThrowDistance: 0.4
   ballRadiusMeters: 0.22
   shadowRadiusMeters: 0.2
