@@ -11,6 +11,13 @@ namespace DeepseaOil.Presentation
     {
         public GameState CurState { get; private set; } = GameState.None;
 
+        private GameState _stateBeforeSceneTransition;
+        private GameState _sceneTransitionTargetState;
+        private bool _hasSceneTransitionTarget;
+        private bool _sceneTransitionFadeFinished;
+        private bool _sceneTransitionFailed;
+        private bool _isFinalizingSceneTransition;
+
         public GameManager()
         {
         }
@@ -23,6 +30,11 @@ namespace DeepseaOil.Presentation
         public void ChangeState(GameState newState)
         {
             if (CurState == newState) return;
+            if (CurState == GameState.SceneTransition && !_isFinalizingSceneTransition)
+            {
+                Debug.LogError($"[Game] 场景转场期间拒绝直接切换到状态 {newState}。");
+                return;
+            }
 
             switch (newState)
             {
@@ -44,6 +56,77 @@ namespace DeepseaOil.Presentation
 
             CurState = newState;
             EventBus<GameStateChanged>.Publish(new GameStateChanged(CurState));
+        }
+
+        public void BeginSceneTransition()
+        {
+            if (CurState == GameState.SceneTransition) return;
+
+            _stateBeforeSceneTransition = CurState;
+            _hasSceneTransitionTarget = false;
+            _sceneTransitionFadeFinished = false;
+            _sceneTransitionFailed = false;
+            ChangeState(GameState.SceneTransition);
+        }
+
+        public void SetSceneTransitionTargetState(GameState targetState)
+        {
+            if (targetState == GameState.None
+                || targetState == GameState.Exit
+                || targetState == GameState.Settle
+                || targetState == GameState.SceneTransition)
+            {
+                Debug.LogError($"[Game] 场景入口状态无效：{targetState}。");
+                return;
+            }
+
+            if (CurState != GameState.SceneTransition)
+            {
+                ChangeState(targetState);
+                return;
+            }
+
+            _sceneTransitionTargetState = targetState;
+            _hasSceneTransitionTarget = true;
+            TryFinishSceneTransition();
+        }
+
+        public void FinishSceneTransition(bool success)
+        {
+            if (CurState != GameState.SceneTransition) return;
+
+            _sceneTransitionFailed = !success;
+            _sceneTransitionFadeFinished = true;
+            TryFinishSceneTransition();
+        }
+
+        private void TryFinishSceneTransition()
+        {
+            if (!_sceneTransitionFadeFinished) return;
+
+            GameState targetState;
+            if (_sceneTransitionFailed)
+            {
+                targetState = _stateBeforeSceneTransition;
+            }
+            else
+            {
+                if (!_hasSceneTransitionTarget) return;
+                targetState = _sceneTransitionTargetState;
+            }
+
+            _hasSceneTransitionTarget = false;
+            _sceneTransitionFadeFinished = false;
+            _sceneTransitionFailed = false;
+            _isFinalizingSceneTransition = true;
+            try
+            {
+                ChangeState(targetState);
+            }
+            finally
+            {
+                _isFinalizingSceneTransition = false;
+            }
         }
     }
 }

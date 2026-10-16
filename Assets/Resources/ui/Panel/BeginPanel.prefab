@@ -435,7 +435,7 @@ GameObject:
   - component: {fileID: 1882470377753138074}
   - component: {fileID: 6809031058286162802}
   m_Layer: 5
-  m_Name: BtnContinue
+  m_Name: BtnLoad
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

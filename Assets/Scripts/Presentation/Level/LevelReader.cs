@@ -11,13 +11,10 @@ namespace DeepseaOil.Presentation.Level
     {
         private const string ScenePrefix = "Level_";
 
-        [SerializeField]
-        [ReadOnly]
-        [Tooltip("当前关卡id，程序自动读")]
         private int _curLevelId;
 
         [SerializeField]
-        [Tooltip("下一关卡id，整数，与level_wave表中的id对应")]
+        [Tooltip("下一关卡id，正数对应level_wave表中的id；小于等于0表示没有下一关")]
         private int _nextLevelId;
 
         [SerializeField]
