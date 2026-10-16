@@ -918,15 +918,6 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Jump",
-                    "type": "Button",
-                    "id": "87f718bb-0c57-4cfa-a6df-34916b368509",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "Dash",
                     "type": "Button",
                     "id": "8b28e6f9-47d5-40c2-b166-77c33bd3f72a",
@@ -976,6 +967,15 @@
                     "type": "PassThrough",
                     "id": "ec1a7f10-2b64-4d8a-9c31-5f0a7b2d4e04",
                     "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Discard",
+                    "type": "Button",
+                    "id": "ade2f736-9759-4a71-8b78-65913c4f2206",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
@@ -1237,19 +1237,8 @@
                 },
                 {
                     "name": "",
-                    "id": "0921fc23-00e1-4d25-a65b-8791579bf291",
-                    "path": "<Keyboard>/space",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Jump",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "89e41a19-7e3d-4ba3-963a-85cf64946589",
-                    "path": "<Keyboard>/leftShift",
+                    "path": "<Keyboard>/space",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -1309,6 +1298,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "Aim",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "270d231f-4085-4a5b-9c15-f557de5913c2",
+                    "path": "<Keyboard>/q",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Discard",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
