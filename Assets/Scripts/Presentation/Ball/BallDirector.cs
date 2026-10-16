@@ -19,6 +19,7 @@ namespace DeepseaOil.Presentation.Ball
         private GridLogic _grid;
         private ImpulseExecutor _impulses;
         private Transform _ballRoot;
+        private System.Action<AudioId> _requestSfx;
 
         public int FlyingCount => _flying.Count;
 
@@ -29,11 +30,13 @@ namespace DeepseaOil.Presentation.Ball
             GridLogic grid,
             IReadOnlyList<ProjectileSpec> balls,
             ImpulseExecutor impulses,
-            Transform ballRoot)
+            Transform ballRoot,
+            System.Action<AudioId> requestSfx)
         {
             _grid = grid;
             _impulses = impulses;
             _ballRoot = ballRoot;
+            _requestSfx = requestSfx;
 
             _balls.Clear();
 
@@ -105,6 +108,8 @@ namespace DeepseaOil.Presentation.Ball
         /// <remarks>顺序即语义：改格在同一帧内结算落地冲击（含首跳伤害与连锁）；冲量下一物理帧才生效。</remarks>
         private void OnLanded(BallActor ball, Vector2 point)
         {
+            _requestSfx?.Invoke(AudioId.PlayerThrowLand);
+
             if (_grid != null && _grid.Geometry.IsValid)
             {
                 _grid.OnBallHit(_grid.WorldToCell(point), ball.Definition.Type);

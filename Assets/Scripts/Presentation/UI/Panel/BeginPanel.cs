@@ -19,6 +19,7 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
+            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
         }
 
         protected override ButtonStyle SetBtnStyle(string name)
