@@ -28,11 +28,11 @@ MonoBehaviour:
   - Type: 2
     Color: {r: 1, g: 1, b: 1, a: 1}
   enemyBodyNormal: {r: 1, g: 1, b: 1, a: 1}
-  enemyBodySlowed: {r: 0.45, g: 0.45, b: 0.45, a: 1}
+  enemyBodySlowed: {r: 0.7, g: 0.7, b: 0.7, a: 1}
   highlightAvailable: {r: 1, g: 1, b: 1, a: 0.32}
   highlightBlocked: {r: 1, g: 0.25, b: 0.2, a: 0.42}
   shadow: {r: 0, g: 0, b: 0, a: 0.35}
   damagePhysical: {r: 1, g: 1, b: 1, a: 1}
-  damageFire: {r: 1, g: 0.39545977, b: 0.19999999, a: 1}
-  damageElectric: {r: 0.4955451, g: 0.44968545, b: 1, a: 1}
-  damageIce: {r: 0.7, g: 0.9, b: 1, a: 1}
+  damageFire: {r: 1, g: 0.17563589, b: 0.10196078, a: 1}
+  damageElectric: {r: 0.53202593, g: 0.2980392, b: 1, a: 1}
+  damageIce: {r: 0.39999998, g: 0.8051948, b: 1, a: 1}

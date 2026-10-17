@@ -27,11 +27,14 @@ MonoBehaviour:
   dustSpeedThreshold: 0.8
   dustInterval: 0.14
   dustReferenceSpeed: 8
-  popupRiseHeight: 0.6
-  popupDuration: 0.6
+  popupRiseHeight: 1
+  popupDuration: 1
   popupSortingOffset: 100
-  popupRiseEase: 2
-  popupFadeEase: 1.5
+  popupRiseEase: 1.5
+  popupFadeEase: 1.1
+  popupAnchorHeight: 0.6
+  popupJitterX: 0.3
+  popupJitterY: 0.15
   hopPeakHeight: 0.25
   hopDuration: 0.28
   hopReferenceSpeed: 8

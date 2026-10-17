@@ -21406,7 +21406,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   globalLight: {fileID: 1461937310}
-  initialTimeOfDay: 2
+  initialTimeOfDay: 0
   transitionDuration: 1.5
   customTimeOfDayOverrides: []
 --- !u!4 &520730532
