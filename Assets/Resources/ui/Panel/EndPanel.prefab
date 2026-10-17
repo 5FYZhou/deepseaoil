@@ -252,9 +252,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed33a63d5480f4ebab01b7bd79404d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  viewport: {fileID: 0}
+  viewport: {fileID: 5197234470594041033}
   scrollSpeed: 60
   startDelay: 0.1
+  endHoldSeconds: 1.5
 --- !u!1 &6086815329857971548
 GameObject:
   m_ObjectHideFlags: 0
