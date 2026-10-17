@@ -1,7 +1,8 @@
-# 一次性打包「全局光照规划」交给外部 AI 的文档与源码。
+# 项目交接包：把「让外部 AI 读懂本工程」所需的文档与关键源码，平铺复制到 T:\GAMES\toAgent。
 # 用法：pwsh Tools/pack-toagent.ps1
 # 输出：T:\GAMES\toAgent\ 下全部平铺（无子目录）＋ MANIFEST.txt
-# 上传兼容：白名单外的扩展名一律在后面补 .txt（内容一字不改），原格式保留在文件名里。
+# 上传兼容：白名单外的扩展名一律在后面补 .txt（内容一字不改，原格式保留在文件名里）。
+# 注意：每次运行都会先清空输出目录，再整包重建。
 
 $ErrorActionPreference = 'Stop'
 
@@ -11,57 +12,136 @@ $dst = 'T:\GAMES\toAgent'
 # 这些后缀原样上传；其余（.unity/.prefab/.asset/.mat/.shader/.asmdef/.ps1 …）补 .txt。
 $uploadableExt = @('.txt', '.md', '.cs', '.json', '.xml', '.yml', '.yaml', '.csv')
 
-# 分组 → 相对仓库根的路径。路径可写文件或目录（目录整棵复制）。
+# 分组 → 相对仓库根的路径。可写文件或目录（目录整棵复制，仍然平铺）。
+# 写成 @{From=…; As=…} 可改名，用来避开平铺后的同名覆盖。
 $groups = [ordered]@{
-    '01-纪律与现状' = @(
+    '00-入口与纪律' = @(
         'AGENTS.md'
+        'README.md'
+        @{ From = 'Docs/README.md'; As = 'README_Docs文档地图.md' }
+        @{ From = 'ConfigWorkspace/AGENTS.md'; As = 'AGENTS_配表工作区.md' }
         'Docs/工程/架构约束.md'
         'Docs/工程/目录说明.md'
-        'Docs/待办.md'
         'Docs/工程/注释规范.md'
+        'Docs/工程/人类接手与工程交接手册.md'
         'Docs/工程/已知编辑器噪声.md'
+        'Docs/工程/加内容清单.md'
+        'Docs/工程/敌人转向抖动.md'
+    )
+    '01-设计与现状' = @(
+        'Docs/设计/策划案_荒原复苏指南_v4.0.md'
+        'Docs/待办.md'
+        'Docs/配表/策划配表手册.md'
         'Docs/配表/最新表格与SO规范.md'
+        'Docs/美术装配指南.md'
+        'Docs/工程/敌人仇恨系统_归档.md'
+        'ProjectSettings/TagManager.asset'
     )
-    '02-场景与排序层现状' = @(
+    '02-表现子系统文档' = @(
         'Docs/表现/新场景接线.md'
-        'Assets/Scripts/Presentation/Visual/RenderOrder.cs'
-        'Assets/Scripts/Foundation/YSort.cs'
-        'Assets/Scripts/Presentation/Visual/YSortAgent.cs'
-        'Assets/Scripts/Data/Settings/VisualPalette.cs'
-    )
-    '03-既有光效通道' = @(
+        'Docs/表现/全局光照.md'
+        'Docs/表现/光照调参手册.md'
         'Docs/表现/粒子特效系统.md'
-        'Assets/Scripts/Presentation/Effects/IEffectDriver.cs'
-        'Assets/Scripts/Presentation/Effects/EffectId.cs'
-        'Assets/Scripts/Presentation/Effects/EffectCatalog.cs'
-        'Assets/Scripts/Presentation/Effects/Drivers/EffectDriverFactory.cs'
-        'Assets/Scripts/Presentation/Effects/Drivers/ParticleDriver.cs'
-        'Assets/Scripts/Presentation/Effects/Drivers/ActorTintDriver.cs'
-        'Assets/Resources/materials/Shaders/SpriteFlash.shader'
-        'Assets/Resources/materials/Shaders/TileFlow.shader'
     )
-    '04-地块状态渲染链' = @(
-        'Assets/Scripts/Presentation/Adapters/TilemapAdapter.cs'
-        'Assets/Scripts/Presentation/Grid/TileObstacleDirector.cs'
-        'Assets/Scripts/Presentation/Grid/TileOverlayDirector.cs'
-        'Assets/Scripts/Presentation/Grid/TileHighlightView.cs'
+    '03-程序集与入口' = @(
+        'Assets/Scripts/Foundation/DeepseaOil.Foundation.asmdef'
+        'Assets/Scripts/Data/DeepseaOil.Data.asmdef'
+        'Assets/Scripts/Logic/DeepseaOil.Logic.asmdef'
+        'Assets/Scripts/Presentation/DeepseaOil.Presentation.asmdef'
+        'Assets/Scripts/Presentation/ISceneRoot.cs'
+        'Assets/Scripts/Presentation/Root/GameRoot.cs'
+        'Assets/Scripts/Presentation/Root/GameManager.cs'
+        'Assets/Scripts/Presentation/Root/SceneFlowConfig.cs'
+    )
+    '04-组合根' = @(
+        'Assets/Scripts/Presentation/Root/CombatRoot.cs'
+        'Assets/Scripts/Presentation/Root/PlayerController.cs'
+        'Packages/manifest.json'
+    )
+    '05-Logic核心' = @(
+        'Assets/Scripts/Logic/LogicContext.cs'
+        'Assets/Scripts/Logic/Tickable.cs'
+        'Assets/Scripts/Logic/Grid/GridLogic.cs'
+        'Assets/Scripts/Logic/Grid/GridGeometry.cs'
+        'Assets/Scripts/Logic/Grid/ITileState.cs'
+        'Assets/Scripts/Logic/Grid/TileStateMachine.cs'
+        'Assets/Scripts/Logic/Grid/States/TableTileState.cs'
+        'Assets/Scripts/Logic/Grid/TileChainReactor.cs'
         'Assets/Scripts/Logic/Event/Events.cs'
         'Assets/Scripts/Logic/Event/EventBus.cs'
-        'Assets/Scripts/Logic/Grid/GridGeometry.cs'
-        'Assets/Scripts/Logic/Grid/GridLogic.cs'
+        'Assets/Scripts/Logic/Combat/Damage.cs'
+        'Assets/Scripts/Logic/Element/ReactionResolver.cs'
+        'Assets/Scripts/Logic/Wave/WaveLogic.cs'
+        'Assets/Scripts/Logic/Player/PlayerLogic.cs'
+        'Assets/Scripts/Logic/Movement/ActorLedger.cs'
+        'Assets/Scripts/Logic/Services/PauseService.cs'
     )
-    '05-组合根' = @(
-        'Assets/Scripts/Presentation/Root/CombatRoot.cs'
-        'Assets/Scripts/Presentation/ISceneRoot.cs'
-        'Assets/Scripts/Presentation/DeepseaOil.Presentation.asmdef'
+    '06-Data层' = @(
+        'Assets/Scripts/Data/Config/ConfigModule.cs'
+        'Assets/Scripts/Data/Config/TablesMeta.cs'
+        'Assets/Scripts/Data/Config/StartupValidator.cs'
+        'Assets/Scripts/Data/Config/Spec/PlayerSpec.cs'
+        'Assets/Scripts/Data/Config/Spec/ProjectileSpec.cs'
+        'Assets/Scripts/Data/Config/Spec/TileStateSpec.cs'
+        'Assets/Scripts/Data/Config/Spec/EnemySpec.cs'
+        'Assets/Scripts/Data/Config/Spec/DuoReactionCatalog.cs'
+        'Assets/Scripts/Data/Settings/VisualPalette.cs'
+        'Assets/Scripts/Data/Settings/VisualFeelTuning.cs'
+        'Assets/Scripts/Data/Settings/ThrowTuning.cs'
+        'Assets/Scripts/Data/Settings/EnemyTuning.cs'
+        'Assets/Scripts/Data/Asset/AssetModule.cs'
+    )
+    '07-表现适配与子系统' = @(
+        'Assets/Scripts/Presentation/Adapters/TilemapAdapter.cs'
+        'Assets/Scripts/Presentation/Adapters/ActorMotor.cs'
+        'Assets/Scripts/Presentation/Adapters/GameTime.cs'
+        'Assets/Scripts/Presentation/Visual/RenderOrder.cs'
+        'Assets/Scripts/Presentation/Visual/SortingLayerConsts.cs'
+        'Assets/Scripts/Presentation/Visual/YSortAgent.cs'
+        'Assets/Scripts/Presentation/Grid/TileOverlayDirector.cs'
+        'Assets/Scripts/Presentation/Grid/TileObstacleDirector.cs'
+        'Assets/Scripts/Presentation/Grid/TileVfxDirector.cs'
+        'Assets/Scripts/Presentation/Lighting/EnvironmentDirector.cs'
+        'Assets/Scripts/Presentation/Lighting/TileGridLightmap.cs'
+        'Assets/Scripts/Presentation/Lighting/TimeOfDay.cs'
+        'Assets/Scripts/Presentation/Effects/EffectId.cs'
+        'Assets/Scripts/Presentation/Effects/EffectCatalog.cs'
+        'Assets/Scripts/Presentation/Effects/EffectModule.cs'
+        'Assets/Scripts/Presentation/Effects/EffectContext.cs'
+        'Assets/Scripts/Presentation/Effects/Drivers/ParticleDriver.cs'
+        'Assets/Scripts/Presentation/Effects/Drivers/ActorTintDriver.cs'
+        'Assets/Scripts/Presentation/World/Fountain.cs'
+    )
+    '08-Shader' = @(
+        'Assets/Resources/materials/Shaders/CelLit.shader'
+        'Assets/Resources/materials/Shaders/TileFlow.shader'
+        'Assets/Resources/materials/Shaders/TilePlantFlow.shader'
+        'Assets/Resources/materials/Shaders/SpriteFlash.shader'
+    )
+    '09-门禁与工具' = @(
+        'Tools/compile-gate.ps1'
+        'Tools/comment-lint.ps1'
+        'Tools/comment-budget.json'
+    )
+    '10-测试契约' = @(
+        'Assets/Tests/Runtime/Editor/光照地基Tests.cs'
+        'Assets/Tests/Runtime/Editor/全局光照Tests.cs'
+        'Assets/Tests/Runtime/Editor/CelLitMaterialTests.cs'
     )
 }
 
-if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+# 输出目录只允许是这一个绝对路径：清空前挡一道，免得变量被改坏时误删别处
+if (Test-Path $dst) {
+    $resolved = (Resolve-Path $dst).Path.TrimEnd('\')
+    if ($resolved -ne $dst.TrimEnd('\')) {
+        throw "拒绝清空：解析出的路径是 $resolved，与预期的 $dst 不一致。"
+    }
+    Remove-Item $dst -Recurse -Force
+}
 New-Item -ItemType Directory -Path $dst -Force | Out-Null
 
 $manifest = New-Object System.Collections.Generic.List[string]
-$manifest.Add('全局光照规划 · 交接包清单')
+$manifest.Add('项目交接包 · 给外部 AI 的文档与源码清单')
 $manifest.Add("打包时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
 $manifest.Add("来源仓库: $root")
 $manifest.Add('')
@@ -82,7 +162,6 @@ foreach ($g in $groups.Keys) {
     $manifest.Add("[$g]")
 
     foreach ($entry in $groups[$g]) {
-        # 默认按原文件名平铺；写成 @{From=…; As=…} 可改名，避开同名覆盖
         if ($entry -is [hashtable]) { $rel = $entry.From; $asName = $entry.As } else { $rel = $entry; $asName = $null }
 
         $src = Join-Path $root ($rel -replace '/', '\')
@@ -93,7 +172,6 @@ foreach ($g in $groups.Keys) {
         }
         $item = Get-Item $src -Force
         if ($item.PSIsContainer) {
-            # 目录：整棵复制，但只取文件、全部平铺
             foreach ($f in Get-ChildItem $src -Recurse -File) {
                 $outName = Get-OutName $f.Name
                 if (-not $seen.Add($outName)) { $clashes.Add("$outName  ←  $rel/") }
@@ -116,24 +194,40 @@ foreach ($g in $groups.Keys) {
     $manifest.Add('')
 }
 
-# 交接说明：对方没有仓库上下文，这几条必须随包一起给（Unity 通用件已剔除，全靠这段兜）。
+# 交接说明：对方没有仓库上下文（打不开 Unity、看不到场景与预制体），这几条必须随包一起给。
 $manifest.Add('[随包说明]')
-$manifest.Add('1. 项目：Unity 2022.3.62f3c1 + URP 14.0.12（2D Renderer）。正交相机半高 8，格子 1 世界单位。')
-$manifest.Add('   主场景 Assets/Scenes/Range.unity：Grid 下六层 Tilemap（Ground 0 / InitialSetup 1 / Static 2 / Fire 3 / Water 4 / Steam 5）。')
-$manifest.Add('   该场景不入 Build Settings（Begin 与 Levels/Level_1..5 才入），直接 Play 即可，是本工程唯一完整装配的场景。')
+$manifest.Add('1. 项目：Unity 2022.3.62f3c1 ＋ URP 14.0.12（2D Renderer，Linear 色彩空间），')
+$manifest.Add('   Cinemachine 2.10.7、InputSystem 1.14.2、TextMeshPro 3.0.7（见 manifest.json）。正交相机半高 8，格子 1 世界单位。')
+$manifest.Add('   主场景 Assets/Scenes/Range.unity 是唯一完整装配的场景（不入 Build Settings，直接 Play 即可）；')
+$manifest.Add('   入 Build Settings 的是 Begin + Levels/Level_1..5。本包不含场景/预制体/材质/贴图（二进制或超长机读件）。')
 $manifest.Add('2. 四层单向依赖：Presentation → Logic → Data → Foundation（asmdef 边界，反向引用直接编译不过）。')
-$manifest.Add('   光照代码只能落 Presentation：Logic 严禁 MonoBehaviour / GameObject / Transform / Component / Tilemap / Time。')
-$manifest.Add('   Presentation 的 asmdef 已含 Unity.InputSystem / Cinemachine 等；URP 运行时程序集靠 autoReferenced 自动进入，')
-$manifest.Add('   但要引 Unity.RenderPipelines.Universal.2D.Internal 必须在 asmdef 里显式写 references。')
-$manifest.Add('3. 热路径（Tick / FixedUpdate / Update / OnBallHit / TakeDamage / 地块状态回调）0 GC：禁 LINQ、禁闭包与 lambda、')
-$manifest.Add('   禁热路径 new List/Array 与 GetComponent，池化或静态委托。物理检测一律 NonAlloc。')
-$manifest.Add('4. 现状（本任务的三条前提）：全工程零 Light2D 组件；TagManager 只有 Default 一个 Sorting Layer；')
-$manifest.Add('   Range 六层 Tilemap 全部共用同一个默认 sprite 材质（guid a97c105638bdf8b4a8650670310a4cd3）。')
-$manifest.Add('   ⇒ 逐格自发光与整层受光是两条不同成本的路，规划里必须先选边并说明理由。')
-$manifest.Add('5. 上传兼容：.txt 结尾且前面还有一层扩展名的是改名件，例如 SpriteFlash.shader.txt / comment-budget.json 除外。')
-$manifest.Add('   扩展名在前的那个才是真实格式；文件按字节原样，未加任何头注释，去掉末尾 .txt 即可还原。')
-
+$manifest.Add('   🔴 asmdef 的 references 不传递：用到上层公开类型时，其基类/接口所在程序集必须在本层 asmdef 里显式写全。')
+$manifest.Add('   Logic 是纯 C#：严禁 MonoBehaviour / GameObject / Transform / Component / Tilemap / Time.time。')
+$manifest.Add('3. 驱动模型：GameRoot.Update（渲染帧）与 GameRoot.FixedUpdate（物理帧）是唯二入口；场景系统实现 ISceneRoot 并声明 Order，')
+$manifest.Add('   由 GameRoot 拓扑推进。业务组件禁止散乱 Update（现存唯一例外：EnvironmentDirector.Update 推时段过渡插值）。')
+$manifest.Add('   GameRoot 是全工程唯一真单例（DontDestroyOnLoad）。')
+$manifest.Add('4. 热路径（Tick / FixedTick / Update / OnBallHit / TakeDamage / 地块状态回调）0 GC：禁 LINQ、禁闭包与 lambda、')
+$manifest.Add('   禁热路径 new List/Array 与 GetComponent；池化或静态委托。物理检测一律 NonAlloc。2D 排序只走 RenderOrder 频带，不靠 Z 轴。')
+$manifest.Add('5. 光照现状：一盏 Global Light 2D（只照 Ground + Actor 两层，掩码经序列化字段写）＋ TileGridLightmap 网格光场')
+$manifest.Add('   （一格一纹素，逐帧两趟 8 邻域扩散，结果经 4 个 shader 全局量注入）＋ CelLit / TileFlow 受光材质。')
+$manifest.Add('   Sorting Layer 共六层：Ground / Actor / Aim / Effect / UI / Default（Effect 与 UI 不受光）。')
+$manifest.Add('   后处理封印在 Assets/Settings/DefaultGlobalVolumeProfile.asset；其机器判据与资产现值不一致一事记在 待办.md。')
+$manifest.Add('   旧 TileLightDirector 点光池已无驱动者（仅剩静态映射表被复用），勿再挂载。')
+$manifest.Add('6. 生成物禁区（每次导表会被镜像覆盖，禁止手改）：Assets/Scripts/Generated/**、Assets/StreamingAssets/Luban/**、ConfigWorkspace/output/**。')
+$manifest.Add('   跑 Luban 的入口是 Unity 菜单 Luban ▸ 表格数据导入；Excel 源表在 ConfigWorkspace/Data/*.xlsx（唯一配置真源，人工维护）。')
+$manifest.Add('7. 上传兼容：.txt 结尾且前面还有一层扩展名的都是改名件，例如 CelLit.shader.txt / TagManager.asset.txt / compile-gate.ps1.txt。')
+$manifest.Add('   前面那层扩展名才是真实格式；文件按字节原样，未加任何头注释，去掉末尾 .txt 即可还原。comment-budget.json 是白名单内，未改名。')
+$manifest.Add('8. 本包不含历史任务书（Docs/任务/**）与存档方案草稿（Docs/暂存/**）：它们含已被推翻的数值与做法，只作变更史，读了会被误导。')
+$manifest.Add('   当前事实以本包内的 工程/表现 文档 + 源码为准；文档与代码冲突时信代码。')
 $manifest.Add('')
+$manifest.Add('[建议阅读顺序]')
+$manifest.Add('  ① AGENTS.md（最高行为宪章）→ 架构约束.md → 目录说明.md → 人类接手与工程交接手册.md')
+$manifest.Add('  ② 全局光照.md / 粒子特效系统.md / 新场景接线.md（三个表现子系统怎么跑起来）')
+$manifest.Add('  ③ 策划案_荒原复苏指南_v4.0.md + 最新表格与SO规范.md（设计意图与"表 vs SO"权责边界）')
+$manifest.Add('  ④ 代码按数据流逆流而下：GameRoot → CombatRoot → TilemapAdapter / TileGridLightmap → GridLogic / EventBus → Spec / 调参SO')
+$manifest.Add('  ⑤ 待办.md 收尾（已知缺陷、未收口项、编辑器内待人工验收清单）')
+$manifest.Add('')
+
 if ($missing.Count -gt 0) {
     $manifest.Add("缺失 $($missing.Count) 项：")
     foreach ($m in $missing) { $manifest.Add("  $m") }
