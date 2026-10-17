@@ -255,7 +255,9 @@ namespace DeepseaOil.Logic.Wave
                 case WavePhase.Battle:
                     if (_pendingCursor < _pending.Count) return false;
 
-                    _settleDelayStarted = !anyEnemyAlive;
+                    if (anyEnemyAlive) return false;
+
+                    _settleDelayStarted = true;
                     EnterPhase(WavePhase.Settle);
                     return true;
 
