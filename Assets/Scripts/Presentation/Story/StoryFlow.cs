@@ -19,6 +19,8 @@ namespace DeepseaOil.Presentation.Story
     {
         private const float PopupDurationSeconds = 3f;
 
+        private const float CameraGlideSeconds = 0.7f;
+
         private enum FlowStage
         {
             None,
@@ -46,9 +48,12 @@ namespace DeepseaOil.Presentation.Story
         private PlayerMoveTrigger _playerMoveTrigger;
         private IReadOnlyList<DialogueSpec> _lines;
         private DialoguePanel _panel;
-        private CinemachineVirtualCamera _storyCamera;
-        private Transform _originalCameraFollow;
-        private bool _hasOriginalCameraFollow;
+        private Transform _cameraTransform;
+        private Vector3 _cameraOffset;
+        private Vector3 _cameraGlideFrom;
+        private Vector3 _cameraGlideTo;
+        private float _cameraGlideElapsed;
+        private bool _cameraGliding;
         private TimerHandle _popupTimer;
         private int _paragraph;
         private int _lineIndex;
@@ -113,7 +118,9 @@ namespace DeepseaOil.Presentation.Story
                 _playerMoveTrigger.PlayerExited -= OnPlayerMoveTriggerExited;
             }
             EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
+            CinemachineCore.CameraUpdatedEvent.RemoveListener(OnCameraUpdated);
 
+            ResetCameraFocus();
             SetPlayerInputLocked(false);
             CancelParagraph();
         }
@@ -138,6 +145,7 @@ namespace DeepseaOil.Presentation.Story
             if (_attached) return;
 
             _attached = true;
+            CinemachineCore.CameraUpdatedEvent.AddListener(OnCameraUpdated);
             EventBus<DropCollected>.Subscribe(OnDropCollected);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
             EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
@@ -198,6 +206,10 @@ namespace DeepseaOil.Presentation.Story
                 _panel.HideDialogueContent();
                 ProcessLines();
             }
+
+            // 弹窗淡出走完才算段落完成，故每帧收尾
+            if (_playing)
+                TryCompleteParagraph();
 
             UpdateTutorialTriggers();
         }
@@ -279,6 +291,7 @@ namespace DeepseaOil.Presentation.Story
             _popupLines.Clear();
             _popupIndex = 0;
             _lines = null;
+            ResetCameraFocus();
 
             if (_popupTimer.IsValid && _root != null && _root.Timer != null)
                 _root.Timer.Cancel(_popupTimer);
@@ -440,7 +453,8 @@ namespace DeepseaOil.Presentation.Story
                 || _lineIndex < _lines.Count
                 || _waitingForContinue
                 || _popupActive
-                || _popupLines.Count > 0)
+                || _popupLines.Count > 0
+                || (_panel != null && _panel.IsPopupVisible))
             {
                 return;
             }
@@ -680,64 +694,72 @@ namespace DeepseaOil.Presentation.Story
                 return;
             }
 
-            if (_storyCamera == null)
-                FindStoryCamera();
-
-            if (_storyCamera == null)
+            Transform cameraTransform = ResolveCameraTransform();
+            if (cameraTransform == null)
             {
-                Debug.LogError("[StoryFlow] 场景中找不到 CinemachineVirtualCamera，不能聚焦教学目标。", this);
+                Debug.LogError("[StoryFlow] 场景中找不到带 CinemachineBrain 的主相机，不能聚焦教学目标。", this);
                 return;
             }
 
-            if (!_hasOriginalCameraFollow)
-            {
-                _originalCameraFollow = _storyCamera.Follow;
-                _hasOriginalCameraFollow = true;
-            }
+            Vector3 basePosition = cameraTransform.position - _cameraOffset;
+            Vector3 offset = target.transform.position - basePosition;
+            offset.z = 0f;
 
-            _storyCamera.Follow = target.transform;
-            _storyCamera.LookAt = target.transform;
-            Vector3 cameraPosition = _storyCamera.transform.position;
-            Vector3 targetPosition = target.transform.position;
-            cameraPosition.x = targetPosition.x;
-            cameraPosition.y = targetPosition.y;
-            _storyCamera.ForceCameraPosition(cameraPosition, _storyCamera.transform.rotation);
+            StartCameraGlide(offset);
         }
 
-        private void FindStoryCamera()
+        private Transform ResolveCameraTransform()
         {
-            CinemachineVirtualCamera[] cameras = FindObjectsOfType<CinemachineVirtualCamera>();
-            if (cameras.Length == 0) return;
+            if (_cameraTransform != null) return _cameraTransform;
 
-            _storyCamera = cameras[0];
-            for (int i = 1; i < cameras.Length; i++)
-            {
-                if (cameras[i].Priority > _storyCamera.Priority)
-                    _storyCamera = cameras[i];
-            }
+            Camera main = Camera.main;
+            if (main == null) return null;
+
+            _cameraTransform = main.transform;
+
+            return _cameraTransform;
         }
 
         private void RestoreCameraFollow()
         {
-            if (_storyCamera == null) return;
+            StartCameraGlide(Vector3.zero);
+        }
 
-            Transform follow = _combatRoot.Player != null
-                ? _combatRoot.Player.transform
-                : _hasOriginalCameraFollow ? _originalCameraFollow : null;
+        private void StartCameraGlide(Vector3 offset)
+        {
+            _cameraGlideFrom = _cameraOffset;
+            _cameraGlideTo = offset;
+            _cameraGlideElapsed = 0f;
+            _cameraGliding = true;
+        }
 
-            if (follow != null)
+        private void ResetCameraFocus()
+        {
+            _cameraOffset = Vector3.zero;
+            _cameraGliding = false;
+        }
+
+        // 对话期间 timeScale=0，缩放 deltaTime 恒为 0，滑行必须吃 unscaled
+        private void OnCameraUpdated(CinemachineBrain brain)
+        {
+            Camera camera = brain != null ? brain.OutputCamera : null;
+            if (camera == null) return;
+
+            _cameraTransform = camera.transform;
+
+            if (_cameraGliding)
             {
-                _storyCamera.Follow = follow;
-                _storyCamera.LookAt = follow;
-                Vector3 cameraPosition = _storyCamera.transform.position;
-                Vector3 playerPosition = follow.position;
-                cameraPosition.x = playerPosition.x;
-                cameraPosition.y = playerPosition.y;
-                _storyCamera.ForceCameraPosition(cameraPosition, _storyCamera.transform.rotation);
+                _cameraGlideElapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(_cameraGlideElapsed / CameraGlideSeconds);
+                _cameraOffset = Vector3.Lerp(_cameraGlideFrom, _cameraGlideTo, t * t * (3f - 2f * t));
+
+                if (t >= 1f)
+                    _cameraGliding = false;
             }
 
-            _originalCameraFollow = null;
-            _hasOriginalCameraFollow = false;
+            // Cinemachine 每帧把机位重写回基准位置，故这里直接叠加本帧偏移、不去扣上一帧的
+            if (_cameraOffset.sqrMagnitude > 0f)
+                camera.transform.position += _cameraOffset;
         }
 
         private void PlaySfx(AudioId id)

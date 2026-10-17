@@ -23,30 +23,34 @@ namespace DeepseaOil.Presentation.UI
         public event Action<PointerEventData> Clicked;
 
         [SerializeField] private GameObject startRoot;
+        [SerializeField] private GameObject shot1;
         [SerializeField] private float fadeSeconds = 1f;
         [SerializeField] private float blackenSeconds = 1f;
         [SerializeField] private float holdSeconds = 2f;
+
+        private const double TimelineHoldBack = 0.05;
 
         private PlayableDirector _director;
         private Image _imgEndRoot;
         private TMP_Text _txtEnd;
         private Coroutine _endRoutine;
+        private Coroutine _timelineWatch;
         private bool _isEndMode;
 
         protected override void Awake()
         {
             base.Awake();
             _director = GetComponent<PlayableDirector>();
+            // 挂住末帧：wrap=None 播完即把各 ImgStory Revert 回作者态，CG 先于遮罩消失
+            _director.extrapolationMode = DirectorWrapMode.Hold;
             _imgEndRoot = GetComponent<Image>("ImgEnd");
             _txtEnd = GetComponent<TMP_Text>("TxtEnd");
-            _director.stopped += OnTimelineStopped;
             EventBus<SceneActivated>.Subscribe(Hide);
         }
 
         protected override void OnDestroy()
         {
-            if (_director != null)
-                _director.stopped -= OnTimelineStopped;
+            StopTimelineWatch();
             EventBus<SceneActivated>.Unsubscribe(Hide);
             base.OnDestroy();
         }
@@ -58,6 +62,7 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
+            shot1.SetActive(true);
         }
 
         protected override bool KeepAuthoredTxt(string name)
@@ -68,12 +73,14 @@ namespace DeepseaOil.Presentation.UI
         public override void HideMe()
         {
             StopEndSequence();
+            StopTimelineWatch();
             _director.Stop();
         }
 
         public void SetType(bool isStart)
         {
             StopEndSequence();
+            StopTimelineWatch();
 
             if (isStart)
             {
@@ -149,19 +156,38 @@ namespace DeepseaOil.Presentation.UI
 
         public void StartTimeLine()
         {
+            StopTimelineWatch();
+
             _director.time = 0;
             _director.Play();
+
+            _timelineWatch = StartCoroutine(CoWaitTimelineEnd());
         }
 
-        private void OnTimelineStopped(PlayableDirector director)
+        private void StopTimelineWatch()
         {
-            if (director != _director)
+            if (_timelineWatch == null)
                 return;
+
+            StopCoroutine(_timelineWatch);
+            _timelineWatch = null;
+        }
+
+        private IEnumerator CoWaitTimelineEnd()
+        {
+            // Hold 下不会自己 stopped：按时间到点冻住，不能用 Stop（graph 销毁会让各 Activation 轨道 Revert）
+            double holdTime = _director.duration - TimelineHoldBack;
+
+            while (_director.state == PlayState.Playing && _director.time < holdTime)
+                yield return null;
+
+            _director.Pause();
+
+            _timelineWatch = null;
 
             if (_isEndMode)
-                return;
+                yield break;
 
-            // 播完 请求加载新场景
             EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Game, true));
         }
 
