@@ -56,6 +56,9 @@ namespace DeepseaOil.Presentation.Adapters
         [Tooltip("物理阻挡体管理器")]
         [SerializeField] private TileObstacleDirector obstacleDirector = default;
 
+        [Tooltip("电格常驻粒子管理器")]
+        [SerializeField] private TileVfxDirector vfxDirector = default;
+
         /// 每格只记一层；前提：效果层开局全空，刷过 tile 改按每层记原值。
         private readonly Dictionary<Vector3Int, Tilemap> _cellLayer = new();
 
@@ -85,6 +88,8 @@ namespace DeepseaOil.Presentation.Adapters
 
             EnsureObstacle(in geometry);
 
+            EnsureVfx(in geometry);
+
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
 
             _attached = true;
@@ -100,6 +105,8 @@ namespace DeepseaOil.Presentation.Adapters
 
             obstacleDirector?.Detach();
 
+            vfxDirector?.Detach();
+
             _attached = false;
         }
 
@@ -109,6 +116,8 @@ namespace DeepseaOil.Presentation.Adapters
             overlayDirector?.ClearAll();
 
             obstacleDirector?.ClearAll();
+
+            vfxDirector?.ClearAll();
         }
 
         /// 自愈装配覆盖物管理器；几何非法时跳过
@@ -137,6 +146,20 @@ namespace DeepseaOil.Presentation.Adapters
             obstacleDirector.Initialize(in geometry);
 
             obstacleDirector.Attach();
+        }
+
+        /// 自愈装配电格粒子管理器；几何非法时跳过
+        private void EnsureVfx(in GridGeometry geometry)
+        {
+            if (!geometry.IsValid) return;
+
+            if (vfxDirector == null) vfxDirector = GetComponent<TileVfxDirector>();
+
+            if (vfxDirector == null) vfxDirector = gameObject.AddComponent<TileVfxDirector>();
+
+            vfxDirector.Initialize(in geometry);
+
+            vfxDirector.Attach();
         }
 
         /// 角点语义与 GridGeometry 对齐：CellToWorld(zero)=格左下角、GetCellCenterWorld(zero)=格心，差半格。
