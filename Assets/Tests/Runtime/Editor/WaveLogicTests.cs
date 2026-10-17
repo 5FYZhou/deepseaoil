@@ -37,6 +37,36 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
+        public void BattleTimerExpiredWithLivingEnemyStaysInBattleUntilCleared()
+        {
+            var enemies = new List<WaveEnemySpec>
+            {
+                new WaveEnemySpec(RowFactory.WaveEnemyRow(1, 1, 1, 1)),
+            };
+            var waves = new List<WaveSpec>
+            {
+                new WaveSpec(RowFactory.WaveRow(), enemies),
+            };
+            var logic = new WaveLogic(waves);
+            var spawnRequests = new List<WaveLogic.SpawnRequest>();
+
+            logic.Tick(10f, false, spawnRequests);
+
+            Assert.AreEqual(WavePhase.Battle, logic.Phase);
+            Assert.AreEqual(1, spawnRequests.Count);
+
+            logic.Tick(40f, true, spawnRequests);
+
+            Assert.AreEqual(WavePhase.Battle, logic.Phase);
+            Assert.AreEqual(0f, logic.PhaseRemaining);
+
+            logic.Tick(0f, false, spawnRequests);
+
+            Assert.AreEqual(WavePhase.Settle, logic.Phase);
+            Assert.AreEqual(8f, logic.PhaseRemaining);
+        }
+
+        [Test]
         public void WaveWithUnspawnedEnemiesRemainsInBattleWhenNoneAreAlive()
         {
             var enemies = new List<WaveEnemySpec>

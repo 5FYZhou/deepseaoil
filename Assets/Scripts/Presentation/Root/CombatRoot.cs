@@ -885,7 +885,7 @@ namespace DeepseaOil.Presentation
         {
             player?.Logic?.Stats.Announce();
             _combat?.Announce();
-            _levelLogic?.Announce();
+            //_levelLogic?.Announce();
         }
 
         /// <summary>备战期自动存档；只在渲染帧采集落盘</summary>

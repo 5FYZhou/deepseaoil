@@ -358,16 +358,16 @@ namespace DeepseaOil.Presentation.Story
             {
                 switch (line.Id)
                 {
-                    case 7:
+                    case 10:
                         FocusCamera(FountainKind.Water);
                         break;
-                    case 8:
+                    case 11:
                         FocusCamera(FountainKind.Earth);
                         break;
-                    case 9:
+                    case 12:
                         FocusCamera(FountainKind.Life);
                         break;
-                    case 10:
+                    case 13:
                         RestoreCameraFollow();
                         break;
                 }
@@ -461,7 +461,6 @@ namespace DeepseaOil.Presentation.Story
                     Stage = FlowStage.WaitingForFacility;
                     break;
                 case FlowStage.TutorialResourceDialogue:
-                    RestoreCameraFollow();
                     _combatRoot.BeginLevel();
                     BeginParagraph(1003, FlowStage.TutorialEnemyDialogue);
                     break;
