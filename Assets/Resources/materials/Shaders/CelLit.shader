@@ -12,11 +12,14 @@ Shader "DeepseaOil/2D/CelLit"
         [Header(Self Emission Boost)]
         _EmissiveBoost ("Emissive Boost (自发光增益)", Range(0.0, 1.5)) = 0.0
 
-        [Header(Rim and Metal Highlight)]
-        [Toggle] _EnableRim ("Enable Top Rim Highlight (顶端高光开关)", Float) = 0
-        _RimThreshold ("Rim Threshold UV Y (高光起始高度)", Range(0.8, 1.0)) = 0.92
-        _RimColor ("Rim Highlight Color (高光颜色)", Color) = (0.976, 0.808, 0.353, 1) // #F9CE5A 明黄
-        _RimAlphaWeight ("Rim Alpha Weight (高光按透明度加权)", Range(0.0, 1.0)) = 0.65
+        [Header(Fire Silhouette Rim)]
+        [Toggle] _EnableRim ("Enable Fire Silhouette Rim (火海轮廓光)", Float) = 1
+        _RimColor ("Rim Base Color (轮廓基准金)", Color) = (1, 0.84, 0.25, 1)
+        _RimWidth ("Rim Width Screen Pixels (轮廓宽度屏幕像素)", Range(0.5, 4.0)) = 2.5
+        _RimThreshold ("Fire Light Trigger Threshold (火光触发下限)", Range(0.05, 0.8)) = 0.18
+        _RimIntensity ("Rim Intensity (轮廓强度倍率)", Range(0.0, 4.0)) = 2.5
+
+        [Header(Metal Highlight)]
         _MetalThreshold ("Metal Highlight Threshold (金属亮度阈值)", Range(0.7, 0.95)) = 0.85
         _MetalIntensity ("Metal Highlight Intensity (金属反光强度)", Range(0.0, 1.0)) = 0.0
 
@@ -65,10 +68,13 @@ Shader "DeepseaOil/2D/CelLit"
                 float2 uv : TEXCOORD0;
                 float2 worldPos : TEXCOORD1;
                 float4 screenUV : TEXCOORD2;
+                half3 centerLight : TEXCOORD3;
             };
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
+            // 由引擎按 _MainTex 自动绑定的纹素尺寸，必须留在 CBUFFER 之外
+            float4 _MainTex_TexelSize;
 
             #if USE_SHAPE_LIGHT_TYPE_0
             TEXTURE2D(_ShapeLightTexture0);
@@ -89,8 +95,9 @@ Shader "DeepseaOil/2D/CelLit"
                 float _EmissiveBoost;
                 float _TileLightBoost;
                 float _EnableRim;
+                float _RimWidth;
                 float _RimThreshold;
-                float _RimAlphaWeight;
+                float _RimIntensity;
                 float _MetalThreshold;
                 float _MetalIntensity;
             CBUFFER_END
@@ -107,6 +114,10 @@ Shader "DeepseaOil/2D/CelLit"
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 output.color = input.color * _Color;
                 output.worldPos = TransformObjectToWorld(input.positionOS).xy;
+
+                // 轮廓强度按精灵轴心的整身光算：逐像素采样会让背火那半个身子的描边暗掉
+                float2 centerGridUV = (TransformObjectToWorld(float3(0, 0, 0)).xy - _TileLightmapParams.xy) / max(_TileLightmapParams.zw, 0.0001);
+                output.centerLight = SAMPLE_TEXTURE2D_LOD(_TileLightmap, sampler_TileLightmap, saturate(centerGridUV), 0).rgb * step(0.0001, _TileLightmapParams.z);
 
                 // 官方正交/透视标准屏幕坐标输出：严禁在顶点阶段自行除以 w
                 output.screenUV = ComputeScreenPos(output.positionCS);
@@ -148,10 +159,35 @@ Shader "DeepseaOil/2D/CelLit"
                 // 5. 瓦片自发光增益（使火海自身明亮通透，摆脱外部光照依赖）
                 finalRgb += baseCol.rgb * _EmissiveBoost;
 
-                // 6. 顶端 UV 伪高光亮线
-                if (_EnableRim > 0.5 && input.uv.y > _RimThreshold)
+                // 6. 火海轮廓光：只吃精灵所在格的网格火光（整身统一），火光外触发权重为 0（站暗处不发光）
+                half fireLum = dot(input.centerLight, half3(0.299, 0.587, 0.114));
+                half rimTrigger = saturate((fireLum - _RimThreshold) / max(1.0 - _RimThreshold, 0.001));
+
+                // 1 屏幕像素对应的 uv 步长；ddx/ddy 必须在分支外求，分支内求导结果未定义
+                float2 uvPerPixel = max(abs(ddx(input.uv)), abs(ddy(input.uv)));
+
+                if (_EnableRim > 0.5 && rimTrigger > 0.001 && baseCol.a > 0.01)
                 {
-                    finalRgb = lerp(finalRgb, _RimColor.rgb, _RimAlphaWeight * baseCol.a);
+                    // 4-Tap alpha 差分取内轮廓：四邻全不透明处遮罩为 0；宽度取屏幕像素与原画纹素中较粗者（缩放不糊）
+                    float2 texelOffset = max(uvPerPixel, _MainTex_TexelSize.xy) * _RimWidth;
+
+                    half aUp = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv + float2(0, texelOffset.y)).a;
+                    half aDown = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv - float2(0, texelOffset.y)).a;
+                    half aLeft = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv - float2(texelOffset.x, 0)).a;
+                    half aRight = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv + float2(texelOffset.x, 0)).a;
+
+                    half minNeighborA = min(min(aUp, aDown), min(aLeft, aRight));
+                    half edgeMask = saturate(1.0 - minNeighborA) * baseCol.a;
+
+                    // 色相跟随本格火光（先归一化到最大通道，暗部也不会把轮廓拉成灰）
+                    half maxChannel = max(input.centerLight.r, max(input.centerLight.g, input.centerLight.b));
+                    half3 fireHue = input.centerLight.rgb / max(maxChannel, 0.01);
+                    half3 adaptiveRimColor = _RimColor.rgb * lerp(half3(1, 1, 1), fireHue, 0.6);
+
+                    // 浅色角色（白发/浅衣服）上只做 lerp 会被底色吃掉，再补一份亮度才读得出
+                    half rimAmount = saturate(edgeMask * rimTrigger * _RimIntensity);
+                    finalRgb = lerp(finalRgb, adaptiveRimColor, rimAmount);
+                    finalRgb += adaptiveRimColor * (rimAmount * 0.5);
                 }
 
                 // 7. 金属亮度阈值阶梯反光
