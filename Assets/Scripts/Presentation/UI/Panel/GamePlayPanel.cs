@@ -1,4 +1,5 @@
 ﻿using cfg.dso;
+using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using System.Collections;
@@ -17,6 +18,8 @@ namespace DeepseaOil.Presentation.UI
         private const float MaterialAtThreeHealth = 0.395f;
         private const float HealthAnimDuration = 0.25f;
         private const float HilightTime = 0.2f;
+        private const float WaveTextFadeDuration = 0.2f;
+        private const float BattleTextHoldDuration = 3f;
 
         [SerializeField] private Sprite spriteWater;
         [SerializeField] private Sprite spriteEarth;
@@ -75,7 +78,6 @@ namespace DeepseaOil.Presentation.UI
         private Material _healthMaterial;
         private TMP_Text _txtCountdown;
         private TMP_Text _txtNextWave;
-        private TMP_Text _txtLevel;
         private TMP_Text _txtWater;
         private TMP_Text _txtEarth;
         private Image _imgWaterBG;
@@ -90,13 +92,17 @@ namespace DeepseaOil.Presentation.UI
         private Coroutine _earthIconCoroutine;
         private Coroutine _seedIconCoroutine;
         private Coroutine _selectStateCoroutine;
+        private Coroutine _waveTextCoroutine;
         private int _pendingSelectedStates;
         private bool _subscribed;
+        private bool _hasWavePhase;
         private bool _hasAmmoSnapshot;
         private int _waterAmount;
         private int _earthAmount;
         private SeedType _seedType;
         private string _seedIconKey;
+
+        private Logic.Wave.WavePhase _curWavePhase;
 
         protected override void Awake()
         {
@@ -104,7 +110,6 @@ namespace DeepseaOil.Presentation.UI
 
             _txtCountdown = GetComponent<TMP_Text>("TxtCountdown");
             _txtNextWave = GetComponent<TMP_Text>("TxtNextWave");
-            _txtLevel = GetComponent<TMP_Text>("TxtLevel");
             _txtWater = GetComponent<TMP_Text>("TxtWater");
             _txtEarth = GetComponent<TMP_Text>("TxtEarth");
             Image healthImage = GetComponent<Image>("ImgHealth");
@@ -147,6 +152,7 @@ namespace DeepseaOil.Presentation.UI
                 StopCoroutine(_seedIconCoroutine);
             if (_selectStateCoroutine != null)
                 StopCoroutine(_selectStateCoroutine);
+            StopWaveText();
 
             ReleaseSeedIcon();
 
@@ -165,6 +171,22 @@ namespace DeepseaOil.Presentation.UI
         public override void HideMe()
         {
             Unsubscribe();
+        }
+
+        protected override TxtStyle SetTxtStyle(string name)
+        {
+            switch (name)
+            {
+                case "TxtCountdown":
+                case "TxtNextWave":
+                    return TxtStyle.Title;
+            }
+            return TxtStyle.Title;
+        }
+
+        protected override string SetInitialTxt(string name)
+        {
+            return "";
         }
 
         protected override void OnButtonClicked(string name)
@@ -186,7 +208,7 @@ namespace DeepseaOil.Presentation.UI
             EventBus<PlayerAmmoChanged>.Subscribe(OnAmmoChanged);
             EventBus<WavePhaseChanged>.Subscribe(OnWavePhaseChanged);
             EventBus<WaveCountdownChanged>.Subscribe(OnWaveCountdownChanged);
-            EventBus<LevelStateChanged>.Subscribe(OnLevelChanged);
+            EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
         }
 
         private void Unsubscribe()
@@ -198,19 +220,103 @@ namespace DeepseaOil.Presentation.UI
             EventBus<PlayerAmmoChanged>.Unsubscribe(OnAmmoChanged);
             EventBus<WavePhaseChanged>.Unsubscribe(OnWavePhaseChanged);
             EventBus<WaveCountdownChanged>.Unsubscribe(OnWaveCountdownChanged);
-            EventBus<LevelStateChanged>.Unsubscribe(OnLevelChanged);
+            EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
         }
 
         private void OnWavePhaseChanged(WavePhaseChanged evt)
         {
+            _hasWavePhase = true;
+            _curWavePhase = evt.Phase;
+            ApplyWaveText(evt.Phase);
+        }
+
+        private void ApplyWaveText(Logic.Wave.WavePhase phase)
+        {
             if (_txtNextWave == null) return;
 
-            _txtNextWave.text = $"{evt.Phase.ToString()}";//下一波：{evt.WaveIndex}";
+            switch (phase)
+            {
+                case Logic.Wave.WavePhase.Prep:
+                    ShowWaveText("战斗准备", 3f);
+                    break;
+                case Logic.Wave.WavePhase.Battle:
+                    ShowWaveText("战斗！", BattleTextHoldDuration);
+                    break;
+                case Logic.Wave.WavePhase.Settle:
+                    ShowWaveText("结算", 3f);
+                    break;
+                default:
+                    ShowWaveText("", 0f);
+                    break;
+            }
+        }
+
+        private void ShowWaveText(string text, float visibleSeconds)
+        {
+            StopWaveText();
+            _waveTextCoroutine = StartCoroutine(PlayWaveText(text, visibleSeconds));
+        }
+
+        private void StopWaveText()
+        {
+            if (_waveTextCoroutine == null) return;
+
+            StopCoroutine(_waveTextCoroutine);
+            _waveTextCoroutine = null;
+        }
+
+        private IEnumerator PlayWaveText(string text, float visibleSeconds)
+        {
+            if (!string.IsNullOrEmpty(_txtNextWave.text))
+                yield return FadeWaveTextAlpha(0f);
+            else
+                _txtNextWave.alpha = 0f;
+
+            _txtNextWave.text = text;
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                yield return FadeWaveTextAlpha(1f);
+
+                float hold = visibleSeconds - WaveTextFadeDuration;
+                if (hold > 0f)
+                    yield return new WaitForSecondsRealtime(hold);
+
+                yield return FadeWaveTextAlpha(0f);
+            }
+
+            _waveTextCoroutine = null;
+        }
+
+        private IEnumerator FadeWaveTextAlpha(float target)
+        {
+            float start = _txtNextWave.alpha;
+            if (Mathf.Approximately(start, target))
+            {
+                _txtNextWave.alpha = target;
+                yield break;
+            }
+
+            float elapsed = 0f;
+            while (elapsed < WaveTextFadeDuration)
+            {
+                // 不吃 timeScale
+                elapsed += Time.unscaledDeltaTime;
+                _txtNextWave.alpha = Mathf.Lerp(start, target, Mathf.Clamp01(elapsed / WaveTextFadeDuration));
+                yield return null;
+            }
+
+            _txtNextWave.alpha = target;
         }
 
         private void OnWaveCountdownChanged(WaveCountdownChanged evt)
         {
             if (_txtCountdown == null) return;
+            if(_curWavePhase == Logic.Wave.WavePhase.Battle)
+            {
+                _txtCountdown.gameObject.SetActive(false);
+                return;
+            }
 
             _txtCountdown.gameObject.SetActive(true);
             _txtCountdown.text = $"倒计时：{evt.SecondsRemaining}";
@@ -403,9 +509,17 @@ namespace DeepseaOil.Presentation.UI
             return Mathf.Lerp(MaterialAtTwoHealth, MaterialAtThreeHealth, health - 2f);
         }
 
-        private void OnLevelChanged(LevelStateChanged evt)
+        private void OnGameStateChanged(GameStateChanged evt)
         {
-            _txtLevel.text = evt.Level.ToString();
+            _txtCountdown.text = "";
+            if (_txtNextWave == null) return;
+
+            StopWaveText();
+            _txtNextWave.text = "";
+            _txtNextWave.alpha = 0f;
+
+            if (evt.state == GameState.Running && _hasWavePhase)
+                ApplyWaveText(_curWavePhase);
         }
     }
 }
