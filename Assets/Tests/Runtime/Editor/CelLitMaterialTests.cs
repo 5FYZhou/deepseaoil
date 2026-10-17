@@ -142,7 +142,7 @@ namespace DeepseaOil.Tests
         {
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
 
-            Assert.IsNotNull(material, $"材质资产不存在：{path}（先跑 DeepseaOil ▸ 光照与后处理 ▸ 一键装配地表受光材质矩阵）");
+            Assert.IsNotNull(material, $"材质资产不存在：{path}（先跑 DeepseaOil ▸ 光照 ▸ 装配当前场景）");
             Assert.IsTrue(material.HasProperty("_AmbientFloor"), $"{path} 缺 _AmbientFloor");
 
             // 保底低于夜色通道才不夺色相：高一点就把夜色三通道抬平、抹成中性灰

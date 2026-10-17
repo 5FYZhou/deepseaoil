@@ -158,9 +158,7 @@ namespace DeepseaOil.Presentation.Lighting
 
             if (Resources.Load<GameObject>(LightPrefabPath) == null)
             {
-                Debug.LogError(
-                    $"[Light] 找不到点光源预制体 Resources/{LightPrefabPath}：点光源不会生效。" +
-                    "先跑 DeepseaOil ▸ 光照与后处理 ▸ 一键装配动态点光源系统。", this);
+                Debug.LogError($"[Light] 找不到点光源预制体 Resources/{LightPrefabPath}：点光池已停用，缺失不影响网格光场。", this);
 
                 return;
             }

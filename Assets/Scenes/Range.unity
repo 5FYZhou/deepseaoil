@@ -21141,11 +21141,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 300719338575049777, guid: 3633e7269701bde42ba597705ece041f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 8.56
+      value: 17.08
       objectReference: {fileID: 0}
     - target: {fileID: 300719338575049777, guid: 3633e7269701bde42ba597705ece041f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -6.58
+      value: -10.73
       objectReference: {fileID: 0}
     - target: {fileID: 300719338575049777, guid: 3633e7269701bde42ba597705ece041f, type: 3}
       propertyPath: m_LocalPosition.z
@@ -21374,14 +21374,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   globalLight: {fileID: 1461937310}
-  initialTimeOfDay: 2
+  initialTimeOfDay: 0
   transitionDuration: 1.5
   daySetting:
     LightColor: {r: 1, g: 0.9646863, b: 0.8713672, a: 1}
     Intensity: 0.98
   duskSetting:
-    LightColor: {r: 1, g: 0.4341537, b: 0.13286833, a: 1}
-    Intensity: 0.78
+    LightColor: {r: 1, g: 0.4392157, b: 0.2509804, a: 1}
+    Intensity: 0.75
   nightSetting:
     LightColor: {r: 0, g: 0, b: 0.6784314, a: 1}
     Intensity: 0.25
@@ -21420,13 +21420,13 @@ MonoBehaviour:
   fireBreathHertz: 0.7
   fireBreathDepth: 0.1
   fireBreathBase: 1
-  fireSourceColor: {r: 0.5, g: 0.2745, b: 0.1295, a: 1}
+  fireSourceColor: {r: 1, g: 0.549, b: 0.259, a: 1}
   electricJitterHertz: 18
   electricPulseFloor: 0.85
   electricPulseDepth: 0.15
   electricSourceColor: {r: 0.14705883, g: 0.15686275, b: 0.25, a: 1}
-  carryLightColor: {r: 1, g: 0.86, b: 0.66, a: 1}
-  carryLightIntensity: 0.2
+  carryLightColor: {r: 0.4955511, g: 0.4955511, b: 0.46505558, a: 1}
+  carryLightIntensity: 0.1
   steadyPulseHertz: 0.35
 --- !u!1 &544939641
 GameObject:
@@ -21573,7 +21573,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 300719338575049777, guid: 1b03c6fda1df96a49b82a74d192d5d49, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 7
+      value: 12.23
       objectReference: {fileID: 0}
     - target: {fileID: 300719338575049777, guid: 1b03c6fda1df96a49b82a74d192d5d49, type: 3}
       propertyPath: m_LocalPosition.z

@@ -81,7 +81,7 @@ namespace DeepseaOil.Tests
 
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
 
-            Assert.IsNotNull(prefab, $"找不到点光源预制体：{PrefabPath}（先跑 DeepseaOil ▸ 光照与后处理 ▸ 一键装配动态点光源系统）");
+            Assert.IsNotNull(prefab, $"找不到点光源预制体：{PrefabPath}（点光池已停用；该预制体仅历史保留，缺失不影响网格光场）");
 
             Light2D light = prefab.GetComponent<Light2D>();
 
