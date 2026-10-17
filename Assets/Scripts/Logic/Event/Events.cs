@@ -31,9 +31,9 @@ namespace DeepseaOil.Logic.Events
     public readonly struct RequestSave
     {
         public readonly int SlotIndex;
-        public readonly GameData Data;
+        public readonly GameSaveData Data;
 
-        public RequestSave(int slotIndex, GameData data)
+        public RequestSave(int slotIndex, GameSaveData data)
         {
             SlotIndex = slotIndex;
             Data = data;
@@ -42,9 +42,9 @@ namespace DeepseaOil.Logic.Events
 
     public readonly struct RequestAutoSave
     {
-        public readonly GameData Data;
+        public readonly GameSaveData Data;
 
-        public RequestAutoSave(GameData data)
+        public RequestAutoSave(GameSaveData data)
         {
             Data = data;
         }
@@ -179,13 +179,26 @@ namespace DeepseaOil.Logic.Events
 
         public readonly SeedType Seed;
 
-        public PlayerAmmoChanged(int water, int waterCapacity, int earth, int earthCapacity, SeedType seed)
+        public readonly int SeedCount;
+
+        public readonly int SeedCapacity;
+
+        public PlayerAmmoChanged(
+            int water,
+            int waterCapacity,
+            int earth,
+            int earthCapacity,
+            SeedType seed,
+            int seedCount,
+            int seedCapacity)
         {
             Water = water;
             WaterCapacity = waterCapacity;
             Earth = earth;
             EarthCapacity = earthCapacity;
             Seed = seed;
+            SeedCount = seedCount;
+            SeedCapacity = seedCapacity;
         }
     }
 
@@ -287,12 +300,6 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    public readonly struct CGCompleted
-    {
-        public readonly CGType type;
-        public CGCompleted(CGType t) { type = t; }
-    }
-
     public readonly struct LevelStateChanged
     {
         public readonly LevelState Level;
@@ -328,9 +335,9 @@ namespace DeepseaOil.Logic.Events
     public readonly struct SaveLoaded
     {
         public readonly int SlotIndex;
-        public readonly GameData Data;
+        public readonly GameSaveData Data;
 
-        public SaveLoaded(int slotIndex, GameData data)
+        public SaveLoaded(int slotIndex, GameSaveData data)
         {
             SlotIndex = slotIndex;
             Data = data;
@@ -349,6 +356,12 @@ namespace DeepseaOil.Logic.Events
             Success = success;
             Error = error;
         }
+    }
+
+    public struct StoryFlowStateChanged
+    {
+        public string state;
+        public StoryFlowStateChanged(string state) { this.state = state; }
     }
     #endregion
 }

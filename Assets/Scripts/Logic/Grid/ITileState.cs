@@ -8,6 +8,9 @@ namespace DeepseaOil.Logic.Grid
     {
         TileStateType Id { get; }
 
+        /// <summary>剩余存活秒数，-1 = 该状态无倒计时</summary>
+        float RemainingDuration { get; }
+
         /// <summary>进入本格状态时调用一次，初次转换与从别的状态切来同路</summary>
         void OnEnter(in TileContext ctx);
 

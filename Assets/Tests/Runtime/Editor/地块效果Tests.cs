@@ -59,7 +59,7 @@ namespace DeepseaOil.Tests
             AssetModule.Dispose();
         }
 
-        /// <summary>格上目标替身：只记次数；减速转发给**真** StatusGroup，读到的 SlowScale 就是运行时那一份。</summary>
+        /// <summary>格上目标替身：只记次数；减速与麻痹转发给**真** StatusGroup，读到的就是运行时那一份。</summary>
         private sealed class GridTarget : IDamageable, ISlowable, IStunnable, IKnockBackable
         {
             private readonly StatusGroup _status;
@@ -109,6 +109,8 @@ namespace DeepseaOil.Tests
             {
                 StunHits++;
                 StunSeconds = seconds;
+
+                _status.ApplyStun(seconds);
             }
 
             public void ApplyKnockback(Vector2 impulse)
@@ -165,7 +167,7 @@ namespace DeepseaOil.Tests
 
             grid.SwitchTileState(cell, TileStateType.Mud);
 
-            var snapshot = new InputSnapshot(Vector2.zero, false, false);
+            var snapshot = new InputSnapshot(Vector2.zero, false);
 
             float now = 0f;
             float accumulator = 0f;
@@ -276,7 +278,7 @@ namespace DeepseaOil.Tests
 
             status.ApplySlow(0.5f, 0f);
 
-            status.Tick(new LogicContext(0f, PhysicsStep, default, new InputSnapshot(Vector2.zero, false, false)), Vector2.zero);
+            status.Tick(new LogicContext(0f, PhysicsStep, default, new InputSnapshot(Vector2.zero, false)), Vector2.zero);
 
             Assert.AreEqual(0.5f, status.SlowScale, 1e-4f, "seconds<=0 = 没给时长，不是「无效」；按续命兜底至少活过一拍");
         }
@@ -286,7 +288,7 @@ namespace DeepseaOil.Tests
         public void 没续命时减速会过期()
         {
             StatusGroup status = NewStatus();
-            var snapshot = new InputSnapshot(Vector2.zero, false, false);
+            var snapshot = new InputSnapshot(Vector2.zero, false);
 
             status.ApplySlow(0.5f, 0f);
 
@@ -347,8 +349,12 @@ namespace DeepseaOil.Tests
 
             grid.SwitchTileState(cell, TileStateType.BasicElectricity);
 
-            var target = new GridTarget(NewStatus()) { Position = grid.Geometry.CellCenter(cell) };
+            StatusGroup status = NewStatus();
+
+            var target = new GridTarget(status) { Position = grid.Geometry.CellCenter(cell) };
             registry.Register(cell, target);
+
+            var snapshot = new InputSnapshot(Vector2.zero, false);
 
             grid.OnBallHit(cell, BallType.Water);
 
@@ -359,6 +365,29 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(2, target.DamageHits, "TriggerChain 为真时必须真的泛洪：只写一列标记等于连锁根本不存在");
             Assert.AreEqual(2, target.StunHits, "泛洪的麻痹与落地冲击是两次独立施加");
             Assert.AreEqual(1.5f, target.StunSeconds, 1e-4f, "连锁电击的麻痹时长");
+
+            Assert.IsTrue(status.Gates.HasForcedVelocity, "麻痹必须落成移动门禁：只记时长不停人等于没麻痹");
+            Assert.AreEqual(Vector2.zero, status.Gates.ForcedVelocity, "麻痹期间速度锁死 0：留残余速度就是滑步");
+
+            float now = 0f;
+
+            for (int i = 0; i < 74; i++)
+            {
+                now += PhysicsStep;
+
+                status.Tick(new LogicContext(now, PhysicsStep, default, snapshot), Vector2.zero);
+            }
+
+            Assert.IsTrue(status.Gates.HasForcedVelocity, "1.5 秒内必须一直钉住：提前解禁等于麻痹时长缩水");
+
+            for (int i = 0; i < 2; i++)
+            {
+                now += PhysicsStep;
+
+                status.Tick(new LogicContext(now, PhysicsStep, default, snapshot), Vector2.zero);
+            }
+
+            Assert.IsFalse(status.Gates.HasForcedVelocity, "1.5 秒后必须解禁：永久钉住就是定身成了石化");
         }
 
         [Test]

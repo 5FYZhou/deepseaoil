@@ -1,10 +1,10 @@
-﻿---
+---
 
 > 🔴 **本文件的表契约对齐「战斗与元素反应重构」之后的状态。**
 > 温湿度电三轴、`tile_effect` 效果档位表、`TileEffectValue` 多槽位结构体**已物理删除**。
 > 设计口径另见：
 > - `Docs/设计/策划案_荒原复苏指南_v4.0.md` 第 8 节（配置契约附录，含全部列名速查）
-> - `Docs/配表/技术文档_配表管线.md` 第 2 节（10 张表逐表消费者）
+> - `Docs/配表/技术文档_配表管线.md` 第 3.1 节（13 张表逐表消费者）
 > - `Docs/配表/策划配表手册.md`
 >
 > **本文档是"划界原则"（Excel 放什么 / SO 放什么 / 资产怎么寻址）与当前表契约的快照**，
@@ -26,8 +26,8 @@
 3. **美术资产寻址（程序装配·`AssetModule.Load` 懒加载）**：
    - **禁止**在 Excel 里让策划手抄 `Resources\Icons\...` 路径（易错且无校验）。
    - **约定寻址**：美术按命名规范给图，程序按枚举统一通过 `AssetModule.Load<T>($"tiles/Tile_{state}")` 按需懒加载，进缓存池（`TilemapAdapter` 另有局部字典缓存，这两个键刻意不配对 `Release`，见第四节），绝不启动全量加载。
-   - **唯一例外**：`seed.icon_key` 是**登记式 Key**（`Icons/Seed_Fire` 这种短 Key，不是 Windows 路径）。
-     当前无读取点，接 HUD 图标时它会成为消费者 —— 这是刻意留的接口，不是漏删。
+   - **唯一例外**：`seed.icon_key` 是**登记式 Key**（`Icons/Seed_Fire` 这种短 Key，不是 Windows 路径），
+     由 `HudPanel.UpdateSeedIcon` 经 `AssetModule.Load<Sprite>` 消费（该处 Load 不配对 `Release`，见第四节）。
 
 ---
 
@@ -57,10 +57,11 @@
   | `attack_interval`       | `float`  | 投掷间隔/CD（秒）                  |
 
 #### 3. `enemy.xlsx`（敌人配置表）
-- **表里现在是五列**：`id` / `name` / `max_speed` / `hp` / `contact_damage`。`radius` / `acceleration` / `knockback_decay` / `stop_distance` / `chase_range` 在 `EnemyTuning`（`Assets/Resources/tuning/EnemyTuning.asset`，`ConfigModule.BindAssets` 取不到即抛 `ConfigLoadException`），`flash_hz` 归 `VisualPalette`（字段名 `enemyFlashHz`）。
+- **表里现在是五列**：`id` / `name` / `max_speed` / `hp` / `contact_damage`（**2 行**：普通怪 / 精英怪）。`radius` / `acceleration` / `knockback_decay` / `stop_distance` 在 `EnemyTuning`（`Assets/Resources/tuning/EnemyTuning.asset`，`ConfigModule.BindAssets` 取不到即抛 `ConfigLoadException`），`flash_hz` 归 `VisualPalette`（字段名 `enemyFlashHz`）。
 - **`contact_damage` 是敌人伤害的唯一权威**，类型 `int!#range=[0,999]`，两行分别是 1 / 2。`ContactProbe` 经 `IContactDamager` 从敌人自己身上读 `EnemySpec.ContactDamage`；`player` 表根本没有这一列。
+- **掉落不在本表**：走 `enemy_drop.xlsx`（`enemy_id` / `seed_type` / `weight` / `probability`），当前 4 行都是 `enemy_id = 2` 掉四种种子。旧的硬编码 `CombatRoot.EliteEnemyId` 已删除。
 - **表里保留的列**：
-  - **不在表里、在 SO**：`enemyFlashHz`（受击闪烁频率）在 `VisualPalette`；`radius`（碰撞半径）、`acceleration`（加速度）、`knockbackDecay`（受击滑停衰减）、`stopDistance`（停止逼近距离）、`chaseRange`（脱战距离）在 `EnemyTuning`。
+  - **不在表里、在 SO**：`enemyFlashHz`（受击闪烁频率）在 `VisualPalette`；`radius`（碰撞半径）、`acceleration`（加速度）、`knockbackDecay`（受击滑停衰减）、`stopDistance`（停止逼近距离）在 `EnemyTuning`。
   - **保留在 Excel**（支持普通怪与精英怪两行）：
     | 字段             | 类型              | 说明                                           |
     | :--------------- | :---------------- | :--------------------------------------------- |
@@ -76,7 +77,7 @@
 
 | 字段 | 类型 | 说明 |
 | :-- | :-- | :-- |
-| `id` | `TileStateType` | 地块状态枚举（16 项） |
+| `id` | `TileStateType` | 地块状态枚举（表中 17 行；枚举共 18 项，`None` 是哨兵不进表） |
 | `name` | `string!` | 显示名（HUD / 诊断面板读数） |
 | `duration` | `float` | 存活秒数（-1 为永久） |
 | `slow_rate` | `float` | 踩在上面的移速倍率（1 = 不减速） |
@@ -90,7 +91,7 @@
 
 #### 5. `wave.xlsx`（波次配置表）
 
-**表里现在是三阶段时钟 + 战备配给，共 8 列、2 行**（`spawn_radius` / `enemies_per_wave` 都不在表里）。
+**表里现在是三阶段时钟 + 战备配给，共 7 列、6 行**（`spawn_radius` / `enemies_per_wave` 都不在表里）。
 
 | 字段 | 类型 | 说明 |
 | :-- | :-- | :-- |
@@ -100,19 +101,20 @@
 | `battle_time` | `float` | 战斗时长（默认 30s）：按 `spawn_interval` 出怪 |
 | `settle_time` | `float` | 结算时长（默认 8s）：**必须等残余敌人清空**才推进 |
 | `spawn_interval` | `float!` | 刷怪间隔（秒），下限 0.05 |
-| `grant_seed` | `SeedType` | **本波备战期配给的战备种子**（表里填 `Fire` / `Elec` / `Ice`；可留空 = 不发） |
+| `grant_seed` | `SeedType` | **本波备战期配给的战备种子**（表里现在填 `Fire` 或 `None`；可留空 = 不发） |
 
 > **本波怪量与出生环都不在这张表里**：每波刷几只走 `wave_enemy` 表的 `count` 汇总；出生点是
 > `CombatDirector.SpawnPosition` 以**相机可见区**为圆心、在「可见区外接半径＋`spawnScreenMargin`」到再乘
 > `spawnRadiusMultiplier` 的外环上按随机角度取点（两个字段挂在场景的 `CombatDirector` 上，既不是表列也不是调参 SO）。
 
-> 跑完全表后**循环回第一行**并继续递增波次号（无尽模式），没有"通关"终态。
+> **哪一关取哪几波**由 `level_wave.xlsx` 的 `wave_ids`（列表列）指定；`WaveLogic` 按传入顺序推进。
+> `WavePlayMode.Sequential`（默认）跑完最后一波即标记序列完成，`Loop` 才回到首波继续递增。
 
 #### 6. `element_rule.xlsx`（一级反应）与 `element_duo_reaction.xlsx`（二级反应）
 
 **判定：100% 留在 Excel。这是策划的核心资产。** 表结构就是下面这两张（没有 `priority` 列）：
 
-`element_rule.xlsx` — 球砸地面（14 行，9 列）：
+`element_rule.xlsx` — 球砸地面（16 行，9 列）：
 
 | 字段 | 类型 | 说明 |
 | :-- | :-- | :-- |
@@ -128,7 +130,7 @@
 
 > 🔴 **业务唯一键是 `(source_tile, ball_type)`**：`ReactionResolver` 按它建哈希表做 O(1) 查询，
 > 重复配置会被当场 `LogError` 报出（后者不算数）；表里没有"优先级"列 —— 匹配不看行序。
-> `impact_stun` **不要加 `!`**：14 行全部天然是 0，加 `!` 会导表失败。
+> `impact_stun` **不要加 `!`**：16 行里 15 行天然是 0，加 `!` 会导表失败。
 
 `element_duo_reaction.xlsx` — 地面 × 地面（6 行）：
 
@@ -141,8 +143,8 @@
 | `impact_knockback` | `float` | 瞬发击退（格） |
 | `result_duration` | `float` | 结果存续秒数 |
 | `effect_radius` | `float` | 波及半径（格，欧氏距离） |
-| `pull_strength` | `float` | 向心吸力（单位/秒，0 = 不吸；当前只有 `超导` = 5） |
-| `break_aggro` | `bool` | 是否清空范围内敌人的仇恨（当前只有 `白雾` = True） |
+| `pull_strength` | `float` | 向心吸力（单位/秒，0 = 不吸；当前只有 id 3（`基础冰面 + 基础电源 → 结冰`）= 5） |
+| `break_aggro` | `bool` | 是否清空范围内敌人的仇恨（当前只有 id 5 = True）；**已退役**：仇恨系统已下线，该列不再有任何效果 |
 | `trigger_chain` | `bool` | 是否沿网格继续泛洪 |
 
 > `(elem_a, elem_b)` 与 `(elem_b, elem_a)` 是同一条：`DuoReactionCatalog` 建**双向字典**，
@@ -163,7 +165,8 @@
 2. **`ThrowTuning.cs`**：
    - 包含：抛物线基准时长 `flightDuration`、弧高 `arcHeight`、投掷最大/小距离、瞄准环压扁比例与透视。
 3. **`EnemyTuning.cs`**：
-   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`、脱战距离 `chaseRange`。
+   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`。
+   - **已退役、但字段保留在 SO 里**（改它们不会有任何反应，只为不让旧资产丢字段）：`chaseRange`（追逐已无距离上限）、`visionRange` / `sustainRange` / `loseDelay`（仇恨系统已下线）。
    - 每行还带一组**受击形变**调参 `squash`：强度 `amount`、普通一击时长 `normalDuration`、致死一击时长 `deathDuration`、X 压扁比 `compressRatio`、回弹曲线指数 `easePower`、强度硬上限 `maxAmount`。改这里即改观感，不用碰 `ScalePunchDriver`；`amount = 0` 即关掉该怪种的形变。**资产缺失即抛 `ConfigLoadException`**（不退回默认值）。
 4. **`VisualPalette.cs`**：
    - 包含：球种颜色、敌人两态颜色（`enemyBodyNormal` / `enemyBodySlowed`）、高亮提示色、贴地件阴影色、伤害飘字四色（`damagePhysical` / `damageFire` / `damageElectric` / `damageIce`）。**受击闪白不吃色值**：它走材质属性块（见 `Docs/表现/粒子特效系统.md` §8），本表只管颜色乘数。
@@ -223,8 +226,9 @@ private TileBase TileFor(TileStateType state)
 
 ### 五、当前状态与仍未做的
 
-**表侧现状**：`projectile` 只剩 `id` / `name` 两列；`tile_state` 没有 `icon` / `willSpread`；`enemy` 没有 `flash_hz` / `stun_seconds`，只剩 `id` / `name` / `max_speed` / `hp` / `contact_damage`；`wave` 没有 `spawn_radius` / `enemies_per_wave`。
+**表侧现状**：`projectile` 只剩 `id` / `name` 两列；`tile_state` 没有 `icon` / `willSpread`；`enemy` 没有 `flash_hz` / `stun_seconds`，只剩 `id` / `name` / `max_speed` / `hp` / `contact_damage`（2 行）；`wave` 没有 `spawn_radius` / `enemies_per_wave`（7 列 6 行）。
+**另有 3 张后加的表**（不在本文逐列展开，见 [`策划配表手册.md`](策划配表手册.md)）：`level_wave`（关卡 → `wave_ids` 列表）、`audio_map`（33 行音效映射）、`enemy_drop`（4 行掉落）。
 
 **代码侧现状**：`ProjectileSpec.cs` / `PlayerSpec.cs` / `EnemySpec.cs` 把不在表里的字段重定向至对应的 Tuning SO（`ThrowTuning` / `PlayerConfig` / `EnemyTuning` / `VisualPalette`）；`TilemapAdapter.cs` 经 `AssetModule.Load<TileBase>($"tiles/Tile_{state}")` 按需加载，并只保留 Inspector `stateTiles` 特例覆盖。
 
-**仍未做的一件**：`player` 表的 `knockback_impulse` / `knockback_speed_limit` / `contact_radius` / `retry_delay` **还在表里且由表消费**，没有移出到 `PlayerConfig.asset`（`PlayerConfig.cs` 里没有这四个字段）。要搬就按本文件第一节的划界原则走，并同步改 `PlayerSpec` 的重定向 —— 记在 `Docs/待办.md`。
+**仍未做的一件**：`player` 表的 `knockback_impulse` / `knockback_speed_limit` / `contact_radius` / `retry_delay` **还在表里且由表消费**（`PlayerSpec` 仍在透出这四个），没有移出到 `PlayerConfig.asset`（`PlayerConfig.cs` 里没有这四个字段）。要搬就按本文件第一节的划界原则走，并同步改 `PlayerSpec` 的重定向 —— 记在 `Docs/待办.md`。

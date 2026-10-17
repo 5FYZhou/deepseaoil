@@ -1,6 +1,9 @@
+using DeepseaOil.Data;
 using DeepseaOil.Foundation;
+using DeepseaOil.Logic.Player;
 using DeepseaOil.Presentation.Visual;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Presentation.Drop
 {
@@ -84,6 +87,16 @@ namespace DeepseaOil.Presentation.Drop
         protected override void OnPlayerReached(Transform player)
         {
             EnterPhase(Phase.Homing);
+        }
+
+        // 种子单槽：手上还有种子就别吸，留在地上等空仓
+        protected override bool IsPickupBlocked(PlayerController controller)
+        {
+            if (Type != DropType.Seed) return false;
+
+            PlayerLogic logic = controller != null ? controller.Logic : null;
+
+            return logic != null && !logic.Stats.CanPickupSeed();
         }
     }
 }

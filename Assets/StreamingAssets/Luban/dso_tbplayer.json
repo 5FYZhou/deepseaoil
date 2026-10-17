@@ -13,6 +13,7 @@
     "water_start": 5,
     "earth_capacity": 5,
     "earth_start": 5,
-    "life_heal_interval": 3
+    "life_heal_interval": 3,
+    "seed_capacity": 3
   }
 ]

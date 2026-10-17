@@ -1,6 +1,4 @@
-﻿using System;
-using System.Globalization;
-using DeepseaOil.Logic.Events;
+﻿using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Service;
 using TMPro;
 using UnityEngine;
@@ -12,6 +10,7 @@ namespace DeepseaOil.Presentation.UI
     {
         private int _index;
         private bool _deleteListenerRegistered;
+        private bool _thumbnailWarned;
 
         [SerializeField] private TMP_Text txtTitle;
         [SerializeField] private TMP_Text txtTimeLeft;
@@ -21,6 +20,8 @@ namespace DeepseaOil.Presentation.UI
         [SerializeField] private TMP_Text txtProcessLeft;
         [SerializeField] private TMP_Text txtProcessRight;
         [SerializeField] private Button btnDelete;
+
+        [SerializeField] private Image imgThumbnail;
 
         public void Init(int index)
         {
@@ -53,31 +54,57 @@ namespace DeepseaOil.Presentation.UI
             EventBus<RequestDeleteSave>.Publish(new RequestDeleteSave(_index));
         }
 
-        public void SetInfo(SaveSlotInfo info)
+        public void SetThumbnail(Sprite sprite)
         {
-            if (txtTitle != null) txtTitle.text = _index > 0? $"存档槽 {_index + 1}" : "自动存档";
-            if (txtPlayerLeft != null) txtPlayerLeft.text = string.Empty;
-            if (txtPlayerRight != null) txtPlayerRight.text = string.Empty;
-            if (txtProcessLeft != null) txtProcessLeft.text = "关卡进度";
-            if (txtProcessRight != null) txtProcessRight.text = $"第 {info.CurrentLevelId} 关";
-
-            if (DateTimeOffset.TryParseExact(
-                info.SavedAtUtc,
-                "O",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out DateTimeOffset savedAtUtc))
+            if (imgThumbnail == null)
             {
-                DateTimeOffset localTime = savedAtUtc.ToLocalTime();
-                if (txtTimeLeft != null)
-                    txtTimeLeft.text = localTime.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
-                if (txtTimeRight != null)
-                    txtTimeRight.text = localTime.ToString("HH:mm", CultureInfo.InvariantCulture);
+                if (_thumbnailWarned) return;
+
+                _thumbnailWarned = true;
+
+                Debug.LogWarning(
+                    $"[Save] 存档槽 {_index + 1} 的 SaveSlot 未接线 imgThumbnail，缩略图不会显示。" +
+                    "请在 SaveInfoSlot.prefab 里把缩略图节点拖到该字段。", this);
+
                 return;
             }
 
-            if (txtTimeLeft != null) txtTimeLeft.text = "--";
-            if (txtTimeRight != null) txtTimeRight.text = "--";
+            if (sprite == null) return;
+
+            imgThumbnail.sprite = sprite;
+        }
+
+        public void SetInfo(SaveSlotInfo info)
+        {
+            if (txtTitle != null)
+            {
+                txtTitle.text = !string.IsNullOrEmpty(info.Title)
+                    ? info.Title
+                    : (_index > 0 ? $"存档槽 {_index + 1}" : "自动存档");
+            }
+
+            if (txtPlayerLeft != null) txtPlayerLeft.text = string.Empty;
+            if (txtPlayerRight != null) txtPlayerRight.text = string.Empty;
+            if (txtProcessLeft != null) txtProcessLeft.text = "关卡进度";
+            if (txtProcessRight != null)
+            {
+                if (info.Status == SaveSlotStatus.Empty)
+                    txtProcessRight.text = "暂无进度";
+                else if (info.Status == SaveSlotStatus.Invalid)
+                    txtProcessRight.text = "存档异常";
+                else if (info.CurrentLevelId == 1)
+                    txtProcessRight.text = "教学关";
+                else
+                    txtProcessRight.text = $"第 {info.CurrentLevelId - 1} 关";
+            }
+
+            int split = string.IsNullOrEmpty(info.TimeText) ? -1 : info.TimeText.IndexOf(' ');
+
+            if (txtTimeLeft != null)
+                txtTimeLeft.text = split > 0 ? info.TimeText.Substring(0, split) : "--";
+
+            if (txtTimeRight != null)
+                txtTimeRight.text = split > 0 ? info.TimeText.Substring(split + 1) : "--";
         }
     }
 }

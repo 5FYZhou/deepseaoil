@@ -1,4 +1,5 @@
 using DeepseaOil.Data;
+using UnityEngine;
 using cfg.dso;
 
 namespace DeepseaOil.Logic.Grid.States
@@ -23,6 +24,9 @@ namespace DeepseaOil.Logic.Grid.States
         }
 
         public TileStateType Id => _spec.Id;
+
+        /// <summary>存档导出用；-1 = 无倒计时</summary>
+        public float RemainingDuration => _duration > 0f ? Mathf.Max(0f, _duration - _elapsed) : -1f;
 
         public void OverrideDuration(float seconds)
         {

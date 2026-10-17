@@ -11,20 +11,16 @@ namespace DeepseaOil.Logic.Input
         /// <summary>本采样帧是否按下冲刺</summary>
         public readonly bool DashPressed;
 
-        public readonly bool GrabHeld;
-
         public InputSnapshot(
             Vector2 move,
-            bool dashPressed,
-            bool grabHeld
+            bool dashPressed
             )
         {
             Move = move;
             DashPressed = dashPressed;
-            GrabHeld = grabHeld;
         }
 
-        public static InputSnapshot Empty => new InputSnapshot(Vector2.zero, false, false);
+        public static InputSnapshot Empty => new InputSnapshot(Vector2.zero, false);
     }
 
     public readonly struct UIInputSnapshot
