@@ -85,6 +85,10 @@ PlayableDirector:
     value: {fileID: 2738030933866641624}
   - key: {fileID: 3315096206473747977, guid: e96aa0eafd674ef44bc60eb6ce1a89a6, type: 2}
     value: {fileID: 1977123285794528272}
+  - key: {fileID: -6983903541852053964, guid: e96aa0eafd674ef44bc60eb6ce1a89a6, type: 2}
+    value: {fileID: 0}
+  - key: {fileID: -4590388515387980185, guid: e96aa0eafd674ef44bc60eb6ce1a89a6, type: 2}
+    value: {fileID: 7043466647468863167}
   m_ExposedReferences:
     m_References:
     - d228f8ef338f11b42b47ff47ddfb7ad0: {fileID: 8541847474344479554}
@@ -102,6 +106,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   startRoot: {fileID: 5956024418165141139}
+  shot1: {fileID: 8541847474344479554}
   fadeSeconds: 1
   blackenSeconds: 1
   holdSeconds: 2
@@ -445,7 +450,7 @@ GameObject:
   - component: {fileID: 2198464964397869146}
   - component: {fileID: 862434131517824485}
   - component: {fileID: 8782869010415432394}
-  - component: {fileID: 7350109955053095647}
+  - component: {fileID: 7043466647468863167}
   m_Layer: 5
   m_Name: ImgStory6
   m_TagString: Untagged
@@ -510,7 +515,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!95 &7350109955053095647
+--- !u!95 &7043466647468863167
 Animator:
   serializedVersion: 5
   m_ObjectHideFlags: 0
@@ -520,9 +525,9 @@ Animator:
   m_GameObject: {fileID: 5043772928925139644}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 18d994b5e9d25304285bd2faa9f9f682, type: 2}
+  m_Controller: {fileID: 9100000, guid: 6ddc9fb480d414d4dad47cfe5765a6e0, type: 2}
   m_CullingMode: 0
-  m_UpdateMode: 2
+  m_UpdateMode: 0
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
@@ -772,8 +777,8 @@ RectTransform:
   - {fileID: 8891179103128860613}
   - {fileID: 3852651145636122948}
   - {fileID: 169902718695073650}
-  - {fileID: 2198464964397869146}
   - {fileID: 3029249041598972289}
+  - {fileID: 2198464964397869146}
   - {fileID: 7930219697280319263}
   m_Father: {fileID: 5299096255598886199}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

@@ -39,7 +39,6 @@ namespace DeepseaOil.Presentation
             switch (newState)
             {
                 case GameState.Menu:
-                    // 开始场景BeginSceneInitializer打开开始面板
                     break;
                 case GameState.CG:
 
@@ -89,6 +88,14 @@ namespace DeepseaOil.Presentation
             _sceneTransitionTargetState = targetState;
             _hasSceneTransitionTarget = true;
             TryFinishSceneTransition();
+        }
+
+        // 遮罩未淡出时供 UI 预摆入口面板
+        public bool TryGetPendingSceneEntryState(out GameState state)
+        {
+            state = _sceneTransitionTargetState;
+
+            return CurState == GameState.SceneTransition && _hasSceneTransitionTarget;
         }
 
         public void FinishSceneTransition(bool success)

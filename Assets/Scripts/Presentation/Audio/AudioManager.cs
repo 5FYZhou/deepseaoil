@@ -36,12 +36,22 @@ namespace DeepseaOil.Presentation
         {
             public readonly AudioRequestType type;
             public readonly AudioId id;
+            public readonly bool resumeBgm;   // 仅 Bgm 请求有效
 
-            public AudioRequest(AudioRequestType type, AudioId id)
+            public AudioRequest(AudioRequestType type, AudioId id, bool resumeBgm = false)
             {
                 this.type = type;
                 this.id = id;
+                this.resumeBgm = resumeBgm;
             }
+        }
+
+        /// <summary>BGM 渐变状态</summary>
+        private enum BgmFadeState
+        {
+            None,       // 无渐变，正常播放
+            FadingOut,  // 正在淡出，淡出完成后切歌/停止并淡入
+            FadingIn,   // 正在淡入
         }
 
         private readonly Transform _host;
@@ -68,6 +78,18 @@ namespace DeepseaOil.Presentation
 
         private float _bgmVolume;
         private float _sfxVolume;
+
+        // BGM 淡入淡出
+        private float _bgmFadeTime = 0.3f;
+        private BgmFadeState _bgmFadeState = BgmFadeState.None;
+        private AudioClip _pendingBgmClip;
+        private bool _pendingBgmResume;   // 挂起的续播意图（淡出完成后切歌时使用）
+        private float _bgmFadeElapsed;
+        private float _bgmFadeStartVolume;
+        private float _bgmFadeTargetVolume;
+
+        // BGM 断点续播：每个 clip 上次停下的进度
+        private readonly Dictionary<AudioClip, float> _bgmPlayedTime = new();
 
         public bool IsReady => _initialized;
 
@@ -131,6 +153,8 @@ namespace DeepseaOil.Presentation
             ProcessRequests();
 
             UpdatePlaying(unscaledDeltaTime);
+
+            UpdateBgmFade(unscaledDeltaTime);
         }
 
         // 消息队列
@@ -141,10 +165,10 @@ namespace DeepseaOil.Presentation
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Sfx, id));
         }
 
-        /// <summary>请求播放 BGM，只入队</summary>
-        public void EnqueueBgm(AudioId id)
+        /// <summary>请求播放 BGM，只入队。resumeFromLastTime 决定本次是否从该 clip 上次停止的进度继续。</summary>
+        public void EnqueueBgm(AudioId id, bool resumeFromLastTime = true)
         {
-            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id));
+            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id, resumeFromLastTime));
         }
 
         private void ProcessRequests()
@@ -162,7 +186,7 @@ namespace DeepseaOil.Presentation
                         break;
 
                     case AudioRequestType.Bgm:
-                        PlayBgmInternal(request.id);
+                        PlayBgmInternal(request.id, request.resumeBgm);
                         break;
                 }
             }
@@ -217,6 +241,13 @@ namespace DeepseaOil.Presentation
             }
             _cache.Clear();
 
+            // BGM 渐变与续播状态复位（_bgmSource 随即置 null，保持幂等干净）
+            _bgmFadeState = BgmFadeState.None;
+            _pendingBgmClip = null;
+            _pendingBgmResume = false;
+            _bgmFadeElapsed = 0f;
+            _bgmPlayedTime.Clear();
+
             // 池与音频根：销毁根即回收全部 AudioSource（池里的对象都是根的子物体）
             _audioPool?.Dispose();
             _entryPool?.Dispose();
@@ -260,15 +291,134 @@ namespace DeepseaOil.Presentation
             _playing.Add(entry);
         }
 
-        private void PlayBgmInternal(AudioId id)
+        private void PlayBgmInternal(AudioId id, bool resumeFromLastTime)
         {
             var clip = GetClip(id);
             if (clip == null)
                 return;
-            if (clip == _bgmSource.clip) return;
+
+            // 正在播同一个目标（含淡入中）→ 忽略；淡出中允许覆盖待切目标
+            if (clip == _bgmSource.clip
+                && _bgmSource.isPlaying
+                && _bgmFadeState != BgmFadeState.FadingOut)
+                return;
+
+            if (_bgmSource.clip == null || !_bgmSource.isPlaying)
+            {
+                // 当前没在播，直接切 clip 并淡入（按参数决定是否续播）
+                SwitchBgmClip(clip, resumeFromLastTime);
+                StartFadeIn();
+            }
+            else
+            {
+                // 正在播，先淡出，淡出完成后切 clip 再淡入
+                _pendingBgmClip = clip;
+                _pendingBgmResume = resumeFromLastTime;
+                StartFadeOut();
+            }
+        }
+
+        /// <summary>切换 BGM clip：从 0 音量起播，交给后续淡入推音量；按参数决定是否从上次进度续播</summary>
+        private void SwitchBgmClip(AudioClip clip, bool resumeFromLastTime)
+        {
+            // 切走前先记住当前 clip 的进度（无论下次续不续播，进度都要更新，避免旧进度污染）
+            RememberCurrentBgmTime();
+
             _bgmSource.clip = clip;
-            _bgmSource.volume = _bgmVolume;
+            _bgmSource.volume = 0f;
+
+            if (resumeFromLastTime
+                && _bgmPlayedTime.TryGetValue(clip, out float t)
+                && t > 0f && t < clip.length)
+            {
+                _bgmSource.time = t;
+            }
+            else
+            {
+                _bgmSource.time = 0f;
+            }
+
             _bgmSource.Play();
+        }
+
+        /// <summary>把当前 BGM 的播放进度写回字典（在切走/停止前调用）</summary>
+        private void RememberCurrentBgmTime()
+        {
+            if (_bgmSource == null) return;
+            var cur = _bgmSource.clip;
+            if (cur == null) return;
+            _bgmPlayedTime[cur] = _bgmSource.time;
+        }
+
+        private void StartFadeIn()
+        {
+            _bgmFadeState = BgmFadeState.FadingIn;
+            _bgmFadeElapsed = 0f;
+            _bgmFadeStartVolume = _bgmSource.volume;
+            _bgmFadeTargetVolume = _bgmVolume;
+            _pendingBgmClip = null;
+            _pendingBgmResume = false;
+        }
+
+        private void StartFadeOut()
+        {
+            _bgmFadeState = BgmFadeState.FadingOut;
+            _bgmFadeElapsed = 0f;
+            _bgmFadeStartVolume = _bgmSource.volume;
+            _bgmFadeTargetVolume = 0f;
+        }
+
+        /// <summary>推进 BGM 淡入淡出。用 unscaled 时间，和音效回收一致（音频不参与暂停）。</summary>
+        private void UpdateBgmFade(float unscaledDeltaTime)
+        {
+            if (_bgmFadeState == BgmFadeState.None)
+                return;
+
+            if (_bgmFadeTime <= 0f)
+            {
+                // 时长为 0 视为瞬时切换，避免除零
+                FinishBgmFade();
+                return;
+            }
+
+            _bgmFadeElapsed += unscaledDeltaTime;
+            float t = Mathf.Clamp01(_bgmFadeElapsed / _bgmFadeTime);
+            _bgmSource.volume = Mathf.Lerp(_bgmFadeStartVolume, _bgmFadeTargetVolume, t);
+
+            if (t >= 1f)
+                FinishBgmFade();
+        }
+
+        private void FinishBgmFade()
+        {
+            switch (_bgmFadeState)
+            {
+                case BgmFadeState.FadingOut:
+                    _bgmSource.volume = 0f;
+                    if (_pendingBgmClip != null)
+                    {
+                        var next = _pendingBgmClip;
+                        var resume = _pendingBgmResume;
+                        _pendingBgmClip = null;
+                        _pendingBgmResume = false;
+                        SwitchBgmClip(next, resume); // 内部会先 RememberCurrentBgmTime
+                        StartFadeIn();
+                        return;              // 保持 FadingIn 状态，本帧不再收尾
+                    }
+                    RememberCurrentBgmTime();
+                    _bgmSource.Stop();
+                    _bgmFadeState = BgmFadeState.None;
+                    break;
+
+                case BgmFadeState.FadingIn:
+                    _bgmSource.volume = _bgmVolume;
+                    _bgmFadeState = BgmFadeState.None;
+                    break;
+
+                default:
+                    _bgmFadeState = BgmFadeState.None;
+                    break;
+            }
         }
 
         // 音频资源
@@ -314,6 +464,9 @@ namespace DeepseaOil.Presentation
             _bgmVolume = config.bgmVolume;
             _sfxVolume = config.sfxVolume;
 
+            // 淡入淡出时长：优先读配置；若 AudioConfig 暂无该字段，保留字段初始值 0.3f
+            _bgmFadeTime = Mathf.Max(0f, config.bgmFadeDuration);
+
             _idToFileName.Clear();
 
             foreach (var m in ConfigModule.GetAudioMaps())
@@ -333,7 +486,21 @@ namespace DeepseaOil.Presentation
         {
             _bgmVolume = Mathf.Clamp01(value);
 
-            if (_bgmSource != null) _bgmSource.volume = _bgmVolume;
+            if (_bgmSource == null) return;
+
+            if (_bgmFadeState == BgmFadeState.FadingIn)
+            {
+                // 淡入中：更新目标音量，让本帧起 Lerp 收敛到新值
+                _bgmFadeTargetVolume = _bgmVolume;
+            }
+            else if (_bgmFadeState == BgmFadeState.FadingOut)
+            {
+                // 淡出中：目标恒为 0，不动
+            }
+            else
+            {
+                _bgmSource.volume = _bgmVolume;
+            }
         }
 
         public void SetSfxVolume(float value)

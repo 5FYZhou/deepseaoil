@@ -16,9 +16,8 @@ namespace DeepseaOil.Presentation.UI
         [SerializeField] private float scrollSpeed = 60f;
         [SerializeField] private float startDelay = 0.1f;
         [SerializeField] private float endHoldSeconds = 1.5f;
-
         private static readonly string[] CreditLines =
-        {
+                {
             "【深海鱼油工作室】",
             "策划",
             "代码鱿鱼、秋墨",
@@ -30,7 +29,7 @@ namespace DeepseaOil.Presentation.UI
             "枫叶舟、V.Reason-愚人舟",
             "",
             "美术",
-            "圖錙、芝麻、爵士",
+            "Banth、芝麻王、爵士JAZZEL",
             "",
             "运营",
             "鹦鹉螺",
@@ -63,6 +62,7 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe()
         {
             StopShow();
+            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmAscensio);
             showCoroutine = StartCoroutine(PlayCredits());
         }
 

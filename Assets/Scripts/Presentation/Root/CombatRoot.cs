@@ -141,6 +141,7 @@ namespace DeepseaOil.Presentation
             }
 
             _levelLogic.Start();
+            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
         }
 
         public void ReleaseDeferredLevelEnd()
@@ -687,7 +688,10 @@ namespace DeepseaOil.Presentation
                 int levelId = levelReader.CurrentLevelId;
                 _levelLogic = new LevelLogic(levelReader, levelId == 1 || levelId == 6);
                 if (!UsesScriptedStory(_levelLogic.CurrentLevel.Id))
-                _levelLogic.Start();
+                {
+                    _levelLogic.Start();
+                    GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
+                }
 
                 _combat = CreateCombatDirector(_levelLogic);
             }
@@ -695,7 +699,7 @@ namespace DeepseaOil.Presentation
             IsReady = true;
 
             // 只装配时入队一次，勿挪进状态切换
-            if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
+            //if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
 
             if (_root != null) _root.UI.EnterGameplayUi();
 
