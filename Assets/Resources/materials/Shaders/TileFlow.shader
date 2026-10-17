@@ -8,7 +8,7 @@ Shader "DeepseaOil/2D/TileFlow"
         _FlowAmplitude ("Flow Amplitude (流动位移幅度)", Range(0, 0.05)) = 0.012
         _FlowFrequency ("Flow Frequency (波纹空间频度)", Float) = 20
         _PhaseNoise ("Phase Noise (逐格相位打散)", Range(0, 1)) = 0
-        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.20
+        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.02
         _TileLightBoost ("Tile Light Boost (光场增强倍率)", Range(0.5, 3.0)) = 1.35
     }
 
@@ -120,6 +120,7 @@ Shader "DeepseaOil/2D/TileFlow"
                 half4 envLight = half4(1, 1, 1, 1);
                 #endif
 
+                // 暗部保险丝：保底按通道取大，值一高就把夜色三通道一起抬平、色相抹成中性灰（须 ≤ 0.02）
                 envLight.rgb = max(envLight.rgb, half3(_AmbientFloor, _AmbientFloor, _AmbientFloor));
 
                 // 网格光照场：水面与火场必须和地面走同一套扩散，否则夜里只有地面会亮

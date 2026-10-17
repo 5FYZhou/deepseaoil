@@ -53,6 +53,10 @@ MonoBehaviour:
   landingRadius: 3
   minLandingDistance: 0.8
   autoTriggerRadius: 1.5
+  overrideSelfLightColor: 1
+  selfLightOverride: {r: 0.3137255, g: 0.54901963, b: 1, a: 0}
+  selfLightIntensity: 0.3
+  selfLightPulseDepth: 0.1
 --- !u!58 &1484185468337858255
 CircleCollider2D:
   m_ObjectHideFlags: 0

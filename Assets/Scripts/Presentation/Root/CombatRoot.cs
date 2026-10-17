@@ -167,6 +167,8 @@ namespace DeepseaOil.Presentation
             if (player != null && player.Logic != null && player.Logic.IsAlive) _tileLightmap?.SetCarryLightPosition(player.Position);
             else _tileLightmap?.ClearCarryLight();
 
+            SyncFountainLights();
+
             _tileLightmap?.Tick(Time.time, deltaTime);
 
             _balls.Tick(deltaTime);
@@ -703,9 +705,11 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        private void AttachFountains()
+        private void SyncFountainLights()
         {
-            _tileLightmap?.ClearSteadyEmitters();
+            if (_tileLightmap == null) return;
+
+            _tileLightmap.ClearSteadyEmitters();
 
             for (int i = 0; i < fountains.Length; i++)
             {
@@ -713,10 +717,20 @@ namespace DeepseaOil.Presentation
 
                 if (fountain == null) continue;
 
-                fountain.Attach(_drops);
-
-                _tileLightmap?.AddSteadyEmitter(
+                _tileLightmap.AddSteadyEmitter(
                     fountain.transform.position, fountain.SelfLightColor, fountain.SelfLightIntensity, fountain.SelfLightPulseDepth);
+            }
+        }
+
+        private void AttachFountains()
+        {
+            for (int i = 0; i < fountains.Length; i++)
+            {
+                Fountain fountain = fountains[i];
+
+                if (fountain == null) continue;
+
+                fountain.Attach(_drops);
 
                 if (fountain.Kind != FountainKind.Life) continue;
 

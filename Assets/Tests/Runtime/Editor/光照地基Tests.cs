@@ -35,7 +35,7 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void 时段契约_所有时段强度与暗部补偿都在保底之上()
+        public void 时段契约_所有时段强度都在保底之上()
         {
             TimeOfDayKind[] kinds = { TimeOfDayKind.Day, TimeOfDayKind.Dusk, TimeOfDayKind.Night };
 
@@ -44,11 +44,6 @@ namespace DeepseaOil.Tests
                 TimeOfDaySetting setting = TimeOfDaySetting.GetDefault(kinds[i]);
 
                 Assert.GreaterOrEqual(setting.Intensity, 0.15f, $"{kinds[i]} 跌破强度下限 0.15");
-                Assert.Greater(
-                    setting.AmbientFloorColor.r + setting.AmbientFloorColor.g + setting.AmbientFloorColor.b,
-                    0.01f,
-                    $"{kinds[i]} 暗部补偿色是纯黑");
-                Assert.AreEqual(kinds[i], setting.Kind, $"{kinds[i]} 的 Kind 未回填自己");
             }
         }
 

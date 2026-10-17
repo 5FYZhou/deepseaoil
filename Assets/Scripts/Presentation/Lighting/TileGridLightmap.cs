@@ -102,6 +102,9 @@ namespace DeepseaOil.Presentation.Lighting
         // 道具光与火/电格同走一条扩散：进列表后逐帧映射到格心，因此天然有墙体遮挡
         private readonly List<SteadyEmitter> _steadyEmitters = new List<SteadyEmitter>();
 
+        // 越界只报一次：该列表每帧重建，不设闩会把 Console 刷爆
+        private bool _warnedSteadyOutside;
+
         // 唯一真源：发光类别与光阻标记都由格子事件写入，逐帧只读，不重复查表
         private byte[] _kindMap;
         private byte[] _blockedMap;
@@ -235,6 +238,7 @@ namespace DeepseaOil.Presentation.Lighting
             BlockedCellCount = 0;
             _hasCarryLight = false;
             _wasLit = false;
+            _warnedSteadyOutside = false;
 
             PushCarryGlobals();
 
@@ -258,10 +262,17 @@ namespace DeepseaOil.Presentation.Lighting
         }
 
         /// <summary>登记一个常驻道具光源（泉眼）；光按格扩散，所以会吃到墙体遮挡</summary>
-        /// <remarks>越界的道具静默跳过：它摆在地板外是关卡数据问题，不该在这里刷日志</remarks>
+        /// <remarks>调用方每帧重建（参数改了立刻生效），因此越界警告必须只报一次；光照图未装配时不校验边界</remarks>
         public void AddSteadyEmitter(Vector2 world, Color color, float intensity, float pulseDepth)
         {
             if (intensity <= 0f) return;
+
+            if (_attached && !_warnedSteadyOutside && CellToIndex(_geometry.WorldToCell(world)) < 0)
+            {
+                Debug.LogWarning($"[Light] 道具光源 {world} 落在光照图边界外：它不会照亮任何格子。", this);
+
+                _warnedSteadyOutside = true;
+            }
 
             _steadyEmitters.Add(new SteadyEmitter
             {

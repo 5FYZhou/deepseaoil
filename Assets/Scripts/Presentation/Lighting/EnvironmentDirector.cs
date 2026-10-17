@@ -4,7 +4,7 @@ using UnityEngine.Rendering.Universal;
 namespace DeepseaOil.Presentation.Lighting
 {
     /// <summary>全局环境光照时段控制器：驱动场景唯一 Global Light 2D</summary>
-    /// <remarks>强度下限由 TimeOfDaySetting 保证（>=0.35）；未绑定光源时静默降级不刷日志。过渡插值无堆分配。</remarks>
+    /// <remarks>三段颜色与强度就是场景里的字段，改完即时生效；未绑定光源时静默降级不刷日志，过渡插值无堆分配。</remarks>
     [DisallowMultipleComponent]
     public sealed class EnvironmentDirector : MonoBehaviour
     {
@@ -13,25 +13,30 @@ namespace DeepseaOil.Presentation.Lighting
         [SerializeField] private Light2D globalLight = default;
 
         [Header("初始配置")]
-        [Tooltip("开局时段；选 Night 时全局光被压到 0.20，只有火光与随身光照得亮场景")]
+        [Tooltip("开局时段；切到 Night 后只有火光、泉眼与随身光照得亮场景")]
         [SerializeField] private TimeOfDayKind initialTimeOfDay = TimeOfDayKind.Day;
 
         [Tooltip("时段过渡插值时长（秒）；0 会让昼夜切换瞬间跳变")]
         [Range(0.1f, 10f)]
         [SerializeField] private float transitionDuration = 1.5f;
 
-        [Header("时段覆盖")]
-        [Tooltip("按 Kind 覆盖内置时段参数；数组里没写的时段继续用 TimeOfDaySetting.GetDefault 的内置值")]
-        [SerializeField] private TimeOfDaySetting[] customTimeOfDayOverrides = default;
+        [Header("白昼外观")]
+        [SerializeField] private TimeOfDaySetting daySetting = TimeOfDaySetting.GetDefault(TimeOfDayKind.Day);
 
-        private TimeOfDaySetting _currentSetting;
-        private TimeOfDaySetting _targetSetting;
+        [Header("黄昏外观")]
+        [SerializeField] private TimeOfDaySetting duskSetting = TimeOfDaySetting.GetDefault(TimeOfDayKind.Dusk);
+
+        [Header("夜晚外观")]
+        [SerializeField] private TimeOfDaySetting nightSetting = TimeOfDaySetting.GetDefault(TimeOfDayKind.Night);
+
+        private TimeOfDayKind _currentKind;
+        private TimeOfDayKind _targetKind;
 
         private float _transitionTime;
         private bool _isTransitioning;
 
         /// <summary>当前生效或正在过渡到的时段</summary>
-        public TimeOfDayKind CurrentTimeOfDay => _targetSetting.Kind;
+        public TimeOfDayKind CurrentTimeOfDay => _targetKind;
 
         private void Awake()
         {
@@ -40,10 +45,12 @@ namespace DeepseaOil.Presentation.Lighting
                 globalLight = GetComponentInChildren<Light2D>();
             }
 
-            _currentSetting = ResolveSetting(initialTimeOfDay);
-            _targetSetting = _currentSetting;
+            _currentKind = initialTimeOfDay;
+            _targetKind = initialTimeOfDay;
 
-            ApplySettingDirectly(in _currentSetting);
+            TimeOfDaySetting current = ResolveSetting(_currentKind);
+
+            ApplySettingDirectly(in current);
         }
 
         private void Update()
@@ -57,24 +64,29 @@ namespace DeepseaOil.Presentation.Lighting
 
             if (globalLight != null)
             {
-                globalLight.color = Color.Lerp(_currentSetting.LightColor, _targetSetting.LightColor, smoothT);
-                globalLight.intensity = Mathf.Lerp(_currentSetting.Intensity, _targetSetting.Intensity, smoothT);
+                TimeOfDaySetting from = ResolveSetting(_currentKind);
+                TimeOfDaySetting to = ResolveSetting(_targetKind);
+
+                globalLight.color = Color.Lerp(from.LightColor, to.LightColor, smoothT);
+                globalLight.intensity = Mathf.Lerp(from.Intensity, to.Intensity, smoothT);
             }
 
             if (t < 1f) return;
 
             _isTransitioning = false;
-            _currentSetting = _targetSetting;
+            _currentKind = _targetKind;
 
-            ApplySettingDirectly(in _currentSetting);
+            TimeOfDaySetting current = ResolveSetting(_currentKind);
+
+            ApplySettingDirectly(in current);
         }
 
         /// <summary>平滑切换到目标时段</summary>
         public void TransitionTo(TimeOfDayKind kind)
         {
-            if (_targetSetting.Kind == kind && !_isTransitioning) return;
+            if (_targetKind == kind && !_isTransitioning) return;
 
-            _targetSetting = ResolveSetting(kind);
+            _targetKind = kind;
             _transitionTime = 0f;
             _isTransitioning = true;
         }
@@ -83,29 +95,28 @@ namespace DeepseaOil.Presentation.Lighting
         public void SetTimeOfDayImmediate(TimeOfDayKind kind)
         {
             _isTransitioning = false;
-            _currentSetting = ResolveSetting(kind);
-            _targetSetting = _currentSetting;
+            _currentKind = kind;
+            _targetKind = kind;
 
-            ApplySettingDirectly(in _currentSetting);
+            TimeOfDaySetting current = ResolveSetting(_currentKind);
+
+            ApplySettingDirectly(in current);
         }
 
-        /// <summary>取该时段的生效参数：Inspector 覆盖优先，缺项回落内置表</summary>
+        /// <summary>取该时段的生效外观：三段各占一个字段，没有数组匹配与缺项回落</summary>
         private TimeOfDaySetting ResolveSetting(TimeOfDayKind kind)
         {
-            if (customTimeOfDayOverrides != null)
+            switch (kind)
             {
-                for (int i = 0; i < customTimeOfDayOverrides.Length; i++)
-                {
-                    TimeOfDaySetting entry = customTimeOfDayOverrides[i];
+                case TimeOfDayKind.Dusk:
+                    return duskSetting;
 
-                    // alpha 为 0 = 加了元素没填色：丢弃该条并回落内置表，别把全局光写成纯黑
-                    if (entry.Kind != kind || entry.LightColor.a <= 0f) continue;
+                case TimeOfDayKind.Night:
+                    return nightSetting;
 
-                    return entry;
-                }
+                default:
+                    return daySetting;
             }
-
-            return TimeOfDaySetting.GetDefault(kind);
         }
 
         private void ApplySettingDirectly(in TimeOfDaySetting setting)
@@ -116,18 +127,16 @@ namespace DeepseaOil.Presentation.Lighting
             globalLight.intensity = setting.Intensity;
         }
 
+#if UNITY_EDITOR
+        // 播放中改颜色要立刻反映到主光，否则每试一个色都得退出重进；过渡中不抢写，免得和插值打架
         private void OnValidate()
         {
-            if (customTimeOfDayOverrides == null) return;
+            if (!Application.isPlaying || _isTransitioning) return;
 
-            for (int i = 0; i < customTimeOfDayOverrides.Length; i++)
-            {
-                // 新加元素的默认色是 (0,0,0,0)：alpha 为 0 只可能是"加了没填值"，该条会被丢弃并回落内置表
-                if (customTimeOfDayOverrides[i].LightColor.a <= 0f)
-                {
-                    Debug.LogWarning($"[Light] 时段覆盖第 {i} 条的 Light Color 未填写（alpha=0）：已丢弃，该时段仍用内置表。", this);
-                }
-            }
+            TimeOfDaySetting current = ResolveSetting(_currentKind);
+
+            ApplySettingDirectly(in current);
         }
+#endif
     }
 }

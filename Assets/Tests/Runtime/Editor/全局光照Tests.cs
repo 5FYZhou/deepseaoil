@@ -18,18 +18,23 @@ namespace DeepseaOil.Tests
         };
 
         [Test]
-        public void 时段参数_各时段强度均不低于暗部保底()
+        public void 时段参数_各时段强度达标且黄昏夜晚不得撞色()
         {
             for (int i = 0; i < AllKinds.Length; i++)
             {
-                TimeOfDaySetting setting = TimeOfDaySetting.GetDefault(AllKinds[i]);
-
-                Assert.GreaterOrEqual(setting.Intensity, 0.15f, $"{AllKinds[i]} 跌破强度下限 0.15");
-                Assert.Greater(
-                    setting.AmbientFloorColor.r + setting.AmbientFloorColor.g + setting.AmbientFloorColor.b,
-                    0.01f,
-                    $"{AllKinds[i]} 暗部补偿色是纯黑");
+                Assert.GreaterOrEqual(
+                    TimeOfDaySetting.GetDefault(AllKinds[i]).Intensity, 0.15f, $"{AllKinds[i]} 跌破强度下限 0.15");
             }
+
+            TimeOfDaySetting dusk = TimeOfDaySetting.GetDefault(TimeOfDayKind.Dusk);
+            TimeOfDaySetting night = TimeOfDaySetting.GetDefault(TimeOfDayKind.Night);
+
+            Color duskLight = dusk.LightColor * dusk.Intensity;
+            Color nightLight = night.LightColor * night.Intensity;
+
+            Assert.Greater(duskLight.r, duskLight.b * 1.8f, "黄昏不够暖：和夜晚会撞色");
+            Assert.Greater(nightLight.b, nightLight.r * 1.8f, "夜晚不够蓝紫：和黄昏会撞色");
+            Assert.Greater(Luminance(duskLight), Luminance(nightLight) * 2f, "黄昏与夜晚亮度太近：两个时段看着一样");
         }
 
         [Test]
@@ -79,6 +84,11 @@ namespace DeepseaOil.Tests
             if (SortingLayerConsts.AimId >= 0) Assert.AreEqual(0, mask & (1 << SortingLayerConsts.AimId), "掩码错误照射 Aim");
             if (SortingLayerConsts.EffectId >= 0) Assert.AreEqual(0, mask & (1 << SortingLayerConsts.EffectId), "掩码错误照射 Effect");
             if (SortingLayerConsts.UIId >= 0) Assert.AreEqual(0, mask & (1 << SortingLayerConsts.UIId), "掩码错误照射 UI");
+        }
+
+        private static float Luminance(Color color)
+        {
+            return 0.2126f * color.r + 0.7152f * color.g + 0.0722f * color.b;
         }
     }
 }

@@ -29,8 +29,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AmbientFloor: 0.1
-    - _EmissiveBoost: 0.1
+    - _AmbientFloor: 0.02
+    - _EmissiveBoost: 0
     - _EnableRim: 0
     - _FlashAmount: 0
     - _MetalIntensity: 0

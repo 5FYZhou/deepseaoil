@@ -145,8 +145,8 @@ namespace DeepseaOil.Tests
             Assert.IsNotNull(material, $"材质资产不存在：{path}（先跑 DeepseaOil ▸ 光照与后处理 ▸ 一键装配地表受光材质矩阵）");
             Assert.IsTrue(material.HasProperty("_AmbientFloor"), $"{path} 缺 _AmbientFloor");
 
-            // 取大保底高于夜色基准会把整片夜晚压平成中性灰，故判据从"不得更低"翻转为"不得更高"
-            Assert.LessOrEqual(material.GetFloat("_AmbientFloor"), 0.20f, $"{path} 的暗部保底高于夜景基准 0.20");
+            // 保底低于夜色通道才不夺色相：高一点就把夜色三通道抬平、抹成中性灰
+            Assert.LessOrEqual(material.GetFloat("_AmbientFloor"), 0.05f, $"{path} 的暗部保底高于 0.05：夜里色相会被压成中性灰");
         }
 
         /// <summary>Additive 打开 Range、在场景加载期间取值断言、随即关闭：对象在关闭后即失效，不能带出去</summary>

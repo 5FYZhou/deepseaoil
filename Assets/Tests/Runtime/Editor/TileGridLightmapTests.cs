@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Presentation.Lighting;
@@ -18,14 +19,25 @@ namespace DeepseaOil.Tests
         private const string CelLitMatPath = "Assets/Resources/materials/M_CelLit_Default.mat";
         private const string TileFlowMatPath = "Assets/Resources/materials/M_TileFlow_Water.mat";
 
-        // 取大保底高于夜色基准，max() 会把整片夜晚压平成中性灰
-        private const float AmbientFloorCeiling = 0.20f;
+        // 保底按通道取大：高于夜里任一通道就把夜色三通道抬平、色相抹成中性灰
+        private const float AmbientFloorCeiling = 0.05f;
 
         [Test]
-        public void 时段参数_夜晚强度压到零点二为火光留出反差()
+        public void 时段参数_夜晚必须偏蓝紫且亮度远低于黄昏()
         {
-            Assert.AreEqual(0.20f, TimeOfDaySetting.GetDefault(TimeOfDayKind.Night).Intensity, 0.001f, "夜晚未压到 0.20：火海爆不出来");
-            Assert.AreEqual(0.98f, TimeOfDaySetting.GetDefault(TimeOfDayKind.Day).Intensity, 0.001f, "白天通透基准被改动");
+            TimeOfDaySetting day = TimeOfDaySetting.GetDefault(TimeOfDayKind.Day);
+            TimeOfDaySetting dusk = TimeOfDaySetting.GetDefault(TimeOfDayKind.Dusk);
+            TimeOfDaySetting night = TimeOfDaySetting.GetDefault(TimeOfDayKind.Night);
+
+            Assert.AreEqual(0.98f, day.Intensity, 0.001f, "白天通透基准被改动");
+
+            Color nightLight = night.LightColor * night.Intensity;
+
+            // 中性灰保底会把三通道抬到同一水平，蓝紫只能靠蓝通道明显压过红通道来表达
+            Assert.Greater(nightLight.b, nightLight.r * 1.8f, "夜晚没有偏蓝紫：和黄昏会撞色");
+
+            Assert.Greater(Luminance(dusk.LightColor * dusk.Intensity), Luminance(nightLight) * 2f, "黄昏不够亮：和夜晚拉不开层级");
+            Assert.Greater(dusk.LightColor.r, dusk.LightColor.b * 1.8f, "黄昏不够暖：蓝通道压不下来");
         }
 
         [Test]
@@ -258,7 +270,34 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void 参数暴露_时段参数必须可由Inspector覆盖()
+        public void 参数暴露_着色器暗部保底默认值不得压灰夜色()
+        {
+            string[] paths =
+            {
+                "Assets/Resources/materials/Shaders/CelLit.shader",
+                "Assets/Resources/materials/Shaders/TileFlow.shader",
+                "Assets/Resources/materials/Shaders/TilePlantFlow.shader",
+            };
+
+            for (int i = 0; i < paths.Length; i++)
+            {
+                string source = File.ReadAllText(paths[i]);
+                int start = source.IndexOf("_AmbientFloor (\"Ambient Floor", StringComparison.Ordinal);
+
+                Assert.Greater(start, 0, $"{paths[i]} 缺 _AmbientFloor 属性");
+
+                int equals = source.IndexOf('=', start);
+                string value = source.Substring(equals + 1, source.IndexOf('\n', equals) - equals - 1).Trim();
+
+                Assert.LessOrEqual(
+                    float.Parse(value, CultureInfo.InvariantCulture),
+                    AmbientFloorCeiling,
+                    $"{paths[i]} 的 _AmbientFloor 默认值 {value} 过高：按该 Shader 新建材质会把夜色压灰");
+            }
+        }
+
+        [Test]
+        public void 参数暴露_三个时段必须各自可调()
         {
             var go = new GameObject("EnvironmentDirectorProbe", typeof(EnvironmentDirector));
 
@@ -266,10 +305,12 @@ namespace DeepseaOil.Tests
             {
                 var serialized = new SerializedObject(go.GetComponent<EnvironmentDirector>());
 
-                SerializedProperty overrides = serialized.FindProperty("customTimeOfDayOverrides");
+                AssertPeriod(serialized, "daySetting", "白昼");
+                AssertPeriod(serialized, "duskSetting", "黄昏");
+                AssertPeriod(serialized, "nightSetting", "夜晚");
 
-                Assert.IsNotNull(overrides, "EnvironmentDirector 没暴露 customTimeOfDayOverrides：策划只能改代码调昼夜");
-                Assert.IsTrue(overrides.isArray, "customTimeOfDayOverrides 不是数组");
+                Assert.IsNotNull(serialized.FindProperty("initialTimeOfDay"), "initialTimeOfDay 没暴露");
+                Assert.IsNotNull(serialized.FindProperty("transitionDuration"), "transitionDuration 没暴露");
             }
             finally
             {
@@ -320,9 +361,11 @@ namespace DeepseaOil.Tests
                 var serialized = new SerializedObject(go.GetComponent<Fountain>());
                 SerializedProperty kind = serialized.FindProperty("kind");
                 SerializedProperty intensity = serialized.FindProperty("selfLightIntensity");
+                SerializedProperty useOverride = serialized.FindProperty("overrideSelfLightColor");
 
                 Assert.IsNotNull(kind, "找不到 Fountain.kind");
                 Assert.IsNotNull(intensity, "找不到 Fountain.selfLightIntensity");
+                Assert.IsNotNull(useOverride, "泉眼缺颜色覆盖开关：只剩 Alpha=0 隐式哨兵时，填了色也不生效");
                 Assert.Greater(intensity.floatValue, 0f, "泉眼自发光默认强度为 0：三个泉眼在夜里依旧是黑的");
 
                 Color water = ResolveFountainColor(serialized, kind, FountainKind.Water);
@@ -368,6 +411,32 @@ namespace DeepseaOil.Tests
             }
         }
 
+        [Test]
+        public void 泉眼光源_必须每帧重读组件参数()
+        {
+            string source = File.ReadAllText("Assets/Scripts/Presentation/Root/CombatRoot.cs");
+
+            int sync = source.IndexOf("SyncFountainLights();", StringComparison.Ordinal);
+            int tick = source.IndexOf("_tileLightmap?.Tick(Time.time, deltaTime);", StringComparison.Ordinal);
+
+            Assert.Greater(sync, 0, "CombatRoot 缺 SyncFountainLights：泉眼强度只在装配时读一次，改完必须重进 Play");
+            Assert.Less(sync, tick, "泉眼参数必须在光场 Tick 之前同步：晚一步这一帧仍用旧强度");
+        }
+
+        private static void AssertPeriod(SerializedObject serialized, string name, string label)
+        {
+            SerializedProperty period = serialized.FindProperty(name);
+
+            Assert.IsNotNull(period, $"{label}外观没暴露在 Inspector 上（{name}）：调色只能改代码");
+            Assert.IsNotNull(period.FindPropertyRelative("LightColor"), $"{name} 缺 LightColor");
+            Assert.IsNotNull(period.FindPropertyRelative("Intensity"), $"{name} 缺 Intensity");
+        }
+
+        private static float Luminance(Color color)
+        {
+            return 0.2126f * color.r + 0.7152f * color.g + 0.0722f * color.b;
+        }
+
         private static Color ResolveFountainColor(SerializedObject serialized, SerializedProperty kind, FountainKind value)
         {
             kind.intValue = (int)value;
@@ -386,7 +455,7 @@ namespace DeepseaOil.Tests
 
             float floor = material.GetFloat("_AmbientFloor");
 
-            Assert.LessOrEqual(floor, AmbientFloorCeiling, $"{path} 的暗部保底 {floor} 高于夜景基准：夜晚会被取大保底压平成中性灰");
+            Assert.LessOrEqual(floor, AmbientFloorCeiling, $"{path} 的暗部保底 {floor} 高于 {AmbientFloorCeiling}：夜里三个通道会被抬平、色相变灰");
         }
     }
 }

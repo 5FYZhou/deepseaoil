@@ -6,7 +6,7 @@ Shader "DeepseaOil/2D/CelLit"
         _Color ("Tint (整体染色)", Color) = (1, 1, 1, 1)
 
         [Header(Light)]
-        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.20
+        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.02
         _TileLightBoost ("Tile Light Boost (光场增强倍率)", Range(0.5, 3.0)) = 1.35
 
         [Header(Self Emission Boost)]
@@ -126,7 +126,7 @@ Shader "DeepseaOil/2D/CelLit"
                 half4 envLight = half4(1, 1, 1, 1);
                 #endif
 
-                // 1. 暗部下限锁定：_AmbientFloor 必须低于夜晚基准，否则 max 会把整片夜色压平成中性灰
+                // 1. 暗部保险丝：保底按通道取大，值一高就把夜色三通道一起抬平、色相抹成中性灰（须 ≤ 0.02）
                 envLight.rgb = max(envLight.rgb, half3(_AmbientFloor, _AmbientFloor, _AmbientFloor));
 
                 // 2. 网格光场采样：世界坐标 → 光照图 UV（纯净双线性羽化，不做分阶，色块交还给原画贴图）

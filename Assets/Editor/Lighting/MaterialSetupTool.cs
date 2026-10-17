@@ -214,8 +214,8 @@ namespace DeepseaOil.EditorTools.Lighting
                 material.shader = shader;
             }
 
-            // 暗部保底必须低于夜晚基准 0.20：取大保底高于夜色会把整片夜晚压平成中性灰
-            if (material.HasProperty("_AmbientFloor")) material.SetFloat("_AmbientFloor", 0.1f);
+            // 暗部保底是保险丝：取大值一高就把夜色三通道抬平、色相抹成中性灰，故压在 0.02
+            if (material.HasProperty("_AmbientFloor")) material.SetFloat("_AmbientFloor", 0.02f);
 
             EditorUtility.SetDirty(material);
 

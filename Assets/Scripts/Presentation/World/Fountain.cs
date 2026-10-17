@@ -42,9 +42,12 @@ namespace DeepseaOil.Presentation.World
         [SerializeField] private float autoTriggerRadius = 1.5f;
 
         [Header("自发光")]
-        [Tooltip("光色覆盖：Alpha=0 表示按种类自动取色（水=青 / 土=琥珀 / 生命=翠绿）")]
+        [Tooltip("勾上才用下面的光色覆盖；不勾 = 按种类自动取色（水=青 / 土=琥珀 / 生命=翠绿）")]
+        [SerializeField] private bool overrideSelfLightColor;
+
+        [Tooltip("光色覆盖：仅在勾上上一项时生效（Alpha 不参与判定）")]
         [ColorUsage(false, true)]
-        [SerializeField] private Color selfLightOverride = new Color(0f, 0f, 0f, 0f);
+        [SerializeField] private Color selfLightOverride = new Color(1f, 0.72f, 0.35f, 1f);
 
         [Tooltip("自发光强度（格心峰值）；0 = 不发光。光按格扩散，泉眼因此也会照亮四周地面")]
         [Range(0f, 1.5f)]
@@ -67,7 +70,7 @@ namespace DeepseaOil.Presentation.World
 
         public float SelfLightPulseDepth => selfLightPulseDepth;
 
-        public Color SelfLightColor => selfLightOverride.a > 0f ? selfLightOverride : DefaultLightColor(kind);
+        public Color SelfLightColor => overrideSelfLightColor ? selfLightOverride : DefaultLightColor(kind);
 
         private static Color DefaultLightColor(FountainKind fountainKind)
         {

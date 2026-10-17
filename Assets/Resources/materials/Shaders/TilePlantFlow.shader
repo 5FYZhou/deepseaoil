@@ -24,7 +24,7 @@ Shader "DeepseaOil/2D/TilePlantFlow"
         _ColorMaskWeight ("Color/Lum Mask Influence (叶片特征权重)", Range(0.0, 1.0)) = 0.5    // 叶片色彩特征权重
 
         [Header(Light)]
-        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.20
+        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.02
         _TileLightBoost ("Tile Light Boost (光场增强倍率)", Range(0.5, 3.0)) = 1.35
 
     }
@@ -133,6 +133,7 @@ Shader "DeepseaOil/2D/TilePlantFlow"
                 half4 envLight = half4(1, 1, 1, 1);
                 #endif
 
+                // 暗部保险丝：保底按通道取大，值一高就把夜色三通道一起抬平、色相抹成中性灰（须 ≤ 0.02）
                 envLight.rgb = max(envLight.rgb, half3(_AmbientFloor, _AmbientFloor, _AmbientFloor));
 
                 float2 gridUV = (input.worldPos - _TileLightmapParams.xy) / max(_TileLightmapParams.zw, 0.0001);
