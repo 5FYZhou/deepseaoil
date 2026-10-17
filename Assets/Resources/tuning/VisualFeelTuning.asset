@@ -24,6 +24,11 @@ MonoBehaviour:
   blastShakeAmplitudeMin: 0.4
   blastShakeAmplitudeMax: 1
   blastShakeDuration: 0.16
+  steamImpulseIntensity: 0.6
+  steamImpulseColor: {r: 1, g: 0.95, b: 0.85, a: 1}
+  arcImpulseIntensity: 0.35
+  arcImpulseColor: {r: 0.5882353, g: 0.627451, b: 1, a: 1}
+  arcImpulseRadius: 0
   dustSpeedThreshold: 0.8
   dustInterval: 0.14
   dustReferenceSpeed: 8

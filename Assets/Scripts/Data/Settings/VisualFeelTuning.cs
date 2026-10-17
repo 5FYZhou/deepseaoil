@@ -49,6 +49,24 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("蒸汽爆轰震屏时长（秒）")]
         public float blastShakeDuration = 0.16f;
 
+        [Header("网格光脉冲")]
+        [Tooltip("蒸汽爆轰的光强倍数：1＝纯白，1.8 会把中心压成过曝白核")]
+        public float steamImpulseIntensity = 1.8f;
+
+        [Tooltip("蒸汽爆轰的暖白色（HDR）：冷蓝底色上偏暖才不会发脏")]
+        [ColorUsage(false, true)]
+        public Color steamImpulseColor = new Color(1.0f, 0.95f, 0.85f, 1f);
+
+        [Tooltip("电弧的光强倍数：1.4 到白但不过曝；超过 1.6 会洗成纯白，淡蓝紫就没了")]
+        public float arcImpulseIntensity = 1.4f;
+
+        [Tooltip("电弧颜色：定色红线 #96A0FF，改它等于丢掉电弧的识别度")]
+        [ColorUsage(false, true)]
+        public Color arcImpulseColor = new Color(150f / 255f, 160f / 255f, 1f, 1f);
+
+        [Tooltip("电弧脉冲半径（世界单位）：0＝只点亮被击穿的那一格")]
+        public float arcImpulseRadius = 0f;
+
         [Header("扬尘")]
         [Tooltip("低于此速度（单位/秒）不扬尘：避免静止抖动喷粒子")]
         public float dustSpeedThreshold = 0.8f;

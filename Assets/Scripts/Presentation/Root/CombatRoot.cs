@@ -987,6 +987,8 @@ namespace DeepseaOil.Presentation
             ctx.Tint = new Color(0.92f, 0.96f, 1f, 0.85f);
             EffectModule.Play(EffectId.SteamBlast, in ctx);
 
+            _tileLightmap?.AddImpulse(evt.Center, feel.steamImpulseColor, feel.steamImpulseIntensity, evt.Radius);
+
             // 半径映射到 0.4..1：ScreenShakeDriver 自持 Clamp01，塞原始半径会被拍成恒定满档
             float shake = Mathf.Lerp(feel.blastShakeAmplitudeMin, feel.blastShakeAmplitudeMax, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
 
@@ -1005,7 +1007,13 @@ namespace DeepseaOil.Presentation
             if (evt.IsFire)
                 EffectModule.Play(EffectId.FlameEmbers, in ctx);
             else
+            {
                 EffectModule.Play(EffectId.ChainShock, in ctx);
+
+                VisualFeelTuning feel = ConfigModule.VisualFeel;
+
+                _tileLightmap?.AddImpulse(evt.Point, feel.arcImpulseColor, feel.arcImpulseIntensity, feel.arcImpulseRadius);
+            }
         }
 
         private void OnTileStateChanged(TileStateChanged evt)

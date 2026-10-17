@@ -91,6 +91,11 @@ namespace DeepseaOil.Presentation.Lighting
         [Range(0.05f, 2f)]
         [SerializeField] private float steadyPulseHertz = 0.35f;
 
+        [Header("瞬态脉冲")]
+        [Tooltip("脉冲指数衰减速率：数值越大熄灭越快，14 约在 0.18 秒内完全熄灭")]
+        [Range(6f, 30f)]
+        [SerializeField] private float impulseDecayRate = 14f;
+
         private struct SteadyEmitter
         {
             public Vector2 Position;
@@ -113,6 +118,12 @@ namespace DeepseaOil.Presentation.Lighting
         private float[] _workR;
         private float[] _workG;
         private float[] _workB;
+
+        // 脉冲独立成账：FillSources 每帧会把工作区清零重写，混在一起会被火焰直接抹掉
+        private float[] _impulseR;
+        private float[] _impulseG;
+        private float[] _impulseB;
+        private bool _hasActiveImpulse;
 
         private Color32[] _pixels;
         private Texture2D _texture;
@@ -170,6 +181,9 @@ namespace DeepseaOil.Presentation.Lighting
             _workR = new float[_texels];
             _workG = new float[_texels];
             _workB = new float[_texels];
+            _impulseR = new float[_texels];
+            _impulseG = new float[_texels];
+            _impulseB = new float[_texels];
             _pixels = new Color32[_texels];
 
             // linear: 必须为 true —— 工程是 Linear 空间，标成 sRGB 会在采样时把光强再解码一次，衰减全部走形
@@ -219,6 +233,8 @@ namespace DeepseaOil.Presentation.Lighting
 
             Propagate();
 
+            DecayImpulses(deltaTime);
+
             Upload();
         }
 
@@ -233,6 +249,15 @@ namespace DeepseaOil.Presentation.Lighting
                 _workB[i] = 0f;
                 _pixels[i] = default;
             }
+
+            if (_impulseR != null)
+            {
+                System.Array.Clear(_impulseR, 0, _texels);
+                System.Array.Clear(_impulseG, 0, _texels);
+                System.Array.Clear(_impulseB, 0, _texels);
+            }
+
+            _hasActiveImpulse = false;
 
             EmitterCellCount = 0;
             BlockedCellCount = 0;
@@ -292,8 +317,71 @@ namespace DeepseaOil.Presentation.Lighting
         /// <summary>当前登记的道具光源数</summary>
         public int SteadyEmitterCount => _steadyEmitters.Count;
 
-        // 空转判据必须含道具光：只看火/电格会在"场上只有泉眼"时把整条扩散退化成不刷
-        private bool HasEmitters => EmitterCellCount > 0 || _steadyEmitters.Count > 0;
+        /// <summary>向指定位置注入瞬态光脉冲（半径 > 0 为径向范围光，&lt;= 0 为单格点光源）</summary>
+        /// <remarks>intensity 是光强倍数：1 已到纯白，1.8 会把中心压成过曝白核；逐通道取大而非累加，同格连打两次只记最亮的一次</remarks>
+        public void AddImpulse(Vector2 worldPos, Color color, float intensity, float radius = 0f)
+        {
+            if (!_attached || intensity <= 0f) return;
+
+            Vector3Int center = _geometry.WorldToCell(worldPos);
+            float cellSize = _geometry.CellSize > 0f ? _geometry.CellSize : 1f;
+            int reach = radius > 0f ? Mathf.CeilToInt(radius / cellSize) : 0;
+            float r = color.r * intensity;
+            float g = color.g * intensity;
+            float b = color.b * intensity;
+
+            if (reach == 0)
+            {
+                int idx = CellToIndex(center);
+
+                if (idx < 0) return;
+
+                if (r > _impulseR[idx]) _impulseR[idx] = r;
+                if (g > _impulseG[idx]) _impulseG[idx] = g;
+                if (b > _impulseB[idx]) _impulseB[idx] = b;
+
+                _hasActiveImpulse = true;
+
+                return;
+            }
+
+            float reachUnits = reach * cellSize;
+            float reachSqr = reachUnits * reachUnits;
+            Vector2 centerPos = _geometry.CellCenter(center);
+
+            for (int dy = -reach; dy <= reach; dy++)
+            {
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    Vector3Int cell = new Vector3Int(center.x + dx, center.y + dy, center.z);
+                    int idx = CellToIndex(cell);
+
+                    if (idx < 0) continue;
+
+                    Vector2 delta = _geometry.CellCenter(cell) - centerPos;
+                    float distSqr = delta.sqrMagnitude;
+
+                    if (distSqr > reachSqr) continue;
+
+                    float falloff = 1f - Mathf.Sqrt(distSqr) / (reachUnits + 0.001f);
+
+                    if (falloff <= 0f) continue;
+
+                    float fr = r * falloff;
+                    float fg = g * falloff;
+                    float fb = b * falloff;
+
+                    if (fr > _impulseR[idx]) _impulseR[idx] = fr;
+                    if (fg > _impulseG[idx]) _impulseG[idx] = fg;
+                    if (fb > _impulseB[idx]) _impulseB[idx] = fb;
+
+                    _hasActiveImpulse = true;
+                }
+            }
+        }
+
+        // 空转判据必须含道具光与瞬态脉冲：只看火/电格会在"场上只剩泉眼或一次爆炸闪光"时把整条扩散退化成不刷
+        private bool HasEmitters => EmitterCellCount > 0 || _steadyEmitters.Count > 0 || _hasActiveImpulse;
 
         /// <summary>光照图的世界矩形：xy = 左下角世界坐标，zw = 宽高（世界单位）；IsValid 为 false 返回全零</summary>
         /// <remarks>角点取格心减半格：纹素中心必须落在格心上，否则整张光场偏移半格</remarks>
@@ -404,6 +492,48 @@ namespace DeepseaOil.Presentation.Lighting
 
                 MaxInto(index, emitter.Color.r * emitter.Intensity * pulse, emitter.Color.g * emitter.Intensity * pulse, emitter.Color.b * emitter.Intensity * pulse);
             }
+
+            // 必须先并进工作区再 Propagate：脉冲要先成为源头，爆炸光才认得到墙体影子
+            if (_hasActiveImpulse)
+            {
+                for (int i = 0; i < _texels; i++)
+                {
+                    if (_impulseR[i] > _workR[i]) _workR[i] = _impulseR[i];
+                    if (_impulseG[i] > _workG[i]) _workG[i] = _impulseG[i];
+                    if (_impulseB[i] > _workB[i]) _workB[i] = _impulseB[i];
+                }
+            }
+        }
+
+        // 衰减放在 Propagate 之后：本帧先拿脉冲当源头烘进纹理，再把脉冲自己压暗一档留给下一帧
+        private void DecayImpulses(float deltaTime)
+        {
+            if (!_hasActiveImpulse) return;
+
+            float decay = Mathf.Exp(-impulseDecayRate * deltaTime);
+            float maxVal = 0f;
+
+            for (int i = 0; i < _texels; i++)
+            {
+                if (_impulseR[i] > 0.01f || _impulseG[i] > 0.01f || _impulseB[i] > 0.01f)
+                {
+                    _impulseR[i] *= decay;
+                    _impulseG[i] *= decay;
+                    _impulseB[i] *= decay;
+
+                    if (_impulseR[i] > maxVal) maxVal = _impulseR[i];
+                    if (_impulseG[i] > maxVal) maxVal = _impulseG[i];
+                    if (_impulseB[i] > maxVal) maxVal = _impulseB[i];
+                }
+                else
+                {
+                    _impulseR[i] = 0f;
+                    _impulseG[i] = 0f;
+                    _impulseB[i] = 0f;
+                }
+            }
+
+            if (maxVal < 0.01f) _hasActiveImpulse = false;
         }
 
         private void MaxInto(int index, float r, float g, float b)
