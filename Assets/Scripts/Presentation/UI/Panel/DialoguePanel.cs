@@ -17,6 +17,9 @@ namespace DeepseaOil.Presentation.UI
 
         public event Action ContinueRequested;
 
+        [SerializeField] private float charsPerSecond = 30f;
+        [SerializeField] private float popupFadeDuration = 0.18f;
+
         private Image _imgNPC;
         private TMP_Text _txtNPC;
         private Image _imgMachine;
@@ -26,6 +29,9 @@ namespace DeepseaOil.Presentation.UI
         private Image _imgPlayerPopup;
         private TMP_Text _txtPlayerPopup;
 
+        private Typewriter _typewriter;
+        private UIFader _faderNPCPopup;
+        private UIFader _faderPlayerPopup;
         private bool _awaitingContinue;
 
         public override void ShowMe()
@@ -49,6 +55,9 @@ namespace DeepseaOil.Presentation.UI
             _imgMachine = GetComponent<Image>("ImgMachine");
             _imgNPCPopup = GetComponent<Image>("ImgNPCPopup");
             _imgPlayerPopup = GetComponent<Image>("ImgPlayerPopup");
+            _typewriter = new Typewriter(this);
+            _faderNPCPopup = UIFader.Create(this, _imgNPCPopup != null ? _imgNPCPopup.gameObject : null);
+            _faderPlayerPopup = UIFader.Create(this, _imgPlayerPopup != null ? _imgPlayerPopup.gameObject : null);
             HideAllContent();
         }
 
@@ -65,6 +74,7 @@ namespace DeepseaOil.Presentation.UI
                     _imgNPC.raycastTarget = true;
                     _imgNPC.gameObject.SetActive(true);
                     _txtNPC.gameObject.SetActive(true);
+                    _typewriter.Play(_txtNPC, charsPerSecond);
                     break;
                 case DialogType.Machine:
                     if (_imgMachine == null || _txtMachine == null)
@@ -75,6 +85,7 @@ namespace DeepseaOil.Presentation.UI
                     _imgMachine.raycastTarget = true;
                     _imgMachine.gameObject.SetActive(true);
                     _txtMachine.gameObject.SetActive(true);
+                    _typewriter.Play(_txtMachine, charsPerSecond);
                     break;
                 default:
                     Debug.LogError($"[DialoguePanel] 不能用对话框显示类型 {line.Type}。", this);
@@ -95,8 +106,7 @@ namespace DeepseaOil.Presentation.UI
 
                     HidePopupContent();
                     _txtNPCPopup.text = line.Context;
-                    _imgNPCPopup.gameObject.SetActive(true);
-                    _txtNPCPopup.gameObject.SetActive(true);
+                    RevealPopup(_faderNPCPopup, _txtNPCPopup);
                     return true;
                 case DialogType.PlayerPopup:
                     if (_imgPlayerPopup == null || _txtPlayerPopup == null)
@@ -104,8 +114,7 @@ namespace DeepseaOil.Presentation.UI
 
                     HidePopupContent();
                     _txtPlayerPopup.text = line.Context;
-                    _imgPlayerPopup.gameObject.SetActive(true);
-                    _txtPlayerPopup.gameObject.SetActive(true);
+                    RevealPopup(_faderPlayerPopup, _txtPlayerPopup);
                     return true;
                 default:
                     Debug.LogError($"[DialoguePanel] 不能用弹窗显示类型 {line.Type}。", this);
@@ -116,6 +125,7 @@ namespace DeepseaOil.Presentation.UI
         public void HideDialogueContent()
         {
             _awaitingContinue = false;
+            _typewriter.Stop();
             SetVisible(_imgNPC, false);
             SetVisible(_txtNPC, false);
             SetVisible(_imgMachine, false);
@@ -124,24 +134,35 @@ namespace DeepseaOil.Presentation.UI
 
         public void HidePopupContent()
         {
-            SetVisible(_imgNPCPopup, false);
-            SetVisible(_txtNPCPopup, false);
-            SetVisible(_imgPlayerPopup, false);
-            SetVisible(_txtPlayerPopup, false);
+            _faderNPCPopup?.FadeOut(popupFadeDuration);
+            _faderPlayerPopup?.FadeOut(popupFadeDuration);
         }
+
+        public bool IsPopupVisible =>
+            (_faderNPCPopup != null && _faderNPCPopup.IsVisible)
+            || (_faderPlayerPopup != null && _faderPlayerPopup.IsVisible);
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (_typewriter.Complete()) return;
+
             if (!_awaitingContinue) return;
 
             _awaitingContinue = false;
             ContinueRequested?.Invoke();
         }
 
+        private void RevealPopup(UIFader fader, TMP_Text text)
+        {
+            SetVisible(text, true);
+            fader?.FadeIn(popupFadeDuration);
+        }
+
         private void HideAllContent()
         {
             HideDialogueContent();
-            HidePopupContent();
+            _faderNPCPopup?.HideImmediate();
+            _faderPlayerPopup?.HideImmediate();
         }
 
         private bool ReportMissingContent(string content)

@@ -32,6 +32,7 @@ namespace DeepseaOil.Presentation.UI
             switch (btnName)
             {
                 case "BtnStart":
+                    GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmAscensio);
                     GameRoot.Instance.UI.ShowPanel<TransitionPanel>();
                     GameRoot.Instance.Game.ChangeState(GameState.CG);
                     GameRoot.Instance.UI.GetPanel<TransitionPanel>((transition) =>
