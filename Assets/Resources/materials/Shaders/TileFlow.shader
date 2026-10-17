@@ -3,12 +3,13 @@ Shader "DeepseaOil/2D/TileFlow"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" { }
-        _Color ("Tint", Color) = (1, 1, 1, 1)
-        _FlowSpeed ("Flow Speed", Float) = 3
-        _FlowAmplitude ("Flow Amplitude", Range(0, 0.05)) = 0.012
-        _FlowFrequency ("Flow Frequency", Float) = 20
-        _PhaseNoise ("Phase Noise", Range(0, 1)) = 0
-        _AmbientFloor ("Ambient Floor", Range(0.0, 0.6)) = 0.20
+        _Color ("Tint (整体染色)", Color) = (1, 1, 1, 1)
+        _FlowSpeed ("Flow Speed (流动速度)", Float) = 3
+        _FlowAmplitude ("Flow Amplitude (流动位移幅度)", Range(0, 0.05)) = 0.012
+        _FlowFrequency ("Flow Frequency (波纹空间频度)", Float) = 20
+        _PhaseNoise ("Phase Noise (逐格相位打散)", Range(0, 1)) = 0
+        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.20
+        _TileLightBoost ("Tile Light Boost (光场增强倍率)", Range(0.5, 3.0)) = 1.35
     }
 
     SubShader
@@ -73,6 +74,7 @@ Shader "DeepseaOil/2D/TileFlow"
                 float _FlowFrequency;
                 float _PhaseNoise;
                 float _AmbientFloor;
+                float _TileLightBoost;
             CBUFFER_END
 
             // 全局量必须在 CBUFFER 之外：塞进 UnityPerMaterial 会破坏 SRP Batcher 的常量布局
@@ -128,7 +130,7 @@ Shader "DeepseaOil/2D/TileFlow"
                 float2 carryDelta = input.worldPos - _CarryLightPos.xy;
                 half3 carryLight = _CarryLightColor.rgb * (_CarryLightPos.w * exp2(-length(carryDelta) * _CarryLightPos.z));
 
-                half3 finalLight = max(max(envLight.rgb, tileLight * 1.35), carryLight * 1.35);
+                half3 finalLight = max(max(envLight.rgb, tileLight * _TileLightBoost), carryLight * _TileLightBoost);
 
                 half3 finalRgb = flowedColor.rgb * finalLight;
                 finalRgb *= flowedColor.a;

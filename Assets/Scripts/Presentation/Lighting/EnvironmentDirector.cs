@@ -13,10 +13,16 @@ namespace DeepseaOil.Presentation.Lighting
         [SerializeField] private Light2D globalLight = default;
 
         [Header("初始配置")]
+        [Tooltip("开局时段；选 Night 时全局光被压到 0.20，只有火光与随身光照得亮场景")]
         [SerializeField] private TimeOfDayKind initialTimeOfDay = TimeOfDayKind.Day;
 
-        [Tooltip("时段过渡插值时长（秒）")]
+        [Tooltip("时段过渡插值时长（秒）；0 会让昼夜切换瞬间跳变")]
+        [Range(0.1f, 10f)]
         [SerializeField] private float transitionDuration = 1.5f;
+
+        [Header("时段覆盖")]
+        [Tooltip("按 Kind 覆盖内置时段参数；数组里没写的时段继续用 TimeOfDaySetting.GetDefault 的内置值")]
+        [SerializeField] private TimeOfDaySetting[] customTimeOfDayOverrides = default;
 
         private TimeOfDaySetting _currentSetting;
         private TimeOfDaySetting _targetSetting;
@@ -34,7 +40,7 @@ namespace DeepseaOil.Presentation.Lighting
                 globalLight = GetComponentInChildren<Light2D>();
             }
 
-            _currentSetting = TimeOfDaySetting.GetDefault(initialTimeOfDay);
+            _currentSetting = ResolveSetting(initialTimeOfDay);
             _targetSetting = _currentSetting;
 
             ApplySettingDirectly(in _currentSetting);
@@ -68,7 +74,7 @@ namespace DeepseaOil.Presentation.Lighting
         {
             if (_targetSetting.Kind == kind && !_isTransitioning) return;
 
-            _targetSetting = TimeOfDaySetting.GetDefault(kind);
+            _targetSetting = ResolveSetting(kind);
             _transitionTime = 0f;
             _isTransitioning = true;
         }
@@ -77,10 +83,24 @@ namespace DeepseaOil.Presentation.Lighting
         public void SetTimeOfDayImmediate(TimeOfDayKind kind)
         {
             _isTransitioning = false;
-            _currentSetting = TimeOfDaySetting.GetDefault(kind);
+            _currentSetting = ResolveSetting(kind);
             _targetSetting = _currentSetting;
 
             ApplySettingDirectly(in _currentSetting);
+        }
+
+        /// <summary>取该时段的生效参数：Inspector 覆盖优先，缺项回落内置表</summary>
+        private TimeOfDaySetting ResolveSetting(TimeOfDayKind kind)
+        {
+            if (customTimeOfDayOverrides != null)
+            {
+                for (int i = 0; i < customTimeOfDayOverrides.Length; i++)
+                {
+                    if (customTimeOfDayOverrides[i].Kind == kind) return customTimeOfDayOverrides[i];
+                }
+            }
+
+            return TimeOfDaySetting.GetDefault(kind);
         }
 
         private void ApplySettingDirectly(in TimeOfDaySetting setting)
@@ -89,6 +109,20 @@ namespace DeepseaOil.Presentation.Lighting
 
             globalLight.color = setting.LightColor;
             globalLight.intensity = setting.Intensity;
+        }
+
+        private void OnValidate()
+        {
+            if (customTimeOfDayOverrides == null) return;
+
+            for (int i = 0; i < customTimeOfDayOverrides.Length; i++)
+            {
+                // 新加元素的默认色是 (0,0,0,0)：alpha 为 0 只可能是"加了没填值"，照写会让该时段全局光纯黑
+                if (customTimeOfDayOverrides[i].LightColor.a <= 0f)
+                {
+                    Debug.LogWarning($"[Light] 时段覆盖第 {i} 条的 Light Color 未填写（alpha=0）：该时段会把全局光写成纯黑。", this);
+                }
+            }
         }
     }
 }

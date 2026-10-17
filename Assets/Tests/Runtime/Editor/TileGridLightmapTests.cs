@@ -185,6 +185,108 @@ namespace DeepseaOil.Tests
             }
         }
 
+        [Test]
+        public void 参数暴露_光照常数默认值必须与旧硬编码逐位对齐()
+        {
+            var go = new GameObject("TileGridLightmapTuningProbe", typeof(TileGridLightmap));
+
+            try
+            {
+                var serialized = new SerializedObject(go.GetComponent<TileGridLightmap>());
+
+                SerializedProperty baseProp = serialized.FindProperty("fireBreathBase");
+                SerializedProperty exp = serialized.FindProperty("diagonalTransmissionExponent");
+                SerializedProperty jitter = serialized.FindProperty("electricJitterHertz");
+                SerializedProperty floor = serialized.FindProperty("electricPulseFloor");
+                SerializedProperty depth = serialized.FindProperty("electricPulseDepth");
+                SerializedProperty fire = serialized.FindProperty("fireSourceColor");
+                SerializedProperty electric = serialized.FindProperty("electricSourceColor");
+
+                Assert.IsNotNull(baseProp, "找不到 fireBreathBase");
+                Assert.IsNotNull(exp, "找不到 diagonalTransmissionExponent");
+                Assert.IsNotNull(jitter, "找不到 electricJitterHertz");
+                Assert.IsNotNull(floor, "找不到 electricPulseFloor");
+                Assert.IsNotNull(depth, "找不到 electricPulseDepth");
+                Assert.IsNotNull(fire, "找不到 fireSourceColor");
+                Assert.IsNotNull(electric, "找不到 electricSourceColor");
+
+                Assert.AreEqual(1f, baseProp.floatValue, 1e-4f, "呼吸基准被改动：默认必须等于旧的 1.0");
+                Assert.AreEqual(1.41421356f, exp.floatValue, 1e-4f, "对角指数被挪到 0.707：45° 菱形会回来");
+                Assert.AreEqual(18f, jitter.floatValue, 1e-4f, "电弧频率基线被改动");
+                Assert.AreEqual(0.85f, floor.floatValue, 1e-4f, "电光下限基线被改动");
+                Assert.AreEqual(0.15f, depth.floatValue, 1e-4f, "电光幅度基线被改动");
+
+                Color fireCol = fire.colorValue;
+                Assert.AreEqual(1f, fireCol.r, 1e-3f, "火光红通道基线被改动");
+                Assert.AreEqual(0.549f, fireCol.g, 1e-3f, "火光绿通道基线被改动");
+                Assert.AreEqual(0.259f, fireCol.b, 1e-3f, "火光蓝通道基线被改动");
+
+                Color electricCol = electric.colorValue;
+                Assert.AreEqual(0.490f, electricCol.r, 1e-3f, "电光红通道基线被改动");
+                Assert.AreEqual(0.976f, electricCol.g, 1e-3f, "电光绿通道基线被改动");
+                Assert.AreEqual(1f, electricCol.b, 1e-3f, "电光蓝通道基线被改动");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void 参数暴露_着色器新增系数必须同时写进属性与常量缓冲()
+        {
+            string[] paths =
+            {
+                "Assets/Resources/materials/Shaders/CelLit.shader",
+                "Assets/Resources/materials/Shaders/TileFlow.shader",
+                "Assets/Resources/materials/Shaders/TilePlantFlow.shader",
+            };
+
+            for (int i = 0; i < paths.Length; i++)
+            {
+                string source = File.ReadAllText(paths[i]);
+
+                StringAssert.Contains("_TileLightBoost (\"Tile Light Boost\"", source, $"{paths[i]} 的 _TileLightBoost 没写进 Properties：材质面板调不到");
+                AssertInCBuffer(source, paths[i], "_TileLightBoost");
+            }
+
+            string celLit = File.ReadAllText(paths[0]);
+
+            StringAssert.Contains("_RimAlphaWeight (\"Rim Alpha Weight\"", celLit, "CelLit 的 _RimAlphaWeight 没写进 Properties");
+            AssertInCBuffer(celLit, paths[0], "_RimAlphaWeight");
+        }
+
+        [Test]
+        public void 参数暴露_时段参数必须可由Inspector覆盖()
+        {
+            var go = new GameObject("EnvironmentDirectorProbe", typeof(EnvironmentDirector));
+
+            try
+            {
+                var serialized = new SerializedObject(go.GetComponent<EnvironmentDirector>());
+
+                SerializedProperty overrides = serialized.FindProperty("customTimeOfDayOverrides");
+
+                Assert.IsNotNull(overrides, "EnvironmentDirector 没暴露 customTimeOfDayOverrides：策划只能改代码调昼夜");
+                Assert.IsTrue(overrides.isArray, "customTimeOfDayOverrides 不是数组");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        private static void AssertInCBuffer(string source, string path, string name)
+        {
+            int start = source.IndexOf("CBUFFER_START(UnityPerMaterial)", StringComparison.Ordinal);
+            int end = source.IndexOf("CBUFFER_END", StringComparison.Ordinal);
+            int decl = source.IndexOf($"float {name};", StringComparison.Ordinal);
+
+            Assert.Greater(start, 0, $"{path} 缺 UnityPerMaterial 常量缓冲");
+            Assert.Greater(decl, start, $"{path} 的 {name} 没写进 UnityPerMaterial：SRP Batcher 会断批");
+            Assert.Less(decl, end, $"{path} 的 {name} 落在常量缓冲之外：SRP Batcher 会断批");
+        }
+
         private static void AssertAmbientFloor(string path)
         {
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);

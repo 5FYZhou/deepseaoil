@@ -35,7 +35,9 @@ Material:
     - _FlashAmount: 0
     - _MetalIntensity: 0
     - _MetalThreshold: 0.85
+    - _RimAlphaWeight: 0.65
     - _RimThreshold: 0.92
+    - _TileLightBoost: 1.35
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _FlashColor: {r: 1, g: 1, b: 1, a: 1}

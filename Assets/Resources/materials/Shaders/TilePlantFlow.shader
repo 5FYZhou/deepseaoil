@@ -3,28 +3,29 @@ Shader "DeepseaOil/2D/TilePlantFlow"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" { }
-        _Color ("Tint", Color) = (1, 1, 1, 1)
+        _Color ("Tint (整体染色)", Color) = (1, 1, 1, 1)
 
         [Header(Root Anchor and Bending)]
-        _HeightCutoff ("Root Anchor Height", Range(0.0, 0.8)) = 0.35    // 根部硬锚定切分点
-        _HeightPower ("Tip Bending Power", Range(1.0, 4.0)) = 1.6       // 梢部弯曲柔韧指数
+        _HeightCutoff ("Root Anchor Height (根部锚定高度)", Range(0.0, 0.8)) = 0.35    // 根部硬锚定切分点
+        _HeightPower ("Tip Bending Power (梢部弯曲柔韧指数)", Range(1.0, 4.0)) = 1.6       // 梢部弯曲柔韧指数
 
         [Header(Wind Wave Macro)]
-        _WindSpeed ("Macro Wind Speed", Float) = 2.2                    // 宏观风速
-        _WindStrength ("Wind Sway Strength", Range(0.0, 0.08)) = 0.025  // 水平摆动幅度
-        _WindFrequency ("Wind Spatial Frequency", Float) = 1.8          // 风场波长频度
-        _WindDirection ("Wind Direction", Vector) = (1.0, 0.15, 0, 0)   // 风向 X, Y
+        _WindSpeed ("Macro Wind Speed (宏观风速)", Float) = 2.2                    // 宏观风速
+        _WindStrength ("Wind Sway Strength (水平摆动幅度)", Range(0.0, 0.08)) = 0.025  // 水平摆动幅度
+        _WindFrequency ("Wind Spatial Frequency (风场波长频度)", Float) = 1.8          // 风场波长频度
+        _WindDirection ("Wind Direction (风向 XY)", Vector) = (1.0, 0.15, 0, 0)   // 风向 X, Y
 
         [Header(Local Noise and Chaos)]
-        _NoiseMix ("Noise Mix", Range(0.0, 1.0)) = 0.5                  // 无序/有序混合比，推荐0.5
-        _GustSpeed ("Local Flutter Speed", Float) = 5.5                 // 高频微风颤动速率
-        _GustFrequency ("Local Flutter Frequency", Float) = 16.0        // 叶片微褶频次
+        _NoiseMix ("Noise Mix (有序无序混合比)", Range(0.0, 1.0)) = 0.5                  // 无序/有序混合比，推荐0.5
+        _GustSpeed ("Local Flutter Speed (高频微颤速率)", Float) = 5.5                 // 高频微风颤动速率
+        _GustFrequency ("Local Flutter Frequency (叶片微褶频次)", Float) = 16.0        // 叶片微褶频次
 
         [Header(Foliage Color Mask)]
-        _ColorMaskWeight ("Color/Lum Mask Influence", Range(0.0, 1.0)) = 0.5    // 叶片色彩特征权重
+        _ColorMaskWeight ("Color/Lum Mask Influence (叶片特征权重)", Range(0.0, 1.0)) = 0.5    // 叶片色彩特征权重
 
         [Header(Light)]
-        _AmbientFloor ("Ambient Floor", Range(0.0, 0.6)) = 0.20
+        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.20
+        _TileLightBoost ("Tile Light Boost (光场增强倍率)", Range(0.5, 3.0)) = 1.35
 
     }
 
@@ -94,6 +95,7 @@ Shader "DeepseaOil/2D/TilePlantFlow"
                 float _GustFrequency;
                 float _ColorMaskWeight;
                 float _AmbientFloor;
+                float _TileLightBoost;
             CBUFFER_END
 
             // 全局量必须在 CBUFFER 之外：塞进 UnityPerMaterial 会破坏 SRP Batcher 的常量布局
@@ -140,7 +142,7 @@ Shader "DeepseaOil/2D/TilePlantFlow"
                 float2 carryDelta = input.worldPos - _CarryLightPos.xy;
                 half3 carryLight = _CarryLightColor.rgb * (_CarryLightPos.w * exp2(-length(carryDelta) * _CarryLightPos.z));
 
-                half3 finalLight = max(max(envLight.rgb, tileLight * 1.35), carryLight * 1.35);
+                half3 finalLight = max(max(envLight.rgb, tileLight * _TileLightBoost), carryLight * _TileLightBoost);
 
                 // 2. 根部绝对锚定权重：UV.y 低于 Cutoff 严格为 0，向上按幂次平滑增强
                 float heightNormalized = saturate((uv.y - _HeightCutoff) / max(1.0 - _HeightCutoff, 0.001));

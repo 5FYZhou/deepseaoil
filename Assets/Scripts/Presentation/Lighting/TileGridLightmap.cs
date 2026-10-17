@@ -1,7 +1,6 @@
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using UnityEngine;
-using cfg.dso;
 
 namespace DeepseaOil.Presentation.Lighting
 {
@@ -12,8 +11,7 @@ namespace DeepseaOil.Presentation.Lighting
     {
         private const string TextureName = "TileGridLightmap_RT";
 
-        // 电 18Hz 阶跃抽搐（电弧本来就该抖）；火的呼吸频率改成可调序列化字段
-        private const float ElectricRate = 18f;
+        // 黄金分割低差异步进：电弧逐档阶跃靠它铺开，换成伪随机会连着重播同一档
         private const float GoldenRatio = 0.6180339f;
 
         // 超过这个纹素数，逐帧两趟扫描会开始吃主线程预算：照建，但要在日志里留痕
@@ -40,17 +38,47 @@ namespace DeepseaOil.Presentation.Lighting
         [Range(0.0f, 0.4f)]
         [SerializeField] private float obstacleTransmission = 0.20f;
 
+        [Tooltip("对角衰减指数：√2 时等值线接近正圆；取 0.707 会弱于两格正交的透光，菱形一点都消不掉")]
+        [Range(1.0f, 2.0f)]
+        [SerializeField] private float diagonalTransmissionExponent = DiagonalExponent;
+
         [Header("火光呼吸")]
         [Tooltip("呼吸频率（Hz）；超过 1.5Hz 就从呼吸变成闪烁")]
         [Range(0.1f, 3f)]
         [SerializeField] private float fireBreathHertz = 0.7f;
 
-        [Tooltip("呼吸深度：光强在 1-depth 与 1.0 之间摆动")]
+        [Tooltip("呼吸深度：光强在 (基准-深度) 与 基准 之间摆动")]
         [Range(0f, 0.4f)]
         [SerializeField] private float fireBreathDepth = 0.10f;
 
+        [Tooltip("呼吸基准强度：与深度联手决定火光平均亮度；调高更容易过曝成平顶")]
+        [Range(0.6f, 1.2f)]
+        [SerializeField] private float fireBreathBase = 1f;
+
+        [Tooltip("火光基色（HDR），与 TileLightDirector 光型表的火色同值；网格光场实际吃的是这一份")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color fireSourceColor = new Color(1f, 0.549f, 0.259f, 1f);
+
+        [Header("电弧抽搐")]
+        [Tooltip("电弧阶跃频率（Hz）；电弧本来就该抖，压到 5Hz 以下会变成呼吸")]
+        [Range(1f, 40f)]
+        [SerializeField] private float electricJitterHertz = 18f;
+
+        [Tooltip("电光强度下限：下限+幅度超过 1 就会过曝到纯白")]
+        [Range(0f, 1f)]
+        [SerializeField] private float electricPulseFloor = 0.85f;
+
+        [Tooltip("电光跳变幅度：每档在 下限 与 下限+幅度 之间硬阶跃")]
+        [Range(0f, 0.5f)]
+        [SerializeField] private float electricPulseDepth = 0.15f;
+
+        [Tooltip("电光基色（HDR），与 TileLightDirector 光型表的电色同值")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color electricSourceColor = new Color(0.490f, 0.976f, 1f, 1f);
+
         [Header("随身光源")]
         [Tooltip("跟着玩家走的微弱照明，颜色决定暖度")]
+        [ColorUsage(false, true)]
         [SerializeField] private Color carryLightColor = new Color(1f, 0.86f, 0.66f, 1f);
 
         [Tooltip("随身光源峰值强度；0 = 关闭。衰减速率跟随 Air Transmission")]
@@ -68,9 +96,6 @@ namespace DeepseaOil.Presentation.Lighting
 
         private Color32[] _pixels;
         private Texture2D _texture;
-
-        private Color _fireColor;
-        private Color _electricColor;
 
         private GridLogic _grid;
         private GridGeometry _geometry;
@@ -135,8 +160,6 @@ namespace DeepseaOil.Presentation.Lighting
                 wrapMode = TextureWrapMode.Clamp,
             };
 
-            CacheSourceColors();
-
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
 
             _attached = true;
@@ -168,9 +191,9 @@ namespace DeepseaOil.Presentation.Lighting
             // 一个发光格都没有且上一帧已经全黑：不必再刷一遍空纹理
             if (EmitterCellCount == 0 && !_wasLit) return;
 
-            float firePulse = 1f - fireBreathDepth + fireBreathDepth * Mathf.Sin(time * Mathf.PI * 2f * fireBreathHertz);
-            float electricStep = Mathf.Repeat(Mathf.Floor(time * ElectricRate) * GoldenRatio, 1f);
-            float electricPulse = 0.85f + 0.15f * electricStep;
+            float firePulse = fireBreathBase - fireBreathDepth + fireBreathDepth * Mathf.Sin(time * Mathf.PI * 2f * fireBreathHertz);
+            float electricStep = Mathf.Repeat(Mathf.Floor(time * electricJitterHertz) * GoldenRatio, 1f);
+            float electricPulse = electricPulseFloor + electricPulseDepth * electricStep;
 
             FillSources(firePulse, electricPulse);
 
@@ -248,13 +271,6 @@ namespace DeepseaOil.Presentation.Lighting
             _texture = null;
         }
 
-        private void CacheSourceColors()
-        {
-            // 光型与配色只在 TileLightDirector.TryGetContinuousLight 定义一份，这里只借色，不复制表
-            TileLightDirector.TryGetContinuousLight(TileStateType.BasicFire, out _, out _fireColor, out _, out _);
-            TileLightDirector.TryGetContinuousLight(TileStateType.BasicElectricity, out _, out _electricColor, out _, out _);
-        }
-
         private void OnTileStateChanged(TileStateChanged evt)
         {
             if (!_attached) return;
@@ -286,13 +302,13 @@ namespace DeepseaOil.Presentation.Lighting
 
         private void FillSources(float firePulse, float electricPulse)
         {
-            float fireR = _fireColor.r * firePulse;
-            float fireG = _fireColor.g * firePulse;
-            float fireB = _fireColor.b * firePulse;
+            float fireR = fireSourceColor.r * firePulse;
+            float fireG = fireSourceColor.g * firePulse;
+            float fireB = fireSourceColor.b * firePulse;
 
-            float electricR = _electricColor.r * electricPulse;
-            float electricG = _electricColor.g * electricPulse;
-            float electricB = _electricColor.b * electricPulse;
+            float electricR = electricSourceColor.r * electricPulse;
+            float electricG = electricSourceColor.g * electricPulse;
+            float electricB = electricSourceColor.b * electricPulse;
 
             for (int i = 0; i < _texels; i++)
             {
@@ -341,8 +357,8 @@ namespace DeepseaOil.Presentation.Lighting
         /// <remarks>对角一步按 a^√2 衰减，等值线才近似欧氏圆；墙体衰减按目的格判定，故光穿墙后再跨一格还要再乘一次空气透过率，墙背后才形成硬边阴影。</remarks>
         private void Propagate()
         {
-            float airDiagonal = DiagonalTransmission(airTransmission);
-            float obstacleDiagonal = DiagonalTransmission(obstacleTransmission);
+            float airDiagonal = DiagonalTransmission(airTransmission, diagonalTransmissionExponent);
+            float obstacleDiagonal = DiagonalTransmission(obstacleTransmission, diagonalTransmissionExponent);
 
             for (int y = 0; y < _height; y++)
             {
@@ -387,11 +403,16 @@ namespace DeepseaOil.Presentation.Lighting
             }
         }
 
-        /// <summary>对角一步的透过率</summary>
+        /// <summary>对角一步的透过率（按默认 √2 指数）</summary>
         /// <remarks>走对角等于走 √2 格，必须按 a^√2 衰减；取 a×0.707 会小于 a²，对角项永远输给两步正交，菱形一点都消不掉</remarks>
         public static float DiagonalTransmission(float axisTransmission)
         {
-            return Mathf.Pow(Mathf.Max(axisTransmission, 0.0001f), DiagonalExponent);
+            return DiagonalTransmission(axisTransmission, DiagonalExponent);
+        }
+
+        private static float DiagonalTransmission(float axisTransmission, float exponent)
+        {
+            return Mathf.Pow(Mathf.Max(axisTransmission, 0.0001f), exponent);
         }
 
         private void Harvest(int from, int to, float trans)

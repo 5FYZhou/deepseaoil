@@ -3,24 +3,26 @@ Shader "DeepseaOil/2D/CelLit"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
-        _Color ("Tint", Color) = (1, 1, 1, 1)
+        _Color ("Tint (整体染色)", Color) = (1, 1, 1, 1)
 
         [Header(Light)]
-        _AmbientFloor ("Ambient Floor", Range(0.0, 0.6)) = 0.20
+        _AmbientFloor ("Ambient Floor (暗部保底)", Range(0.0, 0.6)) = 0.20
+        _TileLightBoost ("Tile Light Boost (光场增强倍率)", Range(0.5, 3.0)) = 1.35
 
         [Header(Self Emission Boost)]
-        _EmissiveBoost ("Emissive Boost", Range(0.0, 1.5)) = 0.0
+        _EmissiveBoost ("Emissive Boost (自发光增益)", Range(0.0, 1.5)) = 0.0
 
         [Header(Rim and Metal Highlight)]
-        [Toggle] _EnableRim ("Enable Top Rim Highlight", Float) = 0
-        _RimThreshold ("Rim Threshold UV Y", Range(0.8, 1.0)) = 0.92
-        _RimColor ("Rim Highlight Color", Color) = (0.976, 0.808, 0.353, 1) // #F9CE5A 明黄
-        _MetalThreshold ("Metal Highlight Threshold", Range(0.7, 0.95)) = 0.85
-        _MetalIntensity ("Metal Highlight Intensity", Range(0.0, 1.0)) = 0.0
+        [Toggle] _EnableRim ("Enable Top Rim Highlight (顶端高光开关)", Float) = 0
+        _RimThreshold ("Rim Threshold UV Y (高光起始高度)", Range(0.8, 1.0)) = 0.92
+        _RimColor ("Rim Highlight Color (高光颜色)", Color) = (0.976, 0.808, 0.353, 1) // #F9CE5A 明黄
+        _RimAlphaWeight ("Rim Alpha Weight (高光按透明度加权)", Range(0.0, 1.0)) = 0.65
+        _MetalThreshold ("Metal Highlight Threshold (金属亮度阈值)", Range(0.7, 0.95)) = 0.85
+        _MetalIntensity ("Metal Highlight Intensity (金属反光强度)", Range(0.0, 1.0)) = 0.0
 
         [Header(Hit Flash Integration)]
-        _FlashAmount ("Flash Amount", Range(0.0, 1.0)) = 0.0
-        _FlashColor ("Flash Color", Color) = (1, 1, 1, 1)
+        _FlashAmount ("Flash Amount (受击闪白强度)", Range(0.0, 1.0)) = 0.0
+        _FlashColor ("Flash Color (受击闪白色)", Color) = (1, 1, 1, 1)
     }
 
     SubShader
@@ -85,8 +87,10 @@ Shader "DeepseaOil/2D/CelLit"
                 float _FlashAmount;
                 float _AmbientFloor;
                 float _EmissiveBoost;
+                float _TileLightBoost;
                 float _EnableRim;
                 float _RimThreshold;
+                float _RimAlphaWeight;
                 float _MetalThreshold;
                 float _MetalIntensity;
             CBUFFER_END
@@ -136,8 +140,8 @@ Shader "DeepseaOil/2D/CelLit"
                 float2 carryDelta = input.worldPos - _CarryLightPos.xy;
                 half3 carryLight = _CarryLightColor.rgb * (_CarryLightPos.w * exp2(-length(carryDelta) * _CarryLightPos.z));
 
-                // 4. 高反差取大：环境光是暗夜帷幕，网格光场是被撕开的那道火光（1.35 = 火光过曝余量）
-                half3 finalLight = max(max(envLight.rgb, tileLight * 1.35), carryLight * 1.35);
+                // 4. 高反差取大：环境光是暗夜帷幕，网格光场是被撕开的那道火光（_TileLightBoost = 火光过曝余量）
+                half3 finalLight = max(max(envLight.rgb, tileLight * _TileLightBoost), carryLight * _TileLightBoost);
 
                 half3 finalRgb = baseCol.rgb * finalLight;
 
@@ -147,7 +151,7 @@ Shader "DeepseaOil/2D/CelLit"
                 // 6. 顶端 UV 伪高光亮线
                 if (_EnableRim > 0.5 && input.uv.y > _RimThreshold)
                 {
-                    finalRgb = lerp(finalRgb, _RimColor.rgb, 0.65 * baseCol.a);
+                    finalRgb = lerp(finalRgb, _RimColor.rgb, _RimAlphaWeight * baseCol.a);
                 }
 
                 // 7. 金属亮度阈值阶梯反光
