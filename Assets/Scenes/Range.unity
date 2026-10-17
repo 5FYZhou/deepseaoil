@@ -21374,14 +21374,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   globalLight: {fileID: 1461937310}
-  initialTimeOfDay: 0
+  initialTimeOfDay: 2
   transitionDuration: 1.5
   daySetting:
     LightColor: {r: 1, g: 0.9646863, b: 0.8713672, a: 1}
     Intensity: 0.98
   duskSetting:
-    LightColor: {r: 1, g: 0.4392157, b: 0.2509804, a: 1}
-    Intensity: 0.75
+    LightColor: {r: 1, g: 0.39215687, b: 0.29411766, a: 1}
+    Intensity: 0.6
   nightSetting:
     LightColor: {r: 0, g: 0, b: 0.6784314, a: 1}
     Intensity: 0.25
@@ -21420,7 +21420,7 @@ MonoBehaviour:
   fireBreathHertz: 0.7
   fireBreathDepth: 0.1
   fireBreathBase: 1
-  fireSourceColor: {r: 1, g: 0.549, b: 0.259, a: 1}
+  fireSourceColor: {r: 1, g: 0.54901963, b: 0.47058824, a: 1}
   electricJitterHertz: 18
   electricPulseFloor: 0.85
   electricPulseDepth: 0.15
