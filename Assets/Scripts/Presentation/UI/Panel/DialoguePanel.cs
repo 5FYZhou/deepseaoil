@@ -179,7 +179,16 @@ namespace DeepseaOil.Presentation.UI
 
         protected override TxtStyle SetTxtStyle(string name)
         {
-            return TxtStyle.Dialogue;
+            switch (name)
+            {
+                case "TxtNPC":
+                case "TxtMachine":
+                    return TxtStyle.Dialogue1;
+                case "TxtNPCPopup":
+                case "TxtPlayerPopup":
+                    return TxtStyle.Dialogue2;
+            }
+            return TxtStyle.Dialogue1;
         }
 
     }

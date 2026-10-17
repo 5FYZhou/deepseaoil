@@ -77,8 +77,6 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnReturnMenu":
                     GameRoot.Instance.UI.HidePanel<SettingPanel>();
-                    GameRoot.Instance.Game.ChangeState(GameState.Menu);
-
                     EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, true));
                     break;
                 case "BtnSave":

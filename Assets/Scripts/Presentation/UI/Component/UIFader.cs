@@ -50,6 +50,14 @@ namespace DeepseaOil.Presentation.UI
             _group.gameObject.SetActive(false);
         }
 
+        public void ShowImmediate()
+        {
+            Stop();
+
+            _group.alpha = 1f;
+            _group.gameObject.SetActive(true);
+        }
+
         private void Fade(float target, float duration, bool deactivateWhenDone)
         {
             Stop();
