@@ -10,8 +10,6 @@ namespace DeepseaOil.Presentation.Visual
         /// <summary>瞄准反馈层（320），压着格效果、被格上角色盖住</summary>
         public const int Aim = 320;
 
-        public const int TileStateVfx = 330;
-
         public const int YSortBandStart = 400;
 
         public const int YSortBandEnd = 1000;

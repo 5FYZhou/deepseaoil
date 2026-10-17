@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using DeepseaOil.Foundation;
+using DeepseaOil.Presentation.Visual;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects.Drivers
 {
     /// <summary>粒子驱动，管理一个 EffectId 对应粒子预制体的播放、回收与池化</summary>
-    /// <remarks>单例型重复 Play 合并到当前实例（取最大强度、不重置计时），多实例型每次新建。回收：按估算时长计时，到点问一次 IsAlive(false)，超 +5s 强制回收。强度乘数属作者，须存下来只做相对缩放，见 _authoredSizeMul。池满走 CreateOrDrop，丢弃并节流警告，不用 DropSilently（未预热时会连第一次 Play 一起丢）。位置写世界坐标并保留预制体自带 z，缩放 = 预制体缩放 × ctx.Value，不按 ctx.Direction 旋转。</remarks>
+    /// <remarks>单例型重复 Play 合并到当前实例（取最大强度、不重置计时），多实例型每次新建。回收：按估算时长计时，到点问一次 IsAlive(false)，超 +5s 强制回收。池满走 CreateOrDrop，丢弃并节流警告，不用 DropSilently（未预热时会连第一次 Play 一起丢）。位置写世界坐标并保留预制体自带 z，缩放 = 预制体缩放 × ctx.Value，不按 ctx.Direction 旋转。</remarks>
     public sealed class ParticleDriver : IEffectDriver
     {
         /// <summary>Intensity=0 时粒子量与大小的缩放，相对预制体作者值，1 时原样播</summary>
@@ -19,11 +20,11 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private readonly string _assetKey;
         private readonly string _tag;
         private readonly bool _isSingleton;
+        private readonly bool _behindActors;
         private readonly Transform _root;
         private readonly int _maxSize;
         private readonly int _prewarm;
 
-        // 运行期状态
         private readonly Dictionary<int, ParticleInstance> _active = new Dictionary<int, ParticleInstance>();
         private readonly List<int> _recycleScratch = new List<int>();
 
@@ -53,13 +54,15 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             bool isSingleton = false,
             int maxSize = 16,
             int prewarm = 0,
-            string assetKey = null)
+            string assetKey = null,
+            bool behindActors = false)
         {
             _root = root;
             _isSingleton = isSingleton;
             _maxSize = maxSize > 0 ? maxSize : 1;
             _prewarm = prewarm < 0 ? 0 : prewarm;
             _assetKey = assetKey;
+            _behindActors = behindActors;
 
             string name = prefab != null ? prefab.name : assetKey;
             _tag = "ParticleDriver[" + (string.IsNullOrEmpty(name) ? "?" : name) + "]";
@@ -69,7 +72,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
         /// <summary>从装配表建驱动，资源稍后到位</summary>
         internal ParticleDriver(in EffectSpec spec, Transform root)
-            : this(null, root, spec.IsSingleton, spec.MaxSize, spec.Prewarm, spec.Key)
+            : this(null, root, spec.IsSingleton, spec.MaxSize, spec.Prewarm, spec.Key, spec.BehindActors)
         {
         }
 
@@ -110,7 +113,6 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 return EffectHandle.None;
             }
 
-            // 单例：已在播就合并到当前实例
             if (_isSingleton && _singleton != null)
             {
                 float merged = Mathf.Clamp01(ctx.Value);
@@ -146,14 +148,18 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             ApplyPlacement(go, in ctx);
 
-            // 盖住实体与本格覆盖物
-            int dynamicOrder = DeepseaOil.Presentation.Visual.RenderOrder.ActorOrder(ctx.Position.y) + 2;
+            // 贴地件压到角色之下，其余盖住实体与本格覆盖物：留在 Effect 层的粒子会盖住玩家
+            int dynamicOrder = RenderOrder.ActorOrder(ctx.Position.y) + (_behindActors ? -1 : 2);
 
             for (int i = 0; i < systems.Length; i++)
             {
                 ParticleSystemRenderer psr = systems[i].GetComponent<ParticleSystemRenderer>();
 
-                if (psr != null) psr.sortingOrder = dynamicOrder;
+                if (psr == null) continue;
+
+                if (_behindActors) psr.sortingLayerName = SortingLayerConsts.Actor;
+
+                psr.sortingOrder = dynamicOrder;
             }
 
             float value = Mathf.Clamp01(ctx.Value);

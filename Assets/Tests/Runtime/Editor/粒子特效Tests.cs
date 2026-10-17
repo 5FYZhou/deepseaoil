@@ -21,6 +21,7 @@ using DeepseaOil.Data;
 using DeepseaOil.Foundation;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Effects.Drivers;
+using DeepseaOil.Presentation.Visual;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -418,6 +419,31 @@ namespace DeepseaOil.Tests
             Vector2 zero = PopupDriver.ResolveSpawn(anchor, 0f, 0f, 0f, new Vector2(-1f, -1f));
             Assert.AreEqual(anchor.x, zero.x, 1e-6f, "两个旋钮归零＝回到旧行为");
             Assert.AreEqual(anchor.y, zero.y, 1e-6f, "锚高 0 时不得凭空抬升");
+        }
+
+        [Test]
+        public void D8_贴地件排序压到角色之下()
+        {
+            EffectModule.Init();
+
+            _prefab = new GameObject("D8_prefab", typeof(ParticleSystem));
+            _root = new GameObject("D8_root");
+
+            var driver = new ParticleDriver(_prefab, _root.transform,
+                isSingleton: false, maxSize: 2, prewarm: 0, assetKey: "effects/D8", behindActors: true);
+
+            EffectModule.Register(EffectId.Shake, driver);
+
+            _prefab.GetComponent<ParticleSystemRenderer>().sortingLayerName = SortingLayerConsts.Effect;
+
+            Vector2 at = new Vector2(0f, 2.5f);
+
+            Assert.IsTrue(EffectModule.Play(EffectId.Shake, EffectContext.At(at)).IsValid);
+
+            ParticleSystemRenderer psr = _root.transform.GetChild(0).GetComponent<ParticleSystemRenderer>();
+
+            Assert.AreEqual(SortingLayerConsts.Actor, psr.sortingLayerName, "贴地件必须落回 Actor 层");
+            Assert.AreEqual(RenderOrder.ActorOrder(at.y) - 1, psr.sortingOrder, "贴地件要比同 y 的角色低一档");
         }
 
         /// <summary>在测试根下造一具体：View 上是真身，ShadowView 上的不是。</summary>
