@@ -35,6 +35,11 @@ MonoBehaviour:
   popupAnchorHeight: 0.6
   popupJitterX: 0.3
   popupJitterY: 0.15
+  popupWhiten: 0.3
+  popupHold: 0.3
+  popupOutlineWidth: 0.2
+  popupOutlineColor: {r: 0.1, g: 0.05, b: 0.02, a: 0.5019608}
+  popupFontScale: 1
   hopPeakHeight: 0.25
   hopDuration: 0.28
   hopReferenceSpeed: 8

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using UnityEngine;
@@ -84,6 +85,22 @@ namespace DeepseaOil.Presentation.Lighting
         [Tooltip("随身光源峰值强度；0 = 关闭。衰减速率跟随 Air Transmission")]
         [Range(0f, 1f)]
         [SerializeField] private float carryLightIntensity = 0.5f;
+
+        [Header("道具自发光")]
+        [Tooltip("泉眼等道具共用的呼吸频率（Hz）：只给一个慢节拍，避免各道具各自乱闪")]
+        [Range(0.05f, 2f)]
+        [SerializeField] private float steadyPulseHertz = 0.35f;
+
+        private struct SteadyEmitter
+        {
+            public Vector2 Position;
+            public Color Color;
+            public float Intensity;
+            public float PulseDepth;
+        }
+
+        // 道具光与火/电格同走一条扩散：进列表后逐帧映射到格心，因此天然有墙体遮挡
+        private readonly List<SteadyEmitter> _steadyEmitters = new List<SteadyEmitter>();
 
         // 唯一真源：发光类别与光阻标记都由格子事件写入，逐帧只读，不重复查表
         private byte[] _kindMap;
@@ -189,13 +206,13 @@ namespace DeepseaOil.Presentation.Lighting
             PushCarryGlobals();
 
             // 一个发光格都没有且上一帧已经全黑：不必再刷一遍空纹理
-            if (EmitterCellCount == 0 && !_wasLit) return;
+            if (!HasEmitters && !_wasLit) return;
 
             float firePulse = fireBreathBase - fireBreathDepth + fireBreathDepth * Mathf.Sin(time * Mathf.PI * 2f * fireBreathHertz);
             float electricStep = Mathf.Repeat(Mathf.Floor(time * electricJitterHertz) * GoldenRatio, 1f);
             float electricPulse = electricPulseFloor + electricPulseDepth * electricStep;
 
-            FillSources(firePulse, electricPulse);
+            FillSources(firePulse, electricPulse, time);
 
             Propagate();
 
@@ -239,6 +256,33 @@ namespace DeepseaOil.Presentation.Lighting
         {
             _hasCarryLight = false;
         }
+
+        /// <summary>登记一个常驻道具光源（泉眼）；光按格扩散，所以会吃到墙体遮挡</summary>
+        /// <remarks>越界的道具静默跳过：它摆在地板外是关卡数据问题，不该在这里刷日志</remarks>
+        public void AddSteadyEmitter(Vector2 world, Color color, float intensity, float pulseDepth)
+        {
+            if (intensity <= 0f) return;
+
+            _steadyEmitters.Add(new SteadyEmitter
+            {
+                Position = world,
+                Color = color,
+                Intensity = intensity,
+                PulseDepth = Mathf.Clamp(pulseDepth, 0f, 0.9f),
+            });
+        }
+
+        /// <summary>清空道具光源登记；组合根重装配时先调它，避免同一口泉被登记两次</summary>
+        public void ClearSteadyEmitters()
+        {
+            _steadyEmitters.Clear();
+        }
+
+        /// <summary>当前登记的道具光源数</summary>
+        public int SteadyEmitterCount => _steadyEmitters.Count;
+
+        // 空转判据必须含道具光：只看火/电格会在"场上只有泉眼"时把整条扩散退化成不刷
+        private bool HasEmitters => EmitterCellCount > 0 || _steadyEmitters.Count > 0;
 
         /// <summary>光照图的世界矩形：xy = 左下角世界坐标，zw = 宽高（世界单位）；IsValid 为 false 返回全零</summary>
         /// <remarks>角点取格心减半格：纹素中心必须落在格心上，否则整张光场偏移半格</remarks>
@@ -300,7 +344,7 @@ namespace DeepseaOil.Presentation.Lighting
             _blockedMap[index] = blocked;
         }
 
-        private void FillSources(float firePulse, float electricPulse)
+        private void FillSources(float firePulse, float electricPulse, float time)
         {
             float fireR = fireSourceColor.r * firePulse;
             float fireG = fireSourceColor.g * firePulse;
@@ -333,6 +377,29 @@ namespace DeepseaOil.Presentation.Lighting
                         break;
                 }
             }
+
+            float steadyWave = Mathf.Sin(time * Mathf.PI * 2f * steadyPulseHertz);
+
+            for (int e = 0; e < _steadyEmitters.Count; e++)
+            {
+                SteadyEmitter emitter = _steadyEmitters[e];
+
+                // 道具与火/电可能落在同一格：逐通道取大，谁亮听谁的，不互相抹掉
+                int index = CellToIndex(_geometry.WorldToCell(emitter.Position));
+
+                if (index < 0) continue;
+
+                float pulse = 1f - emitter.PulseDepth + emitter.PulseDepth * steadyWave;
+
+                MaxInto(index, emitter.Color.r * emitter.Intensity * pulse, emitter.Color.g * emitter.Intensity * pulse, emitter.Color.b * emitter.Intensity * pulse);
+            }
+        }
+
+        private void MaxInto(int index, float r, float g, float b)
+        {
+            if (r > _workR[index]) _workR[index] = r;
+            if (g > _workG[index]) _workG[index] = g;
+            if (b > _workB[index]) _workB[index] = b;
         }
 
         /// <summary>随身光源走着色器全局：世界坐标连续推进，衰减曲线与火光同一条</summary>
@@ -440,7 +507,7 @@ namespace DeepseaOil.Presentation.Lighting
             _texture.SetPixels32(_pixels);
             _texture.Apply(false, false);
 
-            _wasLit = EmitterCellCount > 0;
+            _wasLit = HasEmitters;
         }
 
         private void PushGlobals()

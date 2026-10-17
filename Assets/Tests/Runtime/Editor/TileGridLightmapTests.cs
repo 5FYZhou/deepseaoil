@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Presentation.Lighting;
+using DeepseaOil.Presentation.World;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -285,6 +286,94 @@ namespace DeepseaOil.Tests
             Assert.Greater(start, 0, $"{path} 缺 UnityPerMaterial 常量缓冲");
             Assert.Greater(decl, start, $"{path} 的 {name} 没写进 UnityPerMaterial：SRP Batcher 会断批");
             Assert.Less(decl, end, $"{path} 的 {name} 落在常量缓冲之外：SRP Batcher 会断批");
+        }
+
+        [Test]
+        public void 角色预制体_身体必须使用受光材质()
+        {
+            string[] paths =
+            {
+                "Assets/Resources/enemies/Enemy_1.prefab",
+                "Assets/Resources/enemies/Enemy_2.prefab",
+                "Assets/Resources/scane_prebs/Player.prefab",
+            };
+
+            for (int i = 0; i < paths.Length; i++)
+            {
+                string source = File.ReadAllText(paths[i]);
+
+                StringAssert.Contains("4b9d1a76c3e24f8ea5d0b2c91e37a640", source, $"{paths[i]} 的身体没挂受光材质");
+
+                // SpriteFlashUnlit 不采样 _TileLightmap：挂回它，角色离火多远都是同一张原画
+                StringAssert.DoesNotContain(
+                    "d4b8e0f6a2c94f1d8b5e7a3c9f0d2e61", source, $"{paths[i]} 仍挂 SpriteFlashUnlit：角色不吃光照");
+            }
+        }
+
+        [Test]
+        public void 泉眼_三种kind必须各有光色且默认强度为正()
+        {
+            var go = new GameObject("FountainProbe", typeof(Fountain));
+
+            try
+            {
+                var serialized = new SerializedObject(go.GetComponent<Fountain>());
+                SerializedProperty kind = serialized.FindProperty("kind");
+                SerializedProperty intensity = serialized.FindProperty("selfLightIntensity");
+
+                Assert.IsNotNull(kind, "找不到 Fountain.kind");
+                Assert.IsNotNull(intensity, "找不到 Fountain.selfLightIntensity");
+                Assert.Greater(intensity.floatValue, 0f, "泉眼自发光默认强度为 0：三个泉眼在夜里依旧是黑的");
+
+                Color water = ResolveFountainColor(serialized, kind, FountainKind.Water);
+                Color earth = ResolveFountainColor(serialized, kind, FountainKind.Earth);
+                Color life = ResolveFountainColor(serialized, kind, FountainKind.Life);
+
+                Assert.AreNotEqual(water, earth, "水泉与土泉光色相同：夜里分不清是哪口泉");
+                Assert.AreNotEqual(earth, life, "土泉与生命泉光色相同");
+                Assert.AreNotEqual(water, life, "水泉与生命泉光色相同");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void 网格光照场_道具光源可以重复登记与清空()
+        {
+            var go = new GameObject("SteadyEmitterProbe", typeof(TileGridLightmap));
+
+            try
+            {
+                var lightmap = go.GetComponent<TileGridLightmap>();
+
+                Assert.AreEqual(0, lightmap.SteadyEmitterCount, "新建的光照场不该自带道具光");
+
+                lightmap.AddSteadyEmitter(Vector2.zero, Color.red, 0.5f, 0.15f);
+
+                Assert.AreEqual(1, lightmap.SteadyEmitterCount, "道具光没登记上：泉眼不会发光");
+
+                lightmap.AddSteadyEmitter(Vector2.zero, Color.red, 0f, 0.15f);
+
+                Assert.AreEqual(1, lightmap.SteadyEmitterCount, "强度为 0 的道具光不该占名额");
+
+                lightmap.ClearSteadyEmitters();
+
+                Assert.AreEqual(0, lightmap.SteadyEmitterCount, "清空失败：重装配会把同一口泉登记两次");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        private static Color ResolveFountainColor(SerializedObject serialized, SerializedProperty kind, FountainKind value)
+        {
+            kind.intValue = (int)value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            return ((Fountain)serialized.targetObject).SelfLightColor;
         }
 
         private static void AssertAmbientFloor(string path)

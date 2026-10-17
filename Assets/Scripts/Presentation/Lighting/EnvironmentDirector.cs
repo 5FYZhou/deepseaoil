@@ -96,7 +96,12 @@ namespace DeepseaOil.Presentation.Lighting
             {
                 for (int i = 0; i < customTimeOfDayOverrides.Length; i++)
                 {
-                    if (customTimeOfDayOverrides[i].Kind == kind) return customTimeOfDayOverrides[i];
+                    TimeOfDaySetting entry = customTimeOfDayOverrides[i];
+
+                    // alpha 为 0 = 加了元素没填色：丢弃该条并回落内置表，别把全局光写成纯黑
+                    if (entry.Kind != kind || entry.LightColor.a <= 0f) continue;
+
+                    return entry;
                 }
             }
 
@@ -117,10 +122,10 @@ namespace DeepseaOil.Presentation.Lighting
 
             for (int i = 0; i < customTimeOfDayOverrides.Length; i++)
             {
-                // 新加元素的默认色是 (0,0,0,0)：alpha 为 0 只可能是"加了没填值"，照写会让该时段全局光纯黑
+                // 新加元素的默认色是 (0,0,0,0)：alpha 为 0 只可能是"加了没填值"，该条会被丢弃并回落内置表
                 if (customTimeOfDayOverrides[i].LightColor.a <= 0f)
                 {
-                    Debug.LogWarning($"[Light] 时段覆盖第 {i} 条的 Light Color 未填写（alpha=0）：该时段会把全局光写成纯黑。", this);
+                    Debug.LogWarning($"[Light] 时段覆盖第 {i} 条的 Light Color 未填写（alpha=0）：已丢弃，该时段仍用内置表。", this);
                 }
             }
         }

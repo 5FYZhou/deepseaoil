@@ -705,6 +705,8 @@ namespace DeepseaOil.Presentation
 
         private void AttachFountains()
         {
+            _tileLightmap?.ClearSteadyEmitters();
+
             for (int i = 0; i < fountains.Length; i++)
             {
                 Fountain fountain = fountains[i];
@@ -712,6 +714,9 @@ namespace DeepseaOil.Presentation
                 if (fountain == null) continue;
 
                 fountain.Attach(_drops);
+
+                _tileLightmap?.AddSteadyEmitter(
+                    fountain.transform.position, fountain.SelfLightColor, fountain.SelfLightIntensity, fountain.SelfLightPulseDepth);
 
                 if (fountain.Kind != FountainKind.Life) continue;
 

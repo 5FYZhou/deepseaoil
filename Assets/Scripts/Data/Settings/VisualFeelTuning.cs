@@ -76,6 +76,16 @@ namespace DeepseaOil.Data.Settings
 
         [Tooltip("落点垂直随机半径（世界单位，±）：0＝固定")] public float popupJitterY = 0.08f;
 
+        [Tooltip("元素色向白插值的量＝飘字亮度：TMP 顶点色不能超过 1，提亮只能靠向白靠")] [Range(0f, 1f)] public float popupWhiten = 0.35f;
+
+        [Tooltip("生命周期前这一段比例保持满 alpha，之后才开始淡出：0＝立刻开始淡出（旧行为）")] [Range(0f, 0.9f)] public float popupHold = 0.35f;
+
+        [Tooltip("描边宽度（TMP 的 _OutlineWidth）：0＝无描边")] [Range(0f, 1f)] public float popupOutlineWidth = 0.2f;
+
+        [Tooltip("描边颜色：深棕在暖色地面上比纯黑更贴，也更像手绘描边")] public Color popupOutlineColor = new Color(0.1f, 0.05f, 0.02f, 1f);
+
+        [Tooltip("字号倍数：1＝预制体原字号。飘字仍不够醒目时优先调它")] [Range(0.5f, 2f)] public float popupFontScale = 1.15f;
+
         [Header("Z-Hop 伪高度")]
         [Tooltip("基准峰值高度（世界单位），Value=1 时的上飘高度")]
         public float hopPeakHeight = 0.25f;
