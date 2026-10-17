@@ -300,12 +300,6 @@ namespace DeepseaOil.Logic.Events
         }
     }
 
-    public readonly struct CGCompleted
-    {
-        public readonly CGType type;
-        public CGCompleted(CGType t) { type = t; }
-    }
-
     public readonly struct LevelStateChanged
     {
         public readonly LevelState Level;
@@ -362,6 +356,12 @@ namespace DeepseaOil.Logic.Events
             Success = success;
             Error = error;
         }
+    }
+
+    public struct StoryFlowStateChanged
+    {
+        public string state;
+        public StoryFlowStateChanged(string state) { this.state = state; }
     }
     #endregion
 }

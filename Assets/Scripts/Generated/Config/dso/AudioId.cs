@@ -14,9 +14,9 @@ namespace cfg.dso
     public enum AudioId
     {
         /// <summary>
-        /// 默认的bgm
+        /// 无
         /// </summary>
-        BgmNormal = 0,
+        None = 0,
         /// <summary>
         /// UI通用按钮点击
         /// </summary>

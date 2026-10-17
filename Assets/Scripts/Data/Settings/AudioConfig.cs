@@ -11,5 +11,7 @@ namespace DeepseaOil.Data.Settings
         public float sfxVolume;
         [Header("音频文件路径")]
         public string path;
+        [Header("切换bgm时淡入淡出的时间")]
+        public float bgmFadeDuration;
     }
 }

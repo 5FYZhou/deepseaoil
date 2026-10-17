@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace DeepseaOil.Logic.Services.Time
@@ -274,6 +274,21 @@ namespace DeepseaOil.Logic.Services.Time
         /// <summary>只按已算好的目标槽放回，不重算 RemainingRounds</summary>
         private void Requeue(TimerNode node)
         {
+            // 若已到/过 ExpireTime，放回当前槽的下一个可处理位置；否则按剩余时间重算
+            double remaining = node.ExpireTime - _time;
+            if (remaining <= 0d)
+            {
+                // 已经到点，放到下一个槽，下一帧 Advance 就会处理它
+                int next = (_currentSlot + 1) % _slotCount;
+                node.TargetSlot = next;
+                _slots[next].Add(node);
+                return;
+            }
+
+            int ticks = (int)Math.Ceiling(remaining / _slotDuration);
+            if (ticks < 1) ticks = 1;
+            node.TargetSlot = (_currentSlot + ticks) % _slotCount;
+            node.RemainingRounds = (ticks - 1) / _slotCount;
             _slots[node.TargetSlot].Add(node);
         }
 

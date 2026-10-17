@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using DeepseaOil.Data.Settings;
 using UnityEngine;
@@ -13,6 +13,7 @@ namespace DeepseaOil.Data
         private const string PlayerConfigKey = "config/PlayerConfig";
         private const string UIConfigKey = "config/UIConfig";
         private const string AudioConfigKey = "config/AudioConfig";
+        private const string CGConfigKey = "config/CGConfig";
 
         /// <summary>关键表主键默认值</summary>
         public static class Ids
@@ -567,6 +568,22 @@ namespace DeepseaOil.Data
             for (int i = 0; i < rows.Count; i++)
             {
                 result.Add(new AudioMapSpec(rows[i]));
+            }
+
+            return result;
+        }
+
+        public static IReadOnlyList<DialogueSpec> GetDialogueParagraph(int paragraph)
+        {
+            EnsureReady();
+
+            IReadOnlyList<cfg.dso.SlotDialogue> rows = _holder.Tables.TbSlotDialogue.DataList;
+            var result = new List<DialogueSpec>();
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Paragraph == paragraph)
+                    result.Add(new DialogueSpec(rows[i]));
             }
 
             return result;

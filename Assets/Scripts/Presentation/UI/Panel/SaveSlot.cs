@@ -86,7 +86,17 @@ namespace DeepseaOil.Presentation.UI
             if (txtPlayerLeft != null) txtPlayerLeft.text = string.Empty;
             if (txtPlayerRight != null) txtPlayerRight.text = string.Empty;
             if (txtProcessLeft != null) txtProcessLeft.text = "关卡进度";
-            if (txtProcessRight != null) txtProcessRight.text = $"第 {info.CurrentLevelId} 关";
+            if (txtProcessRight != null)
+            {
+                if (info.Status == SaveSlotStatus.Empty)
+                    txtProcessRight.text = "暂无进度";
+                else if (info.Status == SaveSlotStatus.Invalid)
+                    txtProcessRight.text = "存档异常";
+                else if (info.CurrentLevelId == 1)
+                    txtProcessRight.text = "教学关";
+                else
+                    txtProcessRight.text = $"第 {info.CurrentLevelId - 1} 关";
+            }
 
             int split = string.IsNullOrEmpty(info.TimeText) ? -1 : info.TimeText.IndexOf(' ');
 

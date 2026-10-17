@@ -19,6 +19,9 @@ namespace DeepseaOil.Logic.Level
     public sealed class LevelLogic
     {
         private readonly WaveLogic _waveLogic;
+        private readonly bool _deferVictoryEndEvent;
+        private bool _victoryEndEventReleased;
+        private bool _victoryEndEventPending;
 
         public LevelSpec CurrentLevel { get; }
 
@@ -32,7 +35,7 @@ namespace DeepseaOil.Logic.Level
 
         public bool IsFinished => State == LevelState.Victory || State == LevelState.Defeat;
 
-        public LevelLogic(ILevelReader levelReader)
+        public LevelLogic(ILevelReader levelReader, bool deferVictoryEndEvent = false)
         {
             if (levelReader == null)
                 throw new ArgumentNullException(nameof(levelReader));
@@ -53,6 +56,7 @@ namespace DeepseaOil.Logic.Level
             CurrentLevel = ConfigModule.GetLevel(levelReader.CurrentLevelId);
             _nextLevelId = nextLevelId;
             PlayMode = playMode;
+            _deferVictoryEndEvent = deferVictoryEndEvent;
             _waveLogic = new WaveLogic(CurrentLevel.Waves, PlayMode);
         }
 
@@ -85,18 +89,52 @@ namespace DeepseaOil.Logic.Level
         public void Reset()
         {
             _waveLogic.Reset();
+            _victoryEndEventPending = false;
+            _victoryEndEventReleased = false;
             ChangeState(LevelState.NotStarted);
+        }
+
+        public bool ReleaseDeferredVictoryEndEvent()
+        {
+            if (!_deferVictoryEndEvent) return false;
+
+            _victoryEndEventReleased = true;
+            PublishDeferredVictoryEndEvent();
+            return true;
         }
 
         public void ChangeState(LevelState state)
         {
             State = state;
             EventBus<LevelStateChanged>.Publish(new LevelStateChanged(State));
-
-            if (state == LevelState.Victory || state == LevelState.Defeat)
+            if (state == LevelState.Defeat)
             {
                 EventBus<LevelEnded>.Publish(new LevelEnded(CurrentLevel.Id, _nextLevelId));
+                return;
             }
+
+            if (state != LevelState.Victory) return;
+
+            if (_deferVictoryEndEvent && !_victoryEndEventReleased)
+            {
+                _victoryEndEventPending = true;
+                return;
+            }
+
+            PublishLevelEnded();
+        }
+
+        private void PublishDeferredVictoryEndEvent()
+        {
+            if (!_victoryEndEventPending || !_victoryEndEventReleased) return;
+
+            _victoryEndEventPending = false;
+            PublishLevelEnded();
+        }
+
+        private void PublishLevelEnded()
+        {
+            EventBus<LevelEnded>.Publish(new LevelEnded(CurrentLevel.Id, _nextLevelId));
         }
 
         public void Announce()

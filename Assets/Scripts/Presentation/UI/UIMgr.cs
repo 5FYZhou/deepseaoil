@@ -544,7 +544,16 @@ namespace DeepseaOil.Presentation.UI
         public void OnGameStateChanged(GameStateChanged evt)
         {
             SetUIInputEnabled(evt.state != Logic.GameState.SceneTransition);
-            switch (evt.state)
+
+            if (evt.state == Logic.GameState.SceneTransition)
+                return;
+
+            ApplyStateUi(evt.state);
+        }
+
+        private void ApplyStateUi(Logic.GameState state)
+        {
+            switch (state)
             {
                 case Logic.GameState.Running:
                     EnterGameplayUi();
@@ -552,7 +561,7 @@ namespace DeepseaOil.Presentation.UI
                     break;
 
                 case Logic.GameState.Paused:
-                    ShowPanel<PausePanel>();
+                    if (!IsPanelOpen<PausePanel>()) ShowPanel<PausePanel>();
                     break;
 
                 case Logic.GameState.Menu:
@@ -583,7 +592,7 @@ namespace DeepseaOil.Presentation.UI
 
             if (evt.nextId <= 0)
             {
-                ShowPanel<EndPanel>();
+                ShowPanel<CGPanel>(panel => panel.SetType(false));
                 return;
             }
 
@@ -676,6 +685,10 @@ namespace DeepseaOil.Presentation.UI
         private void OnSceneActivated(SceneActivated evt)
         {
             ClosePanelsOnSceneTransition();
+
+            // 遮罩仍未淡出：入口面板先就位，落地时会再走一遍 ⇒ 分支必须幂等
+            if (GameRoot.Instance.Game.TryGetPendingSceneEntryState(out Logic.GameState entryState))
+                ApplyStateUi(entryState);
         }
 
         private void OnSceneTransitionFailed(SceneTransitionFailed evt)
