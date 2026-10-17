@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71c1514a6bd24e1e882cebbe1904ce04, type: 3}
   m_Name: SourceHanSansSC-Regular SDF
   m_EditorClassIdentifier: 
-  hashCode: 0
+  hashCode: -1046221085
   material: {fileID: 7991279689621488673}
-  materialHashCode: 0
+  materialHashCode: -612327325
   m_Version: 1.1.0
   m_SourceFontFileGUID: 2993894e088bf6146b27c6896eeec2d3
   m_SourceFontFile_EditorRef: {fileID: 12800000, guid: 2993894e088bf6146b27c6896eeec2d3, type: 3}

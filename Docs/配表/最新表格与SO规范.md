@@ -99,7 +99,7 @@
 | `name` | `string!` | 显示名（HUD 预警文案） |
 | `prep_time` | `float` | 备战时长（默认 10s）：发配给、让玩家铺地形 |
 | `battle_time` | `float` | 战斗时长（默认 30s）：按 `spawn_interval` 出怪 |
-| `settle_time` | `float` | 结算时长（默认 8s）：**必须等残余敌人清空**才推进 |
+| `settle_time` | `float` | 结算时长（默认 8s）：**场上敌人清空后才进结算**，进入当刻开始倒计时 |
 | `spawn_interval` | `float!` | 刷怪间隔（秒），下限 0.05 |
 | `grant_seed` | `SeedType` | **本波备战期配给的战备种子**（表里现在填 `Fire` 或 `None`；可留空 = 不发） |
 

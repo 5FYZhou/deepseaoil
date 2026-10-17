@@ -28,7 +28,11 @@ namespace DeepseaOil.Presentation.Input
 
         private bool _dashPressed;
 
-        private bool _inputEnabled = true;
+        private bool _gameStateAllowsInput = true;
+
+        private bool _storyInputLocked;
+
+        private bool _inputEnabled;
 
         /// <summary>本渲染帧瞄准屏幕坐标；是"当前位置"不是"按下沿"</summary>
         public Vector2 AimScreen { get; private set; }
@@ -169,12 +173,27 @@ namespace DeepseaOil.Presentation.Input
         public void Clear()
         {
             _move = Vector2.zero;
+            MoveInput = Vector2.zero;
             _dashPressed = false;
         }
 
         public void SetInputEnabled(bool enabled)
         {
+            _gameStateAllowsInput = enabled;
+            RefreshInputEnabled();
+        }
+
+        public void SetStoryInputLocked(bool locked)
+        {
+            _storyInputLocked = locked;
+            RefreshInputEnabled();
+        }
+
+        private void RefreshInputEnabled()
+        {
+            bool enabled = _gameStateAllowsInput && !_storyInputLocked;
             if (_inputEnabled == enabled) return; 
+
             _inputEnabled = enabled;
 
             if (!enabled)

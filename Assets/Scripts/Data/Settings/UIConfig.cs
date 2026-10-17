@@ -38,7 +38,9 @@ namespace DeepseaOil.Data
     {
         None = 0,
         Title,
-        Body
+        Body,
+        Dialogue1,
+        Dialogue2
     }
 
     [Serializable]
