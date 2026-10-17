@@ -46,13 +46,17 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientFloor: 0.02
-    - _FlowAmplitude: 0.001
-    - _FlowFrequency: 8
-    - _FlowSpeed: 5
-    - _PhaseNoise: 0.5
+    - _FlowAmplitude: 0.003
+    - _FlowFrequency: 5
+    - _FlowSpeed: -0.8
+    - _GlintExponent: 6
+    - _GlintIntensity: 0.2
+    - _GlintThreshold: 0.02
+    - _PhaseNoise: 0.7
     - _TileLightBoost: 1.35
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _GlintColor: {r: 1.2, g: 0.95, b: 0.6, a: 1}
   m_BuildTextureStacks: []
 --- !u!114 &1862250234979353042
 MonoBehaviour:
