@@ -66,6 +66,10 @@ public partial class Tables
     /// 敌人掉落物配置表
     /// </summary>
     public dso.TbEnemyDrop TbEnemyDrop {get; }
+    /// <summary>
+    /// 剧情文本表
+    /// </summary>
+    public dso.TbSlotDialogue TbSlotDialogue {get; }
 
     public Tables(System.Func<string, JSONNode> loader)
     {
@@ -82,6 +86,7 @@ public partial class Tables
         TbLevelWave = new dso.TbLevelWave(loader("dso_tblevelwave"));
         TbAudioMap = new dso.TbAudioMap(loader("dso_tbaudiomap"));
         TbEnemyDrop = new dso.TbEnemyDrop(loader("dso_tbenemydrop"));
+        TbSlotDialogue = new dso.TbSlotDialogue(loader("dso_tbslotdialogue"));
         ResolveRef();
     }
     
@@ -100,6 +105,7 @@ public partial class Tables
         TbLevelWave.ResolveRef(this);
         TbAudioMap.ResolveRef(this);
         TbEnemyDrop.ResolveRef(this);
+        TbSlotDialogue.ResolveRef(this);
     }
 }
 

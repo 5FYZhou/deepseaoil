@@ -123,14 +123,14 @@
     "paragraph": 1002,
     "type": 3,
     "sfx": 0,
-    "context": "按 鼠标<b><color=#FF0000>左</color></b>键 投掷<b><color=#FF0000>【能量溶剂】</color></b>，对任意地块发射，生成<b><color=#FF0000>【特殊地形】</color></b>。"
+    "context": "按 鼠标左键 投掷<b><color=#FF0000>【能量溶剂】</color></b>，对任意地块发射，生成<b><color=#FF0000>【特殊地形】</color></b>。"
   },
   {
     "id": 19,
     "paragraph": 1002,
     "type": 3,
     "sfx": 0,
-    "context": "按 鼠标<b><color=#FF0000>右</color></b>键 投掷<b><color=#FF0000>【荒原基质】</color></b>，对任意地块发射，生成<b><color=#FF0000>【特殊地形】</color></b>。"
+    "context": "按 鼠标右键 投掷<b><color=#FF0000>【荒原基质】</color></b>，对任意地块发射，生成<b><color=#FF0000>【特殊地形】</color></b>。"
   },
   {
     "id": 20,
@@ -158,7 +158,7 @@
     "paragraph": 1003,
     "type": 2,
     "sfx": 0,
-    "context": "<b><color=#FF0000>【能量溶剂】</color></b>与<b><color=#FF0000>【荒原基质】</color></b>似乎能伤害这些虫子，试试瞄准它们。"
+    "context": "<b><color=#FF0000>【能量溶剂】</color></b>与<b><color=#FF0000>【荒原基质】</color></b>似乎能对这些虫子造成伤害，试试瞄准它们。"
   },
   {
     "id": 24,
@@ -403,7 +403,7 @@
     "paragraph": 5001,
     "type": 1,
     "sfx": 0,
-    "context": "“哔——”（*信号被紧急掐断）"
+    "context": "“哔——”<i><color=#808080>（*信号被紧急掐断）</color></i>"
   },
   {
     "id": 59,
@@ -487,7 +487,7 @@
     "paragraph": 6001,
     "type": 1,
     "sfx": 0,
-    "context": "__<b>阈值调整</b>：上调27%(警告：已严重超过上限值）"
+    "context": "  __<b>阈值调整</b>：上调27%(警告：已严重超过上限值）"
   },
   {
     "id": 71,
@@ -501,7 +501,7 @@
     "paragraph": 6001,
     "type": 1,
     "sfx": 0,
-    "context": "__<b>操作来源</b>：无法读取。」"
+    "context": " __<b>操作来源</b>：无法读取。」"
   },
   {
     "id": 73,
