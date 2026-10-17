@@ -113,5 +113,9 @@ MonoBehaviour:
     OverlaySprite: {fileID: 574237452, guid: 60f28caded1c88e4585752947d21b638, type: 3}
     OverrideMaterial: {fileID: 2100000, guid: 2721df5c671b8a240b6a120e0c416767, type: 2}
     ExtraOffsetY: 0.25
+  - State: 23
+    OverlaySprite: {fileID: 1903455925, guid: 5e04cc7972d450449ab714931e556a97, type: 3}
+    OverrideMaterial: {fileID: 0}
+    ExtraOffsetY: 0
   defaultMaterial: {fileID: 2100000, guid: 4b9d1a76c3e24f8ea5d0b2c91e37a640, type: 2}
   maxPoolSize: 256
