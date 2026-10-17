@@ -90,6 +90,10 @@ $groups = [ordered]@{
         'Assets/Scripts/Data/Settings/ThrowTuning.cs'
         'Assets/Scripts/Data/Settings/EnemyTuning.cs'
         'Assets/Scripts/Data/Asset/AssetModule.cs'
+        'Assets/Resources/tuning/VisualPalette.asset'
+        'Assets/Resources/tuning/VisualFeelTuning.asset'
+        'Assets/Resources/tuning/ThrowTuning.asset'
+        'Assets/Resources/tuning/EnemyTuning.asset'
     )
     '07-表现适配与子系统' = @(
         'Assets/Scripts/Presentation/Adapters/TilemapAdapter.cs'
@@ -199,7 +203,7 @@ $manifest.Add('[随包说明]')
 $manifest.Add('1. 项目：Unity 2022.3.62f3c1 ＋ URP 14.0.12（2D Renderer，Linear 色彩空间），')
 $manifest.Add('   Cinemachine 2.10.7、InputSystem 1.14.2、TextMeshPro 3.0.7（见 manifest.json）。正交相机半高 8，格子 1 世界单位。')
 $manifest.Add('   主场景 Assets/Scenes/Range.unity 是唯一完整装配的场景（不入 Build Settings，直接 Play 即可）；')
-$manifest.Add('   入 Build Settings 的是 Begin + Levels/Level_1..5。本包不含场景/预制体/材质/贴图（二进制或超长机读件）。')
+$manifest.Add('   入 Build Settings 的是 Begin + Levels/Level_1..5。本包不含场景/预制体/材质/贴图（二进制或超长机读件）；调参 SO 例外，见第 9 条。')
 $manifest.Add('2. 四层单向依赖：Presentation → Logic → Data → Foundation（asmdef 边界，反向引用直接编译不过）。')
 $manifest.Add('   🔴 asmdef 的 references 不传递：用到上层公开类型时，其基类/接口所在程序集必须在本层 asmdef 里显式写全。')
 $manifest.Add('   Logic 是纯 C#：严禁 MonoBehaviour / GameObject / Transform / Component / Tilemap / Time.time。')
@@ -210,19 +214,29 @@ $manifest.Add('4. 热路径（Tick / FixedTick / Update / OnBallHit / TakeDamage
 $manifest.Add('   禁热路径 new List/Array 与 GetComponent；池化或静态委托。物理检测一律 NonAlloc。2D 排序只走 RenderOrder 频带，不靠 Z 轴。')
 $manifest.Add('5. 光照现状：一盏 Global Light 2D（只照 Ground + Actor 两层，掩码经序列化字段写）＋ TileGridLightmap 网格光场')
 $manifest.Add('   （一格一纹素，逐帧两趟 8 邻域扩散，结果经 4 个 shader 全局量注入）＋ CelLit / TileFlow 受光材质。')
+$manifest.Add('   网格光场除火/电持续光源外还有瞬态脉冲：CombatRoot 在 GridBlastOccurred / GridPointVfxOccurred 里调 AddImpulse')
+$manifest.Add('   （蒸汽取事件 Radius 作径向范围，电弧单格），脉冲先并入源头参与扩散、再按 exp(-impulseDecayRate·dt) 衰减；')
+$manifest.Add('   旋钮＝[Environment] ▸ impulseDecayRate（场景现值 14）＋ VisualFeelTuning.asset 的「网格光脉冲」五字段（现值 steam 0.6 / arc 0.35）。')
+$manifest.Add('   火/电判定表在 TileLightDirector.TryGetContinuousLight（旧点光池，已无驱动者，未随包）：新增发光地块状态必须在那里补 case，否则不亮且无日志。')
 $manifest.Add('   Sorting Layer 共六层：Ground / Actor / Aim / Effect / UI / Default（Effect 与 UI 不受光）。')
 $manifest.Add('   后处理封印在 Assets/Settings/DefaultGlobalVolumeProfile.asset；其机器判据与资产现值不一致一事记在 待办.md。')
 $manifest.Add('   旧 TileLightDirector 点光池已无驱动者（仅剩静态映射表被复用），勿再挂载。')
 $manifest.Add('6. 生成物禁区（每次导表会被镜像覆盖，禁止手改）：Assets/Scripts/Generated/**、Assets/StreamingAssets/Luban/**、ConfigWorkspace/output/**。')
 $manifest.Add('   跑 Luban 的入口是 Unity 菜单 Luban ▸ 表格数据导入；Excel 源表在 ConfigWorkspace/Data/*.xlsx（唯一配置真源，人工维护）。')
-$manifest.Add('7. 上传兼容：.txt 结尾且前面还有一层扩展名的都是改名件，例如 CelLit.shader.txt / TagManager.asset.txt / compile-gate.ps1.txt。')
+$manifest.Add('7. 上传兼容：.txt 结尾且前面还有一层扩展名的都是改名件，例如 CelLit.shader.txt / TagManager.asset.txt / VisualFeelTuning.asset.txt / compile-gate.ps1.txt。')
 $manifest.Add('   前面那层扩展名才是真实格式；文件按字节原样，未加任何头注释，去掉末尾 .txt 即可还原。comment-budget.json 是白名单内，未改名。')
 $manifest.Add('8. 本包不含历史任务书（Docs/任务/**）与存档方案草稿（Docs/暂存/**）：它们含已被推翻的数值与做法，只作变更史，读了会被误导。')
 $manifest.Add('   当前事实以本包内的 工程/表现 文档 + 源码为准；文档与代码冲突时信代码。')
+$manifest.Add('9. 调参现值：随包 4 份 Assets/Resources/tuning/*.asset（VisualPalette / VisualFeelTuning / ThrowTuning / EnemyTuning）')
+$manifest.Add('   是编辑器里的真实现值，与同名 .cs 的 C# 默认值并不相同（例：steamImpulseIntensity 代码默认 1.8、资产现值 0.6）；冲突时以 .asset 为准。')
+$manifest.Add('   场景里的手调值不随包（Range.unity 775 KB），只能按字段名比对；场景网格光场现存值：airTransmission 0.75、obstacleTransmission 0.2、impulseDecayRate 14。')
+$manifest.Add('10. 已知偏差（文档落后于代码，别把文档当全量事实）：光照调参手册.md 尚未收录网格光场的瞬态脉冲旋钮')
+$manifest.Add('    （impulseDecayRate 与 VisualFeelTuning 的 steamImpulse* / arcImpulse* 五字段）；该子系统目前只有 TileGridLightmap.cs /')
+$manifest.Add('    CombatRoot.cs / VisualFeelTuning.cs 的 XML 注释可读。待办.md 已登记此缺口与 TileGridLightmapTests 的失效断言。')
 $manifest.Add('')
 $manifest.Add('[建议阅读顺序]')
 $manifest.Add('  ① AGENTS.md（最高行为宪章）→ 架构约束.md → 目录说明.md → 人类接手与工程交接手册.md')
-$manifest.Add('  ② 全局光照.md / 粒子特效系统.md / 新场景接线.md（三个表现子系统怎么跑起来）')
+$manifest.Add('  ② 全局光照.md / 粒子特效系统.md / 新场景接线.md（三个表现子系统怎么跑起来；瞬态脉冲以代码为准，见第 10 条）')
 $manifest.Add('  ③ 策划案_荒原复苏指南_v4.0.md + 最新表格与SO规范.md（设计意图与"表 vs SO"权责边界）')
 $manifest.Add('  ④ 代码按数据流逆流而下：GameRoot → CombatRoot → TilemapAdapter / TileGridLightmap → GridLogic / EventBus → Spec / 调参SO')
 $manifest.Add('  ⑤ 待办.md 收尾（已知缺陷、未收口项、编辑器内待人工验收清单）')
