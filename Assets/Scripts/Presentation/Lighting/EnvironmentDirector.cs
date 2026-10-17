@@ -32,6 +32,9 @@ namespace DeepseaOil.Presentation.Lighting
         private TimeOfDayKind _currentKind;
         private TimeOfDayKind _targetKind;
 
+        // 过渡起点快照：打断时取主光真实值，按配置重算会跳回上一时段起点
+        private TimeOfDaySetting _fromSetting;
+
         private float _transitionTime;
         private bool _isTransitioning;
 
@@ -64,11 +67,10 @@ namespace DeepseaOil.Presentation.Lighting
 
             if (globalLight != null)
             {
-                TimeOfDaySetting from = ResolveSetting(_currentKind);
                 TimeOfDaySetting to = ResolveSetting(_targetKind);
 
-                globalLight.color = Color.Lerp(from.LightColor, to.LightColor, smoothT);
-                globalLight.intensity = Mathf.Lerp(from.Intensity, to.Intensity, smoothT);
+                globalLight.color = Color.Lerp(_fromSetting.LightColor, to.LightColor, smoothT);
+                globalLight.intensity = Mathf.Lerp(_fromSetting.Intensity, to.Intensity, smoothT);
             }
 
             if (t < 1f) return;
@@ -85,6 +87,10 @@ namespace DeepseaOil.Presentation.Lighting
         public void TransitionTo(TimeOfDayKind kind)
         {
             if (_targetKind == kind && !_isTransitioning) return;
+
+            _fromSetting = globalLight != null
+                ? new TimeOfDaySetting { LightColor = globalLight.color, Intensity = globalLight.intensity }
+                : ResolveSetting(_currentKind);
 
             _targetKind = kind;
             _transitionTime = 0f;
@@ -138,5 +144,32 @@ namespace DeepseaOil.Presentation.Lighting
             ApplySettingDirectly(in current);
         }
 #endif
+
+        #region 编辑器测试菜单
+        [ContextMenu("测试: 平滑切换到白昼 (Day)")]
+        private void TestTransitionToDay() => TriggerTestTransition(TimeOfDayKind.Day);
+
+        [ContextMenu("测试: 平滑切换到黄昏 (Dusk)")]
+        private void TestTransitionToDusk() => TriggerTestTransition(TimeOfDayKind.Dusk);
+
+        [ContextMenu("测试: 平滑切换到夜晚 (Night)")]
+        private void TestTransitionToNight() => TriggerTestTransition(TimeOfDayKind.Night);
+
+        [ContextMenu("测试: 轮转切换至下一时段 (Next)")]
+        private void TestTransitionToNext()
+        {
+            // 3 = TimeOfDayKind 成员数：加新时段要同步改，否则 Next 静默跳错格
+            int next = ((int)_targetKind + 1) % 3;
+            TriggerTestTransition((TimeOfDayKind)next);
+        }
+
+        private void TriggerTestTransition(TimeOfDayKind kind)
+        {
+            if (Application.isPlaying)
+                TransitionTo(kind);
+            else
+                SetTimeOfDayImmediate(kind);
+        }
+        #endregion
     }
 }

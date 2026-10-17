@@ -21375,7 +21375,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   globalLight: {fileID: 1461937310}
   initialTimeOfDay: 0
-  transitionDuration: 1.5
+  transitionDuration: 3
   daySetting:
     LightColor: {r: 1, g: 0.9646863, b: 0.8713672, a: 1}
     Intensity: 0.98
