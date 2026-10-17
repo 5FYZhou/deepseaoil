@@ -54,18 +54,24 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void 后处理_Tonemapping已剔除且色彩提纯已注入()
+        public void 后处理_Tonemapping已剔除且封印值已注入()
         {
             VolumeProfile profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(ProfileAssetPath);
 
-            if (profile == null) Assert.Ignore($"未找到 {ProfileAssetPath}（先跑 一键装配当前场景环境基座）");
+            if (profile == null) Assert.Ignore($"未找到 {ProfileAssetPath}（先跑 DeepseaOil ▸ 光照 ▸ 装配当前场景）");
 
             Assert.IsFalse(profile.TryGet(out Tonemapping tonemapping) && tonemapping.active, "Tonemapping 仍然生效：2D 纯色块会被二次压缩出灰雾");
 
             Assert.IsTrue(profile.TryGet(out ColorAdjustments adjustments), "缺少 Color Adjustments：线性空间损失未被补偿");
             Assert.IsTrue(adjustments.active, "Color Adjustments 未生效");
-            Assert.AreEqual(10f, adjustments.contrast.value, 0.01f, "对比度未封印在 10");
-            Assert.AreEqual(12f, adjustments.saturation.value, 0.01f, "饱和度未封印在 12");
+            Assert.AreEqual(0f, adjustments.contrast.value, 0.01f, "对比度偏离封印值 0：重跑装配菜单或同步 ApplySealedValues");
+            Assert.AreEqual(-10f, adjustments.saturation.value, 0.01f, "饱和度偏离封印值 -10");
+
+            Assert.IsTrue(profile.TryGet(out Bloom bloom), "缺少 Bloom：火光与电弧没有泛光");
+            Assert.AreEqual(5f, bloom.intensity.value, 0.01f, "Bloom 强度偏离封印值 5");
+
+            Assert.IsTrue(profile.TryGet(out Vignette vignette), "缺少 Vignette：画面四角缺少压暗");
+            Assert.AreEqual(0.10f, vignette.intensity.value, 0.01f, "Vignette 强度偏离封印值 0.10");
         }
 
         [Test]

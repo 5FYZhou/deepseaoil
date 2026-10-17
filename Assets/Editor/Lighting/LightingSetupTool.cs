@@ -315,11 +315,11 @@ namespace DeepseaOil.EditorTools.Lighting
 
             colorAdjustments.active = true;
             colorAdjustments.postExposure.overrideState = true;
-            colorAdjustments.postExposure.value = 0f;
+            colorAdjustments.postExposure.value = 0.2f;
             colorAdjustments.contrast.overrideState = true;
-            colorAdjustments.contrast.value = 10f;
+            colorAdjustments.contrast.value = 0f;
             colorAdjustments.saturation.overrideState = true;
-            colorAdjustments.saturation.value = 12f;
+            colorAdjustments.saturation.value = -10f;
 
             Bloom bloom = EnsureComponent<Bloom>(profile);
 
@@ -327,7 +327,7 @@ namespace DeepseaOil.EditorTools.Lighting
             bloom.threshold.overrideState = true;
             bloom.threshold.value = 1.15f;
             bloom.intensity.overrideState = true;
-            bloom.intensity.value = 0.45f;
+            bloom.intensity.value = 5f;
             bloom.scatter.overrideState = true;
             bloom.scatter.value = 0.60f;
 
@@ -337,7 +337,7 @@ namespace DeepseaOil.EditorTools.Lighting
             vignette.color.overrideState = true;
             vignette.color.value = new Color(0.118f, 0.118f, 0.114f, 1f);
             vignette.intensity.overrideState = true;
-            vignette.intensity.value = 0.22f;
+            vignette.intensity.value = 0.10f;
             vignette.smoothness.overrideState = true;
             vignette.smoothness.value = 0.40f;
 

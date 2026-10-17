@@ -22,7 +22,7 @@ namespace DeepseaOil.Presentation.Lighting
         [Range(0.15f, 1.2f)]
         public float Intensity;
 
-        /// <summary>把 sRGB 十六进制转成线性空间颜色；工程是 Linear，直接 new Color(hex分量) 会被当成线性值而整体偏暗偏灰</summary>
+        /// <summary>sRGB 十六进制 → 线性；只有白昼走这条，黄昏与夜晚按 Range 现值直接写三分量</summary>
         private static Color Srgb(string hex)
         {
             return ColorUtility.TryParseHtmlString(hex, out Color parsed) ? parsed.linear : Color.white;
@@ -35,15 +35,16 @@ namespace DeepseaOil.Presentation.Lighting
                 case TimeOfDayKind.Dusk:
                     return new TimeOfDaySetting
                     {
-                        LightColor = Srgb("#FFB066"),
-                        Intensity = 0.78f
+                        // Range 现值原样：拾色器给的是 #FF7040 分量，经 Srgb 转线性会把这层橙压暗一档
+                        LightColor = new Color(1f, 0.4392157f, 0.2509804f, 1f),
+                        Intensity = 0.75f
                     };
 
                 case TimeOfDayKind.Night:
                     return new TimeOfDaySetting
                     {
-                        LightColor = Srgb("#8C88F1"),
-                        Intensity = 0.30f
+                        LightColor = new Color(0f, 0f, 0.6784314f, 1f),
+                        Intensity = 0.25f
                     };
 
                 default:

@@ -33,7 +33,7 @@ namespace DeepseaOil.Presentation.Lighting
         [Header("扩散配置")]
         [Tooltip("空气透过率：每跨一格保留的光强比例")]
         [Range(0.5f, 0.85f)]
-        [SerializeField] private float airTransmission = 0.72f;
+        [SerializeField] private float airTransmission = 0.75f;
 
         [Tooltip("墙体透过率：光穿过阻挡格的剩余比例，决定阴影硬度")]
         [Range(0.0f, 0.4f)]
@@ -73,18 +73,18 @@ namespace DeepseaOil.Presentation.Lighting
         [Range(0f, 0.5f)]
         [SerializeField] private float electricPulseDepth = 0.15f;
 
-        [Tooltip("电光基色（HDR），与 TileLightDirector 光型表的电色同值")]
+        [Tooltip("电光基色（HDR）：已压到近黑蓝，电格几乎不照亮地面")]
         [ColorUsage(false, true)]
-        [SerializeField] private Color electricSourceColor = new Color(0.490f, 0.976f, 1f, 1f);
+        [SerializeField] private Color electricSourceColor = new Color(0.14705883f, 0.15686275f, 0.25f, 1f);
 
         [Header("随身光源")]
         [Tooltip("跟着玩家走的微弱照明，颜色决定暖度")]
         [ColorUsage(false, true)]
-        [SerializeField] private Color carryLightColor = new Color(1f, 0.86f, 0.66f, 1f);
+        [SerializeField] private Color carryLightColor = new Color(0.4955511f, 0.4955511f, 0.46505558f, 1f);
 
         [Tooltip("随身光源峰值强度；0 = 关闭。衰减速率跟随 Air Transmission")]
         [Range(0f, 1f)]
-        [SerializeField] private float carryLightIntensity = 0.5f;
+        [SerializeField] private float carryLightIntensity = 0.1f;
 
         [Header("道具自发光")]
         [Tooltip("泉眼等道具共用的呼吸频率（Hz）：只给一个慢节拍，避免各道具各自乱闪")]

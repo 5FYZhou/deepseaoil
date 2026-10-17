@@ -162,7 +162,7 @@ namespace DeepseaOil.Tests
                 Assert.IsNotNull(air, "找不到 airTransmission 字段");
                 Assert.IsNotNull(obstacle, "找不到 obstacleTransmission 字段");
 
-                Assert.AreEqual(0.72f, air.floatValue, 1e-4f, "空气透过率基线被改动");
+                Assert.AreEqual(0.75f, air.floatValue, 1e-4f, "空气透过率基线被改动");
                 Assert.AreEqual(0.20f, obstacle.floatValue, 1e-4f, "墙体透过率基线被改动");
             }
             finally
@@ -235,9 +235,9 @@ namespace DeepseaOil.Tests
                 Assert.AreEqual(0.259f, fireCol.b, 1e-3f, "火光蓝通道基线被改动");
 
                 Color electricCol = electric.colorValue;
-                Assert.AreEqual(0.490f, electricCol.r, 1e-3f, "电光红通道基线被改动");
-                Assert.AreEqual(0.976f, electricCol.g, 1e-3f, "电光绿通道基线被改动");
-                Assert.AreEqual(1f, electricCol.b, 1e-3f, "电光蓝通道基线被改动");
+                Assert.AreEqual(0.147f, electricCol.r, 1e-3f, "电光红通道基线被改动");
+                Assert.AreEqual(0.157f, electricCol.g, 1e-3f, "电光绿通道基线被改动");
+                Assert.AreEqual(0.25f, electricCol.b, 1e-3f, "电光蓝通道基线被改动");
             }
             finally
             {
