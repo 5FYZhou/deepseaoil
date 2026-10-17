@@ -8,7 +8,7 @@ Shader "DeepseaOil/2D/TileFlow"
         _FlowAmplitude ("Flow Amplitude", Range(0, 0.05)) = 0.012
         _FlowFrequency ("Flow Frequency", Float) = 20
         _PhaseNoise ("Phase Noise", Range(0, 1)) = 0
-        _AmbientFloor ("Ambient Floor", Range(0.35, 0.6)) = 0.35
+        _AmbientFloor ("Ambient Floor", Range(0.0, 0.6)) = 0.20
     }
 
     SubShader
@@ -61,6 +61,10 @@ Shader "DeepseaOil/2D/TileFlow"
             SAMPLER(sampler_ShapeLightTexture0);
             #endif
 
+            // 网格光照场由 TileGridLightmap 以全局量注入，严禁声明成材质属性（材质值会盖掉全局值）
+            TEXTURE2D(_TileLightmap);
+            SAMPLER(sampler_TileLightmap);
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
                 float4 _MainTex_ST;
@@ -70,6 +74,11 @@ Shader "DeepseaOil/2D/TileFlow"
                 float _PhaseNoise;
                 float _AmbientFloor;
             CBUFFER_END
+
+            // 全局量必须在 CBUFFER 之外：塞进 UnityPerMaterial 会破坏 SRP Batcher 的常量布局
+            float4 _TileLightmapParams; // xy = 左下角世界坐标，zw = 宽高（世界单位）；zw 为 0 表示未装配
+            float4 _CarryLightPos;      // xy = 随身光世界坐标，z = 每格衰减的 -log2，w = 强度
+            float4 _CarryLightColor;    // rgb = 随身光颜色
 
             Varyings vert(Attributes input)
             {
@@ -104,14 +113,24 @@ Shader "DeepseaOil/2D/TileFlow"
 
                 #if USE_SHAPE_LIGHT_TYPE_0
                 float2 lightUV = input.screenUV.xy / input.screenUV.w;
-                half4 light = SAMPLE_TEXTURE2D(_ShapeLightTexture0, sampler_ShapeLightTexture0, lightUV);
+                half4 envLight = SAMPLE_TEXTURE2D(_ShapeLightTexture0, sampler_ShapeLightTexture0, lightUV);
                 #else
-                half4 light = half4(1, 1, 1, 1);
+                half4 envLight = half4(1, 1, 1, 1);
                 #endif
 
-                light.rgb = max(light.rgb, half3(_AmbientFloor, _AmbientFloor, _AmbientFloor));
+                envLight.rgb = max(envLight.rgb, half3(_AmbientFloor, _AmbientFloor, _AmbientFloor));
 
-                half3 finalRgb = flowedColor.rgb * light.rgb;
+                // 网格光照场：水面与火场必须和地面走同一套扩散，否则夜里只有地面会亮
+                float2 gridUV = (input.worldPos - _TileLightmapParams.xy) / max(_TileLightmapParams.zw, 0.0001);
+                half onFlag = step(0.0001, _TileLightmapParams.z);
+                half3 tileLight = SAMPLE_TEXTURE2D(_TileLightmap, sampler_TileLightmap, saturate(gridUV)).rgb * onFlag;
+
+                float2 carryDelta = input.worldPos - _CarryLightPos.xy;
+                half3 carryLight = _CarryLightColor.rgb * (_CarryLightPos.w * exp2(-length(carryDelta) * _CarryLightPos.z));
+
+                half3 finalLight = max(max(envLight.rgb, tileLight * 1.35), carryLight * 1.35);
+
+                half3 finalRgb = flowedColor.rgb * finalLight;
                 finalRgb *= flowedColor.a;
 
                 return half4(finalRgb, flowedColor.a);

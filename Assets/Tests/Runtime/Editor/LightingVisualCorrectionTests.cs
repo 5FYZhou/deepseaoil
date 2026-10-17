@@ -13,7 +13,6 @@ namespace DeepseaOil.Tests
     [Category("Presentation")]
     public sealed class 视觉矫正Tests
     {
-        private const string CelLitMatPath = "Assets/Resources/materials/M_CelLit_Default.mat";
         private const string ProfileAssetPath = "Assets/Settings/DefaultGlobalVolumeProfile.asset";
 
         [Test]
@@ -40,7 +39,7 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void 着色器_CelLit暴露微扰与自发光属性()
+        public void 着色器_CelLit保留自发光且不再暴露微扰()
         {
             Shader celLit = Shader.Find("DeepseaOil/2D/CelLit");
 
@@ -48,21 +47,10 @@ namespace DeepseaOil.Tests
 
             var probe = new Material(celLit);
 
-            Assert.IsTrue(probe.HasProperty("_OrganicJitter"), "CelLit 缺 _OrganicJitter：光斑会退回同心正圆");
             Assert.IsTrue(probe.HasProperty("_EmissiveBoost"), "CelLit 缺 _EmissiveBoost：火海瓦片无法自发光");
+            Assert.IsFalse(probe.HasProperty("_OrganicJitter"), "CelLit 仍有 _OrganicJitter：光斑边缘会被时间抖动撕成沸水");
 
             Object.DestroyImmediate(probe);
-        }
-
-        [Test]
-        public void 材质_受光默认材质的微扰已封印在零点零一五()
-        {
-            Material material = AssetDatabase.LoadAssetAtPath<Material>(CelLitMatPath);
-
-            Assert.IsNotNull(material, $"材质资产不存在：{CelLitMatPath}（先跑 一键装配地表受光材质矩阵）");
-
-            Assert.IsTrue(material.HasProperty("_OrganicJitter"), $"{CelLitMatPath} 缺 _OrganicJitter");
-            Assert.AreEqual(0.015f, material.GetFloat("_OrganicJitter"), 0.001f, "光斑微扰未封印在 0.015");
         }
 
         [Test]

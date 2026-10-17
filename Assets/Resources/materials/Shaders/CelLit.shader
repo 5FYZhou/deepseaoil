@@ -5,12 +5,8 @@ Shader "DeepseaOil/2D/CelLit"
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1, 1, 1, 1)
 
-        [Header(Cel Shading and Floor)]
-        _AmbientFloor ("Ambient Floor", Range(0.35, 0.6)) = 0.35
-        _CelBands ("Cel Bands Count", Range(2, 4)) = 3
-
-        [Header(Organic Light Jitter)]
-        _OrganicJitter ("Organic Light Jitter", Range(0.0, 0.05)) = 0.015
+        [Header(Light)]
+        _AmbientFloor ("Ambient Floor", Range(0.0, 0.6)) = 0.20
 
         [Header(Self Emission Boost)]
         _EmissiveBoost ("Emissive Boost", Range(0.0, 1.5)) = 0.0
@@ -77,6 +73,10 @@ Shader "DeepseaOil/2D/CelLit"
             SAMPLER(sampler_ShapeLightTexture0);
             #endif
 
+            // 网格光照场由 TileGridLightmap 以全局量注入，严禁声明成材质属性（材质值会盖掉全局值）
+            TEXTURE2D(_TileLightmap);
+            SAMPLER(sampler_TileLightmap);
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
                 float4 _MainTex_ST;
@@ -84,14 +84,17 @@ Shader "DeepseaOil/2D/CelLit"
                 float4 _FlashColor;
                 float _FlashAmount;
                 float _AmbientFloor;
-                float _CelBands;
-                float _OrganicJitter;
                 float _EmissiveBoost;
                 float _EnableRim;
                 float _RimThreshold;
                 float _MetalThreshold;
                 float _MetalIntensity;
             CBUFFER_END
+
+            // 全局量必须在 CBUFFER 之外：塞进 UnityPerMaterial 会破坏 SRP Batcher 的常量布局
+            float4 _TileLightmapParams; // xy = 左下角世界坐标，zw = 宽高（世界单位）；zw 为 0 表示未装配
+            float4 _CarryLightPos;      // xy = 随身光世界坐标，z = 每格衰减的 -log2，w = 强度
+            float4 _CarryLightColor;    // rgb = 随身光颜色
 
             Varyings vert(Attributes input)
             {
@@ -112,44 +115,47 @@ Shader "DeepseaOil/2D/CelLit"
                 half4 baseCol = mainTex * input.color;
 
                 #if USE_SHAPE_LIGHT_TYPE_0
-                // 世界坐标低频微扰：打破正圆，使光斑在赛璐珞分阶下呈现手绘齿状边缘
-                float2 jitter = float2(
-                    sin(input.worldPos.y * 3.5 + _Time.y * 1.5),
-                    cos(input.worldPos.x * 3.5 + _Time.y * 1.5)
-                ) * _OrganicJitter;
-
                 // 片元透视除法获取准确归一化屏幕 UV
-                float2 lightUV = input.screenUV.xy / input.screenUV.w + jitter;
-                half4 light = SAMPLE_TEXTURE2D(_ShapeLightTexture0, sampler_ShapeLightTexture0, lightUV);
+                float2 screenUV = input.screenUV.xy / input.screenUV.w;
+                half4 envLight = SAMPLE_TEXTURE2D(_ShapeLightTexture0, sampler_ShapeLightTexture0, screenUV);
                 #else
-                half4 light = half4(1, 1, 1, 1);
+                half4 envLight = half4(1, 1, 1, 1);
                 #endif
 
-                // 1. 暗部下限锁定：防止弱光跌入死黑
-                light.rgb = max(light.rgb, half3(_AmbientFloor, _AmbientFloor, _AmbientFloor));
+                // 1. 暗部下限锁定：_AmbientFloor 必须低于夜晚基准，否则 max 会把整片夜色压平成中性灰
+                envLight.rgb = max(envLight.rgb, half3(_AmbientFloor, _AmbientFloor, _AmbientFloor));
 
-                // 2. 赛璐珞光强阶梯量化
-                half lightLum = dot(light.rgb, half3(0.299, 0.587, 0.114));
-                half steppedLum = floor(lightLum * _CelBands) / _CelBands + (0.5 / _CelBands);
-                half3 celLight = light.rgb * (steppedLum / max(lightLum, 0.001));
+                // 2. 网格光场采样：世界坐标 → 光照图 UV（纯净双线性羽化，不做分阶，色块交还给原画贴图）
+                float2 gridUV = (input.worldPos - _TileLightmapParams.xy) / max(_TileLightmapParams.zw, 0.0001);
 
-                half3 finalRgb = baseCol.rgb * celLight;
+                // 未装配网格光照场时 zw 为 0，onFlag 随之归零，整段网格光被乘没，退回纯环境光
+                half onFlag = step(0.0001, _TileLightmapParams.z);
+                half3 tileLight = SAMPLE_TEXTURE2D(_TileLightmap, sampler_TileLightmap, saturate(gridUV)).rgb * onFlag;
 
-                // 3. 瓦片自发光增益（使火海自身明亮通透，摆脱外部光照依赖）
+                // 3. 随身光源：世界坐标连续推进，exp2 衰减与火光同一条曲线（走路时不会一格一跳）
+                float2 carryDelta = input.worldPos - _CarryLightPos.xy;
+                half3 carryLight = _CarryLightColor.rgb * (_CarryLightPos.w * exp2(-length(carryDelta) * _CarryLightPos.z));
+
+                // 4. 高反差取大：环境光是暗夜帷幕，网格光场是被撕开的那道火光（1.35 = 火光过曝余量）
+                half3 finalLight = max(max(envLight.rgb, tileLight * 1.35), carryLight * 1.35);
+
+                half3 finalRgb = baseCol.rgb * finalLight;
+
+                // 5. 瓦片自发光增益（使火海自身明亮通透，摆脱外部光照依赖）
                 finalRgb += baseCol.rgb * _EmissiveBoost;
 
-                // 4. 顶端 UV 伪高光亮线
+                // 6. 顶端 UV 伪高光亮线
                 if (_EnableRim > 0.5 && input.uv.y > _RimThreshold)
                 {
                     finalRgb = lerp(finalRgb, _RimColor.rgb, 0.65 * baseCol.a);
                 }
 
-                // 5. 金属亮度阈值阶梯反光
+                // 7. 金属亮度阈值阶梯反光
                 half pixLum = dot(baseCol.rgb, half3(0.299, 0.587, 0.114));
                 half metalMask = step(_MetalThreshold, pixLum) * _MetalIntensity;
                 finalRgb = lerp(finalRgb, half3(1, 1, 1), metalMask);
 
-                // 6. 受击纯白剪影材质插值（最高优先级）：不受环境光压暗影响
+                // 8. 受击纯白剪影材质插值（最高优先级）：不受环境光压暗影响
                 finalRgb = lerp(finalRgb, _FlashColor.rgb, _FlashAmount);
 
                 finalRgb *= baseCol.a;

@@ -76,7 +76,7 @@ namespace DeepseaOil.Presentation
 
         private GridLogic _grid; private EnemyCellRegistry _registry;
 
-        private TileLightDirector _tileLights;
+        private TileGridLightmap _tileLightmap;
 
         private BallDirector _balls;
 
@@ -127,7 +127,7 @@ namespace DeepseaOil.Presentation
         private void OnDestroy()
         {
             _highlight?.Detach();
-            _tileLights?.Detach();
+            _tileLightmap?.Detach();
             gridView?.Detach();
 
             // 销毁期再问 GameRoot.Instance 会当场造一个新的，只能用 Start 里抓的引用
@@ -164,7 +164,10 @@ namespace DeepseaOil.Presentation
 
             _grid.Tick(Time.time, deltaTime);
 
-            _tileLights?.Tick(Time.time, deltaTime);
+            if (player != null && player.Logic != null && player.Logic.IsAlive) _tileLightmap?.SetCarryLightPosition(player.Position);
+            else _tileLightmap?.ClearCarryLight();
+
+            _tileLightmap?.Tick(Time.time, deltaTime);
 
             _balls.Tick(deltaTime);
 
@@ -482,8 +485,8 @@ namespace DeepseaOil.Presentation
 
             gridView?.ClearAll();
 
-            // 不清会让复活后上一局的火/电光常驻，耗尽池位
-            _tileLights?.ClearAll();
+            // 不清会让复活后上一局的火/电光常驻
+            _tileLightmap?.ClearAll();
 
             // 权属分流：场景木桩满血归位（物体留着），波次怪彻底销毁
             for (int i = _enemies.Count - 1; i >= 0; i--)
@@ -614,7 +617,7 @@ namespace DeepseaOil.Presentation
             _registry = new EnemyCellRegistry();
 
             // 关掉怪与怪的物理推挤：一格宽的缺口塞不下两只，互相顶住会让速度归零、整群卡成一团。
-            // 与层级设置是同一件事的两个入口（Physics 2D ▸ Layer Collision Matrix），这里写死一份免得换机器漏配。
+            // 与层级设置是同一件事的两个入口（Layer Collision Matrix），写死一份免得换机器漏配。
             Physics2D.IgnoreLayerCollision(EnemyLayer, EnemyLayer, true);
 
             GridGeometry geometry = gridView.ReadGeometry();
@@ -629,20 +632,25 @@ namespace DeepseaOil.Presentation
             // 先订阅格子状态变化再灌初始状态，否则那批泥浆不会被画出来
             gridView.Attach();
 
-            // 同上：点光管理器晚订阅一步，开局那批火/电地块就一个灯都不会亮
-            _tileLights = GetComponentInChildren<TileLightDirector>(true);
+            // 同上：晚订阅一步，开局那批火/电地块一个格都不会亮
+            _tileLightmap = GetComponentInChildren<TileGridLightmap>(true);
 
-            if (_tileLights == null)
+            // 装配工具挂在 [Environment]（场景根，不是子节点）上，这里要认得，否则会多造一个
+            if (_tileLightmap == null) _tileLightmap = FindObjectOfType<TileGridLightmap>();
+
+            if (_tileLightmap == null)
             {
-                _tileLights = new GameObject("TileLightDirector").AddComponent<TileLightDirector>();
+                _tileLightmap = new GameObject("TileGridLightmap").AddComponent<TileGridLightmap>();
             }
 
-            _tileLights.Attach();
+            // 尺寸取实画矩形：硬编码 64×36 会裁掉最右一列
+            gridView.TryGetCellBounds(out BoundsInt lightmapBounds);
+
+            _tileLightmap.Attach(_grid, in geometry, in lightmapBounds);
 
             int cells = gridView.RegisterCells(_grid);
 
-            // 关卡初始地块优先从场景里的 InitialSetup 笔刷层读（策划在编辑器里画）
-            // 没画才退回表驱动的 tile_initial
+            // 初始地块优先读场景的 InitialSetup 笔刷层，没画才退回表驱动的 tile_initial
             int initialStates = gridView.LoadInitialSetupTiles(_grid);
 
             if (initialStates == 0)

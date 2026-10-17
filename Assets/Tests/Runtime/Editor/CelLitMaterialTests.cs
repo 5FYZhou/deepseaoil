@@ -30,10 +30,10 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void 材质_受光材质的暗部保底都不低于0点35()
+        public void 材质_受光材质的暗部保底不得高于0点20()
         {
-            AssertAmbientFloor(CelLitMatPath, 3f);
-            AssertAmbientFloor(TileFlowMatPath, 0f);
+            AssertAmbientFloor(CelLitMatPath);
+            AssertAmbientFloor(TileFlowMatPath);
         }
 
         [Test]
@@ -138,19 +138,15 @@ namespace DeepseaOil.Tests
             return order;
         }
 
-        private static void AssertAmbientFloor(string path, float expectedCelBands)
+        private static void AssertAmbientFloor(string path)
         {
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
 
             Assert.IsNotNull(material, $"材质资产不存在：{path}（先跑 DeepseaOil ▸ 光照与后处理 ▸ 一键装配地表受光材质矩阵）");
             Assert.IsTrue(material.HasProperty("_AmbientFloor"), $"{path} 缺 _AmbientFloor");
 
-            Assert.GreaterOrEqual(material.GetFloat("_AmbientFloor"), 0.35f, $"{path} 的暗部保底跌破 0.35");
-
-            if (expectedCelBands <= 0f) return;
-
-            Assert.IsTrue(material.HasProperty("_CelBands"), $"{path} 缺 _CelBands");
-            Assert.AreEqual(expectedCelBands, material.GetFloat("_CelBands"), $"{path} 的赛璐珞阶数不是 3");
+            // 取大保底高于夜色基准会把整片夜晚压平成中性灰，故判据从"不得更低"翻转为"不得更高"
+            Assert.LessOrEqual(material.GetFloat("_AmbientFloor"), 0.20f, $"{path} 的暗部保底高于夜景基准 0.20");
         }
 
         /// <summary>Additive 打开 Range、在场景加载期间取值断言、随即关闭：对象在关闭后即失效，不能带出去</summary>

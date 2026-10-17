@@ -162,6 +162,18 @@ namespace DeepseaOil.Presentation.Adapters
             return geometry;
         }
 
+        /// <summary>地板层已画格子的矩形边界；空层返回 false（空 Tilemap 的 cellBounds 是 1×1×1）</summary>
+        public bool TryGetCellBounds(out BoundsInt bounds)
+        {
+            bounds = default;
+
+            if (groundTilemap == null || groundTilemap.GetUsedTilesCount() == 0) return false;
+
+            bounds = groundTilemap.cellBounds;
+
+            return bounds.size.x > 0 && bounds.size.y > 0;
+        }
+
         /// 把地板层全部格子登记进逻辑层，只有登记过的格才能被砸出状态、被减速
         public int RegisterCells(GridLogic grid)
         {
@@ -299,7 +311,7 @@ namespace DeepseaOil.Presentation.Adapters
                 {
                     Tilemap layer = effectLayers[i].Tilemap;
 
-                    // 空槽合法（预制体上这几行只留 None 占位）：没接层就跳过，与 ValidateStateTiles 的空表口径一致
+                    // 空槽合法：没接层就跳过
                     if (layer == null) continue;
 
                     usable++;
@@ -433,7 +445,7 @@ namespace DeepseaOil.Presentation.Adapters
         /// Normal 在事件里当擦除；重复状态只取第一条
         private void ValidateStateTiles()
         {
-            // 空表合法（全走 tiles/Tile_{状态}），故不报日志
+            // 空表合法（全走 tiles/Tile_{状态}）
             if (stateTiles == null || stateTiles.Length == 0) return;
 
             for (int i = 0; i < stateTiles.Length; i++)
@@ -515,8 +527,7 @@ namespace DeepseaOil.Presentation.Adapters
                 "检查 effectLayers 是否接了 Tilemap。", this);
         }
 
-        /// 状态 → 效果层贴图：特例优先，未配的按约定懒加载
-        /// 顺序：stateTiles 特例 → 缓存 → tiles/Tile_{状态}；取不到只警告一次并返回 null。
+        /// 状态 → 效果层贴图：特例优先，未配的按约定懒加载；取不到只警告一次并返回 null
         private TileBase TileFor(TileStateType state)
         {
             if (stateTiles != null)

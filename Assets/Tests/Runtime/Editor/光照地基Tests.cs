@@ -43,8 +43,11 @@ namespace DeepseaOil.Tests
             {
                 TimeOfDaySetting setting = TimeOfDaySetting.GetDefault(kinds[i]);
 
-                Assert.GreaterOrEqual(setting.Intensity, 0.35f, $"{kinds[i]} 跌破 0.35 暗部保底");
-                Assert.GreaterOrEqual(setting.AmbientFloorColor.r, 0.1f, $"{kinds[i]} 暗部补偿色过暗");
+                Assert.GreaterOrEqual(setting.Intensity, 0.15f, $"{kinds[i]} 跌破强度下限 0.15");
+                Assert.Greater(
+                    setting.AmbientFloorColor.r + setting.AmbientFloorColor.g + setting.AmbientFloorColor.b,
+                    0.01f,
+                    $"{kinds[i]} 暗部补偿色是纯黑");
                 Assert.AreEqual(kinds[i], setting.Kind, $"{kinds[i]} 的 Kind 未回填自己");
             }
         }

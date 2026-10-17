@@ -214,11 +214,8 @@ namespace DeepseaOil.EditorTools.Lighting
                 material.shader = shader;
             }
 
-            if (material.HasProperty("_AmbientFloor")) material.SetFloat("_AmbientFloor", 0.35f);
-            if (material.HasProperty("_CelBands")) material.SetFloat("_CelBands", 3f);
-
-            // 光斑齿状化基线：0 = 硬边正圆；只对暴露该属性的 CelLit 生效
-            if (material.HasProperty("_OrganicJitter")) material.SetFloat("_OrganicJitter", 0.015f);
+            // 暗部保底必须低于夜晚基准 0.20：取大保底高于夜色会把整片夜晚压平成中性灰
+            if (material.HasProperty("_AmbientFloor")) material.SetFloat("_AmbientFloor", 0.1f);
 
             EditorUtility.SetDirty(material);
 

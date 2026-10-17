@@ -45,7 +45,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AmbientFloor: 0.35
+    - _AmbientFloor: 0.1
     - _FlowAmplitude: 0.001
     - _FlowFrequency: 8
     - _FlowSpeed: 5
