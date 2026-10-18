@@ -89,6 +89,10 @@ PlayableDirector:
     value: {fileID: 0}
   - key: {fileID: -4590388515387980185, guid: e96aa0eafd674ef44bc60eb6ce1a89a6, type: 2}
     value: {fileID: 7043466647468863167}
+  - key: {fileID: -2479251869753511464, guid: e96aa0eafd674ef44bc60eb6ce1a89a6, type: 2}
+    value: {fileID: 0}
+  - key: {fileID: 2081201183517454034, guid: e96aa0eafd674ef44bc60eb6ce1a89a6, type: 2}
+    value: {fileID: 0}
   m_ExposedReferences:
     m_References:
     - d228f8ef338f11b42b47ff47ddfb7ad0: {fileID: 8541847474344479554}
@@ -110,6 +114,7 @@ MonoBehaviour:
   fadeSeconds: 1
   blackenSeconds: 1
   holdSeconds: 2
+  coverLeadSeconds: 0.6
 --- !u!1 &1642318513498543835
 GameObject:
   m_ObjectHideFlags: 0
@@ -939,7 +944,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: a0911676f56662448940e359032ea404, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
