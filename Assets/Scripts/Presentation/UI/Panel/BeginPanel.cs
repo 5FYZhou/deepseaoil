@@ -21,7 +21,7 @@ namespace DeepseaOil.Presentation.UI
         private const float LogoFadeSeconds = 0.4f;
         private const float BtnFadeSeconds = 0.4f;
         private const float TipBreathSeconds = 2.4f;
-        private const float TipAlphaMin = 0.3f;
+        private const float TipAlphaMin = 0.1f;
 
         // 首次进入给 Logo，从游戏回来直接给按钮；面板跨场景常驻，静态量随进程走
         private static bool s_logoPending = true;
@@ -61,7 +61,7 @@ namespace DeepseaOil.Presentation.UI
 
         protected override TxtStyle SetTxtStyle(string name)
         {
-            return name == "TxtTip" ? TxtStyle.None : TxtStyle.Body;
+            return TxtStyle.Title;
         }
 
         protected override bool KeepAuthoredTxt(string name)

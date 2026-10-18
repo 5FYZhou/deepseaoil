@@ -20,6 +20,10 @@ namespace DeepseaOil.Presentation.UI
         private const float HilightTime = 0.2f;
         private const float WaveTextFadeDuration = 0.2f;
         private const float BattleTextHoldDuration = 3f;
+        private const float DyingFadeDuration = 0.5f;
+        private const float DyingBreathCycle = 0.5f;
+        private const float DyingBreathGray = 0.5f;
+        private const float DyingHealthThreshold = 1f;
 
         [SerializeField] private Sprite spriteWater;
         [SerializeField] private Sprite spriteEarth;
@@ -80,6 +84,7 @@ namespace DeepseaOil.Presentation.UI
         private TMP_Text _txtNextWave;
         private TMP_Text _txtWater;
         private TMP_Text _txtEarth;
+        private TMP_Text _txtSeed;
         private Image _imgWaterBG;
         private Image _imgEarthBG;
         private Image _imgSeedBG;
@@ -87,6 +92,7 @@ namespace DeepseaOil.Presentation.UI
         private Image _imgEarth;
         private Image _imgSeed;
         private Image _imgSlecteState;
+        private Image _imgDying;
         private Coroutine _healthAnimCoroutine;
         private Coroutine _waterIconCoroutine;
         private Coroutine _earthIconCoroutine;
@@ -94,6 +100,7 @@ namespace DeepseaOil.Presentation.UI
         private Coroutine _selectStateCoroutine;
         private Coroutine _waveTextCoroutine;
         private Coroutine _countdownFadeCoroutine;
+        private Coroutine _dyingCoroutine;
         private bool _countdownShown;
         private int _pendingSelectedStates;
         private bool _subscribed;
@@ -114,6 +121,7 @@ namespace DeepseaOil.Presentation.UI
             _txtNextWave = GetComponent<TMP_Text>("TxtNextWave");
             _txtWater = GetComponent<TMP_Text>("TxtWater");
             _txtEarth = GetComponent<TMP_Text>("TxtEarth");
+            _txtSeed = GetComponent<TMP_Text>("TxtSeed");
             Image healthImage = GetComponent<Image>("ImgHealth");
             _imgWaterBG = GetComponent<Image>("ImgWaterBG");
             _imgEarthBG = GetComponent<Image>("ImgEarthBG");
@@ -122,8 +130,15 @@ namespace DeepseaOil.Presentation.UI
             _imgEarth = GetComponent<Image>("ImgEarth");
             _imgSeed = GetComponent<Image>("ImgSeed");
             _imgSlecteState = GetComponent<Image>("ImgSlecteState");
+            _imgDying = GetComponent<Image>("ImgDying");
             _imgWater.sprite = spriteWater;
             _imgEarth.sprite = spriteEarth;
+            if (_imgDying != null)
+            {
+                _imgDying.raycastTarget = false;
+                _imgDying.gameObject.SetActive(false);
+            }
+
             if (healthImage == null || healthImage.material == null)
             {
                 Debug.LogError("[GamePlayPanel] ImgHealth 缺少可用材质。", this);
@@ -154,6 +169,7 @@ namespace DeepseaOil.Presentation.UI
                 StopCoroutine(_seedIconCoroutine);
             if (_selectStateCoroutine != null)
                 StopCoroutine(_selectStateCoroutine);
+            StopDying();
             StopWaveText();
             StopCountdownFade();
 
@@ -168,6 +184,7 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe()
         {
             Subscribe();
+            ClearWaveHud();
             EventBus<RequestHudRefresh>.Publish(new RequestHudRefresh());
         }
 
@@ -212,6 +229,7 @@ namespace DeepseaOil.Presentation.UI
             EventBus<WavePhaseChanged>.Subscribe(OnWavePhaseChanged);
             EventBus<WaveCountdownChanged>.Subscribe(OnWaveCountdownChanged);
             EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
+            EventBus<LevelStateChanged>.Subscribe(OnLevelStateChanged);
         }
 
         private void Unsubscribe()
@@ -224,6 +242,7 @@ namespace DeepseaOil.Presentation.UI
             EventBus<WavePhaseChanged>.Unsubscribe(OnWavePhaseChanged);
             EventBus<WaveCountdownChanged>.Unsubscribe(OnWaveCountdownChanged);
             EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
+            EventBus<LevelStateChanged>.Unsubscribe(OnLevelStateChanged);
         }
 
         private void OnWavePhaseChanged(WavePhaseChanged evt)
@@ -231,6 +250,49 @@ namespace DeepseaOil.Presentation.UI
             _hasWavePhase = true;
             _curWavePhase = evt.Phase;
             ApplyWaveText(evt.Phase);
+        }
+
+        // 换关卡不重开面板，靠它清残留
+        private void OnLevelStateChanged(LevelStateChanged evt)
+        {
+            ClearWaveHud();
+            _hasAmmoSnapshot = false;
+        }
+
+        private void ClearWaveHud()
+        {
+            if (_txtNextWave == null || _txtCountdown == null) return;
+
+            StopWaveText();
+            StopCountdownFade();
+
+            _hasWavePhase = false;
+            _curWavePhase = Logic.Wave.WavePhase.Prep;
+            _countdownShown = false;
+
+            _txtNextWave.text = "";
+            _txtNextWave.alpha = 0f;
+
+            _txtCountdown.text = "";
+            _txtCountdown.alpha = 0f;
+            _txtCountdown.gameObject.SetActive(false);
+        }
+
+        private void HideWaveHud()
+        {
+            if (_txtNextWave == null || _txtCountdown == null) return;
+
+            StopWaveText();
+            StopCountdownFade();
+
+            _countdownShown = false;
+
+            _txtNextWave.text = "";
+            _txtNextWave.alpha = 0f;
+
+            _txtCountdown.text = "";
+            _txtCountdown.alpha = 0f;
+            _txtCountdown.gameObject.SetActive(false);
         }
 
         private void ApplyWaveText(Logic.Wave.WavePhase phase)
@@ -322,7 +384,13 @@ namespace DeepseaOil.Presentation.UI
 
             bool shouldShow = _curWavePhase != Logic.Wave.WavePhase.Battle;
             if (shouldShow)
+            {
                 _txtCountdown.text = $"倒计时：{evt.SecondsRemaining}";
+                if(evt.SecondsRemaining == 3)
+                {
+                    GameRoot.Instance.Audio.EnqueueSfx(AudioId.WaveCountdown);
+                }
+            }
 
             if (shouldShow == _countdownShown) return;
 
@@ -380,6 +448,12 @@ namespace DeepseaOil.Presentation.UI
 
             if (initialize || seedChanged)
                 UpdateSeedIcon(evt.Seed);
+
+            if (_txtSeed != null)
+            {
+                _txtSeed.text = evt.SeedCount.ToString();
+                _txtSeed.gameObject.SetActive(evt.SeedCount > 0);
+            }
 
             if (_imgWaterBG != null)
                 UpdateAmmoImage(_imgWaterBG, evt.Water > 0, waterChanged, initialize, ref _waterIconCoroutine);
@@ -499,8 +573,65 @@ namespace DeepseaOil.Presentation.UI
                 _seedIconCoroutine = null;
         }
 
+        private void UpdateDying(float health)
+        {
+            if (_imgDying == null) return;
+
+            if (health <= 0f || health > DyingHealthThreshold)
+            {
+                StopDying();
+                _imgDying.gameObject.SetActive(false);
+                return;
+            }
+
+            if (_dyingCoroutine != null) return;
+
+            _imgDying.gameObject.SetActive(true);
+            _dyingCoroutine = StartCoroutine(PlayDying());
+        }
+
+        private void StopDying()
+        {
+            if (_dyingCoroutine == null) return;
+
+            StopCoroutine(_dyingCoroutine);
+            _dyingCoroutine = null;
+        }
+
+        private IEnumerator PlayDying()
+        {
+            Color color = Color.white;
+            color.a = 0f;
+            _imgDying.color = color;
+
+            float elapsed = 0f;
+            while (elapsed < DyingFadeDuration)
+            {
+                elapsed += Time.deltaTime;
+                color.a = Mathf.Clamp01(elapsed / DyingFadeDuration);
+                _imgDying.color = color;
+                yield return null;
+            }
+
+            color.a = 1f;
+            float omega = 2f * Mathf.PI / DyingBreathCycle;
+            float phase = 0f;
+
+            while (true)
+            {
+                phase += Time.deltaTime;
+                float gray = Mathf.Lerp(DyingBreathGray, 1f, (Mathf.Sin(phase * omega) + 1f) * 0.5f);
+                color.r = gray;
+                color.g = gray;
+                color.b = gray;
+                _imgDying.color = color;
+                yield return null;
+            }
+        }
+
         private void OnHealthChanged(PlayerHealthChanged evt)
         {
+            UpdateDying(evt.Current);
             if (_healthMaterial == null) return;
 
             float targetHealth = GetMaterialHealth(Mathf.Clamp(evt.Current, 0f, 3f));
@@ -554,12 +685,7 @@ namespace DeepseaOil.Presentation.UI
 
         private void OnGameStateChanged(GameStateChanged evt)
         {
-            _txtCountdown.text = "";
-            if (_txtNextWave == null) return;
-
-            StopWaveText();
-            _txtNextWave.text = "";
-            _txtNextWave.alpha = 0f;
+            HideWaveHud();
 
             if (evt.state == GameState.Running && _hasWavePhase)
                 ApplyWaveText(_curWavePhase);

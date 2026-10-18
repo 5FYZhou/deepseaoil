@@ -203,7 +203,7 @@
     "Assets/Scripts/Presentation/UI/Component/PolygonRaycastArea.cs": 350,
     "Assets/Scripts/Presentation/UI/Component/PolygonRaycastSettings.cs": 78,
     "Assets/Scripts/Presentation/UI/Panel/BeginPanel.cs": 87,
-    "Assets/Scripts/Presentation/UI/Panel/CGPanel.cs": 122,
+    "Assets/Scripts/Presentation/UI/Panel/CGPanel.cs": 61,
     "Assets/Scripts/Presentation/UI/Panel/DialoguePanel.cs": 0,
     "Assets/Scripts/Presentation/UI/Panel/EndPanel.cs": 0,
     "Assets/Scripts/Presentation/UI/Panel/GamePlayPanel.cs": 21,

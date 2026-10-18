@@ -50,6 +50,11 @@ MonoBehaviour:
     fontStyle: 0
   - path: Fonts
     name: SourceHanSansSC-Normal SDF
-    size: 30
+    size: 32
     style: 3
+    fontStyle: 0
+  - path: Fonts
+    name: SourceHanSansSC-Normal SDF
+    size: 28
+    style: 4
     fontStyle: 0

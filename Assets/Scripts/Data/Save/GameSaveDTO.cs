@@ -111,6 +111,38 @@ namespace DeepseaOil.Data
         public float posY;
     }
 
+    /// <summary>关卡是否已开战；波次数值在 WaveSaveData，这一项决定读档后该不该立刻跑波次</summary>
+    [Serializable]
+    public class LevelSaveData
+    {
+        public int state;
+
+        public bool victoryEndEventReleased;
+    }
+
+    /// <summary>剧情进度：段号 + 行下标；已播标记与队列也要存，否则读档后同一段会被再次触发</summary>
+    [Serializable]
+    public class StorySaveData
+    {
+        public int stage;
+
+        public int paragraph;
+
+        public int lineIndex;
+
+        public bool seedDialogueQueued;
+
+        public bool levelFiveWaveDialogueQueued;
+
+        public bool levelSixWaveTwoDialogueQueued;
+
+        public bool levelSixWaveThreeDialogueQueued;
+
+        public bool endingDialogueQueued;
+
+        public List<int> pendingParagraphs;
+    }
+
     /// <summary>整档根；schemaVersion 放最外层</summary>
     [Serializable]
     public class GameSaveData
@@ -125,10 +157,14 @@ namespace DeepseaOil.Data
 
         public WaveSaveData wave;
 
+        public LevelSaveData level;
+
         public List<EnemySaveData> enemies;
 
         public List<TileSaveData> tiles;
 
         public List<DropSaveData> drops;
+
+        public StorySaveData story;
     }
 }

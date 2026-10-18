@@ -15,6 +15,9 @@ namespace DeepseaOil.Presentation.UI
         private int _total;
         private Coroutine _running;
 
+        /// <summary>暂停时冻结逐字；本协程吃 unscaled，缩放时间区分不出暂停</summary>
+        public bool Paused { get; set; }
+
         public Typewriter(MonoBehaviour host)
         {
             _host = host;
@@ -73,7 +76,7 @@ namespace DeepseaOil.Presentation.UI
             // 对话期间 timeScale=0，缩放 deltaTime 恒为 0，逐字必须吃 unscaled
             while (shown < total)
             {
-                elapsed += Time.unscaledDeltaTime;
+                if (!Paused) elapsed += Time.unscaledDeltaTime;
                 shown = Mathf.Min(total, Mathf.FloorToInt(elapsed * charsPerSecond) + 1);
                 _text.maxVisibleCharacters = shown;
                 yield return null;

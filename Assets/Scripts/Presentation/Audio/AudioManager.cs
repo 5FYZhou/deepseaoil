@@ -46,7 +46,6 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        /// <summary>BGM 渐变状态</summary>
         private enum BgmFadeState
         {
             None,       // 无渐变，正常播放
@@ -72,6 +71,8 @@ namespace DeepseaOil.Presentation
 
         private GameObject _bgmGameObject;
         private AudioSource _bgmSource;
+
+        private AudioSource _loopSfxSource;
 
         private Pool<GameObject> _audioPool;
         private Pool<PlayingEntry> _entryPool;
@@ -128,7 +129,6 @@ namespace DeepseaOil.Presentation
                 onRelease: obj => obj.SetActive(false)
             );
 
-            // 初始化 PlayingEntry 池
             _entryPool = new PoolInClass<PlayingEntry>(
                 factory: () => new PlayingEntry()
             );
@@ -140,6 +140,14 @@ namespace DeepseaOil.Presentation
             _bgmSource.loop = true;
             _bgmSource.playOnAwake = false;
             _bgmSource.volume = _bgmVolume;
+
+            var loopSfxGo = new GameObject("LoopSfxAudioSource", typeof(AudioSource));
+            loopSfxGo.transform.SetParent(_audioRootT, false);
+
+            _loopSfxSource = loopSfxGo.GetComponent<AudioSource>();
+            _loopSfxSource.loop = true;
+            _loopSfxSource.playOnAwake = false;
+            _loopSfxSource.volume = _sfxVolume;
 
             _initialized = true;
         }
@@ -157,8 +165,6 @@ namespace DeepseaOil.Presentation
             UpdateBgmFade(unscaledDeltaTime);
         }
 
-        // 消息队列
-
         /// <summary>请求播放音效，只入队</summary>
         public void EnqueueSfx(AudioId id)
         {
@@ -169,6 +175,30 @@ namespace DeepseaOil.Presentation
         public void EnqueueBgm(AudioId id, bool resumeFromLastTime = true)
         {
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id, resumeFromLastTime));
+        }
+
+        /// <summary>开关一条循环音效（走路等持续音），同一时刻只保留一条</summary>
+        /// <remarks>不走队列（排队漏首帧）；源常驻，持有者销毁时必须关闭。</remarks>
+        public void SetLoopSfx(AudioId id, bool play)
+        {
+            if (!_initialized || _loopSfxSource == null) return;
+
+            if (!play || id == AudioId.None)
+            {
+                if (_loopSfxSource.isPlaying) _loopSfxSource.Stop();
+
+                return;
+            }
+
+            var clip = GetClip(id);
+
+            if (clip == null) return;
+
+            if (_loopSfxSource.clip == clip && _loopSfxSource.isPlaying) return;
+
+            _loopSfxSource.clip = clip;
+            _loopSfxSource.volume = _sfxVolume;
+            _loopSfxSource.Play();
         }
 
         private void ProcessRequests()
@@ -257,6 +287,8 @@ namespace DeepseaOil.Presentation
             _bgmSource = null;
             _bgmGameObject = null;
 
+            _loopSfxSource = null;
+
             if (_rootGo != null) Object.Destroy(_rootGo);
             _rootGo = null;
             _audioRootT = null;
@@ -341,7 +373,7 @@ namespace DeepseaOil.Presentation
             _bgmSource.Play();
         }
 
-        /// <summary>把当前 BGM 的播放进度写回字典（在切走/停止前调用）</summary>
+        /// <summary>切走/停止前写回当前进度</summary>
         private void RememberCurrentBgmTime()
         {
             if (_bgmSource == null) return;
@@ -376,7 +408,7 @@ namespace DeepseaOil.Presentation
 
             if (_bgmFadeTime <= 0f)
             {
-                // 时长为 0 视为瞬时切换，避免除零
+                // 0 时长按瞬时切换处理，避免除零
                 FinishBgmFade();
                 return;
             }
@@ -421,8 +453,6 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        // 音频资源
-
         /// <summary>音频资源 Key：&lt;配置目录&gt;/&lt;文件名&gt;，ResolvePath 会去掉扩展名</summary>
         private static string ClipKey(string fileName) => "audio/" + fileName;
 
@@ -464,7 +494,7 @@ namespace DeepseaOil.Presentation
             _bgmVolume = config.bgmVolume;
             _sfxVolume = config.sfxVolume;
 
-            // 淡入淡出时长：优先读配置；若 AudioConfig 暂无该字段，保留字段初始值 0.3f
+            // 淡入淡出时长（秒）
             _bgmFadeTime = Mathf.Max(0f, config.bgmFadeDuration);
 
             _idToFileName.Clear();
@@ -509,6 +539,8 @@ namespace DeepseaOil.Presentation
 
             for (int i = 0; i < _playing.Count; i++)
                 _playing[i].source.volume = _sfxVolume;
+
+            if (_loopSfxSource != null) _loopSfxSource.volume = _sfxVolume;
         }
     }
 }
