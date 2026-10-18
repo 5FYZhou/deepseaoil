@@ -22,7 +22,6 @@ MonoBehaviour:
   shadowRadiusMeters: 0.2
   shadowScaleAtPeak: 0.7
   groundVisualOffset: -0.01
-  aimRadiusMeters: 0.32
   aimVerticalSquash: 0.6
   aimPerspectiveTaper: 0.15
   aimRingThicknessMeters: 0.07

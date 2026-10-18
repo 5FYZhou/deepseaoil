@@ -172,8 +172,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 HandleId = ++_nextId,
             };
 
+            view.SetStyle(feel.popupOutlineWidth, feel.popupOutlineColor, feel.popupFontScale);
             view.SetValue(Mathf.RoundToInt(ctx.Value));
-            view.SetColor(inst.Tint);
+            view.SetColor(Color.Lerp(inst.Tint, Color.white, feel.popupWhiten));
             view.SetAlpha(1f);
 
             go.transform.position = new Vector3(pos.x, pos.y, 0f);
@@ -250,8 +251,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 }
 
                 float y = inst.StartPos.y + feel.popupRiseHeight * (1f - Mathf.Pow(1f - t, feel.popupRiseEase));
+                float fade = Mathf.InverseLerp(feel.popupHold, 1f, t);
 
-                inst.View.SetAlpha(1f - Mathf.Pow(t, feel.popupFadeEase));
+                inst.View.SetAlpha(1f - Mathf.Pow(fade, feel.popupFadeEase));
 
                 inst.Go.transform.position = new Vector3(inst.StartPos.x, y, 0f);
             }

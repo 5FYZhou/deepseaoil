@@ -38,8 +38,8 @@ MonoBehaviour:
     MaxSize: 64
     Prewarm: 32
   - Id: 10
-    MaxSize: 64
-    Prewarm: 16
+    MaxSize: 128
+    Prewarm: 32
   - Id: 11
     MaxSize: 32
     Prewarm: 0

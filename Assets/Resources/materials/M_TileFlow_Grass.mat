@@ -45,6 +45,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AmbientFloor: 0.02
     - _ColorMaskWeight: 0.75
     - _FlowAmplitude: 0.002
     - _FlowFrequency: 8
@@ -53,11 +54,12 @@ Material:
     - _GustSpeed: 7
     - _HeightCutoff: 0.42
     - _HeightPower: 1.2
-    - _NoiseMix: 0.2
+    - _NoiseMix: 0.3
     - _PhaseNoise: 1
-    - _WindFrequency: 1.8
+    - _TileLightBoost: 1.35
+    - _WindFrequency: 1.5
     - _WindSpeed: 2
-    - _WindStrength: 0.02
+    - _WindStrength: 0.05
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _WindDirection: {r: 1, g: 0.15, b: 0, a: 0}

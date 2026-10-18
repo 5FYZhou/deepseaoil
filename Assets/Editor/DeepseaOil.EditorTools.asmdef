@@ -1,7 +1,11 @@
 {
     "name": "DeepseaOil.EditorTools",
     "rootNamespace": "DeepseaOil.EditorTools",
-    "references": [],
+    "references": [
+        "DeepseaOil.Presentation",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
     "includePlatforms": [
         "Editor"
     ],
