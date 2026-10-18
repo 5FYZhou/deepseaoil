@@ -28,7 +28,8 @@ namespace DeepseaOil.Presentation.UI
         [SerializeField] private float blackenSeconds = 1f;
         [SerializeField] private float holdSeconds = 2f;
 
-        private const double TimelineHoldBack = 0.05;
+        [Tooltip("CG 末尾提前多少秒开始盖遮罩：必须大于 LoadingPanel.fadeDuration 加面板首帧加载开销")]
+        [SerializeField] private float coverLeadSeconds = 0.6f;
 
         private PlayableDirector _director;
         private Image _imgEndRoot;
@@ -41,8 +42,6 @@ namespace DeepseaOil.Presentation.UI
         {
             base.Awake();
             _director = GetComponent<PlayableDirector>();
-            // 挂住末帧：wrap=None 播完即把各 ImgStory Revert 回作者态，CG 先于遮罩消失
-            _director.extrapolationMode = DirectorWrapMode.Hold;
             _imgEndRoot = GetComponent<Image>("ImgEnd");
             _txtEnd = GetComponent<TMP_Text>("TxtEnd");
             EventBus<SceneActivated>.Subscribe(Hide);
@@ -161,7 +160,7 @@ namespace DeepseaOil.Presentation.UI
             _director.time = 0;
             _director.Play();
 
-            _timelineWatch = StartCoroutine(CoWaitTimelineEnd());
+            _timelineWatch = StartCoroutine(CoWaitCoverTime());
         }
 
         private void StopTimelineWatch()
@@ -173,15 +172,13 @@ namespace DeepseaOil.Presentation.UI
             _timelineWatch = null;
         }
 
-        private IEnumerator CoWaitTimelineEnd()
+        private IEnumerator CoWaitCoverTime()
         {
-            // Hold 下不会自己 stopped：按时间到点冻住，不能用 Stop（graph 销毁会让各 Activation 轨道 Revert）
-            double holdTime = _director.duration - TimelineHoldBack;
+            // 遮罩必须先全黑、面板才允许消失：timeline 一播完就会还原画面，所以提前 coverLeadSeconds 起遮罩
+            double coverTime = _director.duration - coverLeadSeconds;
 
-            while (_director.state == PlayState.Playing && _director.time < holdTime)
+            while (_director.state == PlayState.Playing && _director.time < coverTime)
                 yield return null;
-
-            _director.Pause();
 
             _timelineWatch = null;
 
