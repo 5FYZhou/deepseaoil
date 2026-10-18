@@ -20,10 +20,6 @@ namespace DeepseaOil.Presentation.UI
         private const float HilightTime = 0.2f;
         private const float WaveTextFadeDuration = 0.2f;
         private const float BattleTextHoldDuration = 3f;
-        private const float DyingFadeDuration = 0.5f;
-        private const float DyingBreathCycle = 0.5f;
-        private const float DyingBreathGray = 0.5f;
-        private const float DyingHealthThreshold = 1f;
 
         [SerializeField] private Sprite spriteWater;
         [SerializeField] private Sprite spriteEarth;
@@ -92,7 +88,6 @@ namespace DeepseaOil.Presentation.UI
         private Image _imgEarth;
         private Image _imgSeed;
         private Image _imgSlecteState;
-        private Image _imgDying;
         private Coroutine _healthAnimCoroutine;
         private Coroutine _waterIconCoroutine;
         private Coroutine _earthIconCoroutine;
@@ -100,7 +95,6 @@ namespace DeepseaOil.Presentation.UI
         private Coroutine _selectStateCoroutine;
         private Coroutine _waveTextCoroutine;
         private Coroutine _countdownFadeCoroutine;
-        private Coroutine _dyingCoroutine;
         private bool _countdownShown;
         private int _pendingSelectedStates;
         private bool _subscribed;
@@ -130,14 +124,8 @@ namespace DeepseaOil.Presentation.UI
             _imgEarth = GetComponent<Image>("ImgEarth");
             _imgSeed = GetComponent<Image>("ImgSeed");
             _imgSlecteState = GetComponent<Image>("ImgSlecteState");
-            _imgDying = GetComponent<Image>("ImgDying");
             _imgWater.sprite = spriteWater;
             _imgEarth.sprite = spriteEarth;
-            if (_imgDying != null)
-            {
-                _imgDying.raycastTarget = false;
-                _imgDying.gameObject.SetActive(false);
-            }
 
             if (healthImage == null || healthImage.material == null)
             {
@@ -169,7 +157,6 @@ namespace DeepseaOil.Presentation.UI
                 StopCoroutine(_seedIconCoroutine);
             if (_selectStateCoroutine != null)
                 StopCoroutine(_selectStateCoroutine);
-            StopDying();
             StopWaveText();
             StopCountdownFade();
 
@@ -261,12 +248,6 @@ namespace DeepseaOil.Presentation.UI
         }
         private void ResetHealthHud()
         {
-            // 停掉濒死/常显逻辑
-            StopDying();
-            if (_imgDying != null)
-                _imgDying.gameObject.SetActive(false);
-
-            // 停掉血条动画，直接置满血
             if (_healthAnimCoroutine != null)
             {
                 StopCoroutine(_healthAnimCoroutine);
@@ -361,7 +342,6 @@ namespace DeepseaOil.Presentation.UI
             {
                 yield return FadeTextAlpha(_txtNextWave, 1f);
 
-                // <=0常显
                 if (visibleSeconds > 0f)
                 {
                     float hold = visibleSeconds - WaveTextFadeDuration;
@@ -591,76 +571,8 @@ namespace DeepseaOil.Presentation.UI
                 _seedIconCoroutine = null;
         }
 
-        private void UpdateDying(float health)
-        {
-            if (_imgDying == null) return;
-
-            // 血量为 0：常显纯白、完全不透明，停掉呼吸
-            if (health <= 0f)
-            {
-                StopDying();
-                _imgDying.gameObject.SetActive(true);
-                _imgDying.color = Color.white; // (1,1,1,1)
-                return;
-            }
-
-            // 高于濒死阈值：隐藏
-            if (health > DyingHealthThreshold)
-            {
-                StopDying();
-                _imgDying.gameObject.SetActive(false);
-                return;
-            }
-
-            // 0 < health <= 1：濒死呼吸（保持原逻辑）
-            if (_dyingCoroutine != null) return;
-
-            _imgDying.gameObject.SetActive(true);
-            _dyingCoroutine = StartCoroutine(PlayDying());
-        }
-
-        private void StopDying()
-        {
-            if (_dyingCoroutine == null) return;
-
-            StopCoroutine(_dyingCoroutine);
-            _dyingCoroutine = null;
-        }
-
-        private IEnumerator PlayDying()
-        {
-            Color color = Color.white;
-            color.a = 0f;
-            _imgDying.color = color;
-
-            float elapsed = 0f;
-            while (elapsed < DyingFadeDuration)
-            {
-                elapsed += Time.deltaTime;
-                color.a = Mathf.Clamp01(elapsed / DyingFadeDuration);
-                _imgDying.color = color;
-                yield return null;
-            }
-
-            color.a = 1f;
-            float omega = 2f * Mathf.PI / DyingBreathCycle;
-            float phase = 0f;
-
-            while (true)
-            {
-                phase += Time.deltaTime;
-                float gray = Mathf.Lerp(DyingBreathGray, 1f, (Mathf.Sin(phase * omega) + 1f) * 0.5f);
-                color.r = gray;
-                color.g = gray;
-                color.b = gray;
-                _imgDying.color = color;
-                yield return null;
-            }
-        }
-
         private void OnHealthChanged(PlayerHealthChanged evt)
         {
-            UpdateDying(evt.Current);
             if (_healthMaterial == null) return;
 
             float targetHealth = GetMaterialHealth(Mathf.Clamp(evt.Current, 0f, 3f));

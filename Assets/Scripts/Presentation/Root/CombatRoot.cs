@@ -23,6 +23,7 @@ using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Grid;
 using DeepseaOil.Presentation.Input;
 using DeepseaOil.Presentation.Level;
+using DeepseaOil.Presentation.Lighting;
 using DeepseaOil.Presentation.RenderPass;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
@@ -43,6 +44,8 @@ namespace DeepseaOil.Presentation
 
         // Q 键丢弃后脚下掉落物的不可拾取窗口，秒
         private const float SeedDiscardPickupCooldown = 1.2f;
+
+        private const float SeedPlantFlashDuration = 0.2f;
 
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
@@ -80,6 +83,8 @@ namespace DeepseaOil.Presentation
 
         private GridLogic _grid; private EnemyCellRegistry _registry;
 
+        private TileGridLightmap _tileLightmap;
+
         private BallDirector _balls;
 
         private ImpulseExecutor _impulses;
@@ -88,8 +93,10 @@ namespace DeepseaOil.Presentation
 
         private CombatDirector _combat;
         private LevelLogic _levelLogic;
-        private TileHighlightView _highlight;
         private StoryFlow _story;
+        private TileCursorIndicator _cursorIndicator;
+        private EffectHandle _plantFlash;
+        private float _plantFlashUntil;
 
         private LifeFountainState _lifeFountain;
 
@@ -158,7 +165,7 @@ namespace DeepseaOil.Presentation
 
         private void OnDestroy()
         {
-            _highlight?.Detach();
+            _tileLightmap?.Detach();
             gridView?.Detach();
 
             // 销毁期再问 GameRoot.Instance 会当场造一个新的，只能用 Start 里抓的引用
@@ -193,7 +200,16 @@ namespace DeepseaOil.Presentation
         {
             if (!IsReady) return;
 
+            StopExpiredPlantFlash();
+
             _grid.Tick(Time.time, deltaTime);
+
+            if (player != null && player.Logic != null && player.Logic.IsAlive) _tileLightmap?.SetCarryLightPosition(player.Position);
+            else _tileLightmap?.ClearCarryLight();
+
+            SyncFountainLights();
+
+            _tileLightmap?.Tick(Time.time, deltaTime);
 
             _balls.Tick(deltaTime);
 
@@ -348,32 +364,41 @@ namespace DeepseaOil.Presentation
 
             ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
-            EffectModule.Play(EffectId.Highlight, in ctx);
+            _plantFlash = EffectModule.Play(EffectId.Highlight, in ctx);
+            _plantFlashUntil = Time.time + SeedPlantFlashDuration;
 
             PlaySfx(AudioId.PlayerPlant);
         }
 
+        private void StopExpiredPlantFlash()
+        {
+            if (!_plantFlash.IsValid || Time.time < _plantFlashUntil) return;
+
+            EffectModule.Stop(_plantFlash);
+            _plantFlash = EffectHandle.None;
+        }
+
         private void UpdateSeedHighlight()
         {
-            if (_highlight == null) return;
+            if (_cursorIndicator == null) return;
 
             PlayerLogic logic = player != null ? player.Logic : null;
 
             if (logic == null || logic.Stats.SeedCount <= 0 || logic.Stats.Seed == SeedType.None)
             {
-                _highlight.SetSeedTint(null);
+                _cursorIndicator.SetSeedTint(null);
 
                 return;
             }
 
             if (!logic.Combat.HasAim)
             {
-                _highlight.SetSeedTint(null);
+                _cursorIndicator.SetSeedTint(null);
 
                 return;
             }
 
-            _highlight.SetSeedTint(SeedPlanter.CanPlant(_grid, logic.Combat.AimCell, logic.Stats.Seed));
+            _cursorIndicator.SetSeedTint(SeedPlanter.CanPlant(_grid, logic.Combat.AimCell, logic.Stats.Seed));
         }
 
         private void TryDiscardSeed(PlayerLogic logic)
@@ -520,6 +545,8 @@ namespace DeepseaOil.Presentation
 
             gridView?.ClearAll();
 
+            _tileLightmap?.ClearAll();
+
             // 权属分流：场景木桩满血归位（物体留着），波次怪彻底销毁
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
@@ -649,7 +676,7 @@ namespace DeepseaOil.Presentation
             _registry = new EnemyCellRegistry();
 
             // 关掉怪与怪的物理推挤：一格宽的缺口塞不下两只，互相顶住会让速度归零、整群卡成一团。
-            // 与层级设置是同一件事的两个入口（Physics 2D ▸ Layer Collision Matrix），这里写死一份免得换机器漏配。
+            // 与层级设置是同一件事的两个入口（Layer Collision Matrix），写死一份免得换机器漏配。
             Physics2D.IgnoreLayerCollision(EnemyLayer, EnemyLayer, true);
 
             GridGeometry geometry = gridView.ReadGeometry();
@@ -664,10 +691,24 @@ namespace DeepseaOil.Presentation
             // 先订阅格子状态变化再灌初始状态，否则那批泥浆不会被画出来
             gridView.Attach();
 
+            _tileLightmap = GetComponentInChildren<TileGridLightmap>(true);
+
+            // 装配工具挂在 [Environment]（场景根，不是子节点）上，这里要认得，否则会多造一个
+            if (_tileLightmap == null) _tileLightmap = FindObjectOfType<TileGridLightmap>();
+
+            if (_tileLightmap == null)
+            {
+                _tileLightmap = new GameObject("TileGridLightmap").AddComponent<TileGridLightmap>();
+            }
+
+            // 尺寸取实画矩形：硬编码 64×36 会裁掉最右一列
+            gridView.TryGetCellBounds(out BoundsInt lightmapBounds);
+
+            _tileLightmap.Attach(_grid, in geometry, in lightmapBounds);
+
             int cells = gridView.RegisterCells(_grid);
 
-            // 关卡初始地块优先从场景里的 InitialSetup 笔刷层读（策划在编辑器里画）
-            // 没画才退回表驱动的 tile_initial
+            // 初始地块优先读场景的 InitialSetup 笔刷层，没画才退回表驱动的 tile_initial
             int initialStates = gridView.LoadInitialSetupTiles(_grid);
 
             if (initialStates == 0)
@@ -678,8 +719,7 @@ namespace DeepseaOil.Presentation
             // 必须早于任何敌人生成：否则首帧绕障拿不到净空图，只能直扑场景障碍
             _grid.SetNavMap(SceneObstacleBaker.Bake(_grid, ConfigModule.NavClearanceCap));
 
-            _highlight = CreateHighlightView(geometry);
-            _highlight.Attach();
+            _cursorIndicator = FindObjectOfType<TileCursorIndicator>(true);
 
             _impulses = new ImpulseExecutor();
 
@@ -715,7 +755,6 @@ namespace DeepseaOil.Presentation
 
             OnRequestHudRefresh(new RequestHudRefresh());
 
-            // 场景已重载干净，这里盖回填
             GameSaveData pendingRestore = null;
 
             if (_root != null && _root.Save != null
@@ -743,6 +782,23 @@ namespace DeepseaOil.Presentation
         private static bool UsesScriptedStory(int levelId)
         {
             return levelId >= 1 && levelId <= 6;
+        }
+
+        private void SyncFountainLights()
+        {
+            if (_tileLightmap == null) return;
+
+            _tileLightmap.ClearSteadyEmitters();
+
+            for (int i = 0; i < fountains.Length; i++)
+            {
+                Fountain fountain = fountains[i];
+
+                if (fountain == null) continue;
+
+                _tileLightmap.AddSteadyEmitter(
+                    fountain.transform.position, fountain.SelfLightColor, fountain.SelfLightIntensity, fountain.SelfLightPulseDepth);
+            }
         }
 
         private void AttachFountains()
@@ -778,21 +834,6 @@ namespace DeepseaOil.Presentation
             TileStateSpec spec = ConfigModule.TryGetTileState(id);
 
             return spec != null ? new TableTileState(spec) : null;
-        }
-
-        private TileHighlightView CreateHighlightView(in GridGeometry geometry)
-        {
-            var go = new GameObject("AimHighlight");
-
-            go.layer = RenderOrder.OverlayLayer;
-
-            if (ballRoot != null) go.transform.SetParent(ballRoot, true);
-
-            var view = go.AddComponent<TileHighlightView>();
-
-            view.Initialize(in geometry, geometry.IsValid ? geometry.CellSize : 1f);
-
-            return view;
         }
 
         private CombatDirector CreateCombatDirector(LevelLogic levelLogic)
@@ -892,7 +933,6 @@ namespace DeepseaOil.Presentation
                     return;
 
                 case DropType.Seed:
-                    // 二次防线：持种时上游已拦下
                     stats.GrantSeed(evt.Seed);
                     return;
 
@@ -1024,6 +1064,8 @@ namespace DeepseaOil.Presentation
             ctx.Tint = new Color(0.92f, 0.96f, 1f, 0.85f);
             EffectModule.Play(EffectId.SteamBlast, in ctx);
 
+            _tileLightmap?.AddImpulse(evt.Center, feel.steamImpulseColor, feel.steamImpulseIntensity, evt.Radius);
+
             // 半径映射到 0.4..1：ScreenShakeDriver 自持 Clamp01，塞原始半径会被拍成恒定满档
             float shake = Mathf.Lerp(feel.blastShakeAmplitudeMin, feel.blastShakeAmplitudeMax, Mathf.InverseLerp(1f, 2.5f, evt.Radius));
 
@@ -1034,7 +1076,6 @@ namespace DeepseaOil.Presentation
             EffectModule.Play(EffectId.ScreenShake, in shakeCtx);
         }
 
-        // 逐格报点：整网同帧各播一次
         private void OnGridPointVfxOccurred(GridPointVfxOccurred evt)
         {
             EffectContext ctx = EffectContext.At(evt.Point);
@@ -1042,7 +1083,13 @@ namespace DeepseaOil.Presentation
             if (evt.IsFire)
                 EffectModule.Play(EffectId.FlameEmbers, in ctx);
             else
+            {
                 EffectModule.Play(EffectId.ChainShock, in ctx);
+
+                VisualFeelTuning feel = ConfigModule.VisualFeel;
+
+                _tileLightmap?.AddImpulse(evt.Point, feel.arcImpulseColor, feel.arcImpulseIntensity, feel.arcImpulseRadius);
+            }
         }
 
         private void OnTileStateChanged(TileStateChanged evt)

@@ -158,7 +158,9 @@ namespace DeepseaOil.Presentation.Grid
             go.transform.SetParent(transform, false);
 
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sortingLayerID = RenderOrder.OverlayLayer;
+
+            // 池化件诞生即属 Actor 受光层：留 Default 会被灯乘成黑
+            sr.sortingLayerName = SortingLayerConsts.Actor;
 
             go.SetActive(false);
             return go;

@@ -41,6 +41,22 @@ namespace DeepseaOil.Presentation.World
         [Tooltip("自动补 Trigger 时的半径（世界单位）：1.5 覆盖以泉眼为中心的九宫格")]
         [SerializeField] private float autoTriggerRadius = 1.5f;
 
+        [Header("自发光")]
+        [Tooltip("勾上才用下面的光色覆盖；不勾 = 按种类自动取色（水=青 / 土=琥珀 / 生命=翠绿）")]
+        [SerializeField] private bool overrideSelfLightColor;
+
+        [Tooltip("光色覆盖：仅在勾上上一项时生效（Alpha 不参与判定）")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color selfLightOverride = new Color(1f, 0.72f, 0.35f, 1f);
+
+        [Tooltip("自发光强度（格心峰值）；0 = 不发光。光按格扩散，泉眼因此也会照亮四周地面")]
+        [Range(0f, 1.5f)]
+        [SerializeField] private float selfLightIntensity = 0.55f;
+
+        [Tooltip("呼吸深度：0 = 常亮；节拍由 TileGridLightmap 的 Steady Pulse Hertz 统一定，避免各泉各闪")]
+        [Range(0f, 0.5f)]
+        [SerializeField] private float selfLightPulseDepth = 0.15f;
+
         private IDropSpawner _spawner;
 
         private bool _playerInside;
@@ -49,6 +65,27 @@ namespace DeepseaOil.Presentation.World
         public FountainKind Kind => kind;
 
         public bool PlayerInside => _playerInside;
+
+        public float SelfLightIntensity => selfLightIntensity;
+
+        public float SelfLightPulseDepth => selfLightPulseDepth;
+
+        public Color SelfLightColor => overrideSelfLightColor ? selfLightOverride : DefaultLightColor(kind);
+
+        private static Color DefaultLightColor(FountainKind fountainKind)
+        {
+            switch (fountainKind)
+            {
+                case FountainKind.Earth:
+                    return new Color(1f, 0.72f, 0.35f, 1f);
+
+                case FountainKind.Life:
+                    return new Color(0.55f, 1f, 0.62f, 1f);
+
+                default:
+                    return new Color(0.45f, 0.85f, 1f, 1f);
+            }
+        }
 
         // 没接线时不产出也不报错，装配日志已由 CombatRoot 报过
         public void Attach(IDropSpawner spawner)

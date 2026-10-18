@@ -10,7 +10,12 @@ namespace DeepseaOil.Presentation.Projectile
     /// <remarks>层次由 BallDriver 建，勿在子物体上叠位。</remarks>
     public sealed class BallView : MonoBehaviour
     {
+        private const string LitMaterialPath = "materials/M_CelLit_Default";
+
         private SpriteRenderer _renderer;
+
+        // Sprite-Lit 只认全局光：不换 CelLit，球靠近火堆也不会亮
+        private static Material _litMaterial;
 
         private Vector3 _baseScale = Vector3.one;
 
@@ -76,7 +81,15 @@ namespace DeepseaOil.Presentation.Projectile
             var go = new GameObject("BallSprite");
             go.layer = RenderOrder.OverlayLayer;
             go.transform.SetParent(transform, false);
-            return go.AddComponent<SpriteRenderer>();
+
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sortingLayerName = SortingLayerConsts.Actor;
+
+            if (_litMaterial == null) _litMaterial = Resources.Load<Material>(LitMaterialPath);
+
+            if (_litMaterial != null) renderer.sharedMaterial = _litMaterial;
+
+            return renderer;
         }
     }
 }
