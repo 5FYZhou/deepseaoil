@@ -36,6 +36,8 @@ namespace DeepseaOil.Presentation
 
         private float _dustTimer;
 
+        private bool _moveSfxOn;
+
         private const float DirectionEpsilon = 1e-6f;
 
         private const float OctantRadians = 2f * Mathf.PI / 8f;
@@ -139,6 +141,8 @@ namespace DeepseaOil.Presentation
             ctx.Tint = Color.white;
 
             EffectModule.Play(EffectId.Flash, in ctx);
+
+            GameRoot.Instance.Audio.EnqueueSfx(AudioId.PlayerHurt);
         }
 
         /// <summary>本类自愈装配视觉子节点 View</summary>
@@ -206,6 +210,9 @@ namespace DeepseaOil.Presentation
 
         private void OnDestroy()
         {
+            // 循环音效挂在常驻音频根上：不在这里关，离开战斗场景后脚步声会一直响
+            if (_moveSfxOn) _root?.Audio?.SetLoopSfx(AudioId.PlayerMove, false);
+
             // 用 Start 里抓住的引用：销毁期再问 GameRoot.Instance 可能当场造一个新的出来
             if (_root != null) _root.UnregisterSceneRoot(this);
         }
@@ -270,9 +277,13 @@ namespace DeepseaOil.Presentation
             if (Logic == null) return;
 
             // 运动学快照每渲染帧推一次（含暂停帧）：插值出来的位置比物理帧平滑，动画不该跟着 50Hz 跳。
-            _animView?.SetMotion(_world.MoveDirection, Logic.Motor.Facing, EngineVelocity.magnitude);
+            float speed = EngineVelocity.magnitude;
 
-            TickFootDust(deltaTime);
+            _animView?.SetMotion(_world.MoveDirection, Logic.Motor.Facing, speed);
+
+            TickFootDust(deltaTime, speed);
+
+            TickMoveSfx(deltaTime, speed);
 
             if (inputProvider == null || !inputProvider.IsInputEnabled)
             {
@@ -304,13 +315,11 @@ namespace DeepseaOil.Presentation
         }
 
         // 扬尘节拍；dt<=0（暂停）冻结，与输入是否启用无关
-        private void TickFootDust(float dt)
+        private void TickFootDust(float dt, float speed)
         {
             if (dt <= 0f) return;
 
             VisualFeelTuning feel = ConfigModule.VisualFeel;
-
-            float speed = EngineVelocity.magnitude;
 
             if (speed < feel.dustSpeedThreshold)
             {
@@ -333,6 +342,19 @@ namespace DeepseaOil.Presentation
             ctx.Value = Mathf.Clamp01(speed / feel.dustReferenceSpeed);
 
             EffectModule.Play(EffectId.Dust, in ctx);
+        }
+
+        private void TickMoveSfx(float dt, float speed)
+        {
+            float threshold = ConfigModule.VisualFeel.dustSpeedThreshold;
+
+            bool moving = dt > 0f && Logic.IsAlive && speed >= threshold;
+
+            if (moving == _moveSfxOn) return;
+
+            _moveSfxOn = moving;
+
+            _root?.Audio?.SetLoopSfx(AudioId.PlayerMove, moving);
         }
 
         private Vector2 AimWorldPoint(Camera camera)

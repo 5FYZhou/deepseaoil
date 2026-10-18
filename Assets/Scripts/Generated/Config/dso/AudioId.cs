@@ -145,6 +145,10 @@ namespace cfg.dso
         /// UI背包按钮滑动
         /// </summary>
         UIBagSlide = 32,
+        /// <summary>
+        /// 玩家受伤
+        /// </summary>
+        PlayerHurt = 33,
     }
 
 } 
