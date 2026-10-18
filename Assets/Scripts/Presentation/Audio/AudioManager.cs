@@ -57,6 +57,14 @@ namespace DeepseaOil.Presentation
             FadingIn,   // 正在淡入
         }
 
+        // Unity AudioSource.priority：数值越小越优先，被偷时先偷数值大的
+        private const int PriorityBgm = 0;        // BGM 最高，永不被偷
+        private const int PriorityLoopSfx = 64;   // 循环音中等
+        private const int PrioritySfx = 128;      // 一次性 SFX 最低（Unity 默认）
+
+        // 同时播放的一次性 SFX 软上限：防止 voice 耗尽、互相偷、听感糊
+        private const int MaxConcurrentSfx = 16;
+
         private readonly Transform _host;
 
         private bool _initialized;
@@ -122,19 +130,21 @@ namespace DeepseaOil.Presentation
             _rootGo.transform.SetParent(_host, false);
             _audioRootT = _rootGo.transform;
 
-            _audioPool = new PoolInClass<GameObject>(
+            _audioPool = new Pool<GameObject>(
                 factory: () =>
                 {
                     var obj = new GameObject("Audio");
                     if (_audioRootT != null) obj.transform.SetParent(_audioRootT, false);
-                    obj.AddComponent<AudioSource>();
+                    var src = obj.AddComponent<AudioSource>();
+                    src.playOnAwake = false;
+                    src.priority = PrioritySfx;
                     return obj;
                 },
                 onGet: obj => obj.SetActive(true),
                 onRelease: obj => obj.SetActive(false)
             );
 
-            _entryPool = new PoolInClass<PlayingEntry>(
+            _entryPool = new Pool<PlayingEntry>(
                 factory: () => new PlayingEntry()
             );
 
@@ -145,6 +155,7 @@ namespace DeepseaOil.Presentation
             _bgmSource.loop = true;   // 默认值，每次 SwitchBgmClip 会按请求覆盖
             _bgmSource.playOnAwake = false;
             _bgmSource.volume = _bgmVolume;
+            _bgmSource.priority = PriorityBgm;   // ★ 核心修复：BGM 永不被 SFX 偷 voice
 
             var loopSfxGo = new GameObject("LoopSfxAudioSource", typeof(AudioSource));
             loopSfxGo.transform.SetParent(_audioRootT, false);
@@ -153,6 +164,7 @@ namespace DeepseaOil.Presentation
             _loopSfxSource.loop = true;
             _loopSfxSource.playOnAwake = false;
             _loopSfxSource.volume = _sfxVolume;
+            _loopSfxSource.priority = PriorityLoopSfx;
 
             _initialized = true;
         }
@@ -204,6 +216,61 @@ namespace DeepseaOil.Presentation
             _loopSfxSource.clip = clip;
             _loopSfxSource.volume = _sfxVolume;
             _loopSfxSource.Play();
+        }
+
+        /// <summary>停掉所有正在播放/待播的音效（含循环音效与队列中待消费的 SFX 请求），不动 BGM。</summary>
+        /// <param name="clearPending">是否连队列中尚未消费的 SFX 请求一起丢弃；BGM 请求始终保留。</param>
+        public void StopAllSfx(bool clearPending = true)
+        {
+            if (!_initialized) return;
+
+            if (clearPending)
+                ClearPendingSfxRequests();
+
+            // 在播 SFX：停掉、清 clip、归还池
+            for (int i = _playing.Count - 1; i >= 0; i--)
+            {
+                var entry = _playing[i];
+
+                if (entry.source != null)
+                {
+                    entry.source.Stop();
+                    entry.source.clip = null;
+                }
+
+                if (entry.go != null)
+                    _audioPool?.Release(entry.go);
+
+                entry.Reset();
+                _entryPool?.Release(entry);
+                _playing.RemoveAt(i);
+            }
+
+            // 循环音效
+            if (_loopSfxSource != null)
+            {
+                if (_loopSfxSource.isPlaying) _loopSfxSource.Stop();
+                _loopSfxSource.clip = null;
+            }
+        }
+
+        /// <summary>丢弃队列中尚未消费的 SFX 请求，保留 BGM 请求（BGM 的播放意图不应被"清音效"误伤）。</summary>
+        private void ClearPendingSfxRequests()
+        {
+            if (_requestQueue.Count == 0) return;
+
+            int count = _requestQueue.Count;
+            var kept = new List<AudioRequest>(count);
+
+            for (int i = 0; i < count; i++)
+            {
+                var req = _requestQueue.Dequeue();
+                if (req.type != AudioRequestType.Sfx)
+                    kept.Add(req);
+            }
+
+            for (int i = 0; i < kept.Count; i++)
+                _requestQueue.Enqueue(kept[i]);
         }
 
         private void ProcessRequests()
@@ -308,6 +375,17 @@ namespace DeepseaOil.Presentation
             if (clip == null)
                 return;
 
+            // 软上限：超过则丢弃本次请求。避免 voice 耗尽、互相偷、听感糊。
+            if (_playing.Count >= MaxConcurrentSfx)
+                return;
+
+            // 同 clip 去重：同一音效正在播时不重复叠加（防刷屏，也省 voice）
+            for (int i = 0; i < _playing.Count; i++)
+            {
+                if (_playing[i].source.clip == clip)
+                    return;
+            }
+
             var go = _audioPool.Get();
 
             if (go == null) return;
@@ -316,10 +394,19 @@ namespace DeepseaOil.Presentation
                 go.transform.SetParent(_audioRootT, false);
 
             var a = go.GetComponent<AudioSource>();
-            if (a == null) a = go.AddComponent<AudioSource>();
+            if (a == null)
+            {
+                a = go.AddComponent<AudioSource>();
+                a.playOnAwake = false;
+            }
+
+            // 池复用前保险：确保上一轮残留已停
+            if (a.isPlaying) a.Stop();
 
             a.clip = clip;
             a.volume = _sfxVolume;
+            a.priority = PrioritySfx;
+            a.loop = false;
             a.Play();
 
             var entry = _entryPool.Get();
@@ -386,6 +473,7 @@ namespace DeepseaOil.Presentation
             _bgmSource.clip = clip;
             _bgmSource.volume = 0f;
             _bgmSource.loop = isLoop;
+            _bgmSource.priority = PriorityBgm;   // 保险：每次切歌都确保最高优先级
 
             if (isLoop
                 && resumeFromLastTime
@@ -490,6 +578,7 @@ namespace DeepseaOil.Presentation
 
         private AudioClip GetClip(AudioId id)
         {
+            if(id == AudioId.None) return null;
             if (!_idToFileName.TryGetValue(id, out string name))
             {
                 Debug.LogError($"无{id}配置");
