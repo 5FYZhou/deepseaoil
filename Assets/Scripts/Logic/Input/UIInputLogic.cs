@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Logic;
+using DeepseaOil.Logic;
 using UnityEngine;
 
 namespace DeepseaOil.Logic.Input
@@ -29,11 +29,12 @@ namespace DeepseaOil.Logic.Input
             switch (ctx.gameState)
             {
                 case GameState.Running:
+                case GameState.Story:
                     _states.RequestState(GameState.Paused);
                     return;
 
                 case GameState.Paused:
-                    _states.RequestState(GameState.Running);
+                    _states.Resume();
                     return;
             }
         }

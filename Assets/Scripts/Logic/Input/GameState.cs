@@ -9,6 +9,8 @@
         Menu,
 
         CG,
+        /// <summary> 关卡进行中，剧情时的状态，可暂停 </summary>
+        Story,
         /// <summary> 专指关卡进行中的暂停 </summary>
         Paused,
 

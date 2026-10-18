@@ -1,4 +1,4 @@
-using DeepseaOil.Logic.Events;
+﻿using DeepseaOil.Logic.Events;
 using UnityEngine;
 using UnityEngine.UI;
 #if UNITY_2023_1_OR_NEWER
@@ -223,7 +223,7 @@ namespace GameUI
             if (!_isTransitioning) return;
 
             float duration = Mathf.Max(transitionDuration, 0.001f);
-            _transitionProgress += Time.deltaTime / duration;
+            _transitionProgress += Time.unscaledDeltaTime / duration;
             float t = Mathf.Clamp01(_transitionProgress);
 
             if (vignetteCanvasGroup != null)
@@ -295,8 +295,8 @@ namespace GameUI
             else
             {
                 _currentPulseIntensity = 0f;
-                _currentZoomPercent = Mathf.MoveTowards(_currentZoomPercent, 0f, Time.deltaTime * 0.1f);
-                _currentJitterOffset = Vector2.MoveTowards(_currentJitterOffset, Vector2.zero, Time.deltaTime * 0.5f);
+                _currentZoomPercent = Mathf.MoveTowards(_currentZoomPercent, 0f, Time.unscaledDeltaTime * 0.1f);
+                _currentJitterOffset = Vector2.MoveTowards(_currentJitterOffset, Vector2.zero, Time.unscaledDeltaTime * 0.5f);
                 _jitterVelocity = Vector2.zero;
 
                 if (cracksRectTransform != null && cracksRectTransform.localScale != Vector3.one)
@@ -304,7 +304,7 @@ namespace GameUI
                     cracksRectTransform.localScale = Vector3.MoveTowards(
                         cracksRectTransform.localScale,
                         Vector3.one,
-                        Time.deltaTime * 3f
+                        Time.unscaledDeltaTime * 3f
                     );
                 }
             }
