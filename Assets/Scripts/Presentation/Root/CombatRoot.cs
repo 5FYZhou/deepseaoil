@@ -89,6 +89,7 @@ namespace DeepseaOil.Presentation
         private CombatDirector _combat;
         private LevelLogic _levelLogic;
         private TileHighlightView _highlight;
+        private StoryFlow _story;
 
         private LifeFountainState _lifeFountain;
 
@@ -101,6 +102,8 @@ namespace DeepseaOil.Presentation
         private float _retryAt = float.PositiveInfinity;
 
         private bool _autoSaveRequested;
+
+        private bool _entryAutoSavePending;
 
         private bool _restoring;
 
@@ -141,7 +144,8 @@ namespace DeepseaOil.Presentation
             }
 
             _levelLogic.Start();
-            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
+            if(CurrentLevelId != 1)
+                GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
         }
 
         public void ReleaseDeferredLevelEnd()
@@ -209,6 +213,15 @@ namespace DeepseaOil.Presentation
             TickSeedInput();
 
             UpdateSeedHighlight();
+
+            // 等剧情根挂上、转场遮罩撤掉再存：否则剧情进度是空的、缩略图是黑的
+            if (_entryAutoSavePending
+                && (_story == null || _story.IsAttached)
+                && (_root == null || _root.Game == null || _root.Game.CurState != Logic.GameState.SceneTransition))
+            {
+                _entryAutoSavePending = false;
+                _autoSaveRequested = true;
+            }
 
             if (!_autoSaveRequested) return;
 
@@ -698,27 +711,33 @@ namespace DeepseaOil.Presentation
 
             IsReady = true;
 
-            // 只装配时入队一次，勿挪进状态切换
-            //if (_root != null) _root.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
-
             if (_root != null) _root.UI.EnterGameplayUi();
 
             OnRequestHudRefresh(new RequestHudRefresh());
 
             // 场景已重载干净，这里盖回填
+            GameSaveData pendingRestore = null;
+
             if (_root != null && _root.Save != null
                 && _root.Save.TryConsumePendingRestore(out GameSaveData pending))
             {
-                RestoreGameState(pending);
+                pendingRestore = pending;
+                RestoreGameState(pendingRestore);
             }
+
             if (enableLevel && UsesScriptedStory(CurrentLevelId))
             {
                 StoryFlow story = GetComponent<StoryFlow>();
                 if (story == null)
                     story = gameObject.AddComponent<StoryFlow>();
 
-                story.Initialize(this, _root, playerMoveTrigger);
+                _story = story;
+                story.Initialize(this, _root, playerMoveTrigger, pendingRestore != null ? pendingRestore.story : null);
             }
+
+            // 还没开打就先补一档：剧情关卡的首笔自动存档原本要等开场台词播完
+            if (_levelLogic != null && _levelLogic.State == LevelState.NotStarted)
+                _entryAutoSavePending = true;
         }
 
         private static bool UsesScriptedStory(int levelId)
@@ -889,7 +908,6 @@ namespace DeepseaOil.Presentation
         {
             player?.Logic?.Stats.Announce();
             _combat?.Announce();
-            //_levelLogic?.Announce();
         }
 
         /// <summary>备战期自动存档；只在渲染帧采集落盘</summary>
@@ -917,9 +935,11 @@ namespace DeepseaOil.Presentation
                     waveIndex = _levelLogic != null ? _levelLogic.Waves.WaveIndex : 0
                 },
                 wave = _levelLogic != null ? _levelLogic.Waves.ExportSave() : null,
+                level = _levelLogic != null ? _levelLogic.ExportSave() : null,
                 tiles = _grid != null ? _grid.ExportTiles() : new List<TileSaveData>(),
                 enemies = _combat != null ? _combat.ExportEnemies() : new List<EnemySaveData>(),
-                drops = _drops != null ? _drops.ExportDrops() : new List<DropSaveData>()
+                drops = _drops != null ? _drops.ExportDrops() : new List<DropSaveData>(),
+                story = _story != null ? _story.ExportSave() : null
             };
 
             PlayerLogic logic = player != null ? player.Logic : null;
@@ -969,7 +989,18 @@ namespace DeepseaOil.Presentation
                 logic.Stats.ImportSave(data.player);
             }
 
-            if (_levelLogic != null) _levelLogic.Waves.ImportSave(data.wave);
+            // 先落关卡状态再灌波次，否则会被 ClearAll 里那次 Start 拖成已开战
+            if (_levelLogic != null)
+            {
+                _levelLogic.ImportSave(data.level);
+                _levelLogic.Waves.ImportSave(data.wave);
+
+                if (_levelLogic.State == LevelState.Running && _root != null && _root.Audio != null)
+                {
+                    if (CurrentLevelId != 1)
+                        _root.Audio.EnqueueBgm(AudioId.BgmMain);
+                }
+            }
 
             if (_grid != null) _grid.RestoreTiles(data.tiles);
 

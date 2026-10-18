@@ -138,6 +138,11 @@ namespace DeepseaOil.Presentation.UI
             _faderPlayerPopup?.FadeOut(popupFadeDuration);
         }
 
+        public void SetPaused(bool paused)
+        {
+            _typewriter.Paused = paused;
+        }
+
         public bool IsPopupVisible =>
             (_faderNPCPopup != null && _faderNPCPopup.IsVisible)
             || (_faderPlayerPopup != null && _faderPlayerPopup.IsVisible);

@@ -74,8 +74,14 @@ namespace DeepseaOil.Presentation.Story
         private bool _popupActive;
         private bool _popupExpired;
         private bool _hasResumeGameState;
+        private StorySaveData _restoreData;
+        private bool _paused;
+        private bool _pendingLineStep;
 
         public int Order => SceneOrder.World + 1;
+
+        /// <summary>挂上场景根之前导出的剧情进度是空的，自动存档据此等一帧</summary>
+        public bool IsAttached => _attached;
 
         private FlowStage Stage
         {
@@ -125,7 +131,11 @@ namespace DeepseaOil.Presentation.Story
             CancelParagraph();
         }
 
-        public void Initialize(CombatRoot combatRoot, GameRoot root, PlayerMoveTrigger playerMoveTrigger)
+        public void Initialize(
+            CombatRoot combatRoot,
+            GameRoot root,
+            PlayerMoveTrigger playerMoveTrigger,
+            StorySaveData restoreData = null)
         {
             if (combatRoot == null || root == null)
             {
@@ -137,6 +147,7 @@ namespace DeepseaOil.Presentation.Story
             _combatRoot = combatRoot;
             _root = root;
             _playerMoveTrigger = playerMoveTrigger;
+            _restoreData = restoreData;
             _root.RegisterSceneRoot(this);
         }
 
@@ -145,6 +156,7 @@ namespace DeepseaOil.Presentation.Story
             if (_attached) return;
 
             _attached = true;
+            _paused = _root.Game != null && _root.Game.CurState == GameState.Paused;
             CinemachineCore.CameraUpdatedEvent.AddListener(OnCameraUpdated);
             EventBus<DropCollected>.Subscribe(OnDropCollected);
             EventBus<RequestHudRefresh>.Subscribe(OnRequestHudRefresh);
@@ -161,7 +173,20 @@ namespace DeepseaOil.Presentation.Story
                     _playerMoveTrigger.PlayerExited += OnPlayerMoveTriggerExited;
             }
 
-            switch (levelId)
+            if (_restoreData != null)
+            {
+                StorySaveData restore = _restoreData;
+                _restoreData = null;
+                RestoreProgress(restore);
+                return;
+            }
+
+            BeginLevelIntro();
+        }
+
+        private void BeginLevelIntro()
+        {
+            switch (_combatRoot.CurrentLevelId)
             {
                 case 1:
                     SetPlayerInputLocked(true);
@@ -190,8 +215,112 @@ namespace DeepseaOil.Presentation.Story
             }
         }
 
+        // 读档：已播完的段一律不再重播，只从存档停住的那一行续下去
+        private void RestoreProgress(StorySaveData data)
+        {
+            if (!Enum.IsDefined(typeof(FlowStage), data.stage))
+            {
+                Debug.LogError($"[StoryFlow] 存档里的剧情阶段 {data.stage} 无效，本关剧情改为从头播放。", this);
+                BeginLevelIntro();
+                return;
+            }
+
+            // 进关存档点取在剧情开演之前，按从头播处理（输入锁与开场段的启动都要走原路）
+            if (data.stage == (int)FlowStage.None && data.paragraph <= 0)
+            {
+                BeginLevelIntro();
+                return;
+            }
+
+            _seedDialogueQueued = data.seedDialogueQueued;
+            _levelFiveWaveDialogueQueued = data.levelFiveWaveDialogueQueued;
+            _levelSixWaveTwoDialogueQueued = data.levelSixWaveTwoDialogueQueued;
+            _levelSixWaveThreeDialogueQueued = data.levelSixWaveThreeDialogueQueued;
+            _endingDialogueQueued = data.endingDialogueQueued;
+
+            if (data.pendingParagraphs != null)
+            {
+                for (int i = 0; i < data.pendingParagraphs.Count; i++)
+                    _pendingStoryParagraphs.Enqueue(data.pendingParagraphs[i]);
+            }
+
+            Stage = (FlowStage)data.stage;
+
+            // 从对话框行续播要保持输入锁，从弹窗续播才解锁（弹窗不暂停，玩家得能动）
+            IReadOnlyList<DialogueSpec> resumeLines = data.paragraph > 0
+                ? ConfigModule.GetDialogueParagraph(data.paragraph)
+                : null;
+
+            SetPlayerInputLocked(StartsWithDialogueLine(resumeLines, data.lineIndex));
+
+            if (data.paragraph > 0 && BeginParagraph(data.paragraph, Stage, data.lineIndex)) return;
+
+            SetPlayerInputLocked(false);
+            TryBeginPendingStoryParagraph();
+        }
+
+        private static bool StartsWithDialogueLine(IReadOnlyList<DialogueSpec> lines, int startLine)
+        {
+            return lines != null && startLine >= 0 && startLine < lines.Count && !IsPopupLine(lines[startLine]);
+        }
+
+        /// <summary>导出剧情进度；停在第 k 个弹窗上时按那一行续播</summary>
+        public StorySaveData ExportSave()
+        {
+            var data = new StorySaveData
+            {
+                stage = (int)Stage,
+                seedDialogueQueued = _seedDialogueQueued,
+                levelFiveWaveDialogueQueued = _levelFiveWaveDialogueQueued,
+                levelSixWaveTwoDialogueQueued = _levelSixWaveTwoDialogueQueued,
+                levelSixWaveThreeDialogueQueued = _levelSixWaveThreeDialogueQueued,
+                endingDialogueQueued = _endingDialogueQueued,
+                pendingParagraphs = new List<int>(_pendingStoryParagraphs)
+            };
+
+            if (!_playing || _lines == null) return data;
+
+            data.paragraph = _paragraph;
+            data.lineIndex = ResolveResumeLine();
+
+            return data;
+        }
+
+        private int ResolveResumeLine()
+        {
+            if (_popupLines.Count <= 0 || _popupIndex >= _popupLines.Count) return _lineIndex;
+
+            int popups = 0;
+            for (int i = 0; i < _lines.Count; i++)
+            {
+                if (!IsPopupLine(_lines[i])) continue;
+
+                if (popups == _popupIndex) return i;
+
+                popups++;
+            }
+
+            Debug.LogError($"[StoryFlow] 段 {_paragraph} 中找不到第 {_popupIndex + 1} 个弹窗行，读档将从段首重播。", this);
+
+            return 0;
+        }
+
+        private static bool IsPopupLine(DialogueSpec line)
+        {
+            return line.Type == DialogType.NpcPopup || line.Type == DialogType.PlayerPopup;
+        }
+
         public void RenderTick(float deltaTime)
         {
+            // 暂停时整段剧情停车：弹窗计时走缩放时间，恢复后从剩下一秒接着走
+            if (_paused) return;
+
+            if (_pendingLineStep)
+            {
+                _pendingLineStep = false;
+                ProcessLines();
+            }
+
             if (_popupExpired && _popupActive)
             {
                 ProcessPopupExpired();
@@ -214,17 +343,17 @@ namespace DeepseaOil.Presentation.Story
             UpdateTutorialTriggers();
         }
 
-        private bool BeginParagraph(int paragraph, FlowStage stage)
+        private bool BeginParagraph(int paragraph, FlowStage stage, int startLine = 0)
         {
-            return PlayParagraph(paragraph, stage);
+            return PlayParagraph(paragraph, stage, startLine);
         }
 
         public bool PlayParagraph(int paragraph)
         {
-            return PlayParagraph(paragraph, FlowStage.None);
+            return PlayParagraph(paragraph, FlowStage.None, 0);
         }
 
-        private bool PlayParagraph(int paragraph, FlowStage stage)
+        private bool PlayParagraph(int paragraph, FlowStage stage, int startLine)
         {
             if (!_attached)
             {
@@ -259,7 +388,7 @@ namespace DeepseaOil.Presentation.Story
             _paragraph = paragraph;
             Stage = stage;
             _lines = lines;
-            _lineIndex = 0;
+            _lineIndex = startLine < 0 ? 0 : (startLine > lines.Count ? lines.Count : startLine);
             _popupIndex = 0;
             _popupLines.Clear();
             _waitingForContinue = false;
@@ -267,6 +396,7 @@ namespace DeepseaOil.Presentation.Story
             _popupActive = false;
             _popupExpired = false;
             _popupTimer = TimerHandle.Invalid;
+            _pendingLineStep = false;
             _playing = true;
 
             int version = ++_playbackVersion;
@@ -290,6 +420,7 @@ namespace DeepseaOil.Presentation.Story
             _popupActive = false;
             _popupLines.Clear();
             _popupIndex = 0;
+            _pendingLineStep = false;
             _lines = null;
             ResetCameraFocus();
 
@@ -318,7 +449,10 @@ namespace DeepseaOil.Presentation.Story
 
             _panel = panel;
             _panel.ContinueRequested += OnContinueRequested;
-            ProcessLines();
+            _panel.SetPaused(_paused);
+
+            // 面板可能在暂停期间加载完：真正开演推迟到 RenderTick，恢复后才推进
+            _pendingLineStep = true;
         }
 
         private void ProcessLines()
@@ -412,10 +546,12 @@ namespace DeepseaOil.Presentation.Story
             }
 
             _popupActive = true;
-            _popupTimer = _root.Timer.ScheduleUnscaled(PopupDurationSeconds, OnPopupTimerElapsed);
+
+            // 走缩放时间的轮：暂停即停，恢复后接着走完这 3 秒
+            _popupTimer = _root.Timer.Schedule(PopupDurationSeconds, OnPopupTimerElapsed);
             if (!_popupTimer.IsValid)
             {
-                Debug.LogError("[StoryFlow] 未能安排弹窗的现实时间计时器。", this);
+                Debug.LogError("[StoryFlow] 未能安排弹窗计时器。", this);
                 CancelParagraph();
                 return;
             }
@@ -656,6 +792,10 @@ namespace DeepseaOil.Presentation.Story
 
         private void OnGameStateChanged(GameStateChanged evt)
         {
+            _paused = evt.state == GameState.Paused;
+
+            if (_panel != null) _panel.SetPaused(_paused);
+
             if (!_playing || !_hasResumeGameState || evt.state != _resumeGameState)
                 return;
 
@@ -749,7 +889,7 @@ namespace DeepseaOil.Presentation.Story
 
             if (_cameraGliding)
             {
-                _cameraGlideElapsed += Time.unscaledDeltaTime;
+                if (!_paused) _cameraGlideElapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(_cameraGlideElapsed / CameraGlideSeconds);
                 _cameraOffset = Vector3.Lerp(_cameraGlideFrom, _cameraGlideTo, t * t * (3f - 2f * t));
 

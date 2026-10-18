@@ -103,6 +103,37 @@ namespace DeepseaOil.Logic.Level
             return true;
         }
 
+        public LevelSaveData ExportSave()
+        {
+            return new LevelSaveData
+            {
+                state = (int)State,
+                victoryEndEventReleased = _victoryEndEventReleased
+            };
+        }
+
+        public void ImportSave(LevelSaveData data)
+        {
+            if (data == null) return;
+
+            if (!Enum.IsDefined(typeof(LevelState), data.state))
+            {
+                Debug.LogError($"[Level] 存档里的关卡状态 {data.state} 无效，按未开战回填。");
+                State = LevelState.NotStarted;
+                _victoryEndEventPending = false;
+                _victoryEndEventReleased = false;
+                return;
+            }
+
+            State = (LevelState)data.state;
+            _victoryEndEventReleased = data.victoryEndEventReleased;
+            _victoryEndEventPending = _deferVictoryEndEvent
+                && State == LevelState.Victory
+                && !_victoryEndEventReleased;
+
+            EventBus<LevelStateChanged>.Publish(new LevelStateChanged(State));
+        }
+
         public void ChangeState(LevelState state)
         {
             State = state;
