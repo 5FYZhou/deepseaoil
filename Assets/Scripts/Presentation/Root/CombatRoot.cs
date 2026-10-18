@@ -144,7 +144,7 @@ namespace DeepseaOil.Presentation
             }
 
             _levelLogic.Start();
-            if(CurrentLevelId != 0)
+            if(CurrentLevelId != 1)
                 GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
         }
 
@@ -996,7 +996,10 @@ namespace DeepseaOil.Presentation
                 _levelLogic.Waves.ImportSave(data.wave);
 
                 if (_levelLogic.State == LevelState.Running && _root != null && _root.Audio != null)
-                    _root.Audio.EnqueueBgm(AudioId.BgmMain);
+                {
+                    if (CurrentLevelId != 1)
+                        _root.Audio.EnqueueBgm(AudioId.BgmMain);
+                }
             }
 
             if (_grid != null) _grid.RestoreTiles(data.tiles);

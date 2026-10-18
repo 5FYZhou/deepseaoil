@@ -84,6 +84,7 @@ namespace DeepseaOil.Presentation.UI
         private TMP_Text _txtNextWave;
         private TMP_Text _txtWater;
         private TMP_Text _txtEarth;
+        private TMP_Text _txtSeed;
         private Image _imgWaterBG;
         private Image _imgEarthBG;
         private Image _imgSeedBG;
@@ -120,6 +121,7 @@ namespace DeepseaOil.Presentation.UI
             _txtNextWave = GetComponent<TMP_Text>("TxtNextWave");
             _txtWater = GetComponent<TMP_Text>("TxtWater");
             _txtEarth = GetComponent<TMP_Text>("TxtEarth");
+            _txtSeed = GetComponent<TMP_Text>("TxtSeed");
             Image healthImage = GetComponent<Image>("ImgHealth");
             _imgWaterBG = GetComponent<Image>("ImgWaterBG");
             _imgEarthBG = GetComponent<Image>("ImgEarthBG");
@@ -182,8 +184,7 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe()
         {
             Subscribe();
-            _txtNextWave.gameObject.SetActive(false);
-            _txtCountdown.gameObject.SetActive(false);
+            ClearWaveHud();
             EventBus<RequestHudRefresh>.Publish(new RequestHudRefresh());
         }
 
@@ -228,6 +229,7 @@ namespace DeepseaOil.Presentation.UI
             EventBus<WavePhaseChanged>.Subscribe(OnWavePhaseChanged);
             EventBus<WaveCountdownChanged>.Subscribe(OnWaveCountdownChanged);
             EventBus<GameStateChanged>.Subscribe(OnGameStateChanged);
+            EventBus<LevelStateChanged>.Subscribe(OnLevelStateChanged);
         }
 
         private void Unsubscribe()
@@ -240,6 +242,7 @@ namespace DeepseaOil.Presentation.UI
             EventBus<WavePhaseChanged>.Unsubscribe(OnWavePhaseChanged);
             EventBus<WaveCountdownChanged>.Unsubscribe(OnWaveCountdownChanged);
             EventBus<GameStateChanged>.Unsubscribe(OnGameStateChanged);
+            EventBus<LevelStateChanged>.Unsubscribe(OnLevelStateChanged);
         }
 
         private void OnWavePhaseChanged(WavePhaseChanged evt)
@@ -247,6 +250,49 @@ namespace DeepseaOil.Presentation.UI
             _hasWavePhase = true;
             _curWavePhase = evt.Phase;
             ApplyWaveText(evt.Phase);
+        }
+
+        // 换关卡不重开面板，靠它清残留
+        private void OnLevelStateChanged(LevelStateChanged evt)
+        {
+            ClearWaveHud();
+            _hasAmmoSnapshot = false;
+        }
+
+        private void ClearWaveHud()
+        {
+            if (_txtNextWave == null || _txtCountdown == null) return;
+
+            StopWaveText();
+            StopCountdownFade();
+
+            _hasWavePhase = false;
+            _curWavePhase = Logic.Wave.WavePhase.Prep;
+            _countdownShown = false;
+
+            _txtNextWave.text = "";
+            _txtNextWave.alpha = 0f;
+
+            _txtCountdown.text = "";
+            _txtCountdown.alpha = 0f;
+            _txtCountdown.gameObject.SetActive(false);
+        }
+
+        private void HideWaveHud()
+        {
+            if (_txtNextWave == null || _txtCountdown == null) return;
+
+            StopWaveText();
+            StopCountdownFade();
+
+            _countdownShown = false;
+
+            _txtNextWave.text = "";
+            _txtNextWave.alpha = 0f;
+
+            _txtCountdown.text = "";
+            _txtCountdown.alpha = 0f;
+            _txtCountdown.gameObject.SetActive(false);
         }
 
         private void ApplyWaveText(Logic.Wave.WavePhase phase)
@@ -402,6 +448,12 @@ namespace DeepseaOil.Presentation.UI
 
             if (initialize || seedChanged)
                 UpdateSeedIcon(evt.Seed);
+
+            if (_txtSeed != null)
+            {
+                _txtSeed.text = evt.SeedCount.ToString();
+                _txtSeed.gameObject.SetActive(evt.SeedCount > 0);
+            }
 
             if (_imgWaterBG != null)
                 UpdateAmmoImage(_imgWaterBG, evt.Water > 0, waterChanged, initialize, ref _waterIconCoroutine);
@@ -633,12 +685,7 @@ namespace DeepseaOil.Presentation.UI
 
         private void OnGameStateChanged(GameStateChanged evt)
         {
-            _txtCountdown.text = "";
-            if (_txtNextWave == null) return;
-
-            StopWaveText();
-            _txtNextWave.text = "";
-            _txtNextWave.alpha = 0f;
+            HideWaveHud();
 
             if (evt.state == GameState.Running && _hasWavePhase)
                 ApplyWaveText(_curWavePhase);
