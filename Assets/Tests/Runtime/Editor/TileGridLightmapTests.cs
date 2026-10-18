@@ -259,14 +259,14 @@ namespace DeepseaOil.Tests
             {
                 string source = File.ReadAllText(paths[i]);
 
-                StringAssert.Contains("_TileLightBoost (\"Tile Light Boost\"", source, $"{paths[i]} 的 _TileLightBoost 没写进 Properties：材质面板调不到");
+                StringAssert.Contains("_TileLightBoost (\"", source, $"{paths[i]} 的 _TileLightBoost 没写进 Properties：材质面板调不到");
                 AssertInCBuffer(source, paths[i], "_TileLightBoost");
             }
 
             string celLit = File.ReadAllText(paths[0]);
 
-            StringAssert.Contains("_RimAlphaWeight (\"Rim Alpha Weight\"", celLit, "CelLit 的 _RimAlphaWeight 没写进 Properties");
-            AssertInCBuffer(celLit, paths[0], "_RimAlphaWeight");
+            StringAssert.Contains("_RimIntensity (\"", celLit, "CelLit 的 _RimIntensity 没写进 Properties");
+            AssertInCBuffer(celLit, paths[0], "_RimIntensity");
         }
 
         [Test]

@@ -19,6 +19,7 @@ namespace DeepseaOil.Data
             "TbLevelWave",
             "TbAudioMap",
             "TbEnemyDrop",
+            "TbSlotDialogue",
         };
 
         public static int Count => Names.Length;

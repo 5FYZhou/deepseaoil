@@ -37,6 +37,7 @@ namespace DeepseaOil.Tests
 
         private GameObject _prefab;
         private GameObject _root;
+        private Material _fallbackMaterial;
 
         [SetUp]
         public void SetUp()
@@ -61,6 +62,12 @@ namespace DeepseaOil.Tests
             {
                 UnityEngine.Object.DestroyImmediate(_root);
                 _root = null;
+            }
+
+            if (_fallbackMaterial != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_fallbackMaterial);
+                _fallbackMaterial = null;
             }
         }
 
@@ -500,6 +507,16 @@ namespace DeepseaOil.Tests
             Color shadowTint = new Color(0f, 0f, 0f, 0.6f);
 
             Transform actor = MakeBody(_root.transform, baseline, shadowTint, out SpriteRenderer body, out SpriteRenderer shadow);
+
+            Shader unlit = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
+
+            if (unlit == null) unlit = Shader.Find("Sprites/Default");
+
+            Assert.IsNotNull(unlit, "找不到无 _FlashAmount 的精灵材质：乘法回退路径无法验证");
+
+            _fallbackMaterial = new Material(unlit);
+
+            body.sharedMaterial = _fallbackMaterial;
 
             Assert.AreEqual(EffectHandle.None, EffectModule.Play(EffectId.Flash, EffectContext.Default),
                 "没给 Follow 必须返回 None");

@@ -71,6 +71,7 @@ namespace DeepseaOil.Tests
             }
             finally
             {
+                director.Detach();
                 UnityEngine.Object.DestroyImmediate(go);
             }
         }
@@ -113,6 +114,7 @@ namespace DeepseaOil.Tests
             }
             finally
             {
+                director.Detach();
                 UnityEngine.Object.DestroyImmediate(go);
             }
         }

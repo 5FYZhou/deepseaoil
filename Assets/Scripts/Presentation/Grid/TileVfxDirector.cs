@@ -114,9 +114,9 @@ namespace DeepseaOil.Presentation.Grid
 
         public void Detach()
         {
-            if (!_attached) return;
-
             EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
+
+            if (!_attached) return;
 
             _attached = false;
 
@@ -146,6 +146,14 @@ namespace DeepseaOil.Presentation.Grid
 
         private void OnTileStateChanged(TileStateChanged evt)
         {
+            // 静态事件总线可能仍持有已销毁实例的委托：先摘账，避免 Unity 假 null 访问继续抛 MissingReference。
+            if (this == null)
+            {
+                EventBus<TileStateChanged>.Unsubscribe(OnTileStateChanged);
+
+                return;
+            }
+
             if (_pool == null) return;
 
             // 先归还旧件：无论新状态是否带电，上一格的光点都不能留在场上
@@ -160,6 +168,15 @@ namespace DeepseaOil.Presentation.Grid
 
             if (!_pool.TryGet(out VfxInstance instance) || instance == null)
             {
+                CountDropped();
+
+                return;
+            }
+
+            if (instance.Go == null)
+            {
+                _pool.Release(instance);
+
                 CountDropped();
 
                 return;
@@ -196,10 +213,16 @@ namespace DeepseaOil.Presentation.Grid
 
         private static void OnGetFromPool(VfxInstance instance)
         {
+            if (instance == null || instance.Go == null) return;
+
             instance.Go.SetActive(true);
+
+            if (instance.Systems == null) return;
 
             for (int i = 0; i < instance.Systems.Length; i++)
             {
+                if (instance.Systems[i] == null) continue;
+
                 instance.Systems[i].Clear(true);
                 instance.Systems[i].Play(true);
             }
@@ -207,12 +230,19 @@ namespace DeepseaOil.Presentation.Grid
 
         private static void OnReleaseToPool(VfxInstance instance)
         {
-            for (int i = 0; i < instance.Systems.Length; i++)
+            if (instance == null) return;
+
+            if (instance.Systems != null)
             {
-                instance.Systems[i].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                for (int i = 0; i < instance.Systems.Length; i++)
+                {
+                    if (instance.Systems[i] == null) continue;
+
+                    instance.Systems[i].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                }
             }
 
-            instance.Go.SetActive(false);
+            if (instance.Go != null) instance.Go.SetActive(false);
         }
 
         private static void DestroyInstance(VfxInstance instance)

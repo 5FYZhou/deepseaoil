@@ -93,6 +93,8 @@ namespace DeepseaOil.Tests
             lone.Add(new Vector3Int(0, 0, 0));
             lone.Add(new Vector3Int(40, 40, 0));
 
+            blockA.AddRange(blockB);
+
             Assert.AreEqual(1, TileLightDirector.CountConnectedRegions(row), "50 格连通火海必须只合并成 1 盏重心灯");
             Assert.AreEqual(2, TileLightDirector.CountConnectedRegions(blockA), "两块各 25 格的火海必须各自 1 盏，不能跨屏共用");
             Assert.AreEqual(0, TileLightDirector.CountConnectedRegions(lone), "孤立 1~2 格不该走合并，逐格小灯更贴合形状");

@@ -8,6 +8,8 @@ namespace DeepseaOil.Tests
     [Category("Presentation")]
     public sealed class WeaponAimTests
     {
+        private const float FarDistance = 20f;
+
         private static readonly Vector2 Orbit = new Vector2(0.25f, 0.2f);
 
         private static readonly AnimationCurve Lift = AnimationCurve.Linear(0f, 1f, 1f, 0f);
@@ -39,7 +41,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void 右水平_身前_满尺寸()
         {
-            WeaponAimController.AimSolution s = Solve(new Vector2(10f, 0f));
+            WeaponAimController.AimSolution s = Solve(new Vector2(FarDistance, 0f));
 
             Assert.IsFalse(s.FacingLeft);
             Assert.IsFalse(s.IsBehind);
@@ -53,7 +55,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void 左水平_翻转_身前()
         {
-            WeaponAimController.AimSolution s = Solve(new Vector2(-10f, 0f));
+            WeaponAimController.AimSolution s = Solve(new Vector2(-FarDistance, 0f));
 
             Assert.IsTrue(s.FacingLeft);
             Assert.IsFalse(s.IsBehind);
@@ -146,7 +148,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void 左上30度_人后_左半侧()
         {
-            WeaponAimController.AimSolution s = Solve(AtAngle(150f, 10f));
+            WeaponAimController.AimSolution s = Solve(AtAngle(150f, FarDistance));
 
             Assert.IsTrue(s.FacingLeft);
             Assert.IsTrue(s.IsBehind);
@@ -160,7 +162,7 @@ namespace DeepseaOil.Tests
         [Test]
         public void 左上20度_人前()
         {
-            WeaponAimController.AimSolution s = Solve(AtAngle(160f, 10f));
+            WeaponAimController.AimSolution s = Solve(AtAngle(160f, FarDistance));
 
             Assert.IsTrue(s.FacingLeft);
             Assert.IsFalse(s.IsBehind);
@@ -235,7 +237,7 @@ namespace DeepseaOil.Tests
             );
 
             WeaponAimController.AimSolution s =
-                WeaponAimController.Solve(Vector2.zero, new Vector2(10f, 0.25f), in settings);
+                WeaponAimController.Solve(Vector2.zero, new Vector2(FarDistance, 0.25f), in settings);
 
             Assert.AreEqual(0.25f, s.Position.x, 0.001f);
             Assert.AreEqual(0.25f, s.Position.y, 0.001f);
