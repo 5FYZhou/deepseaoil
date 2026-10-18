@@ -1,10 +1,8 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using DeepseaOil.Presentation.UI;
 using DeepseaOil.Logic;
 using DeepseaOil.Data;
-using UnityEngine.EventSystems;
 using UnityEngine;
 using UnityEngine.Playables;
 using DeepseaOil.Logic.Events;
@@ -19,8 +17,6 @@ namespace DeepseaOil.Presentation.UI
         public override E_UILayer Layer => E_UILayer.Top;
         public override bool CanBeHideByKey => false;
         public override bool CloseOnSceneTransition => true;
-
-        public event Action<PointerEventData> Clicked;
 
         [SerializeField] private GameObject startRoot;
         [SerializeField] private GameObject shot1;

@@ -23,7 +23,7 @@ namespace DeepseaOil.Data.Settings
         public float maxHeight = 2f;
 
         [Tooltip("最远投掷距离（世界单位）")]
-        public float maxThrowDistance = 5f;
+        public float maxThrowDistance = 10f;
 
         [Tooltip("最小投掷距离（世界单位）")]
         public float minThrowDistance = 0.4f;
@@ -42,9 +42,6 @@ namespace DeepseaOil.Data.Settings
         public float groundVisualOffset = -0.01f;
 
         [Header("瞄准")]
-        [Tooltip("瞄准环的下沿半径（世界单位），也是 sprite 的基准尺寸")]
-        public float aimRadiusMeters = 0.32f;
-
         [Tooltip("瞄准环竖直方向的压扁比例（1 = 不压扁）。这是风格选择，不是透视模拟")]
         public float aimVerticalSquash = 0.6f;
 

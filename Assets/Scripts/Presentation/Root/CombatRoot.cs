@@ -45,6 +45,8 @@ namespace DeepseaOil.Presentation
         // Q 键丢弃后脚下掉落物的不可拾取窗口，秒
         private const float SeedDiscardPickupCooldown = 1.2f;
 
+        private const float SeedPlantFlashDuration = 0.2f;
+
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
         [SerializeField] private PlayerController player = default;
@@ -91,7 +93,9 @@ namespace DeepseaOil.Presentation
 
         private CombatDirector _combat;
         private LevelLogic _levelLogic;
-        private TileHighlightView _highlight;
+        private TileCursorIndicator _cursorIndicator;
+        private EffectHandle _plantFlash;
+        private float _plantFlashUntil;
 
         private LifeFountainState _lifeFountain;
 
@@ -157,7 +161,6 @@ namespace DeepseaOil.Presentation
 
         private void OnDestroy()
         {
-            _highlight?.Detach();
             _tileLightmap?.Detach();
             gridView?.Detach();
 
@@ -192,6 +195,8 @@ namespace DeepseaOil.Presentation
         public void RenderTick(float deltaTime)
         {
             if (!IsReady) return;
+
+            StopExpiredPlantFlash();
 
             _grid.Tick(Time.time, deltaTime);
 
@@ -346,32 +351,41 @@ namespace DeepseaOil.Presentation
 
             ctx.Value = _grid.Geometry.CellSize * 0.5f;
 
-            EffectModule.Play(EffectId.Highlight, in ctx);
+            _plantFlash = EffectModule.Play(EffectId.Highlight, in ctx);
+            _plantFlashUntil = Time.time + SeedPlantFlashDuration;
 
             PlaySfx(AudioId.PlayerPlant);
         }
 
+        private void StopExpiredPlantFlash()
+        {
+            if (!_plantFlash.IsValid || Time.time < _plantFlashUntil) return;
+
+            EffectModule.Stop(_plantFlash);
+            _plantFlash = EffectHandle.None;
+        }
+
         private void UpdateSeedHighlight()
         {
-            if (_highlight == null) return;
+            if (_cursorIndicator == null) return;
 
             PlayerLogic logic = player != null ? player.Logic : null;
 
             if (logic == null || logic.Stats.SeedCount <= 0 || logic.Stats.Seed == SeedType.None)
             {
-                _highlight.SetSeedTint(null);
+                _cursorIndicator.SetSeedTint(null);
 
                 return;
             }
 
             if (!logic.Combat.HasAim)
             {
-                _highlight.SetSeedTint(null);
+                _cursorIndicator.SetSeedTint(null);
 
                 return;
             }
 
-            _highlight.SetSeedTint(SeedPlanter.CanPlant(_grid, logic.Combat.AimCell, logic.Stats.Seed));
+            _cursorIndicator.SetSeedTint(SeedPlanter.CanPlant(_grid, logic.Combat.AimCell, logic.Stats.Seed));
         }
 
         private void TryDiscardSeed(PlayerLogic logic)
@@ -694,8 +708,7 @@ namespace DeepseaOil.Presentation
             // 必须早于任何敌人生成：否则首帧绕障拿不到净空图，只能直扑场景障碍
             _grid.SetNavMap(SceneObstacleBaker.Bake(_grid, ConfigModule.NavClearanceCap));
 
-            _highlight = CreateHighlightView(geometry);
-            _highlight.Attach();
+            _cursorIndicator = FindObjectOfType<TileCursorIndicator>(true);
 
             _impulses = new ImpulseExecutor();
 
@@ -805,21 +818,6 @@ namespace DeepseaOil.Presentation
             TileStateSpec spec = ConfigModule.TryGetTileState(id);
 
             return spec != null ? new TableTileState(spec) : null;
-        }
-
-        private TileHighlightView CreateHighlightView(in GridGeometry geometry)
-        {
-            var go = new GameObject("AimHighlight");
-
-            go.layer = RenderOrder.OverlayLayer;
-
-            if (ballRoot != null) go.transform.SetParent(ballRoot, true);
-
-            var view = go.AddComponent<TileHighlightView>();
-
-            view.Initialize(in geometry, geometry.IsValid ? geometry.CellSize : 1f);
-
-            return view;
         }
 
         private CombatDirector CreateCombatDirector(LevelLogic levelLogic)
