@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data.Settings;
 using UnityEngine;
@@ -393,6 +393,21 @@ namespace DeepseaOil.Data
                 EnsureAssets();
 
                 return _enemyTuning.navClearanceCap;
+            }
+        }
+
+        /// <summary>元素格步价倍率：1=关闭偏好；非法值落回 0.85</summary>
+        public static float NavElementCost
+        {
+            get
+            {
+                EnsureAssets();
+
+                float value = _enemyTuning.elementTileCost;
+
+                if (float.IsNaN(value) || value <= 0f) return 0.85f;
+
+                return value < 0.5f ? 0.5f : (value > 1f ? 1f : value);
             }
         }
 

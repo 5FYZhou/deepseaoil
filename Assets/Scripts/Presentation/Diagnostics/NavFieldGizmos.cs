@@ -18,6 +18,9 @@ namespace DeepseaOil.Presentation.Diagnostics
         [Tooltip("画站不住 / 连不上的格")]
         [SerializeField] private bool drawClearance = true;
 
+        [Tooltip("画元素格（流场会偏向这些格）")]
+        [SerializeField] private bool drawPreference = true;
+
         [Tooltip("画目标格附近的采样点：绿=站得住，红=站不住")]
         [SerializeField] private bool drawSamples;
 
@@ -87,6 +90,12 @@ namespace DeepseaOil.Presentation.Diagnostics
 
                 if (!drawField) continue;
 
+                if (drawPreference && grid.IsElementTile(cell))
+                {
+                    Gizmos.color = new Color(0.2f, 0.6f, 1f, 0.7f);
+                    Gizmos.DrawWireCube(center, Vector3.one * geometry.CellSize * 0.35f);
+                }
+
                 DrawCellArrow(map, field, cell, geometry);
             }
 
@@ -102,7 +111,7 @@ namespace DeepseaOil.Presentation.Diagnostics
 #if UNITY_EDITOR
             Handles.Label(
                 goal + Vector3.up * 0.6f,
-                $"半径 {field.Radius:F2} + 皮厚 {field.Skin:F2}\n可站 {walkable} / 已连 {reached} / 全图 {map.CellCount}\n采样间距 {map.Spacing:F2} / 场重建 {grid.NavFields.TotalRebuilds} 次");
+                $"半径 {field.Radius:F2} + 皮厚 {field.Skin:F2}\n可站 {walkable} / 已连 {reached} / 全图 {map.CellCount}\n采样间距 {map.Spacing:F2} / 场重建 {grid.NavFields.TotalRebuilds} 次 / 元素步价 {field.ElementCost:F2}");
 #endif
         }
 

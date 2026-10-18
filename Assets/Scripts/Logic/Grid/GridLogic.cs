@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using cfg.dso;
@@ -21,6 +21,23 @@ namespace DeepseaOil.Logic.Grid
         public NavMap Nav { get; private set; }
 
         public NavFieldSet NavFields => _navFields;
+
+        /// <summary>元素格步价倍率：1=关闭偏好；写入时夹到 [0.5,1] 并作废流场</summary>
+        public float NavElementCost
+        {
+            get => _navElementCost;
+            set
+            {
+                float clamped = float.IsNaN(value) || value <= 0f
+                    ? 0.85f
+                    : (value < 0.5f ? 0.5f : (value > 1f ? 1f : value));
+
+                if (Mathf.Approximately(clamped, _navElementCost)) return;
+
+                _navElementCost = clamped;
+                _navFields.MarkDirty();
+            }
+        }
 
         public int ActiveStateCount => _machines.Count;
 
@@ -63,6 +80,7 @@ namespace DeepseaOil.Logic.Grid
 
         private float _now;
         private float _deltaTime;
+        private float _navElementCost = 0.85f;
 
         /// <remarks>stateFactory 返回 null=未实现；duo=null 无二级反应；registry=null 自建。数值不在此注入：tile_state / element_rule 已是最终值。</remarks>
         public GridLogic(
@@ -111,11 +129,11 @@ namespace DeepseaOil.Logic.Grid
             _navFields.MarkDirty();
         }
 
-        /// <summary>喂本帧的目标格与皮厚；由组合根每物理帧调一次，未变则不作废</summary>
+        /// <summary>喂本帧的目标格、皮厚与元素步价；由组合根每物理帧调一次，未变则不作废</summary>
         /// <remarks>只作废不重建：真正重建发生在 NavFieldFor 或紧接的 EnsureNavFields，成本出现在调用点而不是散在每只怪里。</remarks>
         public void RefreshNavFields(Vector3Int goalCell, float skin)
         {
-            _navFields.SetGoal(goalCell, skin);
+            _navFields.SetGoal(goalCell, skin, _navElementCost);
 
             _navFields.RebuildStale(this, Nav);
         }
@@ -153,6 +171,17 @@ namespace DeepseaOil.Logic.Grid
             TileStateType state = StateOf(cell);
 
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsObstacle;
+        }
+
+        /// <summary>非空地且非阻挡的地貌：元素格偏好的唯一判据</summary>
+        /// <remarks>范围刻意取"所有非空地"，不是 Damage.ElementFromTile 的火/电/冰三色：水、土、植物、泥浆同样是玩家铺的元素。</remarks>
+        public bool IsElementTile(Vector3Int cell)
+        {
+            TileStateType state = StateOf(cell);
+
+            return state != TileStateType.Normal
+                && state != TileStateType.None
+                && !IsObstacle(cell);
         }
 
         /// <summary>该格地貌的每秒伤害（dot_damage）；无表行返回 0</summary>
@@ -561,8 +590,9 @@ namespace DeepseaOil.Logic.Grid
 
             if (next != TileStateType.Normal && !_specs.ContainsKey(next)) return false;
 
-            // 地貌翻转会改变导航可走集合，且只有这一处能看见"翻转"这件事
+            // 地貌翻转会改变导航可走集合与元素偏好，且只有这一处能看见"翻转"这件事
             bool wasObstacle = IsObstacle(cell);
+            bool wasElement = IsElementTile(cell);
 
             if (!_machines.TryGetValue(cell, out TileStateMachine machine))
             {
@@ -588,7 +618,10 @@ namespace DeepseaOil.Logic.Grid
 
             EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, previous, next));
 
-            if (IsObstacle(cell) != wasObstacle) _navFields.MarkDirty();
+            bool obstacleChanged = IsObstacle(cell) != wasObstacle;
+            bool elementChanged = IsElementTile(cell) != wasElement;
+
+            if (obstacleChanged || (_navElementCost < 1f && elementChanged)) _navFields.MarkDirty();
 
             return true;
         }

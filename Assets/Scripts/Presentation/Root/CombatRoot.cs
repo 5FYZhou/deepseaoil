@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
@@ -687,6 +687,8 @@ namespace DeepseaOil.Presentation
                 CreateTileState,
                 duo,
                 _registry);
+
+            _grid.NavElementCost = ConfigModule.NavElementCost;
 
             // 先订阅格子状态变化再灌初始状态，否则那批泥浆不会被画出来
             gridView.Attach();

@@ -174,6 +174,8 @@ namespace DeepseaOil.Presentation.Diagnostics
                 ConfigModule.GetDuoReactions(),
                 _registry);
 
+            _grid.NavElementCost = ConfigModule.NavElementCost;
+
             adapter.Attach();
             _attachedAdapter = true;
 
