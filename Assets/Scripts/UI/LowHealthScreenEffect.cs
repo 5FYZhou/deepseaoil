@@ -9,7 +9,7 @@ using Cinemachine;
 
 namespace GameUI
 {
-    /// <summary>3 阶血量的全屏暗角/裂纹表现层，含 Cinemachine 心跳联动</summary>
+    /// <summary>按最大生命分档的全屏暗角/裂纹表现层，含 Cinemachine 心跳联动</summary>
     [DisallowMultipleComponent]
     public sealed class LowHealthScreenEffect : MonoBehaviour
     {
@@ -21,18 +21,22 @@ namespace GameUI
         [Tooltip("裂纹覆盖层的 RectTransform（用于驱动贴图心跳缩放，必填）")]
         [SerializeField] private RectTransform cracksRectTransform;
 
+        [Header("血量分档")]
+        [Tooltip("残血特效起始血量；当前 5 血上限下为 2")]
+        [SerializeField, Min(1)] private int lowHealthThreshold = 2;
+
         [Header("状态透明度配置 (Alpha Thresholds)")]
-        [Tooltip("满血 (>= 3HP) 时的暗角透明度")]
+        [Tooltip("未进入残血 (> 残血阈值) 时的暗角透明度")]
         [Range(0f, 1f)]
         [SerializeField] private float healthyVignetteAlpha = 0f;
-        [Tooltip("满血 (>= 3HP) 时的裂纹透明度")]
+        [Tooltip("未进入残血 (> 残血阈值) 时的裂纹透明度")]
         [Range(0f, 1f)]
         [SerializeField] private float healthyCracksAlpha = 0f;
 
-        [Tooltip("受创 (2HP) 时的暗角透明度")]
+        [Tooltip("残血档 (<= 残血阈值) 时的暗角透明度")]
         [Range(0f, 1f)]
         [SerializeField] private float injuredVignetteAlpha = 0.08f;
-        [Tooltip("受创 (2HP) 时的裂纹透明度")]
+        [Tooltip("残血档 (<= 残血阈值) 时的裂纹透明度")]
         [Range(0f, 1f)]
         [SerializeField] private float injuredCracksAlpha = 0.32f;
 
@@ -46,7 +50,7 @@ namespace GameUI
         [Header("平滑过渡 (C0 连续)")]
         [Tooltip("血量状态切换时的透明度淡入淡出耗时（秒）")]
         [Range(0.05f, 1.0f)]
-        [SerializeField] private float transitionDuration = 0.65f;
+        [SerializeField] private float transitionDuration = 0.25f;
 
         [Header("心跳脉动算法 (ECG 双峰律动)")]
         [Tooltip("濒死状态下的心跳频率（次/分钟，BPM）")]
@@ -164,7 +168,7 @@ namespace GameUI
             CheckSleepCondition();
         }
 
-        /// <summary>外部血量通知：按 maxHealth 派生满血/受创/濒死/阵亡四档</summary>
+        /// <summary>外部血量通知：按残血阈值与最大生命派生满血/残血/濒死/阵亡四档</summary>
         public void SetHealth(int currentHealth, int maxHealth = 3)
         {
             enabled = true;
@@ -177,6 +181,8 @@ namespace GameUI
 
             bool wasCritical = _isCritical;
             int full = Mathf.Max(1, maxHealth);
+            int low = Mathf.Clamp(lowHealthThreshold, 1, full);
+            int critical = Mathf.Max(0, low - 1);
 
             if (currentHealth <= 0)
             {
@@ -185,13 +191,13 @@ namespace GameUI
                 _targetCracksAlpha = criticalCracksAlpha;
                 _isCritical = false;
             }
-            else if (currentHealth >= full)
+            else if (currentHealth >= full || currentHealth > low)
             {
                 _targetVignetteAlpha = healthyVignetteAlpha;
                 _targetCracksAlpha = healthyCracksAlpha;
                 _isCritical = false;
             }
-            else if (currentHealth >= full - 1)
+            else if (currentHealth > critical)
             {
                 _targetVignetteAlpha = injuredVignetteAlpha;
                 _targetCracksAlpha = injuredCracksAlpha;
