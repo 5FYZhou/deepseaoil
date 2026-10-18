@@ -31,7 +31,7 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe()
         {
             HideResult();
-            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmAscensio);
+            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.PlayerDie, false, false, false);
         }
 
         public override void HideMe()
