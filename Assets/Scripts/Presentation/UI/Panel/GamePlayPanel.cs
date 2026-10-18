@@ -261,12 +261,10 @@ namespace DeepseaOil.Presentation.UI
         }
         private void ResetHealthHud()
         {
-            // 停掉濒死/常显逻辑
             StopDying();
             if (_imgDying != null)
                 _imgDying.gameObject.SetActive(false);
 
-            // 停掉血条动画，直接置满血
             if (_healthAnimCoroutine != null)
             {
                 StopCoroutine(_healthAnimCoroutine);
@@ -361,7 +359,6 @@ namespace DeepseaOil.Presentation.UI
             {
                 yield return FadeTextAlpha(_txtNextWave, 1f);
 
-                // <=0常显
                 if (visibleSeconds > 0f)
                 {
                     float hold = visibleSeconds - WaveTextFadeDuration;
@@ -595,16 +592,14 @@ namespace DeepseaOil.Presentation.UI
         {
             if (_imgDying == null) return;
 
-            // 血量为 0：常显纯白、完全不透明，停掉呼吸
             if (health <= 0f)
             {
                 StopDying();
                 _imgDying.gameObject.SetActive(true);
-                _imgDying.color = Color.white; // (1,1,1,1)
+                _imgDying.color = Color.white;
                 return;
             }
 
-            // 高于濒死阈值：隐藏
             if (health > DyingHealthThreshold)
             {
                 StopDying();
@@ -612,7 +607,6 @@ namespace DeepseaOil.Presentation.UI
                 return;
             }
 
-            // 0 < health <= 1：濒死呼吸（保持原逻辑）
             if (_dyingCoroutine != null) return;
 
             _imgDying.gameObject.SetActive(true);

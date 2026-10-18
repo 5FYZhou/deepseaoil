@@ -49,6 +49,24 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("蒸汽爆轰震屏时长（秒）")]
         public float blastShakeDuration = 0.16f;
 
+        [Header("网格光脉冲")]
+        [Tooltip("蒸汽爆轰的光强倍数：1＝纯白，1.8 会把中心压成过曝白核")]
+        public float steamImpulseIntensity = 1.8f;
+
+        [Tooltip("蒸汽爆轰的暖白色（HDR）：冷蓝底色上偏暖才不会发脏")]
+        [ColorUsage(false, true)]
+        public Color steamImpulseColor = new Color(1.0f, 0.95f, 0.85f, 1f);
+
+        [Tooltip("电弧的光强倍数：1.4 到白但不过曝；超过 1.6 会洗成纯白，淡蓝紫就没了")]
+        public float arcImpulseIntensity = 1.4f;
+
+        [Tooltip("电弧颜色：定色红线 #96A0FF，改它等于丢掉电弧的识别度")]
+        [ColorUsage(false, true)]
+        public Color arcImpulseColor = new Color(150f / 255f, 160f / 255f, 1f, 1f);
+
+        [Tooltip("电弧脉冲半径（世界单位）：0＝只点亮被击穿的那一格")]
+        public float arcImpulseRadius = 0f;
+
         [Header("扬尘")]
         [Tooltip("低于此速度（单位/秒）不扬尘：避免静止抖动喷粒子")]
         public float dustSpeedThreshold = 0.8f;
@@ -75,6 +93,16 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("落点水平随机半径（世界单位，±）：0＝固定；用飘字自己的随机流，不动全局 Rng")] public float popupJitterX = 0.15f;
 
         [Tooltip("落点垂直随机半径（世界单位，±）：0＝固定")] public float popupJitterY = 0.08f;
+
+        [Tooltip("元素色向白插值的量＝飘字亮度：TMP 顶点色不能超过 1，提亮只能靠向白靠")] [Range(0f, 1f)] public float popupWhiten = 0.35f;
+
+        [Tooltip("生命周期前这一段比例保持满 alpha，之后才开始淡出：0＝立刻开始淡出（旧行为）")] [Range(0f, 0.9f)] public float popupHold = 0.35f;
+
+        [Tooltip("描边宽度（TMP 的 _OutlineWidth）：0＝无描边")] [Range(0f, 1f)] public float popupOutlineWidth = 0.2f;
+
+        [Tooltip("描边颜色：深棕在暖色地面上比纯黑更贴，也更像手绘描边")] public Color popupOutlineColor = new Color(0.1f, 0.05f, 0.02f, 1f);
+
+        [Tooltip("字号倍数：1＝预制体原字号。飘字仍不够醒目时优先调它")] [Range(0.5f, 2f)] public float popupFontScale = 1.15f;
 
         [Header("Z-Hop 伪高度")]
         [Tooltip("基准峰值高度（世界单位），Value=1 时的上飘高度")]

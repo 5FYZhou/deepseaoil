@@ -56,6 +56,9 @@ namespace DeepseaOil.Presentation.Adapters
         [Tooltip("物理阻挡体管理器")]
         [SerializeField] private TileObstacleDirector obstacleDirector = default;
 
+        [Tooltip("电格常驻粒子管理器")]
+        [SerializeField] private TileVfxDirector vfxDirector = default;
+
         /// 每格只记一层；前提：效果层开局全空，刷过 tile 改按每层记原值。
         private readonly Dictionary<Vector3Int, Tilemap> _cellLayer = new();
 
@@ -85,6 +88,8 @@ namespace DeepseaOil.Presentation.Adapters
 
             EnsureObstacle(in geometry);
 
+            EnsureVfx(in geometry);
+
             EventBus<TileStateChanged>.Subscribe(OnTileStateChanged);
 
             _attached = true;
@@ -100,6 +105,8 @@ namespace DeepseaOil.Presentation.Adapters
 
             obstacleDirector?.Detach();
 
+            vfxDirector?.Detach();
+
             _attached = false;
         }
 
@@ -109,6 +116,8 @@ namespace DeepseaOil.Presentation.Adapters
             overlayDirector?.ClearAll();
 
             obstacleDirector?.ClearAll();
+
+            vfxDirector?.ClearAll();
         }
 
         /// 自愈装配覆盖物管理器；几何非法时跳过
@@ -139,6 +148,20 @@ namespace DeepseaOil.Presentation.Adapters
             obstacleDirector.Attach();
         }
 
+        /// 自愈装配电格粒子管理器；几何非法时跳过
+        private void EnsureVfx(in GridGeometry geometry)
+        {
+            if (!geometry.IsValid) return;
+
+            if (vfxDirector == null) vfxDirector = GetComponent<TileVfxDirector>();
+
+            if (vfxDirector == null) vfxDirector = gameObject.AddComponent<TileVfxDirector>();
+
+            vfxDirector.Initialize(in geometry);
+
+            vfxDirector.Attach();
+        }
+
         /// 角点语义与 GridGeometry 对齐：CellToWorld(zero)=格左下角、GetCellCenterWorld(zero)=格心，差半格。
         public GridGeometry ReadGeometry()
         {
@@ -160,6 +183,18 @@ namespace DeepseaOil.Presentation.Adapters
             VerifyGeometry(geometry);
 
             return geometry;
+        }
+
+        /// <summary>地板层已画格子的矩形边界；空层返回 false（空 Tilemap 的 cellBounds 是 1×1×1）</summary>
+        public bool TryGetCellBounds(out BoundsInt bounds)
+        {
+            bounds = default;
+
+            if (groundTilemap == null || groundTilemap.GetUsedTilesCount() == 0) return false;
+
+            bounds = groundTilemap.cellBounds;
+
+            return bounds.size.x > 0 && bounds.size.y > 0;
         }
 
         /// 把地板层全部格子登记进逻辑层，只有登记过的格才能被砸出状态、被减速
@@ -299,7 +334,7 @@ namespace DeepseaOil.Presentation.Adapters
                 {
                     Tilemap layer = effectLayers[i].Tilemap;
 
-                    // 空槽合法（预制体上这几行只留 None 占位）：没接层就跳过，与 ValidateStateTiles 的空表口径一致
+                    // 空槽合法：没接层就跳过
                     if (layer == null) continue;
 
                     usable++;
@@ -433,7 +468,7 @@ namespace DeepseaOil.Presentation.Adapters
         /// Normal 在事件里当擦除；重复状态只取第一条
         private void ValidateStateTiles()
         {
-            // 空表合法（全走 tiles/Tile_{状态}），故不报日志
+            // 空表合法（全走 tiles/Tile_{状态}）
             if (stateTiles == null || stateTiles.Length == 0) return;
 
             for (int i = 0; i < stateTiles.Length; i++)
@@ -515,8 +550,7 @@ namespace DeepseaOil.Presentation.Adapters
                 "检查 effectLayers 是否接了 Tilemap。", this);
         }
 
-        /// 状态 → 效果层贴图：特例优先，未配的按约定懒加载
-        /// 顺序：stateTiles 特例 → 缓存 → tiles/Tile_{状态}；取不到只警告一次并返回 null。
+        /// 状态 → 效果层贴图：特例优先，未配的按约定懒加载；取不到只警告一次并返回 null
         private TileBase TileFor(TileStateType state)
         {
             if (stateTiles != null)

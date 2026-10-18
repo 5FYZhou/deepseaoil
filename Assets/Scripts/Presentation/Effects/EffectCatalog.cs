@@ -38,13 +38,16 @@ namespace DeepseaOil.Presentation.Effects
         /// <summary>预热数；&lt;0 按 0</summary>
         public readonly int Prewarm;
 
+        public readonly bool BehindActors;
+
         public EffectSpec(
             EffectId id,
             EffectDriverKind driverKind = EffectDriverKind.Particle,
             bool isSingleton = false,
             int maxSize = 16,
             int prewarm = 0,
-            string key = null)
+            string key = null,
+            bool behindActors = false)
         {
             Id = id;
             Key = string.IsNullOrEmpty(key) ? EffectCatalog.KeyPrefix + id : key;
@@ -52,6 +55,7 @@ namespace DeepseaOil.Presentation.Effects
             IsSingleton = isSingleton;
             MaxSize = maxSize > 0 ? maxSize : 1;
             Prewarm = prewarm < 0 ? 0 : prewarm;
+            BehindActors = behindActors;
         }
 
         public override string ToString()
@@ -92,7 +96,7 @@ namespace DeepseaOil.Presentation.Effects
 
             new EffectSpec(EffectId.Squash,       EffectDriverKind.ScalePunch,  maxSize: 32),
 
-            new EffectSpec(EffectId.Dust,         EffectDriverKind.Particle,    isSingleton: false, maxSize: 16, prewarm: 0),
+            new EffectSpec(EffectId.Dust,         EffectDriverKind.Particle,    isSingleton: false, maxSize: 16, prewarm: 0, behindActors: true),
 
             new EffectSpec(EffectId.DamagePopup,  EffectDriverKind.Popup,       isSingleton: false, maxSize: 32, prewarm: 8),
 
@@ -119,7 +123,8 @@ namespace DeepseaOil.Presentation.Effects
 
                     if (pool.Id != (int)spec.Id || pool.MaxSize <= 0) continue;
 
-                    result[i] = new EffectSpec(spec.Id, spec.DriverKind, spec.IsSingleton, pool.MaxSize, pool.Prewarm, spec.Key);
+                    result[i] = new EffectSpec(
+                        spec.Id, spec.DriverKind, spec.IsSingleton, pool.MaxSize, pool.Prewarm, spec.Key, spec.BehindActors);
 
                     break;
                 }

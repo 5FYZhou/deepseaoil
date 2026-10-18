@@ -53,6 +53,10 @@ MonoBehaviour:
   landingRadius: 3
   minLandingDistance: 0.8
   autoTriggerRadius: 1.5
+  overrideSelfLightColor: 0
+  selfLightOverride: {r: 0.31243825, g: 1, b: 0, a: 1}
+  selfLightIntensity: 0.2
+  selfLightPulseDepth: 0.1
 --- !u!58 &1484185468337858255
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -156,7 +160,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: 4b9d1a76c3e24f8ea5d0b2c91e37a640, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -174,8 +178,8 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: 223517723
+  m_SortingLayer: -4
   m_SortingOrder: 310
   m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 0.5882353}
@@ -241,7 +245,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: 4b9d1a76c3e24f8ea5d0b2c91e37a640, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -259,8 +263,8 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: 223517723
+  m_SortingLayer: -4
   m_SortingOrder: 350
   m_Sprite: {fileID: 21300000, guid: 33cd310b94c650744ab4fbf1828a14c9, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}

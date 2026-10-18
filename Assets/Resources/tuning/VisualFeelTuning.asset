@@ -24,14 +24,27 @@ MonoBehaviour:
   blastShakeAmplitudeMin: 0.4
   blastShakeAmplitudeMax: 1
   blastShakeDuration: 0.16
+  steamImpulseIntensity: 0.6
+  steamImpulseColor: {r: 1, g: 0.95, b: 0.85, a: 1}
+  arcImpulseIntensity: 0.35
+  arcImpulseColor: {r: 0.5882353, g: 0.627451, b: 1, a: 1}
+  arcImpulseRadius: 0
   dustSpeedThreshold: 0.8
   dustInterval: 0.14
   dustReferenceSpeed: 8
-  popupRiseHeight: 0.6
-  popupDuration: 0.6
+  popupRiseHeight: 1
+  popupDuration: 1
   popupSortingOffset: 100
-  popupRiseEase: 2
-  popupFadeEase: 1.5
+  popupRiseEase: 1.5
+  popupFadeEase: 1.1
+  popupAnchorHeight: 0.6
+  popupJitterX: 0.3
+  popupJitterY: 0.15
+  popupWhiten: 0.3
+  popupHold: 0.3
+  popupOutlineWidth: 0.2
+  popupOutlineColor: {r: 0.1, g: 0.05, b: 0.02, a: 0.5019608}
+  popupFontScale: 1
   hopPeakHeight: 0.25
   hopDuration: 0.28
   hopReferenceSpeed: 8
