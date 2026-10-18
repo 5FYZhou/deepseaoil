@@ -40,6 +40,8 @@ namespace DeepseaOil.Tests
             ConfigModule.BindAssets();
 
             ReactionResolver.Initialize(ConfigModule.GetElementRules());
+
+            EventBus<TileStateChanged>.Clear();
         }
 
         [OneTimeTearDown]

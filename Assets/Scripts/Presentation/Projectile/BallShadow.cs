@@ -2,6 +2,7 @@ using UnityEngine;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
 using DeepseaOil.Presentation.Primitive;
+using DeepseaOil.Presentation.Visual;
 
 namespace DeepseaOil.Presentation.Projectile
 {
@@ -20,6 +21,9 @@ namespace DeepseaOil.Presentation.Projectile
             _tuning = tuning;
 
             _renderer = gameObject.AddComponent<SpriteRenderer>();
+
+            // 阴影与球同层：留 Default 会被 Tilemap 整片盖掉
+            _renderer.sortingLayerName = SortingLayerConsts.Actor;
 
             // 阴影是贴地圆盘，走贴地件那套透视画法，与指示器、落地瞬闪同一份观感
             float radius = diameterMeters * 0.5f;

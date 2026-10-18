@@ -1,5 +1,7 @@
-Shader "DeepseaOil/2D/SpriteFlash"
+Shader "DeepseaOil/2D/SpriteFlashUnlit"
 {
+    // 名里带 Unlit 是为了让人一眼看出它没有 Universal2D 通道：受光层（Ground/Actor）之外
+    // 的隔离层（Aim/Effect/UI）一旦挂上受光材质，光照贡献恒为 0，整块会被乘成黑
     Properties
     {
         _MainTex ("Sprite Texture", 2D) = "white" {}

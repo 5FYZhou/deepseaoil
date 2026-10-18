@@ -11,7 +11,7 @@ namespace DeepseaOil.Data
 
         private const float FallbackMaxHeight = 2f;
 
-        private const float FallbackMaxThrowDistance = 5f;
+        private const float FallbackMaxThrowDistance = 10f;
 
         private const float FallbackMinThrowDistance = 0.4f;
 

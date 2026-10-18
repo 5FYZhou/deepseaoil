@@ -369,7 +369,7 @@ namespace DeepseaOil.Presentation
 
             _dashSfxOn = dashing;
 
-            if (dashing) _root?.Audio?.EnqueueSfx(AudioId.PlayerDash);
+            if (dashing) _root?.Audio?.EnqueueSfx(AudioId.PlayerGO);
         }
 
         private Vector2 AimWorldPoint(Camera camera)

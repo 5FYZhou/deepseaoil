@@ -152,7 +152,11 @@ namespace cfg.dso
         /// <summary>
         /// 玩家冲刺
         /// </summary>
-        PlayerDash = 34,
+        PlayerGO = 34,
+        /// <summary>
+        /// 死亡失败结算
+        /// </summary>
+        PlayerDie = 35,
     }
 
 } 
