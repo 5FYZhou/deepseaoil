@@ -1,4 +1,4 @@
-﻿using cfg.dso;
+using cfg.dso;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
@@ -203,7 +203,9 @@ namespace DeepseaOil.Presentation.UI
             switch (name)
             {
                 case "BtnPause":
-                    GameRoot.Instance.Game.ChangeState(GameState.Paused);
+                    GameState state = GameRoot.Instance.Game.CurState;
+                    if (state == GameState.Running || state == GameState.Story)
+                        GameRoot.Instance.Game.ChangeState(GameState.Paused);
                     break;
             }
         }

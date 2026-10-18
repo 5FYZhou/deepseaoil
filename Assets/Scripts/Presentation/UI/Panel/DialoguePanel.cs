@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using TMPro;
@@ -33,6 +33,7 @@ namespace DeepseaOil.Presentation.UI
         private UIFader _faderNPCPopup;
         private UIFader _faderPlayerPopup;
         private bool _awaitingContinue;
+        private bool _paused;
 
         public override void ShowMe()
         {
@@ -140,6 +141,7 @@ namespace DeepseaOil.Presentation.UI
 
         public void SetPaused(bool paused)
         {
+            _paused = paused;
             _typewriter.Paused = paused;
         }
 
@@ -149,6 +151,8 @@ namespace DeepseaOil.Presentation.UI
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (_paused) return;
+
             if (_typewriter.Complete()) return;
 
             if (!_awaitingContinue) return;

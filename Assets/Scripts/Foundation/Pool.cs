@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -246,17 +246,6 @@ namespace DeepseaOil.Foundation
         {
             if (_disposed)
                 throw new ObjectDisposedException($"[Pool<{_name}>]");
-        }
-    }
-
-    /// <summary>引用类型池旧别名，仅供 AudioManager 使用</summary>
-    public class PoolInClass<T> : Pool<T> where T : class
-    {
-        public PoolInClass(
-            Func<T> factory,
-            Action<T> onGet = null,
-            Action<T> onRelease = null) : base(factory, onGet, onRelease)
-        {
         }
     }
 }
