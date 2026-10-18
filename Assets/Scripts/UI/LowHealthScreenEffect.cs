@@ -1,19 +1,24 @@
-﻿using DeepseaOil.Logic.Events;
+using DeepseaOil.Logic.Events;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_2023_1_OR_NEWER
+using Unity.Cinemachine;
+#else
+using Cinemachine;
+#endif
 
 namespace GameUI
 {
-    /// <summary>3 阶血量的全屏暗角/裂纹表现层</summary>
+    /// <summary>3 阶血量的全屏暗角/裂纹表现层，含 Cinemachine 心跳联动</summary>
     [DisallowMultipleComponent]
     public sealed class LowHealthScreenEffect : MonoBehaviour
     {
-        [Header("组件与节点绑定")]
+        [Header("UI 组件与节点绑定")]
         [Tooltip("暗角与血雾覆盖层的 CanvasGroup（控制边缘压暗深度，单图模式可留空）")]
         [SerializeField] private CanvasGroup vignetteCanvasGroup;
         [Tooltip("裂纹覆盖层的 CanvasGroup（控制裂纹深浅，必填）")]
         [SerializeField] private CanvasGroup cracksCanvasGroup;
-        [Tooltip("裂纹覆盖层的 RectTransform（用于驱动心跳缩放，必填）")]
+        [Tooltip("裂纹覆盖层的 RectTransform（用于驱动贴图心跳缩放，必填）")]
         [SerializeField] private RectTransform cracksRectTransform;
 
         [Header("状态透明度配置 (Alpha Thresholds)")]
@@ -41,17 +46,18 @@ namespace GameUI
         [Header("平滑过渡 (C0 连续)")]
         [Tooltip("血量状态切换时的透明度淡入淡出耗时（秒）")]
         [Range(0.05f, 1.0f)]
-        [SerializeField] private float transitionDuration = 0.25f;
+        [SerializeField] private float transitionDuration = 0.65f;
 
         [Header("心跳脉动算法 (ECG 双峰律动)")]
         [Tooltip("濒死状态下的心跳频率（次/分钟，BPM）")]
         [Range(40f, 180f)]
-        [SerializeField] private float heartbeatBpm = 76f;
-        [Tooltip("心房收缩时的最大缩放倍率（推荐 1.025~1.045，过大会引发眩晕）")]
+        [SerializeField] private float heartbeatBpm = 48f;
+        [Tooltip("贴图心房收缩时的最大缩放倍率（推荐 1.025~1.045）")]
         [Range(1.0f, 1.15f)]
-        [SerializeField] private float heartbeatMaxScale = 1.035f;
+        [SerializeField] private float heartbeatMaxScale = 1.015f;
         [Tooltip("真实心跳归一化波形曲线（0~1周期，横轴为时间比例，纵轴为收缩强度）")]
-        [SerializeField] private AnimationCurve heartbeatCurve = new AnimationCurve(
+        [SerializeField]
+        private AnimationCurve heartbeatCurve = new AnimationCurve(
             new Keyframe(0.00f, 0.00f),
             new Keyframe(0.12f, 1.00f),
             new Keyframe(0.20f, 0.25f),
@@ -60,14 +66,34 @@ namespace GameUI
             new Keyframe(1.00f, 0.00f)
         );
 
+        [Header("全景画面心跳联动 (Cinemachine Camera Pulse)")]
+        [Tooltip("是否开启游戏画面同步收缩与微偏移")]
+        [SerializeField] private bool enableCameraPulse = true;
+        [Tooltip("全屏画面向内收缩最大比例（推荐 0.015 ~ 0.025，即 1.5%~2.5%，严禁过大防眩晕）")]
+        [Range(0.005f, 0.025f)]
+        [SerializeField] private float maxCameraZoomRatio = 0.01f;
+        [Tooltip("心跳收缩时集中点的随机微偏移最大距离（世界单位，推荐 0.04 ~ 0.08）")]
+        [Range(0.001f, 0.15f)]
+        [SerializeField] private float maxFocalJitterDistance = 0.01f;
+        [Tooltip("偏移向中心归位的阻尼时间（秒）")]
+        [Range(0.02f, 0.3f)]
+        [SerializeField] private float jitterDampingTime = 0.22f;
+
         private float _targetVignetteAlpha;
         private float _targetCracksAlpha;
         private float _startVignetteAlpha;
         private float _startCracksAlpha;
         private float _transitionProgress = 1f;
         private bool _isTransitioning;
+
         private float _heartbeatTimer;
         private bool _isCritical;
+        private float _currentPulseIntensity;
+
+        private float _currentZoomPercent;
+        private Vector2 _targetJitterOffset;
+        private Vector2 _currentJitterOffset;
+        private Vector2 _jitterVelocity;
 
         private void Awake()
         {
@@ -102,10 +128,28 @@ namespace GameUI
             enabled = false;
         }
 
+        private void OnEnable()
+        {
+            // 官方相机更新后回调：只在启用期挂接，满血休眠由 OnDisable 摘除
+            CinemachineCore.CameraUpdatedEvent.RemoveListener(OnCinemachineCameraUpdated);
+            CinemachineCore.CameraUpdatedEvent.AddListener(OnCinemachineCameraUpdated);
+        }
+
+        private void OnDisable()
+        {
+            // 摘除监听并清掉相机运行时偏移，下一帧 Cinemachine 会解算回基准
+            CinemachineCore.CameraUpdatedEvent.RemoveListener(OnCinemachineCameraUpdated);
+            _currentZoomPercent = 0f;
+            _currentJitterOffset = Vector2.zero;
+            _jitterVelocity = Vector2.zero;
+            _currentPulseIntensity = 0f;
+        }
+
         private void OnDestroy()
         {
             // 退订只能在 OnDestroy：满血休眠会走 OnDisable
             EventBus<PlayerHealthChanged>.Unsubscribe(OnPlayerHealthChanged);
+            CinemachineCore.CameraUpdatedEvent.RemoveListener(OnCinemachineCameraUpdated);
         }
 
         private void OnPlayerHealthChanged(PlayerHealthChanged evt)
@@ -116,7 +160,7 @@ namespace GameUI
         private void Update()
         {
             UpdateAlphaTransition();
-            UpdateHeartbeatScale();
+            UpdateHeartbeatDynamics();
             CheckSleepCondition();
         }
 
@@ -131,6 +175,7 @@ namespace GameUI
             _transitionProgress = 0f;
             _isTransitioning = true;
 
+            bool wasCritical = _isCritical;
             int full = Mathf.Max(1, maxHealth);
 
             if (currentHealth <= 0)
@@ -157,6 +202,13 @@ namespace GameUI
                 _targetVignetteAlpha = criticalVignetteAlpha;
                 _targetCracksAlpha = criticalCracksAlpha;
                 _isCritical = true;
+
+                // 进入濒死立刻给首拍一个随机冲量，之后每个周期起点再刷新
+                if (!wasCritical && enableCameraPulse)
+                {
+                    Vector2 randomDirection = Random.insideUnitCircle.normalized;
+                    _targetJitterOffset = randomDirection * maxFocalJitterDistance;
+                }
             }
         }
 
@@ -184,31 +236,64 @@ namespace GameUI
             }
         }
 
-        private void UpdateHeartbeatScale()
+        private void UpdateHeartbeatDynamics()
         {
-            if (cracksRectTransform == null) return;
-
             if (_isCritical)
             {
-                if (heartbeatCurve == null || heartbeatCurve.length == 0) return;
+                if (heartbeatCurve == null || heartbeatCurve.length == 0)
+                {
+                    _currentPulseIntensity = 0f;
+                    _currentZoomPercent = 0f;
+                    _currentJitterOffset = Vector2.zero;
+                    _jitterVelocity = Vector2.zero;
+                    if (cracksRectTransform != null) cracksRectTransform.localScale = Vector3.one;
+                    return;
+                }
 
                 float cycleDuration = 60f / Mathf.Max(heartbeatBpm, 1f);
                 _heartbeatTimer += Time.deltaTime;
+
+                // 主峰冲量只在周期起点生成，舒张期由 SmoothDamp 归中
                 if (_heartbeatTimer >= cycleDuration)
                 {
                     _heartbeatTimer %= cycleDuration;
+                    if (enableCameraPulse)
+                    {
+                        Vector2 randomDirection = Random.insideUnitCircle.normalized;
+                        _targetJitterOffset = randomDirection * maxFocalJitterDistance;
+                    }
                 }
 
                 float normalizedTime = _heartbeatTimer / cycleDuration;
-                // 曲线可被编出 0~1 之外，夹住防负缩放
-                float intensity = Mathf.Clamp01(heartbeatCurve.Evaluate(normalizedTime));
-                float targetScale = 1.0f + intensity * (heartbeatMaxScale - 1.0f);
+                // 曲线可被编出 0~1 之外，夹住防负缩放与超安全线
+                _currentPulseIntensity = Mathf.Clamp01(heartbeatCurve.Evaluate(normalizedTime));
 
-                cracksRectTransform.localScale = new Vector3(targetScale, targetScale, 1f);
+                if (cracksRectTransform != null)
+                {
+                    float targetScale = 1.0f + _currentPulseIntensity * (heartbeatMaxScale - 1.0f);
+                    cracksRectTransform.localScale = new Vector3(targetScale, targetScale, 1f);
+                }
+
+                if (enableCameraPulse)
+                {
+                    _currentZoomPercent = _currentPulseIntensity * maxCameraZoomRatio;
+                    Vector2 activeTarget = _targetJitterOffset * _currentPulseIntensity;
+                    _currentJitterOffset = Vector2.SmoothDamp(
+                        _currentJitterOffset,
+                        activeTarget,
+                        ref _jitterVelocity,
+                        jitterDampingTime
+                    );
+                }
             }
             else
             {
-                if (cracksRectTransform.localScale != Vector3.one)
+                _currentPulseIntensity = 0f;
+                _currentZoomPercent = Mathf.MoveTowards(_currentZoomPercent, 0f, Time.deltaTime * 0.1f);
+                _currentJitterOffset = Vector2.MoveTowards(_currentJitterOffset, Vector2.zero, Time.deltaTime * 0.5f);
+                _jitterVelocity = Vector2.zero;
+
+                if (cracksRectTransform != null && cracksRectTransform.localScale != Vector3.one)
                 {
                     cracksRectTransform.localScale = Vector3.MoveTowards(
                         cracksRectTransform.localScale,
@@ -219,12 +304,32 @@ namespace GameUI
             }
         }
 
+        /// <summary>相机解算完成后注入缩放/偏移，避免被 Cinemachine 覆盖</summary>
+        private void OnCinemachineCameraUpdated(CinemachineBrain brain)
+        {
+            if (!enableCameraPulse || brain == null) return;
+
+            Camera cam = brain.OutputCamera;
+            if (cam == null || !cam.orthographic) return;
+
+            if (_currentZoomPercent <= 0.0001f && _currentJitterOffset.sqrMagnitude <= 0.00001f) return;
+
+            // 0.025 是 2.5% 生理安全硬上限，防曲线或 Inspector 越界
+            float zoom = Mathf.Clamp(_currentZoomPercent, 0f, Mathf.Min(maxCameraZoomRatio, 0.025f));
+            cam.orthographicSize *= (1f - zoom);
+
+            Vector2 jitter = Vector2.ClampMagnitude(_currentJitterOffset, maxFocalJitterDistance);
+            cam.transform.position += new Vector3(jitter.x, jitter.y, 0f);
+        }
+
         private void CheckSleepCondition()
         {
             if (_isCritical || _isTransitioning) return;
             if (!IsTargetClear()) return;
 
             if (cracksRectTransform != null && cracksRectTransform.localScale != Vector3.one) return;
+
+            if (_currentZoomPercent > 0.0001f || _currentJitterOffset.sqrMagnitude > 0.00001f) return;
 
             enabled = false;
         }
@@ -255,7 +360,7 @@ namespace GameUI
         [ContextMenu("模拟：2血（轻度裂纹静止）")]
         public void DebugSetHealth2() => DebugSetHealth(2);
 
-        [ContextMenu("模拟：1血（深度裂纹+心跳脉动+暗角）")]
+        [ContextMenu("模拟：1血（深度裂纹+画面双峰收缩+随机顿挫）")]
         public void DebugSetHealth1() => DebugSetHealth(1);
 
         [ContextMenu("模拟：0血（阵亡定格）")]

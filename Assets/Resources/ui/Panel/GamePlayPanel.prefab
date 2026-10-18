@@ -1846,9 +1846,9 @@ MonoBehaviour:
   injuredCracksAlpha: 0.32
   criticalVignetteAlpha: 0.78
   criticalCracksAlpha: 1
-  transitionDuration: 0.25
-  heartbeatBpm: 76
-  heartbeatMaxScale: 1.035
+  transitionDuration: 0.65
+  heartbeatBpm: 48
+  heartbeatMaxScale: 1.015
   heartbeatCurve:
     serializedVersion: 2
     m_Curve:
@@ -1909,6 +1909,10 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  enableCameraPulse: 1
+  maxCameraZoomRatio: 0.01
+  maxFocalJitterDistance: 0.01
+  jitterDampingTime: 0.22
 --- !u!1 &7984069045431623048
 GameObject:
   m_ObjectHideFlags: 0
