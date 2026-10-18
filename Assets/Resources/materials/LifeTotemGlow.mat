@@ -41,7 +41,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlphaThreshold: 0.11
+    - _AlphaThreshold: 0.1
     - _EnableExternalAlpha: 0
     - _GlowIntensity: 1.99
     - _GlowWidth: 0.015

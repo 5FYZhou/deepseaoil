@@ -38,6 +38,8 @@ namespace DeepseaOil.Presentation
 
         private bool _moveSfxOn;
 
+        private bool _dashSfxOn;
+
         private const float DirectionEpsilon = 1e-6f;
 
         private const float OctantRadians = 2f * Mathf.PI / 8f;
@@ -285,6 +287,8 @@ namespace DeepseaOil.Presentation
 
             TickMoveSfx(deltaTime, speed);
 
+            TickDashSfx();
+
             if (inputProvider == null || !inputProvider.IsInputEnabled)
             {
                 Logic.ClearAim();
@@ -355,6 +359,17 @@ namespace DeepseaOil.Presentation
             _moveSfxOn = moving;
 
             _root?.Audio?.SetLoopSfx(AudioId.PlayerMove, moving);
+        }
+
+        private void TickDashSfx()
+        {
+            bool dashing = Logic.MoveGroup.Current == MovementStateTag.Dash;
+
+            if (dashing == _dashSfxOn) return;
+
+            _dashSfxOn = dashing;
+
+            if (dashing) _root?.Audio?.EnqueueSfx(AudioId.PlayerDash);
         }
 
         private Vector2 AimWorldPoint(Camera camera)

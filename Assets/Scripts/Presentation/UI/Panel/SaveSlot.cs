@@ -33,11 +33,11 @@ namespace DeepseaOil.Presentation.UI
                 return;
             }
 
-            btnDelete.gameObject.SetActive(_index != 0);
+            //btnDelete.gameObject.SetActive(_index != 0);
 
             if (_deleteListenerRegistered) return;
 
-            btnDelete.onClick.AddListener(OnDeleteClicked);
+            //btnDelete.onClick.AddListener(OnDeleteClicked);
             _deleteListenerRegistered = true;
         }
 
@@ -45,7 +45,7 @@ namespace DeepseaOil.Presentation.UI
         {
             if (!_deleteListenerRegistered || btnDelete == null) return;
 
-            btnDelete.onClick.RemoveListener(OnDeleteClicked);
+            //btnDelete.onClick.RemoveListener(OnDeleteClicked);
             _deleteListenerRegistered = false;
         }
 

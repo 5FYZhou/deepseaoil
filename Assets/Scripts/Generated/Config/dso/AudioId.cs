@@ -149,6 +149,10 @@ namespace cfg.dso
         /// 玩家受伤
         /// </summary>
         PlayerHurt = 33,
+        /// <summary>
+        /// 玩家冲刺
+        /// </summary>
+        PlayerDash = 34,
     }
 
 } 

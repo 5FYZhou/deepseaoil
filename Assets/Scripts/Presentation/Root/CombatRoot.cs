@@ -1083,7 +1083,7 @@ namespace DeepseaOil.Presentation
                 case TileStateType.FrostSpike:
                     id = AudioId.TileIceShard;
                     return true;
-                case TileStateType.BasicFire:
+                //case TileStateType.BasicFire:
                 case TileStateType.FlameField:
                     id = AudioId.TileBurn;
                     return true;
@@ -1103,7 +1103,7 @@ namespace DeepseaOil.Presentation
                 case TileStateType.ChargedThorn:
                     id = AudioId.TileThorn;
                     return true;
-                case TileStateType.BasicElectricity:
+                //case TileStateType.BasicElectricity:
                 case TileStateType.ConductZone:
                     id = AudioId.TileConduct;
                     return true;
