@@ -338,7 +338,13 @@ namespace DeepseaOil.Presentation.UI
 
             bool shouldShow = _curWavePhase != Logic.Wave.WavePhase.Battle;
             if (shouldShow)
+            {
                 _txtCountdown.text = $"倒计时：{evt.SecondsRemaining}";
+                if(evt.SecondsRemaining == 3)
+                {
+                    GameRoot.Instance.Audio.EnqueueSfx(AudioId.WaveCountdown);
+                }
+            }
 
             if (shouldShow == _countdownShown) return;
 
