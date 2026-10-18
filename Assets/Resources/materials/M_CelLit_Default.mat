@@ -30,10 +30,13 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AlphaThreshold: 0.1
     - _AmbientFloor: 0.02
     - _EmissiveBoost: 0
     - _EnableRim: 1
     - _FlashAmount: 0
+    - _GlowIntensity: 0
+    - _GlowWidth: 0.01
     - _MetalIntensity: 0
     - _MetalThreshold: 0.85
     - _RimIntensity: 1.35
@@ -43,5 +46,6 @@ Material:
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _FlashColor: {r: 1, g: 1, b: 1, a: 1}
+    - _GlowColor: {r: 1, g: 1, b: 1, a: 1}
     - _RimColor: {r: 1, g: 0.84, b: 0.25, a: 1}
   m_BuildTextureStacks: []

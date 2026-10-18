@@ -18,6 +18,16 @@ namespace DeepseaOil.Tests
     {
         private const string CelLitMatPath = "Assets/Resources/materials/M_CelLit_Default.mat";
         private const string TileFlowMatPath = "Assets/Resources/materials/M_TileFlow_Water.mat";
+        private const string WaterGlowMatPath = "Assets/Resources/materials/WaterWellGlow.mat";
+        private const string EarthGlowMatPath = "Assets/Resources/materials/EarthMoundGlow.mat";
+        private const string LifeGlowMatPath = "Assets/Resources/materials/LifeTotemGlow.mat";
+        private const string WaterFountainPrefabPath = "Assets/Resources/scane_prebs/Fountain/WaterWell.prefab";
+        private const string EarthFountainPrefabPath = "Assets/Resources/scane_prebs/Fountain/EarthMound.prefab";
+        private const string LifeFountainPrefabPath = "Assets/Resources/scane_prebs/Fountain/LifeTotem.prefab";
+        private const string WaterTexturePath = "Assets/Resources/art/Prop/prop_machine_penqvan.png";
+        private const string EarthTexturePath = "Assets/Resources/art/Prop/prop_machine_tiqvqi.png";
+        private const string LifeTexturePath = "Assets/Resources/art/Prop/prop_machine_chonggouyi.png";
+        private const string CelLitShaderName = "DeepseaOil/2D/CelLit";
         private const string RangeScenePath = "Assets/Scenes/Range.unity";
         private const string AffectedLayersField = "m_ApplyToSortingLayers";
         private const string TagManagerPath = "ProjectSettings/TagManager.asset";
@@ -30,10 +40,52 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
+        public void 着色器_CelLit无编译错误()
+        {
+            Shader shader = Shader.Find(CelLitShaderName);
+
+            Assert.IsNotNull(shader, $"未找到 {CelLitShaderName}");
+            Assert.IsFalse(ShaderUtil.ShaderHasError(shader), $"{CelLitShaderName} 有编译错误，喷泉材质会退回粉红");
+        }
+
+        [Test]
         public void 材质_受光材质的暗部保底不得高于0点20()
         {
             AssertAmbientFloor(CelLitMatPath);
             AssertAmbientFloor(TileFlowMatPath);
+        }
+
+        [Test]
+        public void 材质_喷泉辉光材质走CelLit且参数有效()
+        {
+            AssertFountainGlowMaterial(WaterGlowMatPath, "WaterWellGlow");
+            AssertFountainGlowMaterial(EarthGlowMatPath, "EarthMoundGlow");
+            AssertFountainGlowMaterial(LifeGlowMatPath, "LifeTotemGlow");
+        }
+
+        [Test]
+        public void 材质_默认受光材质关闭喷泉辉光()
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(CelLitMatPath);
+
+            Assert.IsNotNull(material, $"材质资产不存在：{CelLitMatPath}");
+            Assert.AreEqual(0f, material.GetFloat("_GlowIntensity"), 0.0001f, "默认 CelLit 材质不得发光，否则所有精灵都会亮边");
+        }
+
+        [Test]
+        public void 预制体_三类泉水的View绑定对应辉光材质()
+        {
+            AssertFountainViewMaterial(WaterFountainPrefabPath, "WaterWellGlow");
+            AssertFountainViewMaterial(EarthFountainPrefabPath, "EarthMoundGlow");
+            AssertFountainViewMaterial(LifeFountainPrefabPath, "LifeTotemGlow");
+        }
+
+        [Test]
+        public void 贴图_三类泉水精灵网格为FullRect()
+        {
+            AssertFullRectMesh(WaterTexturePath);
+            AssertFullRectMesh(EarthTexturePath);
+            AssertFullRectMesh(LifeTexturePath);
         }
 
         [Test]
@@ -136,6 +188,52 @@ namespace DeepseaOil.Tests
             }
 
             return order;
+        }
+
+        private static void AssertFountainGlowMaterial(string path, string expectedName)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+
+            Assert.IsNotNull(material, $"材质资产不存在：{path}");
+            Assert.AreEqual(expectedName, material.name, $"{path} 的材质名不正确");
+            Assert.AreEqual(CelLitShaderName, material.shader.name, $"{path} 未走 CelLit，喷泉将丢失 2D 光照");
+            Assert.IsTrue(material.HasProperty("_GlowIntensity"), $"{path} 缺 _GlowIntensity");
+            Assert.Greater(material.GetFloat("_GlowIntensity"), 0f, $"{path} 的喷泉辉光未开启");
+            Assert.GreaterOrEqual(material.GetFloat("_GlowWidth"), 0f, $"{path} 的 _GlowWidth 不得为负");
+            Assert.LessOrEqual(material.GetFloat("_GlowWidth"), 0.1f, $"{path} 的 _GlowWidth 超出量纲");
+            Assert.Greater(material.GetColor("_GlowColor").a, 0f, $"{path} 的 _GlowColor 全透明，发光不可见");
+        }
+
+        private static void AssertFountainViewMaterial(string prefabPath, string expectedMaterialName)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            Assert.IsNotNull(prefab, $"预制体不存在：{prefabPath}");
+
+            Transform view = prefab.transform.Find("View");
+            Assert.IsNotNull(view, $"{prefabPath} 找不到 View 子物体");
+
+            SpriteRenderer renderer = view.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(renderer, $"{prefabPath}/View 缺 SpriteRenderer");
+            Assert.IsNotNull(renderer.sharedMaterial, $"{prefabPath}/View 没有材质");
+
+            Assert.AreEqual(expectedMaterialName, renderer.sharedMaterial.name, $"{prefabPath}/View 绑错材质");
+            Assert.AreEqual(CelLitShaderName, renderer.sharedMaterial.shader.name, $"{prefabPath}/View 材质不是 CelLit");
+        }
+
+        private static void AssertFullRectMesh(string texturePath)
+        {
+            TextureImporter importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+
+            Assert.IsNotNull(importer, $"找不到贴图导入器：{texturePath}");
+
+            TextureImporterSettings settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+
+            Assert.AreEqual(
+                SpriteMeshType.FullRect,
+                settings.spriteMeshType,
+                $"{texturePath} 仍是 Tight 网格，轮廓外没有像素可画辉光");
         }
 
         private static void AssertAmbientFloor(string path)

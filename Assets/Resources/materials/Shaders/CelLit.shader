@@ -12,6 +12,12 @@ Shader "DeepseaOil/2D/CelLit"
         [Header(Self Emission Boost)]
         _EmissiveBoost ("Emissive Boost (自发光增益)", Range(0.0, 1.5)) = 0.0
 
+        [Header(Outline Glow)]
+        _GlowColor ("Glow Color (外发光颜色)", Color) = (1, 1, 1, 1)
+        _GlowWidth ("Glow Width (贴图纹素 x100)", Range(0.0, 0.1)) = 0.01
+        _AlphaThreshold ("Glow Alpha Threshold (轮廓判定阈值)", Range(0.0, 1.0)) = 0.1
+        _GlowIntensity ("Glow Intensity (HDR/Bloom)", Range(0.0, 10.0)) = 0.0
+
         [Header(Fire Silhouette Rim)]
         [Toggle] _EnableRim ("Enable Fire Silhouette Rim (火海轮廓光)", Float) = 1
         _RimColor ("Rim Base Color (轮廓基准金)", Color) = (1, 0.84, 0.25, 1)
@@ -94,6 +100,10 @@ Shader "DeepseaOil/2D/CelLit"
                 float _AmbientFloor;
                 float _EmissiveBoost;
                 float _TileLightBoost;
+                float4 _GlowColor;
+                float _GlowWidth;
+                float _AlphaThreshold;
+                float _GlowIntensity;
                 float _EnableRim;
                 float _RimWidth;
                 float _RimThreshold;
@@ -122,6 +132,13 @@ Shader "DeepseaOil/2D/CelLit"
                 // 官方正交/透视标准屏幕坐标输出：严禁在顶点阶段自行除以 w
                 output.screenUV = ComputeScreenPos(output.positionCS);
                 return output;
+            }
+
+            // UV 越界返回 0：只让当前精灵透明边距参与外扩，不读取贴图外或相邻帧
+            half SafeSampleAlpha(float2 uv)
+            {
+                float2 inBounds = step(float2(0.0, 0.0), uv) * step(uv, float2(1.0, 1.0));
+                return (half)(SAMPLE_TEXTURE2D_LOD(_MainTex, sampler_MainTex, uv, 0).a * inBounds.x * inBounds.y);
             }
 
             half4 frag(Varyings input) : SV_Target
@@ -197,6 +214,29 @@ Shader "DeepseaOil/2D/CelLit"
 
                 // 8. 受击纯白剪影材质插值（最高优先级）：不受环境光压暗影响
                 finalRgb = lerp(finalRgb, _FlashColor.rgb, _FlashAmount);
+
+                // 9. 外发光：只画在精灵透明边距内，命中即返回，避免再乘 baseCol.a 把光晕乘没
+                if (_GlowIntensity > 0.001 && baseCol.a <= _AlphaThreshold)
+                {
+                    float2 glowOffset = _MainTex_TexelSize.xy * _GlowWidth * 100.0;
+                    half glowAlpha = 0.0h;
+
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv + float2(glowOffset.x, 0)));
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv - float2(glowOffset.x, 0)));
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv + float2(0, glowOffset.y)));
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv - float2(0, glowOffset.y)));
+
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv + glowOffset));
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv - glowOffset));
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv + float2(glowOffset.x, -glowOffset.y)));
+                    glowAlpha = max(glowAlpha, SafeSampleAlpha(input.uv - float2(glowOffset.x, -glowOffset.y)));
+
+                    if (glowAlpha > _AlphaThreshold)
+                    {
+                        half3 glowRgb = (half3)(_GlowColor.rgb * _GlowIntensity);
+                        return half4(glowRgb, glowAlpha * _GlowColor.a);
+                    }
+                }
 
                 finalRgb *= baseCol.a;
                 return half4(finalRgb, baseCol.a);
