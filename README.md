@@ -37,7 +37,7 @@ Assets/Scripts/
 
 ## 跑起来
 
-- 打开 `Assets/Scenes/Range.unity`（**主场景**：`SceneName.Game` 指向它）进 Play。Build Settings 里现登记 **`Begin` ＋ `Levels/Level_1`~`Level_5`**，`Range` **不在其中** —— 直接 Play 当前场景即可，不必先切 Build Settings。主菜单入口是 `Assets/Scenes/Begin.unity`；关卡件在 `Assets/Scenes/Levels/`（`Level_1`~`Level_5` / `Level_Template`）；`Empty.unity` 是空白件，`Maza.unity` 是导航/净空图测试图；切片沙盒在 `Assets/Scenes/Sandboxes/`（`Slice_CombatSandbox` / `Slice_GridReaction` / `Slice_PlayerFeel`）。
+- 打开 `Assets/Scenes/Range.unity`（**主场景**：`SceneName.Game` 指向它）进 Play。Build Settings 里现登记 **`Begin` ＋ `Levels/Level_1`~`Level_6`**，`Range` **不在其中** —— 直接 Play 当前场景即可，不必先切 Build Settings。主菜单入口是 `Assets/Scenes/Begin.unity`；关卡件在 `Assets/Scenes/Levels/`（`Level_1`~`Level_6` / `Level_Template`）；`Empty.unity` 是空白件，`Maza.unity` 是导航/净空图测试图；切片沙盒在 `Assets/Scenes/Sandboxes/`（`Slice_CombatSandbox` / `Slice_GridReaction` / `Slice_PlayerFeel`）。
 - **`Begin.unity` 的 `SceneFlowConfig.entryState = Menu`**：`BeginSceneInitializer` 打开 `BeginPanel`，`PauseService` 把非 `Running` 的状态一律当暂停（`timeScale = 0`，一切冻结）；点 `BtnStart` 经 `CGPanel` 发 `RequestLoadScene(SceneName.Game)` 才载入 `Range` 进 `Running`。直接开 `Range.unity` 则 `entryState = Running`，进 Play 就是 Running。
 - 导表：菜单 **Luban ▸ 表格数据导入**（`Ctrl/Cmd+Shift+D`）。
 - 测试：`Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All`（当前合计 105 条：`Assets/Tests/Runtime/Editor/` 97 条（95 个 `[Test]` ＋ 2 个 `[UnityTest]`）走 `DeepseaOil.Tests.EditMode` ＋ `Assets/Tests/Tools/` 8 条走 `DeepseaOil.EditorTools.Tests`）。
