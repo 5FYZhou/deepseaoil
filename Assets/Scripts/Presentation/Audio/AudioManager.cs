@@ -37,12 +37,16 @@ namespace DeepseaOil.Presentation
             public readonly AudioRequestType type;
             public readonly AudioId id;
             public readonly bool resumeBgm;   // 仅 Bgm 请求有效
+            public readonly bool isLoop;      // 仅 Bgm 请求有效
+            public readonly bool fade;        // 仅 Bgm 请求有效；false=本次直接切换
 
-            public AudioRequest(AudioRequestType type, AudioId id, bool resumeBgm = false)
+            public AudioRequest(AudioRequestType type, AudioId id, bool resumeBgm = false, bool isLoop = true, bool fade = true)
             {
                 this.type = type;
                 this.id = id;
                 this.resumeBgm = resumeBgm;
+                this.isLoop = isLoop;
+                this.fade = fade;
             }
         }
 
@@ -85,6 +89,7 @@ namespace DeepseaOil.Presentation
         private BgmFadeState _bgmFadeState = BgmFadeState.None;
         private AudioClip _pendingBgmClip;
         private bool _pendingBgmResume;   // 挂起的续播意图（淡出完成后切歌时使用）
+        private bool _pendingBgmIsLoop;   // 挂起的循环意图（淡出完成后切歌时使用）
         private float _bgmFadeElapsed;
         private float _bgmFadeStartVolume;
         private float _bgmFadeTargetVolume;
@@ -137,7 +142,7 @@ namespace DeepseaOil.Presentation
             _bgmGameObject.transform.SetParent(_audioRootT, false);
 
             _bgmSource = _bgmGameObject.GetComponent<AudioSource>();
-            _bgmSource.loop = true;
+            _bgmSource.loop = true;   // 默认值，每次 SwitchBgmClip 会按请求覆盖
             _bgmSource.playOnAwake = false;
             _bgmSource.volume = _bgmVolume;
 
@@ -171,10 +176,10 @@ namespace DeepseaOil.Presentation
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Sfx, id));
         }
 
-        /// <summary>请求播放 BGM，只入队。resumeFromLastTime 决定本次是否从该 clip 上次停止的进度继续。</summary>
-        public void EnqueueBgm(AudioId id, bool resumeFromLastTime = true)
+        /// <summary>请求播放 BGM，只入队。resumeFromLastTime 决定本次是否从该 clip 上次停止的进度继续；isLoop=false 时忽略续播、每次从头播且播完即停；fade=false 时本次直接切换（不淡出旧、不淡入新）。</summary>
+        public void EnqueueBgm(AudioId id, bool resumeFromLastTime = true, bool isLoop = true, bool fade = true)
         {
-            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id, resumeFromLastTime));
+            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id, resumeFromLastTime, isLoop, fade));
         }
 
         /// <summary>开关一条循环音效（走路等持续音），同一时刻只保留一条</summary>
@@ -216,7 +221,7 @@ namespace DeepseaOil.Presentation
                         break;
 
                     case AudioRequestType.Bgm:
-                        PlayBgmInternal(request.id, request.resumeBgm);
+                        PlayBgmInternal(request.id, request.resumeBgm, request.isLoop, request.fade);
                         break;
                 }
             }
@@ -275,6 +280,7 @@ namespace DeepseaOil.Presentation
             _bgmFadeState = BgmFadeState.None;
             _pendingBgmClip = null;
             _pendingBgmResume = false;
+            _pendingBgmIsLoop = true;
             _bgmFadeElapsed = 0f;
             _bgmPlayedTime.Clear();
 
@@ -323,14 +329,34 @@ namespace DeepseaOil.Presentation
             _playing.Add(entry);
         }
 
-        private void PlayBgmInternal(AudioId id, bool resumeFromLastTime)
+        private void PlayBgmInternal(AudioId id, bool resumeFromLastTime, bool isLoop, bool fade)
         {
             var clip = GetClip(id);
             if (clip == null)
                 return;
 
-            // 正在播同一个目标（含淡入中）→ 忽略；淡出中允许覆盖待切目标
-            if (clip == _bgmSource.clip
+            // 非循环 BGM：每次都应从头播，续播参数无意义
+            if (!isLoop)
+                resumeFromLastTime = false;
+
+            if (!fade)
+            {
+                // 直接切换：取消任何进行中的渐变与挂起目标，瞬时换成新 clip 并设满音量
+                _bgmFadeState = BgmFadeState.None;
+                _bgmFadeElapsed = 0f;
+                _pendingBgmClip = null;
+                _pendingBgmResume = false;
+                _pendingBgmIsLoop = true;
+
+                SwitchBgmClip(clip, resumeFromLastTime, isLoop);
+                _bgmSource.volume = _bgmVolume;
+                return;
+            }
+
+            // 正在播同一个目标（含淡入中）→ 忽略；淡出中允许覆盖待切目标。
+            // 非循环 BGM 不受此忽略：它需要支持"同 clip 从头重播"（如播完后再次请求）。
+            if (isLoop
+                && clip == _bgmSource.clip
                 && _bgmSource.isPlaying
                 && _bgmFadeState != BgmFadeState.FadingOut)
                 return;
@@ -338,7 +364,7 @@ namespace DeepseaOil.Presentation
             if (_bgmSource.clip == null || !_bgmSource.isPlaying)
             {
                 // 当前没在播，直接切 clip 并淡入（按参数决定是否续播）
-                SwitchBgmClip(clip, resumeFromLastTime);
+                SwitchBgmClip(clip, resumeFromLastTime, isLoop);
                 StartFadeIn();
             }
             else
@@ -346,20 +372,23 @@ namespace DeepseaOil.Presentation
                 // 正在播，先淡出，淡出完成后切 clip 再淡入
                 _pendingBgmClip = clip;
                 _pendingBgmResume = resumeFromLastTime;
+                _pendingBgmIsLoop = isLoop;
                 StartFadeOut();
             }
         }
 
-        /// <summary>切换 BGM clip：从 0 音量起播，交给后续淡入推音量；按参数决定是否从上次进度续播</summary>
-        private void SwitchBgmClip(AudioClip clip, bool resumeFromLastTime)
+        /// <summary>切换 BGM clip：从 0 音量起播，交给后续淡入推音量；按参数决定是否从上次进度续播。非循环强制从头。</summary>
+        private void SwitchBgmClip(AudioClip clip, bool resumeFromLastTime, bool isLoop)
         {
             // 切走前先记住当前 clip 的进度（无论下次续不续播，进度都要更新，避免旧进度污染）
             RememberCurrentBgmTime();
 
             _bgmSource.clip = clip;
             _bgmSource.volume = 0f;
+            _bgmSource.loop = isLoop;
 
-            if (resumeFromLastTime
+            if (isLoop
+                && resumeFromLastTime
                 && _bgmPlayedTime.TryGetValue(clip, out float t)
                 && t > 0f && t < clip.length)
             {
@@ -390,6 +419,7 @@ namespace DeepseaOil.Presentation
             _bgmFadeTargetVolume = _bgmVolume;
             _pendingBgmClip = null;
             _pendingBgmResume = false;
+            _pendingBgmIsLoop = true;
         }
 
         private void StartFadeOut()
@@ -431,9 +461,11 @@ namespace DeepseaOil.Presentation
                     {
                         var next = _pendingBgmClip;
                         var resume = _pendingBgmResume;
+                        var loop = _pendingBgmIsLoop;
                         _pendingBgmClip = null;
                         _pendingBgmResume = false;
-                        SwitchBgmClip(next, resume); // 内部会先 RememberCurrentBgmTime
+                        _pendingBgmIsLoop = true;
+                        SwitchBgmClip(next, resume, loop); // 内部会先 RememberCurrentBgmTime
                         StartFadeIn();
                         return;              // 保持 FadingIn 状态，本帧不再收尾
                     }
