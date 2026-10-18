@@ -706,7 +706,7 @@ namespace DeepseaOil.Presentation.Story
 
         private void OnLevelStateChanged(LevelStateChanged evt)
         {
-            if (_combatRoot.CurrentLevelId != 6
+            if (_combatRoot.CurrentLevelId != 5
                 || evt.Level != LevelState.Victory
                 || _endingDialogueQueued)
             {

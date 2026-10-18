@@ -1,83 +1,152 @@
 [
   {
     "id": 1,
-    "name": "教学",
+    "name": "L1-W1",
     "prep_time": 3,
-    "battle_time": 30,
-    "settle_time": 8,
-    "spawn_interval": 0.4,
-    "grant_seed": 0
+    "battle_time": 25,
+    "settle_time": 5,
+    "spawn_interval": 0.2,
+    "grant_seed": 0,
+    "describe": "单怪热身，掌握水土平A"
   },
   {
     "id": 2,
-    "name": "第一关",
+    "name": "L1-W2",
     "prep_time": 3,
-    "battle_time": 60,
-    "settle_time": 8,
-    "spawn_interval": 0.3,
-    "grant_seed": 0
+    "battle_time": 30,
+    "settle_time": 5,
+    "spawn_interval": 0.18,
+    "grant_seed": 0,
+    "describe": "5怪成队，练习十字泥浆减速"
   },
   {
     "id": 3,
-    "name": "第二关",
-    "prep_time": 5,
-    "battle_time": 60,
-    "settle_time": 8,
-    "spawn_interval": 0.2,
-    "grant_seed": 0
+    "name": "L2-W1",
+    "prep_time": 4,
+    "battle_time": 30,
+    "settle_time": 5,
+    "spawn_interval": 0.18,
+    "grant_seed": 0,
+    "describe": "遭遇战，练习十字陶砖堵门"
   },
   {
     "id": 4,
-    "name": "第三关(掉落）",
-    "prep_time": 5,
-    "battle_time": 20,
-    "settle_time": 3,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "name": "L2-W2",
+    "prep_time": 4,
+    "battle_time": 35,
+    "settle_time": 5,
+    "spawn_interval": 0.16,
+    "grant_seed": 0,
+    "describe": "狭道防守，聚怪蒸汽爆轰"
   },
   {
     "id": 5,
-    "name": "第三四关",
+    "name": "L2-W3",
     "prep_time": 3,
-    "battle_time": 45,
-    "settle_time": 8,
-    "spawn_interval": 0.2,
-    "grant_seed": 1
+    "battle_time": 40,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 0,
+    "describe": "二关小潮，诱敌引爆火海"
   },
   {
     "id": 6,
-    "name": "第四关",
-    "prep_time": 4,
-    "battle_time": 40,
-    "settle_time": 5,
-    "spawn_interval": 0.2,
-    "grant_seed": 1
-  },
-  {
-    "id": 7,
-    "name": "第五关1",
+    "name": "L3-W1",
     "prep_time": 5,
     "battle_time": 30,
     "settle_time": 5,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "spawn_interval": 0.18,
+    "grant_seed": 1,
+    "describe": "配发火种，练习种花+浇水炸草"
+  },
+  {
+    "id": 7,
+    "name": "L3-W2",
+    "prep_time": 4,
+    "battle_time": 40,
+    "settle_time": 5,
+    "spawn_interval": 0.16,
+    "grant_seed": 1,
+    "describe": "精英出场，击杀摸种子防守"
   },
   {
     "id": 8,
-    "name": "第五关2",
-    "prep_time": 7,
-    "battle_time": 50,
-    "settle_time": 5,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "name": "L3-W3",
+    "prep_time": 4,
+    "battle_time": 45,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 1,
+    "describe": "燎原大火连环清屏"
   },
   {
     "id": 9,
-    "name": "第五关3",
+    "name": "L4-W1",
     "prep_time": 5,
+    "battle_time": 35,
+    "settle_time": 5,
+    "spawn_interval": 0.16,
+    "grant_seed": 2,
+    "describe": "电网初战，水线泛洪全屏瘫痪"
+  },
+  {
+    "id": 10,
+    "name": "L4-W2",
+    "prep_time": 4,
+    "battle_time": 45,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "黄昏入夜，带电荆棘点亮防线"
+  },
+  {
+    "id": 11,
+    "name": "L4-W3",
+    "prep_time": 4,
+    "battle_time": 50,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "双精英施压，等离子爆轰秒杀"
+  },
+  {
+    "id": 12,
+    "name": "L5-W1",
+    "prep_time": 5,
+    "battle_time": 40,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 1,
+    "describe": "永夜终局，全暗视野开局"
+  },
+  {
+    "id": 13,
+    "name": "L5-W2",
+    "prep_time": 4,
+    "battle_time": 45,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "怪物海啸，冰火斩杀核弹连发"
+  },
+  {
+    "id": 14,
+    "name": "L5-W3",
+    "prep_time": 4,
     "battle_time": 50,
     "settle_time": 5,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "spawn_interval": 0.15,
+    "grant_seed": 3,
+    "describe": "超导黑洞向心聚怪 + 极温爆轰"
+  },
+  {
+    "id": 15,
+    "name": "L5-W4",
+    "prep_time": 3,
+    "battle_time": 60,
+    "settle_time": 8,
+    "spawn_interval": 0.15,
+    "grant_seed": 4,
+    "describe": "终极割草狂欢，全元素终极对抗"
   }
 ]

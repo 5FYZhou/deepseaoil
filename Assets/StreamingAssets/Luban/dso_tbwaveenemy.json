@@ -3,78 +3,168 @@
     "id": 1,
     "wave_id": 1,
     "enemy_id": 1,
-    "count": 1
+    "count": 4,
+    "describe": "4 普怪"
   },
   {
     "id": 2,
     "wave_id": 2,
     "enemy_id": 1,
-    "count": 3
+    "count": 8,
+    "describe": "8 普怪"
   },
   {
     "id": 3,
     "wave_id": 3,
     "enemy_id": 1,
-    "count": 4
+    "count": 10,
+    "describe": "10 普怪"
   },
   {
     "id": 4,
     "wave_id": 4,
-    "enemy_id": 2,
-    "count": 1
+    "enemy_id": 1,
+    "count": 14,
+    "describe": "14 普怪"
   },
   {
     "id": 5,
     "wave_id": 5,
     "enemy_id": 1,
-    "count": 4
+    "count": 18,
+    "describe": "18 普怪"
   },
   {
     "id": 6,
-    "wave_id": 5,
-    "enemy_id": 2,
-    "count": 2
+    "wave_id": 6,
+    "enemy_id": 1,
+    "count": 12,
+    "describe": "12 普怪"
   },
   {
     "id": 7,
-    "wave_id": 6,
+    "wave_id": 7,
     "enemy_id": 1,
-    "count": 5
+    "count": 14,
+    "describe": "14 普怪 + 1 精英"
   },
   {
     "id": 8,
-    "wave_id": 6,
+    "wave_id": 7,
     "enemy_id": 2,
-    "count": 3
+    "count": 1,
+    "describe": "⬆ 首只精英怪登场送种子"
   },
   {
     "id": 9,
-    "wave_id": 7,
+    "wave_id": 8,
     "enemy_id": 1,
-    "count": 5
+    "count": 20,
+    "describe": "20 普怪 + 2 精英"
   },
   {
     "id": 10,
     "wave_id": 8,
     "enemy_id": 2,
-    "count": 4
+    "count": 2,
+    "describe": "⬆ 双精英高压协同"
   },
   {
     "id": 11,
-    "wave_id": 8,
+    "wave_id": 9,
     "enemy_id": 1,
-    "count": 3
+    "count": 16,
+    "describe": "16 普怪 + 1 精英"
   },
   {
     "id": 12,
     "wave_id": 9,
-    "enemy_id": 1,
-    "count": 6
+    "enemy_id": 2,
+    "count": 1,
+    "describe": "⬆"
   },
   {
     "id": 13,
-    "wave_id": 9,
+    "wave_id": 10,
+    "enemy_id": 1,
+    "count": 22,
+    "describe": "22 普怪 + 2 精英（入夜前蜂拥）"
+  },
+  {
+    "id": 14,
+    "wave_id": 10,
     "enemy_id": 2,
-    "count": 5
+    "count": 2,
+    "describe": "⬆"
+  },
+  {
+    "id": 15,
+    "wave_id": 11,
+    "enemy_id": 1,
+    "count": 26,
+    "describe": "26 普怪 + 3 精英（黑夜大战）"
+  },
+  {
+    "id": 16,
+    "wave_id": 11,
+    "enemy_id": 2,
+    "count": 3,
+    "describe": "⬆"
+  },
+  {
+    "id": 17,
+    "wave_id": 12,
+    "enemy_id": 1,
+    "count": 20,
+    "describe": "20 普怪 + 2 精英（永夜开幕）"
+  },
+  {
+    "id": 18,
+    "wave_id": 12,
+    "enemy_id": 2,
+    "count": 2,
+    "describe": "⬆"
+  },
+  {
+    "id": 19,
+    "wave_id": 13,
+    "enemy_id": 1,
+    "count": 28,
+    "describe": "28 普怪 + 3 精英（大群蜂拥）"
+  },
+  {
+    "id": 20,
+    "wave_id": 13,
+    "enemy_id": 2,
+    "count": 3,
+    "describe": "⬆"
+  },
+  {
+    "id": 21,
+    "wave_id": 14,
+    "enemy_id": 1,
+    "count": 32,
+    "describe": "32 普怪 + 4 精英"
+  },
+  {
+    "id": 22,
+    "wave_id": 14,
+    "enemy_id": 2,
+    "count": 4,
+    "describe": "⬆"
+  },
+  {
+    "id": 23,
+    "wave_id": 15,
+    "enemy_id": 1,
+    "count": 40,
+    "describe": "40 普怪 + 5 精英（终极割草狂欢）"
+  },
+  {
+    "id": 24,
+    "wave_id": 15,
+    "enemy_id": 2,
+    "count": 5,
+    "describe": "⬆ 满屏敌潮，一发大招歼灭"
   }
 ]

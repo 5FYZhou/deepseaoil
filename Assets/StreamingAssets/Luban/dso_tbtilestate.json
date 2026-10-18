@@ -14,7 +14,7 @@
     "name": "基础水",
     "duration": -1,
     "dot_damage": 0,
-    "slow_rate": 1,
+    "slow_rate": 0.85,
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": true
@@ -24,7 +24,7 @@
     "name": "基础土",
     "duration": -1,
     "dot_damage": 0,
-    "slow_rate": 1,
+    "slow_rate": 0.85,
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": true
@@ -92,7 +92,7 @@
   {
     "id": 6,
     "name": "陶砖",
-    "duration": 15,
+    "duration": 12,
     "dot_damage": 0,
     "slow_rate": 1,
     "touch_stun": 0,
@@ -142,17 +142,17 @@
   {
     "id": 22,
     "name": "带电荆棘",
-    "duration": -1,
+    "duration": 10,
     "dot_damage": 1,
     "slow_rate": 0.4,
-    "touch_stun": 1.5,
+    "touch_stun": 3,
     "is_obstacle": false,
     "is_conductor": false
   },
   {
     "id": 23,
     "name": "霜冻冰刺",
-    "duration": -1,
+    "duration": 10,
     "dot_damage": 1,
     "slow_rate": 0.5,
     "touch_stun": 0,

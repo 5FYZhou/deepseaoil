@@ -42,7 +42,7 @@ namespace DeepseaOil.Presentation
         /// <summary>怪所在的 Unity 层号：与预制体根节点层、ProjectSettings 里的层名三处必须一致</summary>
         private const int EnemyLayer = 8;
 
-        // Q 键丢弃后脚下掉落物的不可拾取窗口，秒
+        // Q 丢弃后掉落物的不可拾取窗口（秒）
         private const float SeedDiscardPickupCooldown = 1.2f;
 
         private const float SeedPlantFlashDuration = 0.2f;
@@ -69,6 +69,9 @@ namespace DeepseaOil.Presentation
 
         [Tooltip("第一关教学期间监测玩家离开的共享触发区。")]
         [SerializeField] private PlayerMoveTrigger playerMoveTrigger;
+
+        [Tooltip("场景时段控制器（EnvironmentDirector）。留空则装配时从场景里找；找不到就不切昼夜。")]
+        [SerializeField] private EnvironmentDirector environment = default;
 
         [Tooltip("是否刷敌人。关掉可以只验投掷链路。")]
         [SerializeField] private bool enableLevel = true;
@@ -452,7 +455,6 @@ namespace DeepseaOil.Presentation
             if (logic.Stats.TryHeal()) PlaySfx(AudioId.PlayerHeal);
         }
 
-        // 判定是纯函数（ContactProbe.TryFindAttacker），可在 EditMode 测
         private void UpdatePlayerContact(float now)
         {
             PlayerLogic logic = player != null ? player.Logic : null;
@@ -522,7 +524,6 @@ namespace DeepseaOil.Presentation
             {
                 _retryAt = now + spec.RetryDelay;
 
-                // 只报事实，怎么播由玩家侧翻译
                 player.OnDeathTriggered();
             }
         }
@@ -628,7 +629,7 @@ namespace DeepseaOil.Presentation
             return _balls != null && _balls.Throw(in intent);
         }
 
-        // 组装战斗切片：依赖全来自参数与 Data 层，无 FindObjectOfType
+        // 依赖全来自参数与 Data 层；只有环境光走一次场景查找
         private void Assemble()
         {
             if (player == null || gridView == null)
@@ -664,7 +665,7 @@ namespace DeepseaOil.Presentation
 
             IReadOnlyList<ProjectileSpec> balls = ConfigModule.GetAllBalls();
 
-            // 元素层两张表：球砸地面的规则网，以及地面与地面的二级反应
+            // 元素层两张表：一级规则网与二级跨界反应
             IReadOnlyList<ElementRuleSpec> elementRules = ConfigModule.GetElementRules();
 
             DuoReactionCatalog duo = ConfigModule.GetDuoReactions();
@@ -702,6 +703,8 @@ namespace DeepseaOil.Presentation
             {
                 _tileLightmap = new GameObject("TileGridLightmap").AddComponent<TileGridLightmap>();
             }
+
+            if (environment == null) environment = FindObjectOfType<EnvironmentDirector>();
 
             // 尺寸取实画矩形：硬编码 64×36 会裁掉最右一列
             gridView.TryGetCellBounds(out BoundsInt lightmapBounds);
@@ -741,7 +744,7 @@ namespace DeepseaOil.Presentation
             if (enableLevel)
             {
                 int levelId = levelReader.CurrentLevelId;
-                _levelLogic = new LevelLogic(levelReader, levelId == 1 || levelId == 6);
+                _levelLogic = new LevelLogic(levelReader, levelId == 1 || levelId == 5);
                 if (!UsesScriptedStory(_levelLogic.CurrentLevel.Id))
                 {
                     _levelLogic.Start();
@@ -945,21 +948,54 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        // HUD 加载完成时重播：三块读数各播一次当前值
+        // HUD 加载完重播读数
         private void OnRequestHudRefresh(RequestHudRefresh evt)
         {
             player?.Logic?.Stats.Announce();
             _combat?.Announce();
         }
 
-        /// <summary>备战期自动存档；只在渲染帧采集落盘</summary>
+        /// <summary>备战期存档与配给；开战期推进昼夜</summary>
         private void OnWavePhaseChanged(WavePhaseChanged evt)
         {
             if (_restoring) return;
 
-            if (evt.Phase != WavePhase.Prep) return;
+            if (evt.Phase == WavePhase.Prep)
+            {
+                _autoSaveRequested = true;
 
-            _autoSaveRequested = true;
+                GrantWaveSeed();
+
+                return;
+            }
+
+            if (evt.Phase == WavePhase.Battle) ApplyWaveTimeOfDay(evt.WaveIndex);
+        }
+
+        // 波前配给顶替补满：持种也先清仓，节奏不由上一波残留决定
+        private void GrantWaveSeed()
+        {
+            if (_levelLogic == null || player == null || player.Logic == null) return;
+
+            SeedType seed = _levelLogic.Waves.ConsumeSeedGrant();
+
+            if (seed == SeedType.None) return;
+
+            PlayerStats stats = player.Logic.Stats;
+
+            stats.TryDiscardSeed(out _, out _);
+            stats.GrantSeed(seed);
+        }
+
+        // L2 W2 转黄昏、L4 W2 入夜；没挂控制器的场景跳过
+        private void ApplyWaveTimeOfDay(int waveIndex)
+        {
+            if (environment == null) return;
+
+            int levelId = CurrentLevelId;
+
+            if (levelId == 2 && waveIndex == 2) environment.TransitionTo(TimeOfDayKind.Dusk);
+            else if (levelId == 4 && waveIndex == 2) environment.TransitionTo(TimeOfDayKind.Night);
         }
 
         /// <summary>抓当前帧快照；缩略图抓帧在此发起</summary>
@@ -1132,7 +1168,6 @@ namespace DeepseaOil.Presentation
                 case TileStateType.FrostSpike:
                     id = AudioId.TileIceShard;
                     return true;
-                //case TileStateType.BasicFire:
                 case TileStateType.FlameField:
                     id = AudioId.TileBurn;
                     return true;
@@ -1152,7 +1187,6 @@ namespace DeepseaOil.Presentation
                 case TileStateType.ChargedThorn:
                     id = AudioId.TileThorn;
                     return true;
-                //case TileStateType.BasicElectricity:
                 case TileStateType.ConductZone:
                     id = AudioId.TileConduct;
                     return true;
@@ -1172,7 +1206,7 @@ namespace DeepseaOil.Presentation
             _root.Audio.EnqueueSfx(id);
         }
 
-        // 装配期扫一次场景预摆怪（运行时拖入的由 Start 报到）
+        // 扫场景预摆怪；运行时拖入的由 Start 报到
         private void AssembleSceneEnemies()
         {
             if (actorRoot != null)

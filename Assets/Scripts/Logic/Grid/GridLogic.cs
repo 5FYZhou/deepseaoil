@@ -74,8 +74,6 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>铺地貌格缓冲，不复用 _blastCells</summary>
         private readonly List<Vector3Int> _spreadCells = new();
 
-        private readonly List<Vector3Int> _crossCells = new(4);
-
         private readonly List<Vector3Int> _restoreCells = new();
 
         private float _now;
@@ -323,14 +321,9 @@ namespace DeepseaOil.Logic.Grid
             // 二级已质变地貌时跳过一级覆盖，否则火海会被反手顶掉
             bool changed = !duoTriggered
                 && outcome.NextTile != current
-                && SwitchTileState(cell, outcome.NextTile, 0f);
+                && ApplyTileChange(cell, in outcome);
 
             bool impacted = ApplyImpact(cell, in outcome);
-
-            if (current == TileStateType.BasicFlower && ball == BallType.Water)
-            {
-                GrowCrossGrass(cell);
-            }
 
             if (changed || impacted)
             {
@@ -342,19 +335,14 @@ namespace DeepseaOil.Logic.Grid
             return false;
         }
 
-        private void GrowCrossGrass(Vector3Int center)
+        private bool ApplyTileChange(Vector3Int cell, in ReactionOutcome outcome)
         {
-            GridQuery.GetNeighbors4(center, _crossCells);
+            // 落点必须无条件切换：永久地貌保护只该拦次级波及，拦落点等于反应不生效
+            bool changed = SwitchTileState(cell, outcome.NextTile, 0f);
 
-            for (int i = 0; i < _crossCells.Count; i++)
-            {
-                Vector3Int neighbor = _crossCells[i];
+            if (outcome.ImpactRadius <= 0f) return changed;
 
-                if (_cells.Contains(neighbor) && StateOf(neighbor) == TileStateType.Normal)
-                {
-                    SwitchTileState(neighbor, TileStateType.BasicPlant, 0f);
-                }
-            }
+            return SpreadTileInRadius(cell, outcome.ImpactRadius, outcome.NextTile) || changed;
         }
 
         /// <summary>落地冲击的唯一出口：单格与广域 AoE</summary>
@@ -362,21 +350,15 @@ namespace DeepseaOil.Logic.Grid
         {
             bool any = false;
 
-            if (outcome.ImpactRadius > 1.0f)
+            if (outcome.ImpactRadius > 0f)
             {
-                if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f)
+                if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f || outcome.StunSeconds > 0f)
                 {
-                    ApplyBlast(cell, outcome.ImpactRadius, outcome.InstantDamage, outcome.KnockbackCells);
-                    any = true;
-                }
-
-                if (outcome.StunSeconds > 0f)
-                {
-                    ApplyStunCell(cell, outcome.StunSeconds);
+                    ApplyBlast(cell, outcome.ImpactRadius, outcome.InstantDamage, outcome.KnockbackCells, outcome.StunSeconds);
                     any = true;
                 }
             }
-            else // 单格判定：<= 1.0 格走原版精准单格
+            else
             {
                 if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f)
                 {
@@ -495,7 +477,7 @@ namespace DeepseaOil.Logic.Grid
 
         /// <summary>径向范围冲击：半径内每格结算一次伤害与击退，用于二级反应的波及</summary>
         /// <remarks>半径按格心欧氏距离判、含中心格；一次反应同格只结算一次。</remarks>
-        public void ApplyBlast(Vector3Int center, float radiusCells, int damage, float knockbackCells)
+        public void ApplyBlast(Vector3Int center, float radiusCells, int damage, float knockbackCells, float stunSeconds = 0f)
         {
             if (radiusCells < 0f) radiusCells = 0f;
 
@@ -528,6 +510,8 @@ namespace DeepseaOil.Logic.Grid
             for (int i = 0; i < _blastCells.Count; i++)
             {
                 DealCell(_blastCells[i], damage, knockbackCells);
+
+                if (stunSeconds > 0f) ApplyStunCell(_blastCells[i], stunSeconds);
             }
 
             // 二级反应激发广域冲击时广播事实
@@ -536,7 +520,7 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>半径内铺 resultTile；永久地貌跳过（Normal 例外），保护玩家铺的水/土</summary>
-        public void SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
+        public bool SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
         {
             if (radiusCells < 0f) radiusCells = 0f;
 
@@ -566,6 +550,8 @@ namespace DeepseaOil.Logic.Grid
                 }
             }
 
+            bool any = false;
+
             for (int i = 0; i < _spreadCells.Count; i++)
             {
                 Vector3Int cell = _spreadCells[i];
@@ -578,8 +564,10 @@ namespace DeepseaOil.Logic.Grid
                     && _specs.TryGetValue(state, out TileStateSpec spec)
                     && spec.Duration <= 0f) continue;
 
-                SwitchTileState(cell, resultTile, durationOverride);
+                if (SwitchTileState(cell, resultTile, durationOverride)) any = true;
             }
+
+            return any;
         }
 
         /// <summary>切换某格状态；同状态 no-op，未登记的格与无表行的状态一律拒绝</summary>
