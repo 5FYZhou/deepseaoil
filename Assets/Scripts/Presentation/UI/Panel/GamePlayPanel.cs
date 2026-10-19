@@ -1,4 +1,4 @@
-using cfg.dso;
+﻿using cfg.dso;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
@@ -104,6 +104,7 @@ namespace DeepseaOil.Presentation.UI
         private bool _hasAmmoSnapshot;
         private int _waterAmount;
         private int _earthAmount;
+        private int _seedCount;
         private SeedType _seedType;
         private string _seedIconKey;
 
@@ -248,6 +249,7 @@ namespace DeepseaOil.Presentation.UI
         {
             ClearWaveHud();
             _hasAmmoSnapshot = false;
+            _seedCount = 0;
             ResetHealthHud();
         }
         private void ResetHealthHud()
@@ -441,14 +443,17 @@ namespace DeepseaOil.Presentation.UI
             bool initialize = !hasSnapshot;
             bool waterChanged = hasSnapshot && evt.Water != WaterAmount;
             bool earthChanged = hasSnapshot && evt.Earth != EarthAmount;
-            bool seedChanged = hasSnapshot && evt.Seed != _seedType;
+            bool seedTypeChanged = hasSnapshot && evt.Seed != _seedType;
+            bool seedCountChanged = hasSnapshot && evt.SeedCount != _seedCount;
+            bool seedChanged = seedTypeChanged || seedCountChanged;
 
             WaterAmount = evt.Water;
             EarthAmount = evt.Earth;
             _seedType = evt.Seed;
+            _seedCount = evt.SeedCount;
             _hasAmmoSnapshot = true;
 
-            if (initialize || seedChanged)
+            if (initialize || seedTypeChanged)
                 UpdateSeedIcon(evt.Seed);
 
             if (_txtSeed != null)

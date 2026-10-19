@@ -130,7 +130,7 @@ namespace DeepseaOil.Data
 
         public int lineIndex;
 
-        public bool seedDialogueQueued;
+        public bool levelThreeWaveDialogueQueued;
 
         public bool levelFourWaveDialogueQueued;
 
