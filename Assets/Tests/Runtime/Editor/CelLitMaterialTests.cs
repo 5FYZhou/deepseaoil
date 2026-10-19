@@ -12,7 +12,7 @@ using UnityEngine.Tilemaps;
 namespace DeepseaOil.Tests
 {
     /// <summary>受光材质矩阵与图层隔离的机器判据</summary>
-    /// <remarks>图层顺序与分配错了都不报错、只表现为整片被盖掉或乘成黑。场景断言用 Additive 打开、断言完立刻关闭，且只在场景打开期间读值。</remarks>
+    /// <remarks>图层顺序与分配错了都不报错、只表现为整片被盖掉或乘成黑。场景断言优先复用已打开的 Range，否则 Additive 打开、断言完立刻关闭，且只在场景打开期间读值。</remarks>
     [Category("Presentation")]
     public sealed class 受光材质Tests
     {
@@ -252,7 +252,11 @@ namespace DeepseaOil.Tests
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(RangeScenePath) == null) return false;
 
-            Scene scene = EditorSceneManager.OpenScene(RangeScenePath, OpenSceneMode.Additive);
+            // 编辑器里已经开着 Range 时不能再开一份：两份环境预制体各带一盏全局灯，URP 会报 More than one global light
+            Scene scene = SceneManager.GetSceneByPath(RangeScenePath);
+            bool owned = !(scene.IsValid() && scene.isLoaded);
+
+            if (owned) scene = EditorSceneManager.OpenScene(RangeScenePath, OpenSceneMode.Additive);
 
             if (!scene.IsValid() || !scene.isLoaded) return false;
 
@@ -270,7 +274,7 @@ namespace DeepseaOil.Tests
             }
             finally
             {
-                EditorSceneManager.CloseScene(scene, true);
+                if (owned) EditorSceneManager.CloseScene(scene, true);
             }
 
             return true;

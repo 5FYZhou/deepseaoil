@@ -39,7 +39,7 @@ namespace DeepseaOil.Presentation.Grid
 
         [Header("池容量")]
         [Tooltip("立面件上限：卡累计创建数，闲置再久也占额度")]
-        [SerializeField] private int maxPoolSize = 256;
+        [SerializeField] private int maxPoolSize = 1024;
 
         private readonly Dictionary<Vector3Int, GameObject> _activeOverlays = new();
         private readonly Dictionary<TileStateType, TileOverlayBinding> _bindingMap = new();

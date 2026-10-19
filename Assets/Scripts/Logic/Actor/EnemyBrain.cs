@@ -32,7 +32,11 @@ namespace DeepseaOil.Logic
 
     public sealed class ChaseBrain : IEnemyBrain
     {
+        /// <summary>停靠环外沿滞回（世界单位）：环上 stop/start 会变成抖动</summary>
+        private const float StopHysteresis = 0.15f;
+
         private readonly EnemySpec _enemy;
+        private bool _stopped;
 
         public ChaseBrain(EnemySpec spec)
         {
@@ -41,13 +45,32 @@ namespace DeepseaOil.Logic
 
         public EnemyIntent Decide(in EnemyBrainContext ctx)
         {
-            if (!ctx.HasTarget) return EnemyIntent.Idle;
+            if (!ctx.HasTarget)
+            {
+                _stopped = false;
+
+                return EnemyIntent.Idle;
+            }
+
+            float distance = (ctx.Target - ctx.Self).magnitude;
+
+            if (distance <= _enemy.StopDistance)
+            {
+                _stopped = true;
+
+                return EnemyIntent.Idle;
+            }
+
+            if (_stopped && distance <= _enemy.StopDistance + StopHysteresis) return EnemyIntent.Idle;
+
+            _stopped = false;
 
             Steering steering = Steering.Resolve(
                 ctx.Self,
                 ctx.Target,
                 _enemy.StopDistance,
-                _enemy.MaxSpeed);
+                _enemy.MaxSpeed,
+                _enemy.Config.moveAcceleration);
 
             return new EnemyIntent(steering.Direction, steering.Speed);
         }

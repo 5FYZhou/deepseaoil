@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Logic;
+using DeepseaOil.Logic;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation
@@ -40,6 +40,14 @@ namespace DeepseaOil.Presentation
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (entryState == GameState.Paused)
+            {
+                Debug.LogWarning(
+                    "[Flow] SceneFlowConfig.entryState = Paused：进关即 timeScale=0，只能靠 Resume 解开。" +
+                    "游戏关卡场景请填 Running。",
+                    this);
+            }
+
             if (entryState == GameState.None
                 || entryState == GameState.Exit
                 || entryState == GameState.Settle

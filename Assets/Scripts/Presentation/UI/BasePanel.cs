@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Data;
+using DeepseaOil.Data;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -118,6 +118,10 @@ namespace DeepseaOil.Presentation.UI
                 {
                     // 纯图形不自动绑定也不告警，已注册进 components 字典可按名字取。必须静默：每个 Image 都走到这里（面板底图、层级父对象、按钮身上那张底图），实测 BeginPanel 一次刷 11 条告警。
                     // 告警只留给可能需要绑定而框架没处理的控件（Toggle / Slider / Dropdown / InputField / ScrollRect，它们不是 Graphic，会落到 else）。
+                }
+                else if (component is LayoutGroup || component is Mask || component is RectMask2D)
+                {
+                    // 布局/裁剪件同理：没有可绑定的回调
                 }
                 else if (component is Slider slider)
                 {

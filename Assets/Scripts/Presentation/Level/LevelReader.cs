@@ -14,7 +14,7 @@ namespace DeepseaOil.Presentation.Level
         private int _curLevelId;
 
         [SerializeField]
-        [Tooltip("下一关卡id，正数对应level_wave表中的id；小于等于0表示没有下一关")]
+        [Tooltip("下一关卡id，对应level_wave表的id；小于等于0表示没有下一关")]
         private int _nextLevelId;
 
         [SerializeField]
@@ -36,11 +36,10 @@ namespace DeepseaOil.Presentation.Level
                     sceneName.Substring(ScenePrefix.Length),
                     NumberStyles.None,
                     CultureInfo.InvariantCulture,
-                    out _curLevelId)
-                || _curLevelId <= 0)
+                    out _curLevelId))
             {
                 throw new InvalidOperationException(
-                    $"[Level] 场景名 '{sceneName}' 无法解析关卡 ID；关卡场景必须使用 'Level_正整数' 命名。");
+                    $"[Level] 场景名 '{sceneName}' 无法解析关卡 ID；关卡场景必须使用 'Level_非负整数' 命名（0 = 教学关）。");
             }
         }
 

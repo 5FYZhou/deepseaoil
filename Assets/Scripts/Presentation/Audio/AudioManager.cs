@@ -138,6 +138,7 @@ namespace DeepseaOil.Presentation
                     var src = obj.AddComponent<AudioSource>();
                     src.playOnAwake = false;
                     src.priority = PrioritySfx;
+                    obj.SetActive(false);
                     return obj;
                 },
                 onGet: obj => obj.SetActive(true),
@@ -147,6 +148,10 @@ namespace DeepseaOil.Presentation
             _entryPool = new Pool<PlayingEntry>(
                 factory: () => new PlayingEntry()
             );
+
+            // 按并发上限预热：第一次音效（每关开场）不再现场建对象告警
+            _audioPool.Prewarm(MaxConcurrentSfx);
+            _entryPool.Prewarm(MaxConcurrentSfx);
 
             _bgmGameObject = new GameObject("MusicAudioSource", typeof(AudioSource));
             _bgmGameObject.transform.SetParent(_audioRootT, false);
