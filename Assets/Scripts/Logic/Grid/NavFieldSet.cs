@@ -17,6 +17,9 @@ namespace DeepseaOil.Logic.Grid
         private bool _hasGoal;
         private int _version;
 
+        /// <summary>地形快照版本：只在阻挡/元素/换图时 +1；换目标格不动它，场的可站集合才能跨重建复用</summary>
+        private int _terrainVersion;
+
         public int FieldCount => _fields.Count;
 
         /// <summary>按序号取场（诊断画图用）；越界返回 null</summary>
@@ -36,6 +39,7 @@ namespace DeepseaOil.Logic.Grid
         public void MarkDirty()
         {
             _version++;
+            _terrainVersion++;
         }
 
         /// <summary>喂目标格、皮厚与元素步价：都没变就不作废，于是站着不动的玩家不引起重建</summary>
@@ -97,7 +101,7 @@ namespace DeepseaOil.Logic.Grid
         {
             if (field.Version == _version) return;
 
-            field.Build(map, grid, _goal, _skin, _elementCost);
+            field.Build(map, grid, _goal, _skin, _elementCost, _terrainVersion);
             field.Version = _version;
             TotalRebuilds++;
         }

@@ -36,6 +36,14 @@ namespace DeepseaOil.Presentation.Visual
 
         public bool UseFlipX => useFlipX;
 
+        private float _lastSpeed = float.NaN;
+
+        private float _lastMoveX = float.NaN;
+
+        private float _lastMoveY = float.NaN;
+
+        private float _lastFacingX = float.NaN;
+
         private void Awake()
         {
             // 自愈抓取，漏接线不报错
@@ -51,15 +59,36 @@ namespace DeepseaOil.Presentation.Visual
 
             if (!HasValidAnimator) return;
 
-            animator.SetFloat(AnimHashes.Speed, speed);
-            animator.SetFloat(AnimHashes.MoveX, moveInput.x);
-            animator.SetFloat(AnimHashes.MoveY, moveInput.y);
-            animator.SetFloat(AnimHashes.FacingX, facing.x);
+            if (speed != _lastSpeed)
+            {
+                animator.SetFloat(AnimHashes.Speed, speed);
+                _lastSpeed = speed;
+            }
+
+            if (moveInput.x != _lastMoveX)
+            {
+                animator.SetFloat(AnimHashes.MoveX, moveInput.x);
+                _lastMoveX = moveInput.x;
+            }
+
+            if (moveInput.y != _lastMoveY)
+            {
+                animator.SetFloat(AnimHashes.MoveY, moveInput.y);
+                _lastMoveY = moveInput.y;
+            }
+
+            if (facing.x != _lastFacingX)
+            {
+                animator.SetFloat(AnimHashes.FacingX, facing.x);
+                _lastFacingX = facing.x;
+            }
         }
 
         public void SetSpeed(float speed)
         {
             if (!HasValidAnimator) return;
+
+            _lastSpeed = speed;
 
             animator.SetFloat(AnimHashes.Speed, speed);
         }
@@ -104,6 +133,11 @@ namespace DeepseaOil.Presentation.Visual
         /// <summary>重生/复用对象时清掉上条命的状态与参数</summary>
         public void ResetToDefault()
         {
+            _lastSpeed = float.NaN;
+            _lastMoveX = float.NaN;
+            _lastMoveY = float.NaN;
+            _lastFacingX = float.NaN;
+
             if (!HasValidAnimator) return;
 
             animator.Rebind();
