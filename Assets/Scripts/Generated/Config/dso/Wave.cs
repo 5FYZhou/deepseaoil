@@ -27,6 +27,7 @@ public sealed partial class Wave : Luban.BeanBase
         { if(!_buf["settle_time"].IsNumber) { throw new SerializationException(); }  SettleTime = _buf["settle_time"]; }
         { if(!_buf["spawn_interval"].IsNumber) { throw new SerializationException(); }  SpawnInterval = _buf["spawn_interval"]; }
         { if(!_buf["grant_seed"].IsNumber) { throw new SerializationException(); }  GrantSeed = (dso.SeedType)_buf["grant_seed"].AsInt; }
+        { if(!_buf["describe"].IsString) { throw new SerializationException(); }  Describe = _buf["describe"]; }
     }
 
     public static Wave DeserializeWave(JSONNode _buf)
@@ -62,6 +63,10 @@ public sealed partial class Wave : Luban.BeanBase
     /// 战备配给种子
     /// </summary>
     public readonly dso.SeedType GrantSeed;
+    /// <summary>
+    /// 战术目标
+    /// </summary>
+    public readonly string Describe;
    
     public const int __ID__ = 394089095;
     public override int GetTypeId() => __ID__;
@@ -80,6 +85,7 @@ public sealed partial class Wave : Luban.BeanBase
         + "settleTime:" + SettleTime + ","
         + "spawnInterval:" + SpawnInterval + ","
         + "grantSeed:" + GrantSeed + ","
+        + "describe:" + Describe + ","
         + "}";
     }
 }

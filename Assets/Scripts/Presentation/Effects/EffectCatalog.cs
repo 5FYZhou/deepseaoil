@@ -72,37 +72,37 @@ namespace DeepseaOil.Presentation.Effects
         // Shake(3) 刻意不注册，M3 用例守失败路径
         private static readonly EffectSpec[] Specs =
         {
-            new EffectSpec(EffectId.BurstSparks,  EffectDriverKind.Particle,    isSingleton: false, maxSize: 32, prewarm: 8),
+            new EffectSpec(EffectId.BurstSparks,  EffectDriverKind.Particle,    isSingleton: false, maxSize: 64, prewarm: 16),
 
-            new EffectSpec(EffectId.Flash,        EffectDriverKind.Tint,        isSingleton: false, maxSize: 32, prewarm: 0),
+            new EffectSpec(EffectId.Flash,        EffectDriverKind.Tint,        isSingleton: false, maxSize: 64, prewarm: 0),
 
             // EffectId.Shake = 3 刻意不注册
 
             new EffectSpec(EffectId.ScreenShake,  EffectDriverKind.ScreenShake, isSingleton: true),
 
-            new EffectSpec(EffectId.MudSplash,    EffectDriverKind.Particle,    isSingleton: false, maxSize: 16, prewarm: 4),
+            new EffectSpec(EffectId.MudSplash,    EffectDriverKind.Particle,    isSingleton: false, maxSize: 32, prewarm: 8),
 
-            new EffectSpec(EffectId.Shatter,      EffectDriverKind.Shatter,     maxSize: 16, prewarm: 0),
+            new EffectSpec(EffectId.Shatter,      EffectDriverKind.Shatter,     maxSize: 64, prewarm: 0),
 
             new EffectSpec(EffectId.Highlight,    EffectDriverKind.Highlight,   isSingleton: true, maxSize: 1, prewarm: 0),
 
-            new EffectSpec(EffectId.SteamBlast,   EffectDriverKind.Particle,    isSingleton: false, maxSize: 16, prewarm: 4),
+            new EffectSpec(EffectId.SteamBlast,   EffectDriverKind.Particle,    isSingleton: false, maxSize: 32, prewarm: 8),
 
-            new EffectSpec(EffectId.ChainShock,   EffectDriverKind.Particle,    isSingleton: false, maxSize: 64, prewarm: 32),
+            new EffectSpec(EffectId.ChainShock,   EffectDriverKind.Particle,    isSingleton: false, maxSize: 128, prewarm: 48),
 
-            new EffectSpec(EffectId.FlameEmbers,  EffectDriverKind.Particle,    isSingleton: false, maxSize: 64, prewarm: 16),
+            new EffectSpec(EffectId.FlameEmbers,  EffectDriverKind.Particle,    isSingleton: false, maxSize: 128, prewarm: 32),
 
-            new EffectSpec(EffectId.SlowTint,     EffectDriverKind.Tint,        isSingleton: false, maxSize: 32, prewarm: 0),
+            new EffectSpec(EffectId.SlowTint,     EffectDriverKind.Tint,        isSingleton: false, maxSize: 96, prewarm: 0),
 
-            new EffectSpec(EffectId.Squash,       EffectDriverKind.ScalePunch,  maxSize: 32),
+            new EffectSpec(EffectId.Squash,       EffectDriverKind.ScalePunch,  maxSize: 64),
 
-            new EffectSpec(EffectId.Dust,         EffectDriverKind.Particle,    isSingleton: false, maxSize: 16, prewarm: 0, behindActors: true),
+            new EffectSpec(EffectId.Dust,         EffectDriverKind.Particle,    isSingleton: false, maxSize: 32, prewarm: 0, behindActors: true),
 
-            new EffectSpec(EffectId.DamagePopup,  EffectDriverKind.Popup,       isSingleton: false, maxSize: 32, prewarm: 8),
+            new EffectSpec(EffectId.DamagePopup,  EffectDriverKind.Popup,       isSingleton: false, maxSize: 96, prewarm: 24),
 
-            new EffectSpec(EffectId.Hop,          EffectDriverKind.Hop,         isSingleton: false, maxSize: 32),
+            new EffectSpec(EffectId.Hop,          EffectDriverKind.Hop,         isSingleton: false, maxSize: 64),
 
-            new EffectSpec(EffectId.AlphaTint,    EffectDriverKind.Tint,        isSingleton: false, maxSize: 32),
+            new EffectSpec(EffectId.AlphaTint,    EffectDriverKind.Tint,        isSingleton: false, maxSize: 64),
         };
 
         internal static EffectSpec[] BuildSpecs(EffectTuning tuning)

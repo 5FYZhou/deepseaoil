@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using cfg.dso;
@@ -21,6 +21,23 @@ namespace DeepseaOil.Logic.Grid
         public NavMap Nav { get; private set; }
 
         public NavFieldSet NavFields => _navFields;
+
+        /// <summary>元素格步价倍率：1=关闭偏好；写入时夹到 [0.5,1] 并作废流场</summary>
+        public float NavElementCost
+        {
+            get => _navElementCost;
+            set
+            {
+                float clamped = float.IsNaN(value) || value <= 0f
+                    ? 0.85f
+                    : (value < 0.5f ? 0.5f : (value > 1f ? 1f : value));
+
+                if (Mathf.Approximately(clamped, _navElementCost)) return;
+
+                _navElementCost = clamped;
+                _navFields.MarkDirty();
+            }
+        }
 
         public int ActiveStateCount => _machines.Count;
 
@@ -57,12 +74,11 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>铺地貌格缓冲，不复用 _blastCells</summary>
         private readonly List<Vector3Int> _spreadCells = new();
 
-        private readonly List<Vector3Int> _crossCells = new(4);
-
         private readonly List<Vector3Int> _restoreCells = new();
 
         private float _now;
         private float _deltaTime;
+        private float _navElementCost = 0.85f;
 
         /// <remarks>stateFactory 返回 null=未实现；duo=null 无二级反应；registry=null 自建。数值不在此注入：tile_state / element_rule 已是最终值。</remarks>
         public GridLogic(
@@ -111,11 +127,11 @@ namespace DeepseaOil.Logic.Grid
             _navFields.MarkDirty();
         }
 
-        /// <summary>喂本帧的目标格与皮厚；由组合根每物理帧调一次，未变则不作废</summary>
+        /// <summary>喂本帧的目标格、皮厚与元素步价；由组合根每物理帧调一次，未变则不作废</summary>
         /// <remarks>只作废不重建：真正重建发生在 NavFieldFor 或紧接的 EnsureNavFields，成本出现在调用点而不是散在每只怪里。</remarks>
         public void RefreshNavFields(Vector3Int goalCell, float skin)
         {
-            _navFields.SetGoal(goalCell, skin);
+            _navFields.SetGoal(goalCell, skin, _navElementCost);
 
             _navFields.RebuildStale(this, Nav);
         }
@@ -153,6 +169,17 @@ namespace DeepseaOil.Logic.Grid
             TileStateType state = StateOf(cell);
 
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsObstacle;
+        }
+
+        /// <summary>非空地且非阻挡的地貌：元素格偏好的唯一判据</summary>
+        /// <remarks>范围刻意取"所有非空地"，不是 Damage.ElementFromTile 的火/电/冰三色：水、土、植物、泥浆同样是玩家铺的元素。</remarks>
+        public bool IsElementTile(Vector3Int cell)
+        {
+            TileStateType state = StateOf(cell);
+
+            return state != TileStateType.Normal
+                && state != TileStateType.None
+                && !IsObstacle(cell);
         }
 
         /// <summary>该格地貌的每秒伤害（dot_damage）；无表行返回 0</summary>
@@ -294,14 +321,9 @@ namespace DeepseaOil.Logic.Grid
             // 二级已质变地貌时跳过一级覆盖，否则火海会被反手顶掉
             bool changed = !duoTriggered
                 && outcome.NextTile != current
-                && SwitchTileState(cell, outcome.NextTile, 0f);
+                && ApplyTileChange(cell, in outcome);
 
             bool impacted = ApplyImpact(cell, in outcome);
-
-            if (current == TileStateType.BasicFlower && ball == BallType.Water)
-            {
-                GrowCrossGrass(cell);
-            }
 
             if (changed || impacted)
             {
@@ -313,19 +335,14 @@ namespace DeepseaOil.Logic.Grid
             return false;
         }
 
-        private void GrowCrossGrass(Vector3Int center)
+        private bool ApplyTileChange(Vector3Int cell, in ReactionOutcome outcome)
         {
-            GridQuery.GetNeighbors4(center, _crossCells);
+            // 落点必须无条件切换：永久地貌保护只该拦次级波及，拦落点等于反应不生效
+            bool changed = SwitchTileState(cell, outcome.NextTile, 0f);
 
-            for (int i = 0; i < _crossCells.Count; i++)
-            {
-                Vector3Int neighbor = _crossCells[i];
+            if (outcome.ImpactRadius <= 0f) return changed;
 
-                if (_cells.Contains(neighbor) && StateOf(neighbor) == TileStateType.Normal)
-                {
-                    SwitchTileState(neighbor, TileStateType.BasicPlant, 0f);
-                }
-            }
+            return SpreadTileInRadius(cell, outcome.ImpactRadius, outcome.NextTile) || changed;
         }
 
         /// <summary>落地冲击的唯一出口：单格与广域 AoE</summary>
@@ -333,21 +350,15 @@ namespace DeepseaOil.Logic.Grid
         {
             bool any = false;
 
-            if (outcome.ImpactRadius > 1.0f)
+            if (outcome.ImpactRadius > 0f)
             {
-                if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f)
+                if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f || outcome.StunSeconds > 0f)
                 {
-                    ApplyBlast(cell, outcome.ImpactRadius, outcome.InstantDamage, outcome.KnockbackCells);
-                    any = true;
-                }
-
-                if (outcome.StunSeconds > 0f)
-                {
-                    ApplyStunCell(cell, outcome.StunSeconds);
+                    ApplyBlast(cell, outcome.ImpactRadius, outcome.InstantDamage, outcome.KnockbackCells, outcome.StunSeconds);
                     any = true;
                 }
             }
-            else // 单格判定：<= 1.0 格走原版精准单格
+            else
             {
                 if (outcome.InstantDamage > 0 || outcome.KnockbackCells > 0f)
                 {
@@ -466,7 +477,7 @@ namespace DeepseaOil.Logic.Grid
 
         /// <summary>径向范围冲击：半径内每格结算一次伤害与击退，用于二级反应的波及</summary>
         /// <remarks>半径按格心欧氏距离判、含中心格；一次反应同格只结算一次。</remarks>
-        public void ApplyBlast(Vector3Int center, float radiusCells, int damage, float knockbackCells)
+        public void ApplyBlast(Vector3Int center, float radiusCells, int damage, float knockbackCells, float stunSeconds = 0f)
         {
             if (radiusCells < 0f) radiusCells = 0f;
 
@@ -499,6 +510,8 @@ namespace DeepseaOil.Logic.Grid
             for (int i = 0; i < _blastCells.Count; i++)
             {
                 DealCell(_blastCells[i], damage, knockbackCells);
+
+                if (stunSeconds > 0f) ApplyStunCell(_blastCells[i], stunSeconds);
             }
 
             // 二级反应激发广域冲击时广播事实
@@ -507,7 +520,7 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>半径内铺 resultTile；永久地貌跳过（Normal 例外），保护玩家铺的水/土</summary>
-        public void SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
+        public bool SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
         {
             if (radiusCells < 0f) radiusCells = 0f;
 
@@ -537,6 +550,8 @@ namespace DeepseaOil.Logic.Grid
                 }
             }
 
+            bool any = false;
+
             for (int i = 0; i < _spreadCells.Count; i++)
             {
                 Vector3Int cell = _spreadCells[i];
@@ -549,8 +564,10 @@ namespace DeepseaOil.Logic.Grid
                     && _specs.TryGetValue(state, out TileStateSpec spec)
                     && spec.Duration <= 0f) continue;
 
-                SwitchTileState(cell, resultTile, durationOverride);
+                if (SwitchTileState(cell, resultTile, durationOverride)) any = true;
             }
+
+            return any;
         }
 
         /// <summary>切换某格状态；同状态 no-op，未登记的格与无表行的状态一律拒绝</summary>
@@ -561,8 +578,9 @@ namespace DeepseaOil.Logic.Grid
 
             if (next != TileStateType.Normal && !_specs.ContainsKey(next)) return false;
 
-            // 地貌翻转会改变导航可走集合，且只有这一处能看见"翻转"这件事
+            // 地貌翻转会改变导航可走集合与元素偏好，且只有这一处能看见"翻转"这件事
             bool wasObstacle = IsObstacle(cell);
+            bool wasElement = IsElementTile(cell);
 
             if (!_machines.TryGetValue(cell, out TileStateMachine machine))
             {
@@ -588,7 +606,10 @@ namespace DeepseaOil.Logic.Grid
 
             EventBus<TileStateChanged>.Publish(new TileStateChanged(cell, previous, next));
 
-            if (IsObstacle(cell) != wasObstacle) _navFields.MarkDirty();
+            bool obstacleChanged = IsObstacle(cell) != wasObstacle;
+            bool elementChanged = IsElementTile(cell) != wasElement;
+
+            if (obstacleChanged || (_navElementCost < 1f && elementChanged)) _navFields.MarkDirty();
 
             return true;
         }

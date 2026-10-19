@@ -1,83 +1,212 @@
 [
   {
     "id": 1,
-    "name": "教学",
-    "prep_time": 3,
-    "battle_time": 30,
-    "settle_time": 8,
-    "spawn_interval": 0.4,
-    "grant_seed": 0
+    "name": "L1-W1",
+    "prep_time": 15,
+    "battle_time": 25,
+    "settle_time": 5,
+    "spawn_interval": 0.2,
+    "grant_seed": 0,
+    "describe": "【L1·昼】沉沙水渠：开局自由勘察 15s"
   },
   {
     "id": 2,
-    "name": "第一关",
-    "prep_time": 3,
-    "battle_time": 60,
-    "settle_time": 8,
-    "spawn_interval": 0.3,
-    "grant_seed": 0
+    "name": "L1-W2",
+    "prep_time": 8,
+    "battle_time": 30,
+    "settle_time": 5,
+    "spawn_interval": 0.18,
+    "grant_seed": 0,
+    "describe": "十字泥浆风筝实战"
   },
   {
     "id": 3,
-    "name": "第二关",
-    "prep_time": 5,
-    "battle_time": 60,
-    "settle_time": 8,
-    "spawn_interval": 0.2,
-    "grant_seed": 0
+    "name": "L2-W1",
+    "prep_time": 15,
+    "battle_time": 30,
+    "settle_time": 5,
+    "spawn_interval": 0.18,
+    "grant_seed": 0,
+    "describe": "【L2·昼】熔渣窑炉：勘察石巷走廊"
   },
   {
     "id": 4,
-    "name": "第三关(掉落）",
-    "prep_time": 5,
-    "battle_time": 20,
-    "settle_time": 3,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "name": "L2-W2",
+    "prep_time": 8,
+    "battle_time": 35,
+    "settle_time": 5,
+    "spawn_interval": 0.16,
+    "grant_seed": 0,
+    "describe": "黄昏渐变：十字陶砖封门初演"
   },
   {
     "id": 5,
-    "name": "第三四关",
-    "prep_time": 3,
-    "battle_time": 45,
-    "settle_time": 8,
-    "spawn_interval": 0.2,
-    "grant_seed": 1
+    "name": "L2-W3",
+    "prep_time": 8,
+    "battle_time": 40,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 0,
+    "describe": "狭道防守高潮"
   },
   {
     "id": 6,
-    "name": "第四关",
-    "prep_time": 4,
-    "battle_time": 40,
+    "name": "L3-W1",
+    "prep_time": 18,
+    "battle_time": 30,
     "settle_time": 5,
-    "spawn_interval": 0.2,
-    "grant_seed": 1
+    "spawn_interval": 0.18,
+    "grant_seed": 1,
+    "describe": "【L3·暮】逆生温室：寻找核心花坛"
   },
   {
     "id": 7,
-    "name": "第五关1",
-    "prep_time": 5,
-    "battle_time": 30,
+    "name": "L3-W2",
+    "prep_time": 10,
+    "battle_time": 35,
     "settle_time": 5,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "spawn_interval": 0.16,
+    "grant_seed": 1,
+    "describe": "种花浇水炸开 9 格草丛"
   },
   {
     "id": 8,
-    "name": "第五关2",
-    "prep_time": 7,
-    "battle_time": 50,
+    "name": "L3-W3",
+    "prep_time": 8,
+    "battle_time": 40,
     "settle_time": 5,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "spawn_interval": 0.15,
+    "grant_seed": 1,
+    "describe": "精英出场，直投火种引爆大火海"
   },
   {
     "id": 9,
-    "name": "第五关3",
-    "prep_time": 5,
+    "name": "L3-W4",
+    "prep_time": 8,
+    "battle_time": 45,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 1,
+    "describe": "多米诺火浪大割草"
+  },
+  {
+    "id": 10,
+    "name": "L4-W1",
+    "prep_time": 18,
+    "battle_time": 35,
+    "settle_time": 5,
+    "spawn_interval": 0.16,
+    "grant_seed": 2,
+    "describe": "【L4·暮】极地电站：探索西北电站与西南冰库"
+  },
+  {
+    "id": 11,
+    "name": "L4-W2",
+    "prep_time": 10,
+    "battle_time": 45,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "入夜过渡：全网导电撕裂暗夜"
+  },
+  {
+    "id": 12,
+    "name": "L4-W3",
+    "prep_time": 8,
+    "battle_time": 45,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "冰火直投极温爆轰斩杀精英"
+  },
+  {
+    "id": 13,
+    "name": "L4-W4",
+    "prep_time": 8,
+    "battle_time": 50,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "暗夜多精英合围高潮"
+  },
+  {
+    "id": 14,
+    "name": "L5-W1",
+    "prep_time": 20,
+    "battle_time": 40,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 1,
+    "describe": "【L5·夜】永夜深渊：巡视神泉路灯"
+  },
+  {
+    "id": 15,
+    "name": "L5-W2",
+    "prep_time": 10,
+    "battle_time": 45,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "【L5·夜】永夜蓄压：双精英怪潮突击"
+  },
+  {
+    "id": 16,
+    "name": "L5-W3",
+    "prep_time": 10,
+    "battle_time": 45,
+    "settle_time": 5,
+    "spawn_interval": 0.15,
+    "grant_seed": 3,
+    "describe": "【L5·昼】日出破晓：天光大亮，超导聚怪"
+  },
+  {
+    "id": 17,
+    "name": "L5-W4",
+    "prep_time": 10,
     "battle_time": 50,
     "settle_time": 5,
-    "spawn_interval": 0.3,
-    "grant_seed": 1
+    "spawn_interval": 0.15,
+    "grant_seed": 4,
+    "describe": "【L5·昼】阳光普照：九宫草连环轰炸"
+  },
+  {
+    "id": 18,
+    "name": "L5-W5",
+    "prep_time": 10,
+    "battle_time": 50,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 1,
+    "describe": "【L5·暮】残阳熔金：极温爆轰连环斩杀"
+  },
+  {
+    "id": 19,
+    "name": "L5-W6",
+    "prep_time": 10,
+    "battle_time": 55,
+    "settle_time": 6,
+    "spawn_interval": 0.15,
+    "grant_seed": 2,
+    "describe": "【L5·夜】重归永夜：深蓝降临，全网通电"
+  },
+  {
+    "id": 20,
+    "name": "L5-W7",
+    "prep_time": 12,
+    "battle_time": 65,
+    "settle_time": 8,
+    "spawn_interval": 0.15,
+    "grant_seed": 1,
+    "describe": "【L5·夜】极夜终焉：百怪海啸，全元素大决战"
+  },
+  {
+    "id": 21,
+    "name": "L0",
+    "prep_time": 3,
+    "battle_time": 30,
+    "settle_time": 5,
+    "spawn_interval": 0.2,
+    "grant_seed": 0,
+    "describe": "教程关：2 只普怪练手"
   }
 ]

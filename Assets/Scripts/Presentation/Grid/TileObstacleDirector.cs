@@ -14,7 +14,7 @@ namespace DeepseaOil.Presentation.Grid
     {
         [Header("池容量")]
         [Tooltip("阻挡体上限：卡累计创建数，闲置再久也占额度")]
-        [SerializeField] private int maxPoolSize = 32;
+        [SerializeField] private int maxPoolSize = 128;
 
         private readonly Dictionary<Vector3Int, GameObject> _active = new();
         private readonly HashSet<TileStateType> _obstacleStates = new();

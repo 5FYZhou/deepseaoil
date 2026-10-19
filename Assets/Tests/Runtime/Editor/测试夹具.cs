@@ -30,7 +30,7 @@ namespace DeepseaOil.Tests
 
         public static Enemy EnemyRow(int id = 1, int hp = 3, int contactDamage = 1)
             => new Enemy(JSON.Parse(
-                $"{{\"id\":{id},\"name\":\"测试敌人\",\"max_speed\":3.6,\"hp\":{hp},\"contact_damage\":{contactDamage}}}"));
+                $"{{\"id\":{id},\"name\":\"测试敌人\",\"max_speed\":3.6,\"hp\":{hp},\"contact_damage\":{contactDamage},\"describe\":\"\"}}"));
 
         /// <summary>一行玩家：受击 / 投掷 / 回血三条链用到的列全在</summary>
         public static Player PlayerRow()
@@ -45,12 +45,12 @@ namespace DeepseaOil.Tests
         public static Wave WaveRow(int id = 1, int grantSeed = 1)
             => new Wave(JSON.Parse(
                 $"{{\"id\":{id},\"name\":\"测试波次\",\"prep_time\":10,\"battle_time\":30,\"settle_time\":8," +
-                $"\"spawn_interval\":0.4,\"grant_seed\":{grantSeed}}}"));
+                $"\"spawn_interval\":0.4,\"grant_seed\":{grantSeed},\"describe\":\"\"}}"));
 
         /// <summary>一行波次敌种：某一波出某个怪种几只；顺序即刷怪顺序</summary>
         public static WaveEnemy WaveEnemyRow(int id, int waveId, int enemyId, int count)
             => new WaveEnemy(JSON.Parse(
-                $"{{\"id\":{id},\"wave_id\":{waveId},\"enemy_id\":{enemyId},\"count\":{count}}}"));
+                $"{{\"id\":{id},\"wave_id\":{waveId},\"enemy_id\":{enemyId},\"count\":{count},\"describe\":\"\"}}"));
 
         /// <summary>一行地块状态；默认是"永久、不减速、无伤害、不麻痹、不导通"的空地</summary>
         public static TileState TileStateRow(

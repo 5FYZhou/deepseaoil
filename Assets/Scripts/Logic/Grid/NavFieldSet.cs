@@ -13,6 +13,7 @@ namespace DeepseaOil.Logic.Grid
 
         private Vector3Int _goal;
         private float _skin;
+        private float _elementCost = 0.85f;
         private bool _hasGoal;
         private int _version;
 
@@ -37,13 +38,17 @@ namespace DeepseaOil.Logic.Grid
             _version++;
         }
 
-        /// <summary>喂目标格与皮厚：都没变就不作废，于是站着不动的玩家不引起重建</summary>
-        public void SetGoal(Vector3Int goal, float skin)
+        /// <summary>喂目标格、皮厚与元素步价：都没变就不作废，于是站着不动的玩家不引起重建</summary>
+        public void SetGoal(Vector3Int goal, float skin, float elementCost)
         {
-            if (_hasGoal && goal == _goal && skin == _skin) return;
+            if (_hasGoal
+                && goal == _goal
+                && skin == _skin
+                && Mathf.Approximately(elementCost, _elementCost)) return;
 
             _goal = goal;
             _skin = skin;
+            _elementCost = elementCost;
             _hasGoal = true;
             _version++;
         }
@@ -70,10 +75,16 @@ namespace DeepseaOil.Logic.Grid
                 _fields.Add(field);
             }
 
-            // 皮厚参与判据，换了就等于所有场作废（调用方传的是同一份调参，正常不会抖）
+            // 皮厚或元素步价参与判据，换了就等于所有场作废（调用方传的是同一份调参，正常不会抖）
             if (!Mathf.Approximately(skin, _skin))
             {
                 _skin = skin;
+                _version++;
+            }
+
+            if (!Mathf.Approximately(grid.NavElementCost, _elementCost))
+            {
+                _elementCost = grid.NavElementCost;
                 _version++;
             }
 
@@ -86,7 +97,7 @@ namespace DeepseaOil.Logic.Grid
         {
             if (field.Version == _version) return;
 
-            field.Build(map, grid, _goal, _skin);
+            field.Build(map, grid, _goal, _skin, _elementCost);
             field.Version = _version;
             TotalRebuilds++;
         }

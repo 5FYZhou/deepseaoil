@@ -18,12 +18,14 @@ namespace DeepseaOil.Logic
 
         public bool IsIdle => Direction.sqrMagnitude <= 0f || Speed <= 0f;
 
-        /// <remarks>静态纯函数，只吃参数、不持状态；距离是世界单位。两个"不动"各对应一类缺陷：stopDistance 内不动（否则贴脸抖动）；零向量不动（必须先于距离判断，零向量归一化是 NaN）。</remarks>
+        /// <remarks>静态纯函数，只吃参数、不持状态；距离是世界单位。两个"不动"各对应一类缺陷：stopDistance 内不动（否则贴脸抖动）；零向量不动（必须先于距离判断，零向量归一化是 NaN）。
+        /// deceleration &gt; 0 时按 √(2a·d) 收到停靠环：否则满速进入停靠距离后才归零，会滑进玩家碰撞体。</remarks>
         public static Steering Resolve(
             Vector2 self,
             Vector2 target,
             float stopDistance,
-            float maxSpeed)
+            float maxSpeed,
+            float deceleration)
         {
             Vector2 delta = target - self;
 
@@ -31,7 +33,16 @@ namespace DeepseaOil.Logic
 
             float distance = delta.magnitude;
 
-            float speed = distance <= stopDistance ? 0f : maxSpeed;
+            if (distance <= stopDistance) return new Steering(delta, 0f);
+
+            float speed = maxSpeed;
+
+            if (deceleration > 0f)
+            {
+                float brake = Mathf.Sqrt(2f * deceleration * (distance - stopDistance));
+
+                if (brake < speed) speed = brake;
+            }
 
             return new Steering(delta, speed);
         }

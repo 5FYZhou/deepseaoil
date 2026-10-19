@@ -18,8 +18,8 @@ namespace DeepseaOil.Presentation.Effects
             EffectId.Dust,
         };
 
-        // 一次同帧爆发最多能有多少个请求：按池子整片泛洪的量级给，8 会悄悄丢掉大半
-        private static int _maxQueuedPlaysPerEffect = 64;
+        // 单个特效等资源加载时最多排多少条：超了丢最旧的，8 会悄悄丢掉大半
+        private static int _maxQueuedPlaysPerEffect = 128;
 
         private const string RootName = "[Effects]";
 
@@ -72,7 +72,7 @@ namespace DeepseaOil.Presentation.Effects
 
             EffectTuning tuning = AssetModule.IsInitialized ? EffectTuning.LoadOrDefault() : null;
 
-            _maxQueuedPlaysPerEffect = tuning != null && tuning.maxQueuedPlaysPerEffect > 0 ? tuning.maxQueuedPlaysPerEffect : 64;
+            _maxQueuedPlaysPerEffect = tuning != null && tuning.maxQueuedPlaysPerEffect > 0 ? tuning.maxQueuedPlaysPerEffect : 128;
 
             EffectSpec[] specs = EffectCatalog.BuildSpecs(tuning);
             for (int i = 0; i < specs.Length; i++)
