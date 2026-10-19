@@ -35,15 +35,16 @@ namespace DeepseaOil.Presentation.UI
                     break;
                 case "BtnRestart":
                     string targetScene = SceneManager.GetActiveScene().name;
-                    TryLoadScene(targetScene);
+                    TryLoadScene(targetScene, true);
                     break;
                 case "BtnReturnMenu":
+                    GameRoot.Instance.Story.ClearRestartAtLevelStart();
                     EventBus<RequestLoadScene>.Publish(new RequestLoadScene(SceneName.Begin, true));
                     break;
             }
         }
 
-        private void TryLoadScene(string sceneName)
+        private void TryLoadScene(string sceneName, bool restartAtLevelStart = false)
         {
             if (string.IsNullOrWhiteSpace(sceneName))
             {
@@ -58,6 +59,9 @@ namespace DeepseaOil.Presentation.UI
                     this);
                 return;
             }
+
+            if (restartAtLevelStart)
+                GameRoot.Instance.Story.RequestRestartAtLevelStart(sceneName);
 
             EventBus<RequestLoadScene>.Publish(new RequestLoadScene(sceneName, true));
         }

@@ -10,6 +10,7 @@ using DeepseaOil.Logic.Services;
 using DeepseaOil.Presentation.Adapters;
 using DeepseaOil.Presentation.Effects;
 using DeepseaOil.Presentation.Input;
+using DeepseaOil.Presentation.Story;
 using DeepseaOil.Presentation.UI;
 using UnityEngine;
 
@@ -65,6 +66,8 @@ namespace DeepseaOil.Presentation
         public UIMgr UI { get; private set; }
 
         public GameManager Game { get; private set; }
+
+        public StorySession Story { get; private set; }
 
         public AudioManager Audio { get; private set; }
 
@@ -155,6 +158,8 @@ namespace DeepseaOil.Presentation
             UI.Init();
 
             Game = new GameManager();
+
+            Story = new StorySession();
 
             Audio = new AudioManager(transform);
 
