@@ -10,7 +10,7 @@ namespace DeepseaOil.Data
     public static class SceneName
     {
         public static string Begin = "Begin";
-        public static string Game = "Level_1";
+        public static string Game = "Level_0";
 
         public static string GetLevel(int id)
         {

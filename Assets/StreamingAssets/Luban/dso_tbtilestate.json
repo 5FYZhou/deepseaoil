@@ -67,7 +67,7 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": true
   },
   {
     "id": 17,

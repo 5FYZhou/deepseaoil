@@ -130,6 +130,10 @@ namespace DeepseaOil.Presentation
 
         public int CurrentLevelId => IsReady && _levelLogic != null ? _levelLogic.CurrentLevel.Id : 0;
 
+        public bool HasLevel => _levelLogic != null;
+
+        public int NextLevelId => levelReader != null ? levelReader.NextLevelId : 0;
+
         public event Action EnemyKilled;
 
         private void Start()
@@ -147,14 +151,16 @@ namespace DeepseaOil.Presentation
 
         public void BeginLevel()
         {
-            if (!IsReady || _levelLogic == null)
+            if (!IsReady)
             {
                 Debug.LogError("[CombatRoot] 关卡尚未装配，不能开始关卡。", this);
                 return;
             }
 
+            if (_levelLogic == null) return;
+
             _levelLogic.Start();
-            if(CurrentLevelId != 1)
+            if(CurrentLevelId != 0)
                 GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
         }
 
@@ -741,10 +747,10 @@ namespace DeepseaOil.Presentation
 
             player.Logic.ConfigureAim(in geometry, playerSpec.MaxThrowDistance, this);
 
-            if (enableLevel)
+            if (enableLevel && levelReader.CurrentLevelId > 0)
             {
                 int levelId = levelReader.CurrentLevelId;
-                _levelLogic = new LevelLogic(levelReader, levelId == 1 || levelId == 5);
+                _levelLogic = new LevelLogic(levelReader, levelId == 5);
                 if (!UsesScriptedStory(_levelLogic.CurrentLevel.Id))
                 {
                     _levelLogic.Start();
@@ -786,7 +792,7 @@ namespace DeepseaOil.Presentation
 
         private static bool UsesScriptedStory(int levelId)
         {
-            return levelId >= 1 && levelId <= 6;
+            return levelId >= 0 && levelId <= 5;
         }
 
         private void SyncFountainLights()
@@ -1075,7 +1081,7 @@ namespace DeepseaOil.Presentation
 
                 if (_levelLogic.State == LevelState.Running && _root != null && _root.Audio != null)
                 {
-                    if (CurrentLevelId != 1)
+                    if (CurrentLevelId != 0)
                         _root.Audio.EnqueueBgm(AudioId.BgmMain);
                 }
             }
