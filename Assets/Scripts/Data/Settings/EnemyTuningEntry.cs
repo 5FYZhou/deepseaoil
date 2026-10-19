@@ -20,7 +20,7 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("击退衰减率（1/秒）：同时喂转向衰减与受击滑停")]
         public float knockbackDecay = 10f;
 
-        [Tooltip("贴到这个距离就停住，不再压上（世界单位）")]
+        [Tooltip("贴到这个距离就停住（世界单位）：必须大于玩家碰撞体半宽 0.35 + 本怪 radius，且小于玩家 contact_radius，否则贴脸会被物理推出去来回抖")]
         public float stopDistance = 0.6f;
 
         [Tooltip("转向闸门的角速率上限（度/秒）：期望方向掉头时命令每秒最多转这么多度。填 0 = 关闭闸门")]

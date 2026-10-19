@@ -35,7 +35,7 @@ namespace DeepseaOil.Data
         /// <summary>是否触发网格连锁泛洪</summary>
         public bool TriggerChain => _row.TriggerChain;
 
-        /// <summary>落地瞬间冲击波及半径，格（<=1.0 为本格）</summary>
+        /// <summary>落地瞬间冲击波及半径，格（0 为本格）</summary>
         public float ImpactRadius => _row.ImpactRadius;
     }
 }

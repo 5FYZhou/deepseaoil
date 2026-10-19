@@ -24,6 +24,7 @@ public sealed partial class WaveEnemy : Luban.BeanBase
         { if(!_buf["wave_id"].IsNumber) { throw new SerializationException(); }  WaveId = _buf["wave_id"]; }
         { if(!_buf["enemy_id"].IsNumber) { throw new SerializationException(); }  EnemyId = _buf["enemy_id"]; }
         { if(!_buf["count"].IsNumber) { throw new SerializationException(); }  Count = _buf["count"]; }
+        { if(!_buf["describe"].IsString) { throw new SerializationException(); }  Describe = _buf["describe"]; }
     }
 
     public static WaveEnemy DeserializeWaveEnemy(JSONNode _buf)
@@ -47,6 +48,10 @@ public sealed partial class WaveEnemy : Luban.BeanBase
     /// 敌人数量
     /// </summary>
     public readonly int Count;
+    /// <summary>
+    /// 战术意图与怪潮规模
+    /// </summary>
+    public readonly string Describe;
    
     public const int __ID__ = -429651647;
     public override int GetTypeId() => __ID__;
@@ -62,6 +67,7 @@ public sealed partial class WaveEnemy : Luban.BeanBase
         + "waveId:" + WaveId + ","
         + "enemyId:" + EnemyId + ","
         + "count:" + Count + ","
+        + "describe:" + Describe + ","
         + "}";
     }
 }

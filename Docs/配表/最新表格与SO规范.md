@@ -61,7 +61,7 @@
 - **`contact_damage` 是敌人伤害的唯一权威**，类型 `int!#range=[0,999]`，两行分别是 1 / 2。`ContactProbe` 经 `IContactDamager` 从敌人自己身上读 `EnemySpec.ContactDamage`；`player` 表根本没有这一列。
 - **掉落不在本表**：走 `enemy_drop.xlsx`（`enemy_id` / `seed_type` / `weight` / `probability`），当前 4 行都是 `enemy_id = 2` 掉四种种子。旧的硬编码 `CombatRoot.EliteEnemyId` 已删除。
 - **表里保留的列**：
-  - **不在表里、在 SO**：`enemyFlashHz`（受击闪烁频率）在 `VisualPalette`；`radius`（碰撞半径）、`acceleration`（加速度）、`knockbackDecay`（受击滑停衰减）、`stopDistance`（停止逼近距离）在 `EnemyTuning`。
+  - **不在表里、在 SO**：`enemyFlashHz`（受击闪烁频率）在 `VisualPalette`；`radius`（碰撞半径）、`acceleration`（加速度）、`knockbackDecay`（受击滑停衰减）、`stopDistance`（停止逼近距离）在 `EnemyTuning`；元素格步价 `elementTileCost` 也在 `EnemyTuning`（顶层字段，1.0 = 关闭偏好）。`stopDistance` 必须大于玩家碰撞体半宽 0.35 + 本怪 radius，且小于玩家 `contact_radius`（1.0），否则贴脸会被刚体推出去来回抖。
   - **保留在 Excel**（支持普通怪与精英怪两行）：
     | 字段             | 类型              | 说明                                           |
     | :--------------- | :---------------- | :--------------------------------------------- |
@@ -165,7 +165,7 @@
 2. **`ThrowTuning.cs`**：
    - 包含：抛物线基准时长 `flightDuration`、弧高 `arcHeight`、投掷最大/小距离、瞄准环压扁比例与透视。
 3. **`EnemyTuning.cs`**：
-   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`。
+   - 包含：碰撞半径 `radius`、加速度 `acceleration`、受击滑停衰减 `knockbackDecay`、停止逼近距离 `stopDistance`、元素格步价 `elementTileCost`（顶层，默认 0.85；1.0 = 关闭偏好）。
    - **已退役、但字段保留在 SO 里**（改它们不会有任何反应，只为不让旧资产丢字段）：`chaseRange`（追逐已无距离上限）、`visionRange` / `sustainRange` / `loseDelay`（仇恨系统已下线）。
    - 每行还带一组**受击形变**调参 `squash`：强度 `amount`、普通一击时长 `normalDuration`、致死一击时长 `deathDuration`、X 压扁比 `compressRatio`、回弹曲线指数 `easePower`、强度硬上限 `maxAmount`。改这里即改观感，不用碰 `ScalePunchDriver`；`amount = 0` 即关掉该怪种的形变。**资产缺失即抛 `ConfigLoadException`**（不退回默认值）。
 4. **`VisualPalette.cs`**：

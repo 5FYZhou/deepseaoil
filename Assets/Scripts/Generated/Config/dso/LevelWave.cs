@@ -22,6 +22,7 @@ public sealed partial class LevelWave : Luban.BeanBase
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { var __json0 = _buf["wave_ids"]; if(!__json0.IsArray) { throw new SerializationException(); } WaveIds = new System.Collections.Generic.List<int>(__json0.Count); foreach(JSONNode __e0 in __json0.Children) { int __v0;  { if(!__e0.IsNumber) { throw new SerializationException(); }  __v0 = __e0; }  WaveIds.Add(__v0); }   }
+        { if(!_buf["describe"].IsString) { throw new SerializationException(); }  Describe = _buf["describe"]; }
     }
 
     public static LevelWave DeserializeLevelWave(JSONNode _buf)
@@ -37,6 +38,10 @@ public sealed partial class LevelWave : Luban.BeanBase
     /// 该关卡的波次id，顺序读取可重复，英文分号分隔
     /// </summary>
     public readonly System.Collections.Generic.List<int> WaveIds;
+    /// <summary>
+    /// 关卡名称与核心体验
+    /// </summary>
+    public readonly string Describe;
    
     public const int __ID__ = 689113551;
     public override int GetTypeId() => __ID__;
@@ -50,6 +55,7 @@ public sealed partial class LevelWave : Luban.BeanBase
         return "{ "
         + "id:" + Id + ","
         + "waveIds:" + Luban.StringUtil.CollectionToString(WaveIds) + ","
+        + "describe:" + Describe + ","
         + "}";
     }
 }
