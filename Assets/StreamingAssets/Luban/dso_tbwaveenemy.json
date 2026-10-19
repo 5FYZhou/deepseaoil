@@ -3,78 +3,238 @@
     "id": 1,
     "wave_id": 1,
     "enemy_id": 1,
-    "count": 1
+    "count": 4,
+    "describe": "L1-W1：4 普怪"
   },
   {
     "id": 2,
     "wave_id": 2,
     "enemy_id": 1,
-    "count": 3
+    "count": 8,
+    "describe": "L1-W2：8 普怪"
   },
   {
     "id": 3,
     "wave_id": 3,
     "enemy_id": 1,
-    "count": 4
+    "count": 10,
+    "describe": "L2-W1：10 普怪"
   },
   {
     "id": 4,
     "wave_id": 4,
-    "enemy_id": 2,
-    "count": 1
+    "enemy_id": 1,
+    "count": 14,
+    "describe": "L2-W2：14 普怪"
   },
   {
     "id": 5,
     "wave_id": 5,
     "enemy_id": 1,
-    "count": 4
+    "count": 18,
+    "describe": "L2-W3：18 普怪"
   },
   {
     "id": 6,
-    "wave_id": 5,
-    "enemy_id": 2,
-    "count": 2
+    "wave_id": 6,
+    "enemy_id": 1,
+    "count": 12,
+    "describe": "L3-W1：12 普怪"
   },
   {
     "id": 7,
-    "wave_id": 6,
+    "wave_id": 7,
     "enemy_id": 1,
-    "count": 5
+    "count": 16,
+    "describe": "L3-W2：16 普怪"
   },
   {
     "id": 8,
-    "wave_id": 6,
-    "enemy_id": 2,
-    "count": 3
+    "wave_id": 8,
+    "enemy_id": 1,
+    "count": 18,
+    "describe": "L3-W3：18 普怪"
   },
   {
     "id": 9,
-    "wave_id": 7,
-    "enemy_id": 1,
-    "count": 5
+    "wave_id": 8,
+    "enemy_id": 2,
+    "count": 2,
+    "describe": "2 精英"
   },
   {
     "id": 10,
-    "wave_id": 8,
-    "enemy_id": 2,
-    "count": 4
+    "wave_id": 9,
+    "enemy_id": 1,
+    "count": 24,
+    "describe": "L3-W4：24 普怪"
   },
   {
     "id": 11,
-    "wave_id": 8,
-    "enemy_id": 1,
-    "count": 3
+    "wave_id": 9,
+    "enemy_id": 2,
+    "count": 3,
+    "describe": "3 精英"
   },
   {
     "id": 12,
-    "wave_id": 9,
+    "wave_id": 10,
     "enemy_id": 1,
-    "count": 6
+    "count": 18,
+    "describe": "L4-W1：18 普怪"
   },
   {
     "id": 13,
-    "wave_id": 9,
+    "wave_id": 10,
     "enemy_id": 2,
-    "count": 5
+    "count": 2,
+    "describe": "2 精英"
+  },
+  {
+    "id": 14,
+    "wave_id": 11,
+    "enemy_id": 1,
+    "count": 24,
+    "describe": "L4-W2：24 普怪"
+  },
+  {
+    "id": 15,
+    "wave_id": 11,
+    "enemy_id": 2,
+    "count": 3,
+    "describe": "3 精英"
+  },
+  {
+    "id": 16,
+    "wave_id": 12,
+    "enemy_id": 1,
+    "count": 28,
+    "describe": "L4-W3：28 普怪"
+  },
+  {
+    "id": 17,
+    "wave_id": 12,
+    "enemy_id": 2,
+    "count": 4,
+    "describe": "4 精英"
+  },
+  {
+    "id": 18,
+    "wave_id": 13,
+    "enemy_id": 1,
+    "count": 32,
+    "describe": "L4-W4：32 普怪"
+  },
+  {
+    "id": 19,
+    "wave_id": 13,
+    "enemy_id": 2,
+    "count": 5,
+    "describe": "5 精英"
+  },
+  {
+    "id": 20,
+    "wave_id": 14,
+    "enemy_id": 1,
+    "count": 22,
+    "describe": "L5-W1：22 普怪"
+  },
+  {
+    "id": 21,
+    "wave_id": 14,
+    "enemy_id": 2,
+    "count": 3,
+    "describe": "3 精英"
+  },
+  {
+    "id": 22,
+    "wave_id": 15,
+    "enemy_id": 1,
+    "count": 28,
+    "describe": "L5-W2：28 普怪"
+  },
+  {
+    "id": 23,
+    "wave_id": 15,
+    "enemy_id": 2,
+    "count": 4,
+    "describe": "4 精英"
+  },
+  {
+    "id": 24,
+    "wave_id": 16,
+    "enemy_id": 1,
+    "count": 32,
+    "describe": "L5-W3：32 普怪"
+  },
+  {
+    "id": 25,
+    "wave_id": 16,
+    "enemy_id": 2,
+    "count": 5,
+    "describe": "5 精英"
+  },
+  {
+    "id": 26,
+    "wave_id": 17,
+    "enemy_id": 1,
+    "count": 36,
+    "describe": "L5-W4：36 普怪"
+  },
+  {
+    "id": 27,
+    "wave_id": 17,
+    "enemy_id": 2,
+    "count": 6,
+    "describe": "6 精英"
+  },
+  {
+    "id": 28,
+    "wave_id": 18,
+    "enemy_id": 1,
+    "count": 40,
+    "describe": "L5-W5：40 普怪"
+  },
+  {
+    "id": 29,
+    "wave_id": 18,
+    "enemy_id": 2,
+    "count": 7,
+    "describe": "7 精英"
+  },
+  {
+    "id": 30,
+    "wave_id": 19,
+    "enemy_id": 1,
+    "count": 45,
+    "describe": "L5-W6：45 普怪"
+  },
+  {
+    "id": 31,
+    "wave_id": 19,
+    "enemy_id": 2,
+    "count": 8,
+    "describe": "8 精英"
+  },
+  {
+    "id": 32,
+    "wave_id": 20,
+    "enemy_id": 1,
+    "count": 50,
+    "describe": "L5-W7：50 普怪"
+  },
+  {
+    "id": 33,
+    "wave_id": 20,
+    "enemy_id": 2,
+    "count": 10,
+    "describe": "10 精英"
+  },
+  {
+    "id": 34,
+    "wave_id": 21,
+    "enemy_id": 1,
+    "count": 2,
+    "describe": "教程关：2 只普怪"
   }
 ]

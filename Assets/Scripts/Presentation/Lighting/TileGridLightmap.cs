@@ -96,6 +96,13 @@ namespace DeepseaOil.Presentation.Lighting
         [Range(6f, 30f)]
         [SerializeField] private float impulseDecayRate = 14f;
 
+        [Header("更新频率")]
+        [Tooltip("每秒重算并上传光图的次数；呼吸/电弧频率都远低于它，降频只省 CPU，不改观感")]
+        [Range(10f, 60f)]
+        [SerializeField] private float lightmapUpdateHz = 30f;
+
+        private float _updateClock;
+
         private struct SteadyEmitter
         {
             public Vector2 Position;
@@ -215,6 +222,7 @@ namespace DeepseaOil.Presentation.Lighting
         }
 
         /// <summary>每渲染帧推进一次呼吸采样与扩散；由 CombatRoot.RenderTick 驱动</summary>
+        /// <remarks>重算与整图上传按 lightmapUpdateHz 限频：这块是 O(格数) 的固定税，地形不变时也不该占满每帧预算。脉冲衰减用累积步长，降频不改衰减速度。</remarks>
         public void Tick(float time, float deltaTime)
         {
             if (!_attached) return;
@@ -225,6 +233,16 @@ namespace DeepseaOil.Presentation.Lighting
             // 一个发光格都没有且上一帧已经全黑：不必再刷一遍空纹理
             if (!HasEmitters && !_wasLit) return;
 
+            float interval = 1f / Mathf.Clamp(lightmapUpdateHz <= 0f ? 30f : lightmapUpdateHz, 10f, 60f);
+
+            _updateClock += deltaTime;
+
+            if (_updateClock < interval) return;
+
+            float stepDeltaTime = _updateClock;
+
+            _updateClock = 0f;
+
             float firePulse = fireBreathBase - fireBreathDepth + fireBreathDepth * Mathf.Sin(time * Mathf.PI * 2f * fireBreathHertz);
             float electricStep = Mathf.Repeat(Mathf.Floor(time * electricJitterHertz) * GoldenRatio, 1f);
             float electricPulse = electricPulseFloor + electricPulseDepth * electricStep;
@@ -233,7 +251,7 @@ namespace DeepseaOil.Presentation.Lighting
 
             Propagate();
 
-            DecayImpulses(deltaTime);
+            DecayImpulses(stepDeltaTime);
 
             Upload();
         }

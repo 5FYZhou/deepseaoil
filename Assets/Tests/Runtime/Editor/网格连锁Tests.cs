@@ -459,5 +459,67 @@ namespace DeepseaOil.Tests
 
             Assert.AreEqual(TileStateType.FlameField, grid.StateOf(plant), "燎原火海必须烧穿相邻的植物区");
         }
+
+        /// <summary>⑦ 直投：火种子砸基础冰面当帧结算 (16,17)，不走覆写。</summary>
+        [Test]
+        public void 火种直投冰面当帧极温爆轰()
+        {
+            TileChainReactor.Clear();
+
+            var registry = new EnemyCellRegistry();
+
+            GridLogic grid = NewGrid(registry);
+
+            var ice = new Vector3Int(0, 0, 0);
+
+            grid.RegisterCell(ice);
+            grid.SwitchTileState(ice, TileStateType.BasicIce);
+
+            var target = new ChainTarget { Position = grid.Geometry.CellCenter(ice) };
+
+            registry.Register(ice, target);
+
+            SeedSpec fireSeed = ConfigModule.GetSeed(SeedType.Fire);
+
+            Assert.IsNotNull(fireSeed, "seed 表必须有火种子");
+
+            bool planted = SeedPlanter.ExecutePlant(grid, ice, SeedType.Fire, fireSeed, ConfigModule.GetDuoReactions());
+
+            Assert.IsTrue(planted, "火种子砸冰面必须成立");
+
+            Assert.AreEqual(
+                TileStateType.Steam,
+                grid.StateOf(ice),
+                "火 × 冰 必出蒸汽；落成火池说明走了覆写");
+
+            Assert.AreEqual(5f, target.DamageTotal, 1e-3f, "极温爆轰瞬伤 5（duo#5）");
+        }
+
+        /// <summary>⑧ 阻挡地貌不可播种：陶砖被拒。</summary>
+        [Test]
+        public void 种子砸陶砖被拒且地貌不变()
+        {
+            var registry = new EnemyCellRegistry();
+
+            GridLogic grid = NewGrid(registry);
+
+            var brick = new Vector3Int(0, 0, 0);
+
+            grid.RegisterCell(brick);
+            grid.SwitchTileState(brick, TileStateType.TerracottaBrick);
+
+            SeedSpec plantSeed = ConfigModule.GetSeed(SeedType.Plant);
+
+            Assert.AreEqual(
+                PlantRejection.Blocked,
+                SeedPlanter.Reject(grid, brick, SeedType.Plant),
+                "陶砖是阻挡：必须按 Blocked 拒收");
+
+            Assert.IsFalse(
+                SeedPlanter.ExecutePlant(grid, brick, SeedType.Plant, plantSeed, ConfigModule.GetDuoReactions()),
+                "阻挡格不许播种");
+
+            Assert.AreEqual(TileStateType.TerracottaBrick, grid.StateOf(brick), "被拒的播种不许改动地貌");
+        }
     }
 }

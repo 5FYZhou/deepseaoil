@@ -1,4 +1,4 @@
-﻿using cfg.dso;
+using cfg.dso;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
@@ -13,9 +13,11 @@ namespace DeepseaOil.Presentation.UI
     {
         private static readonly int HealthPropertyId = Shader.PropertyToID("_Health");
         private const float MaterialAtZeroHealth = 0f;
-        private const float MaterialAtOneHealth = 0.18f;
-        private const float MaterialAtTwoHealth = 0.28f;
-        private const float MaterialAtThreeHealth = 0.395f;
+        private const float MaterialAtOneHealth = 0.127f;
+        private const float MaterialAtTwoHealth = 0.192f;
+        private const float MaterialAtThreeHealth = 0.257f;
+        private const float MaterialAtFourHealth = 0.326f;
+        private const float MaterialAtFiveHealth = 0.395f;
         private const float HealthAnimDuration = 0.25f;
         private const float HilightTime = 0.2f;
         private const float WaveTextFadeDuration = 0.2f;
@@ -141,7 +143,7 @@ namespace DeepseaOil.Presentation.UI
 
             _healthMaterial = new Material(healthImage.material);
             healthImage.material = _healthMaterial;
-            _healthMaterial.SetFloat(HealthPropertyId, MaterialAtThreeHealth);
+            _healthMaterial.SetFloat(HealthPropertyId, MaterialAtFiveHealth);
         }
 
         protected override void OnDestroy()
@@ -201,7 +203,9 @@ namespace DeepseaOil.Presentation.UI
             switch (name)
             {
                 case "BtnPause":
-                    GameRoot.Instance.Game.ChangeState(GameState.Paused);
+                    GameState state = GameRoot.Instance.Game.CurState;
+                    if (state == GameState.Running || state == GameState.Story)
+                        GameRoot.Instance.Game.ChangeState(GameState.Paused);
                     break;
             }
         }
@@ -255,7 +259,7 @@ namespace DeepseaOil.Presentation.UI
             }
 
             if (_healthMaterial != null)
-                _healthMaterial.SetFloat(HealthPropertyId, MaterialAtThreeHealth);
+                _healthMaterial.SetFloat(HealthPropertyId, MaterialAtFiveHealth);
         }
 
         private void ClearWaveHud()
@@ -384,7 +388,7 @@ namespace DeepseaOil.Presentation.UI
             if (shouldShow)
             {
                 _txtCountdown.text = $"倒计时：{evt.SecondsRemaining}";
-                if(evt.SecondsRemaining == 3 && _curWavePhase == Logic.Wave.WavePhase.Prep)
+                if (evt.SecondsRemaining == 3 && _curWavePhase == Logic.Wave.WavePhase.Prep)
                 {
                     GameRoot.Instance.Audio.EnqueueSfx(AudioId.WaveCountdown);
                 }
@@ -575,7 +579,7 @@ namespace DeepseaOil.Presentation.UI
         {
             if (_healthMaterial == null) return;
 
-            float targetHealth = GetMaterialHealth(Mathf.Clamp(evt.Current, 0f, 3f));
+            float targetHealth = GetMaterialHealth(Mathf.Clamp(evt.Current, 0f, 5f));
             if (_healthAnimCoroutine != null)
             {
                 StopCoroutine(_healthAnimCoroutine);
@@ -621,7 +625,13 @@ namespace DeepseaOil.Presentation.UI
             if (health <= 2f)
                 return Mathf.Lerp(MaterialAtOneHealth, MaterialAtTwoHealth, health - 1f);
 
-            return Mathf.Lerp(MaterialAtTwoHealth, MaterialAtThreeHealth, health - 2f);
+            if (health <= 3f)
+                return Mathf.Lerp(MaterialAtTwoHealth, MaterialAtThreeHealth, health - 2f);
+
+            if (health <= 4f)
+                return Mathf.Lerp(MaterialAtThreeHealth, MaterialAtFourHealth, health - 3f);
+
+            return Mathf.Lerp(MaterialAtFourHealth, MaterialAtFiveHealth, health - 4f);
         }
 
         private void OnGameStateChanged(GameStateChanged evt)

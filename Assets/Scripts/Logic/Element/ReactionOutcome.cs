@@ -23,18 +23,18 @@ namespace DeepseaOil.Logic.Element
                     float knockbackCells,
                     float stunSeconds,
                     bool triggerChain,
-                    float impactRadius = 1.0f) // 默认 1.0
+                    float impactRadius = 0f) // 0=单格 1.0=十字5格 1.5=九宫9格
         {
             NextTile = nextTile;
             InstantDamage = instantDamage;
             KnockbackCells = knockbackCells;
             StunSeconds = stunSeconds;
             TriggerChain = triggerChain;
-            ImpactRadius = impactRadius > 0f ? impactRadius : 1.0f;
+            ImpactRadius = impactRadius > 0f ? impactRadius : 0f;
         }
 
         /// <summary>不改地形、不打任何冲击</summary>
         public static ReactionOutcome Unchanged(TileStateType current)
-            => new ReactionOutcome(current, 0, 0f, 0f, false, 1.0f);
+            => new ReactionOutcome(current, 0, 0f, 0f, false, 0f);
     }
 }

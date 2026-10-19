@@ -31,7 +31,8 @@ namespace DeepseaOil.Presentation.UI
         public override void ShowMe()
         {
             HideResult();
-            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmAscensio);
+            GameRoot.Instance.Audio.StopAllSfx();
+            GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.PlayerDie, false, false, false);
         }
 
         public override void HideMe()
@@ -116,15 +117,16 @@ namespace DeepseaOil.Presentation.UI
             {
                 case "BtnRestart":
                     string targetScene = SceneManager.GetActiveScene().name;
-                    TryLoadScene(targetScene);
+                    TryLoadScene(targetScene, true);
                     break;
                 case "BtnReturnMenu":
+                    GameRoot.Instance.Story.ClearRestartAtLevelStart();
                     TryLoadScene(SceneName.Begin);
                     break;
             }
         }
 
-        private void TryLoadScene(string sceneName)
+        private void TryLoadScene(string sceneName, bool restartAtLevelStart = false)
         {
             if (string.IsNullOrWhiteSpace(sceneName))
             {
@@ -139,6 +141,9 @@ namespace DeepseaOil.Presentation.UI
                     this);
                 return;
             }
+
+            if (restartAtLevelStart)
+                GameRoot.Instance.Story.RequestRestartAtLevelStart(sceneName);
 
             EventBus<RequestLoadScene>.Publish(new RequestLoadScene(sceneName, true));
         }

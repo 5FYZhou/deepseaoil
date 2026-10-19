@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // 敌人寻路 · 运行期测试（纯逻辑：不碰物理、不读场景）
 //
-// ASCII 地形：'#' 墙、'.' 空地、'=' 窄口，首行是**最上面**那排；净空逐采样点铺开（见 NewMaze 与 WallDistance）。
+// ASCII 地形：'#' 墙、'.' 空地、'=' 窄口，首行是最上面那排；净空逐采样点铺开。
 //   距离一律以**采样点**为单位：一格 = 4 个采样点。
 //
 // 跑法：Test Runner ▸ EditMode ▸ Run All
@@ -23,6 +23,23 @@ namespace DeepseaOil.Tests
 {
     public class 寻路Tests
     {
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            AssetModule.Dispose();
+
+            if (!ConfigModule.IsReady) ConfigModule.InitFromStreamingAssets();
+
+            AssetModule.Init();
+            ConfigModule.BindAssets();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            AssetModule.Dispose();
+        }
+
         private const float Radius = 0.3f;
         private const float Skin = 0.05f;
 
@@ -108,7 +125,7 @@ namespace DeepseaOil.Tests
             return x + y * width;
         }
 
-        /// <remarks>必须是**采样坐标的行主序**：流场按 ±1 / ±SampleWidth 走四邻，格内分块布局会让"相邻"落到别的格上。</remarks>
+        /// <remarks>必须采样坐标行主序：流场按 ±1 / ±SampleWidth 走四邻，分块布局会让"相邻"落到别的格。</remarks>
         private static int Node(int x, int y, int width, int i, int j)
         {
             int sub = NavMap.Subdivision;
@@ -554,7 +571,11 @@ namespace DeepseaOil.Tests
             var final = new Vector3Int(Mathf.FloorToInt(motor.Position.x), Mathf.FloorToInt(motor.Position.y), 0);
 
             Assert.AreEqual(2, final.x, $"拐完之后没待在竖排里（停在 {motor.Position}）");
-            Assert.GreaterOrEqual(final.y, 3, $"没顺着竖排走到目标格那一排（停在 {motor.Position}）");
+            Assert.GreaterOrEqual(final.y, 2, $"没走到目标格前的竖排（停在 {motor.Position}）");
+            Assert.LessOrEqual(
+                Vector2.Distance(motor.Position, new Vector2(2.5f, 3.5f)),
+                0.7f,
+                $"没停在目标格前的停靠环上（停在 {motor.Position}）");
         }
 
         /// <summary>同伴桩：只实现站得住与半径</summary>
@@ -602,6 +623,51 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0f, againstWall.Direction.y, 0.01f, "让开方向那一侧是墙，横向分量仍被加进了方向");
         }
 
+        /// <summary>停住且被同伴挤住时沿切向让开：径向会让停靠与追击互顶。</summary>
+        [Test]
+        public void 停住时同伴挤在一起会沿切向让开()
+        {
+            GridLogic grid = NewMaze(OpenField(6, 3), out _);
+
+            grid.RefreshNavFields(new Vector3Int(5, 1, 0), Skin);
+
+            var motor = new MotorProbe { Position = new Vector2(2.5f, 1.375f) };
+            EnemyLogic enemy = NewEnemy(grid, motor);
+
+            // 目标在正东 0.4：已在停靠环 0.6 内 ⇒ 大脑给 Idle
+            enemy.SetTarget(new Vector2(2.9f, 1.375f));
+
+            // 同伴在正北 0.4（同一格）：推挤方向正南，切向分量完整保留
+            grid.Registry.Register(new Vector3Int(2, 1, 0), new BodyStub { Position = new Vector2(2.5f, 1.775f), Radius = Radius });
+
+            enemy.Tick(0.02f, 0.02f);
+
+            Assert.IsTrue(enemy.Intent.IsIdle, "距离 0.4 已在停靠环内，大脑必须是 Idle，否则测的不是停住散开");
+
+            Steering steered = enemy.ResolveSteering();
+
+            Assert.Greater(steered.Speed, 0f, "停住且被挤住时必须散开：没有物理推挤，不散就是精确叠在一起");
+            Assert.Less(steered.Direction.y, -0.9f, "同伴在北侧，散开方向该向南");
+            Assert.AreEqual(0f, steered.Direction.x, 0.01f, "散开不许带径向分量：那会把怪推进玩家身体或被追击顶回来");
+        }
+
+        /// <summary>停住但没人挤：不许凭空漂移。</summary>
+        [Test]
+        public void 停住且没人挤时不产生漂移()
+        {
+            GridLogic grid = NewMaze(OpenField(6, 3), out _);
+
+            grid.RefreshNavFields(new Vector3Int(5, 1, 0), Skin);
+
+            var motor = new MotorProbe { Position = new Vector2(2.5f, 1.375f) };
+            EnemyLogic enemy = NewEnemy(grid, motor);
+
+            enemy.SetTarget(new Vector2(2.9f, 1.375f));
+            enemy.Tick(0.02f, 0.02f);
+
+            Assert.AreEqual(0f, enemy.ResolveSteering().Speed, 0f, "没被挤住还散开就是凭空漂移");
+        }
+
         [Test]
         public void 卡死满帧后换到次优邻格()
         {
@@ -645,8 +711,7 @@ namespace DeepseaOil.Tests
 
         /// <summary>验收：玩家在敌人正前方 8 单位/秒横向折返 3 次，再顶住它的脸 —— 命令方向不许翻面、单帧 |Δv| 不许超配置、贴脸不许算卡死</summary>
         /// <remarks>夹具自己积分位置，并做引擎会做的那件事：身体贴住时把速度压到零（下一帧帧首读到的就是它）。|Δv| 读账本本帧的提交量，不含物理压速。
-        /// 折返段全程保持 1.8 格间距：要让怪在满速上撞见"原始方向掉头"，贴住身体会把速度压没、把这一条盖掉。
-        /// 改前实测：命令方向单帧转过 60° 有 9 次、单帧 |Δv| 4.88（配置加速度 5 的 49 倍）、贴住满帧即换步。</remarks>
+        /// 折返段全程保持 1.8 格间距：贴住身体会把速度压没、把"满速撞见掉头"这一条盖掉。判据取 20°：60° 太粗，抓不到同格摆动。</remarks>
         [Test]
         public void 玩家折返与贴脸顶住都不该抖()
         {
@@ -657,7 +722,7 @@ namespace DeepseaOil.Tests
             // 身体接触距离：怪 0.3 ＋ 玩家碰撞体 0.4，大于停靠环 0.6 ⇒ 贴住那一线"想走却走不动"
             const float Contact = 0.7f;
             const float PressOffset = 0.65f;
-            const float TurnLimit = 60f;
+            const float TurnLimit = 20f;
 
             // 8 单位/秒 × 2.1 秒 ÷（2 × 1.8 格）= 折返 3 次；顶住段要满 stuckFrames 帧才判得出假卡死
             const float WeaveSeconds = 2.1f;
@@ -735,7 +800,7 @@ namespace DeepseaOil.Tests
             string report =
                 $"{frames} 帧：命令方向单帧转过 {TurnLimit:F0}° 共 {turns} 次；" +
                 $"峰值单帧 |Δv| {peak:F2}（{peak / Dt:F0} u/s²，上限 {bound:F2}）；" +
-                $"JamCount {enemy.Navigator.JamCount}；原始方向切换 {enemy.Navigator.ModeSwitches} 次" +
+                $"JamCount {enemy.Navigator.JamCount}；原始方向切换 {enemy.Navigator.DesiredSwitches} 次" +
                 (witness.Count > 0 ? "；翻面帧 " + string.Join(" / ", witness) : "");
 
             TestContext.WriteLine(report);
@@ -772,6 +837,301 @@ namespace DeepseaOil.Tests
 
             Assert.Greater(outside.Direction.sqrMagnitude, 0f, "图外给了零向量");
             Assert.Greater(Vector2.Dot(outside.Direction.normalized, intent.normalized), 0.99f, "图外退回的不是直线意图方向");
+        }
+
+        /// <summary>中间竖墙把上下两条等长路线分开；上路铺元素格</summary>
+        private static string[] ElementRouteMaze()
+        {
+            return new[]
+            {
+                "###########",
+                "#.........#",
+                "#....#....#",
+                "#....#....#",
+                "#....#....#",
+                "#.........#",
+                "###########",
+            };
+        }
+
+        /// <summary>沿场走到底，按格记录经过的格子</summary>
+        private static List<Vector3Int> WalkCells(NavField field, NavMap map, int start, int limit = 256)
+        {
+            var cells = new List<Vector3Int>();
+            int current = start;
+
+            for (int i = 0; i < limit; i++)
+            {
+                cells.Add(map.CellOfSample(current));
+
+                if (!field.TryGetStep(current, out int next)) break;
+
+                current = next;
+            }
+
+            return cells;
+        }
+
+        [Test]
+        public void 元素格路线优先于等长的普通路线()
+        {
+            GridLogic grid = NewMaze(ElementRouteMaze(), out NavMap map);
+
+            for (int x = 1; x <= 9; x++)
+            {
+                Assert.IsTrue(grid.SwitchTileState(new Vector3Int(x, 5, 0), TileStateType.BasicWater), "上路元素格没铺上");
+            }
+
+            var goal = new Vector3Int(9, 3, 0);
+
+            grid.RefreshNavFields(goal, Skin);
+
+            NavField field = grid.NavFieldFor(Radius, Skin);
+
+            int start = CenterNode(1, 3, 11);
+            List<Vector3Int> cells = WalkCells(field, map, start);
+
+            bool usedElement = false;
+
+            for (int i = 0; i < cells.Count; i++)
+            {
+                if (cells[i].y == 5 && grid.IsElementTile(cells[i])) usedElement = true;
+            }
+
+            Assert.IsTrue(usedElement, "两条等长路线里没有优先元素格路线");
+            Assert.AreEqual(0, field.DistOf(CenterNode(9, 3, 11)), "场没连到目标");
+            Assert.AreEqual(new Vector3Int(9, 3, 0), cells[cells.Count - 1], "路径没走到目标格");
+        }
+
+        [Test]
+        public void 元素代价为1时回到最短路()
+        {
+            GridLogic grid = NewMaze(ElementRouteMaze(), out NavMap map);
+
+            for (int x = 1; x <= 9; x++)
+            {
+                grid.SwitchTileState(new Vector3Int(x, 5, 0), TileStateType.BasicWater);
+            }
+
+            grid.NavElementCost = 1f;
+            grid.RefreshNavFields(new Vector3Int(9, 3, 0), Skin);
+
+            NavField field = grid.NavFieldFor(Radius, Skin);
+            int start = CenterNode(1, 3, 11);
+
+            Assert.AreEqual(1f, field.ElementCost, 1e-4f, "关闭偏好后元素步价不是 1");
+            Assert.AreEqual(field.DistOf(start) * 100, field.CostOf(start), "关闭偏好后代价不再等于最短路");
+        }
+
+        [Test]
+        public void 元素格集合变化会作废流场且不会每帧重建()
+        {
+            GridLogic grid = NewMaze(OpenField(8, 4), out _);
+
+            var goal = new Vector3Int(7, 1, 0);
+
+            grid.RefreshNavFields(goal, Skin);
+            grid.NavFieldFor(Radius, Skin);
+
+            int builds = grid.NavFields.TotalRebuilds;
+            var cell = new Vector3Int(2, 2, 0);
+
+            Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.BasicWater), "元素格没铺上");
+            grid.Tick(1f, 0.05f);
+            grid.RefreshNavFields(goal, Skin);
+            Assert.AreEqual(builds + 1, grid.NavFields.TotalRebuilds, "元素格出现没作废流场");
+
+            for (int i = 0; i < 20; i++) grid.RefreshNavFields(goal, Skin);
+
+            Assert.AreEqual(builds + 1, grid.NavFields.TotalRebuilds, "元素格没变却每帧重建");
+
+            Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.BasicFire), "元素格换色失败");
+            grid.Tick(1.05f, 0.05f);
+            grid.RefreshNavFields(goal, Skin);
+
+            Assert.AreEqual(builds + 1, grid.NavFields.TotalRebuilds, "元素格换元素格不该重建");
+
+            Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.Normal), "元素格清回空地失败");
+            grid.Tick(1.3f, 0.05f);
+            grid.RefreshNavFields(goal, Skin);
+
+            Assert.AreEqual(builds + 2, grid.NavFields.TotalRebuilds, "元素格消失没作废流场");
+        }
+
+        [Test]
+        public void 元素格每帧都变时流场重建被合并到每秒五次()
+        {
+            GridLogic grid = NewMaze(OpenField(8, 4), out _);
+
+            var goal = new Vector3Int(7, 1, 0);
+            var first = new Vector3Int(2, 1, 0);
+            var second = new Vector3Int(3, 1, 0);
+
+            grid.RefreshNavFields(goal, Skin);
+            grid.NavFieldFor(Radius, Skin);
+
+            int builds = grid.NavFields.TotalRebuilds;
+            float now = 0f;
+
+            for (int i = 0; i < 20; i++)
+            {
+                Vector3Int cell = (i & 1) == 0 ? first : second;
+
+                grid.SwitchTileState(cell, TileStateType.Normal);
+                grid.SwitchTileState(cell, TileStateType.BasicWater);
+
+                now += 0.05f;
+
+                grid.Tick(now, 0.05f);
+                grid.RefreshNavFields(goal, Skin);
+            }
+
+            Assert.LessOrEqual(grid.NavFields.TotalRebuilds - builds, 6,
+                "元素偏好每帧都变时流场重建没被合并：火海/铺水会让每物理帧都全图重算");
+        }
+
+        [Test]
+        public void 阻挡地貌不算元素格()
+        {
+            GridLogic grid = NewMaze(OpenField(6, 3), out _);
+
+            var cell = new Vector3Int(2, 1, 0);
+
+            Assert.IsTrue(grid.SwitchTileState(cell, ObstacleState()), "阻挡地貌没切上");
+            Assert.IsTrue(grid.IsObstacle(cell), "该格没被当成阻挡");
+            Assert.IsFalse(grid.IsElementTile(cell), "阻挡地貌被当成了元素格");
+
+            grid.RefreshNavFields(new Vector3Int(5, 1, 0), Skin);
+
+            NavField field = grid.NavFieldFor(Radius, Skin);
+
+            Assert.AreEqual(-1, field.DistOf(CenterNode(2, 1, 6)), "阻挡格仍在场里");
+        }
+
+        [Test]
+        public void 权重场仍保留BFS步距诊断()
+        {
+            GridLogic grid = NewMaze(ElementRouteMaze(), out _);
+
+            for (int x = 1; x <= 9; x++)
+            {
+                grid.SwitchTileState(new Vector3Int(x, 5, 0), TileStateType.BasicWater);
+            }
+
+            var goal = new Vector3Int(9, 3, 0);
+
+            grid.RefreshNavFields(goal, Skin);
+
+            NavField field = grid.NavFieldFor(Radius, Skin);
+            int start = CenterNode(1, 3, 11);
+            int goalNode = CenterNode(9, 3, 11);
+            int distStart = field.DistOf(start);
+            int distGoal = field.DistOf(goalNode);
+
+            Assert.Less(field.CostOf(start), distStart * 100, "元素权重没让加权代价低于普通步价");
+
+            grid.NavElementCost = 1f;
+            grid.RefreshNavFields(goal, Skin);
+
+            Assert.AreEqual(distStart, field.DistOf(start), "BFS 步距被元素权重污染");
+            Assert.AreEqual(distGoal, field.DistOf(goalNode), "BFS 步距被元素权重污染");
+            Assert.AreEqual(distStart * 100, field.CostOf(start), "关闭偏好后加权代价没回到 BFS 步距");
+        }
+
+        [Test]
+        public void 元素路线不会被直线捷径跳过()
+        {
+            GridLogic grid = NewMaze(ElementRouteMaze(), out _);
+
+            for (int x = 1; x <= 9; x++)
+            {
+                grid.SwitchTileState(new Vector3Int(x, 5, 0), TileStateType.BasicWater);
+            }
+
+            var goal = new Vector3Int(9, 3, 0);
+            var motor = new MotorProbe { Position = new Vector2(1.5f, 3.5f) };
+            EnemyLogic enemy = NewEnemy(grid, motor);
+
+            enemy.SetTarget(new Vector2(9.5f, 3.5f));
+            grid.RefreshNavFields(goal, Skin);
+
+            const float Dt = 0.02f;
+            float now = 0f;
+            bool enteredElement = false;
+
+            for (int i = 0; i < 800; i++)
+            {
+                now += Dt;
+                enemy.Tick(now, Dt);
+                motor.Position += motor.EngineVelocity * Dt;
+
+                Vector3Int cell = grid.WorldToCell(motor.Position);
+
+                if (grid.IsElementTile(cell)) enteredElement = true;
+
+                if ((motor.Position - new Vector2(9.5f, 3.5f)).sqrMagnitude <= 0.8f * 0.8f) break;
+            }
+
+            Assert.IsTrue(enteredElement, "直线捷径把元素格跳过了");
+            Assert.Less((motor.Position - new Vector2(9.5f, 3.5f)).sqrMagnitude, 2.25f, "没走到目标附近");
+        }
+
+        [Test]
+        public void 停靠环把速度刹到零且不压进物理接触()
+        {
+            var entry = new EnemyTuningEntry
+            {
+                id = 1,
+                radius = 0.3f,
+                acceleration = 12f,
+                stopDistance = 0.75f,
+            };
+
+            var spec = new EnemySpec(RowFactory.EnemyRow(), entry);
+            var brain = new ChaseBrain(spec);
+
+            EnemyIntent far = brain.Decide(new EnemyBrainContext(Vector2.zero, new Vector2(2f, 0f), true));
+            Assert.AreEqual(spec.MaxSpeed, far.Speed, 0.01f, "远距离不该降速");
+
+            EnemyIntent near = brain.Decide(new EnemyBrainContext(Vector2.zero, new Vector2(1f, 0f), true));
+            Assert.AreEqual(Mathf.Sqrt(2f * 12f * (1f - 0.75f)), near.Speed, 0.01f, "刹车曲线没按停靠距离算");
+
+            EnemyIntent stop = brain.Decide(new EnemyBrainContext(Vector2.zero, new Vector2(0.75f, 0f), true));
+            Assert.IsTrue(stop.IsIdle, "到了停靠环还往前压");
+        }
+
+        [Test]
+        public void 停靠环外沿有滞回()
+        {
+            var entry = new EnemyTuningEntry
+            {
+                id = 1,
+                radius = 0.3f,
+                acceleration = 12f,
+                stopDistance = 0.75f,
+            };
+
+            var brain = new ChaseBrain(new EnemySpec(RowFactory.EnemyRow(), entry));
+
+            Assert.IsTrue(brain.Decide(new EnemyBrainContext(Vector2.zero, new Vector2(0.75f, 0f), true)).IsIdle, "没先在停靠环停住");
+            Assert.IsTrue(brain.Decide(new EnemyBrainContext(Vector2.zero, new Vector2(0.85f, 0f), true)).IsIdle, "停靠环外沿没有滞回");
+            Assert.IsTrue(brain.Decide(new EnemyBrainContext(Vector2.zero, new Vector2(0.9f, 0f), true)).IsIdle, "滞回区边界内不该恢复");
+            Assert.Greater(brain.Decide(new EnemyBrainContext(Vector2.zero, new Vector2(0.95f, 0f), true)).Speed, 0f, "离开滞回区还没恢复移动");
+        }
+
+        [Test]
+        public void 停靠环在物理接触之外且在贴身伤害之内()
+        {
+            const float PlayerHalfWidth = 0.35f;
+
+            PlayerSpec player = ConfigModule.GetPlayer();
+            EnemySpec normal = ConfigModule.GetEnemy(1);
+            EnemySpec elite = ConfigModule.GetEnemy(2);
+
+            Assert.Greater(normal.StopDistance, normal.Radius + PlayerHalfWidth, "普通怪停靠环还在物理接触里");
+            Assert.Greater(elite.StopDistance, elite.Radius + PlayerHalfWidth, "精英怪停靠环还在物理接触里");
+            Assert.Less(normal.StopDistance, player.ContactRadius, "普通怪停靠环超出贴身伤害半径");
+            Assert.Less(elite.StopDistance, player.ContactRadius, "精英怪停靠环超出贴身伤害半径");
         }
     }
 }

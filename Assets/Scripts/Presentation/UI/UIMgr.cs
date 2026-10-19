@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -556,6 +556,7 @@ namespace DeepseaOil.Presentation.UI
             switch (state)
             {
                 case Logic.GameState.Running:
+                case Logic.GameState.Story:
                     EnterGameplayUi();
                     HidePanel<PausePanel>();
                     break;

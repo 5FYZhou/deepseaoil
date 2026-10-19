@@ -15,9 +15,11 @@ namespace DeepseaOil.Logic.World
         NotEmpty = 2,
 
         NoSeed = 3,
+
+        Blocked = 4,
     }
 
-    // 播种裁决：只有空地（Normal）能种，且手上必须有种子
+    // 播种裁决：非阻挡格都能种（元素格覆写或直投二级质变），且手上必须有种子
     public static class SeedPlanter
     {
         public static PlantRejection Reject(
@@ -29,9 +31,7 @@ namespace DeepseaOil.Logic.World
 
             if (grid == null || !grid.HasCell(cell)) return PlantRejection.OutOfFloor;
 
-            return grid.StateOf(cell) == TileStateType.Normal
-                ? PlantRejection.None
-                : PlantRejection.NotEmpty;
+            return grid.IsObstacle(cell) ? PlantRejection.Blocked : PlantRejection.None;
         }
 
         public static bool CanPlant(GridLogic grid, Vector3Int cell, SeedType holding)
@@ -39,7 +39,7 @@ namespace DeepseaOil.Logic.World
             return Reject(grid, cell, holding) == PlantRejection.None;
         }
 
-        /// <summary>播种执行：改地貌 ＋ 当帧判二级反应；false = 没动过任何东西</summary>
+        /// <summary>播种执行：先判直投二级质变，否则覆写地貌；false = 没动过任何东西</summary>
         /// <remarks>种子是否扣除由调用方负责，本方法不做资源判定；表里没有 SpawnTile 这一行也返回 false</remarks>
         public static bool ExecutePlant(
             GridLogic grid,
@@ -51,6 +51,11 @@ namespace DeepseaOil.Logic.World
             if (grid == null || seedSpec == null) return false;
 
             if (!CanPlant(grid, cell, seedType)) return false;
+
+            if (duoCatalog != null && duoCatalog.TryGet(seedSpec.SpawnTile, grid.StateOf(cell), out DuoReactionSpec duo))
+            {
+                return TileChainReactor.CommitDuoDirect(grid, cell, duo);
+            }
 
             if (!grid.SwitchTileState(cell, seedSpec.SpawnTile)) return false;
 

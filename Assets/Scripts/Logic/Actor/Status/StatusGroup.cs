@@ -72,6 +72,8 @@ namespace DeepseaOil.Logic
 
         public bool IsHurt => Current == StatusStateTag.Hurt;
 
+        public bool IsStunned => _stunRemaining > 0f;
+
         public void Tick(in LogicContext ctx, Vector2 pendingKnockback)
         {
             TickSlow(in ctx);

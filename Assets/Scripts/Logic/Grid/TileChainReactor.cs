@@ -117,6 +117,16 @@ namespace DeepseaOil.Logic.Grid
             return false;
         }
 
+        // <summary>发起格本身是配对的一侧，不经四邻查找</summary>
+        public static bool CommitDuoDirect(GridLogic grid, Vector3Int origin, DuoReactionSpec duo)
+        {
+            if (grid == null || duo == null || !grid.HasCell(origin)) return false;
+
+            CommitDuo(grid, origin, duo);
+
+            return true;
+        }
+
         // <summary>连锁导电：沿 is_conductor 网格泛洪，全网同帧结算</summary>
         private static void Propagate(GridLogic grid, Vector3Int origin)
         {

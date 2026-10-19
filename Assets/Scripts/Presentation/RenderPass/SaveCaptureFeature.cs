@@ -38,6 +38,8 @@ namespace DeepseaOil.Presentation.RenderPass
 
         private static SaveCaptureFeature _instance;
 
+        private static bool _warnedUnavailable;
+
         private SaveCapturePass _pass;
 
         private RTHandle _thumbnail;
@@ -55,7 +57,12 @@ namespace DeepseaOil.Presentation.RenderPass
         {
             SaveCaptureFeature feature = _instance;
 
-            if (feature == null || !feature.isActive) return false;
+            if (feature == null || !feature.isActive)
+            {
+                WarnUnavailableOnce();
+
+                return false;
+            }
 
             if (slotIndex < 0 || feature._state != StateIdle || feature._readbackInFlight) return false;
 
@@ -64,6 +71,17 @@ namespace DeepseaOil.Presentation.RenderPass
             feature._waitFrames = 0;
 
             return true;
+        }
+
+        private static void WarnUnavailableOnce()
+        {
+            if (_warnedUnavailable) return;
+
+            _warnedUnavailable = true;
+
+            Debug.LogWarning(
+                "[Save] Renderer2D.asset 未挂 Save Capture Feature（或它被禁用），本局存档不会生成缩略图。" +
+                "挂法：选中 Assets/Settings/Renderer2D.asset → Add Renderer Feature → Save Capture Feature。");
         }
 
         public override void Create()

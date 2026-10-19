@@ -38,6 +38,9 @@ namespace DeepseaOil.Presentation.Lighting
         private float _transitionTime;
         private bool _isTransitioning;
 
+        // OnValidate 里写 Light2D 会撞 URP 的 GetTransformInfoExpectUpToDate（GUI 事件内不许读渲染变换），改到下一帧落地
+        private bool _editorRefreshPending;
+
         /// <summary>当前生效或正在过渡到的时段</summary>
         public TimeOfDayKind CurrentTimeOfDay => _targetKind;
 
@@ -58,6 +61,15 @@ namespace DeepseaOil.Presentation.Lighting
 
         private void Update()
         {
+            if (_editorRefreshPending)
+            {
+                _editorRefreshPending = false;
+
+                TimeOfDaySetting edited = ResolveSetting(_currentKind);
+
+                ApplySettingDirectly(in edited);
+            }
+
             if (!_isTransitioning) return;
 
             _transitionTime += Time.deltaTime;
@@ -139,9 +151,7 @@ namespace DeepseaOil.Presentation.Lighting
         {
             if (!Application.isPlaying || _isTransitioning) return;
 
-            TimeOfDaySetting current = ResolveSetting(_currentKind);
-
-            ApplySettingDirectly(in current);
+            _editorRefreshPending = true;
         }
 #endif
 

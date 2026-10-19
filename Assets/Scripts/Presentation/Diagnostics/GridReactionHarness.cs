@@ -154,6 +154,8 @@ namespace DeepseaOil.Presentation.Diagnostics
                 ConfigModule.GetDuoReactions(),
                 _registry);
 
+            _grid.NavElementCost = ConfigModule.NavElementCost;
+
             // 先订阅"状态变了"再登记：否则开局那一批初始状态不会被画出来
             adapter.Attach();
             _attachedAdapter = true;

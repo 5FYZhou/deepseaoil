@@ -5,22 +5,24 @@ using cfg.dso;
 namespace DeepseaOil.Logic.Grid.States
 {
     /// <summary>表驱动地块状态：只管"这块地能活多久、每帧对格上目标做什么"</summary>
-    /// <remarks>行为只来自 TileStateSpec 的三个数（slow_rate/dot_damage/duration），不再有可执行效果清单；减速续命窗口必须是本帧 Δt（0 会被物理帧扣穿）；DoT 按 1 秒攒拍、进格那下由 GridLogic.OnActorEnterCell 补。</remarks>
+    /// <remarks>行为只来自 TileStateSpec 的 slow_rate 与 duration；减速续命窗口必须是本帧 Δt（0 会被物理帧扣穿）。DoT 不在这里：它按目标每秒结算、跨格不重置（GridLogic.TickDots）。</remarks>
     public sealed class TableTileState : ITileState
     {
         private readonly TileStateSpec _spec;
 
         private float _elapsed;
 
-        private float _dotAccumulator;
-
         /// <summary>覆盖后的存活秒数；未覆盖时等于表值</summary>
         private float _duration;
+
+        /// <summary>无 slow 的永久地貌不逐帧 Tick</summary>
+        private bool _needsTick;
 
         public TableTileState(TileStateSpec spec)
         {
             _spec = spec;
             _duration = spec.Duration;
+            _needsTick = _duration > 0f || spec.SlowRate < 1f;
         }
 
         public TileStateType Id => _spec.Id;
@@ -30,16 +32,18 @@ namespace DeepseaOil.Logic.Grid.States
 
         public void OverrideDuration(float seconds)
         {
-            if (seconds > 0f) _duration = seconds;
+            if (seconds <= 0f) return;
+
+            _duration = seconds;
+            _needsTick = true;   // 有倒计时就必须进队列
         }
 
-        /// <remarks>进入即开始计时；同状态不重入，所以反复投球不会刷新泥浆计时</remarks>
+        /// <remarks>同状态不重入，反复投球不刷新泥浆计时</remarks>
         public void OnEnter(in TileContext ctx)
         {
             _elapsed = 0f;
-            _dotAccumulator = 0f;
 
-            ctx.Scheduler?.ScheduleTick(ctx.Cell);
+            if (_needsTick) ctx.Scheduler?.ScheduleTick(ctx.Cell);
         }
 
         public void OnTick(in TileContext ctx)
@@ -60,14 +64,14 @@ namespace DeepseaOil.Logic.Grid.States
                 }
             }
 
-            ctx.Scheduler?.ScheduleTick(ctx.Cell);
+            if (_needsTick) ctx.Scheduler?.ScheduleTick(ctx.Cell);
         }
 
         public void OnExit(in TileContext ctx)
         {
         }
 
-        /// <summary>每帧结算：减速续命 + DoT 攒拍</summary>
+        /// <summary>每帧结算：减速续命</summary>
         private void ApplyTick(in TileContext ctx)
         {
             ITileResolver resolver = ctx.Resolver;
@@ -75,19 +79,6 @@ namespace DeepseaOil.Logic.Grid.States
             if (resolver == null) return;
 
             if (_spec.SlowRate < 1f) resolver.ApplySlowCell(ctx.Cell, _spec.SlowRate, ctx.DeltaTime);
-
-            if (_spec.DotDamage <= 0) return;
-
-            // 累加量必须是本帧 Δt：若改成按提交次数加常量，攒满 1 秒会变成攒够 60 次
-            _dotAccumulator += ctx.DeltaTime;
-
-            // while 而非 if：掉帧时按次数补齐，不吞伤害
-            while (_dotAccumulator >= 1f)
-            {
-                _dotAccumulator -= 1f;
-
-                resolver.DealCell(ctx.Cell, _spec.DotDamage);
-            }
         }
     }
 }

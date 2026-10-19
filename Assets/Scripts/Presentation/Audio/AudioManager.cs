@@ -14,16 +14,18 @@ namespace DeepseaOil.Presentation
         public GameObject go;
         public AudioSource source;
         public float remaining;
+        public float fadeTail;
 
         public void Reset()
         {
             go = null;
             source = null;
             remaining = 0f;
+            fadeTail = 0f;
         }
     }
 
-    /// <remarks>EnqueueSfx/EnqueueBgm 只入队，播放统一在 Tick 里消费；单帧只消费本 Tick 开始时已有的请求，播放中新产生的留到下一 Tick。由 GameRoot 持有并驱动。队列只为请求/消费解耦，非线程安全设施。</remarks>
+    /// <remarks>Enqueue/Play 只入队，统一在 Tick 消费；单帧只消费本 Tick 开始时已有的请求。由 GameRoot 持有并驱动，非线程安全。</remarks>
     public sealed class AudioManager : IService
     {
         private enum AudioRequestType
@@ -37,12 +39,16 @@ namespace DeepseaOil.Presentation
             public readonly AudioRequestType type;
             public readonly AudioId id;
             public readonly bool resumeBgm;   // 仅 Bgm 请求有效
+            public readonly bool isLoop;      // 仅 Bgm 请求有效
+            public readonly bool fade;        // 仅 Bgm 请求有效；false=本次直接切换
 
-            public AudioRequest(AudioRequestType type, AudioId id, bool resumeBgm = false)
+            public AudioRequest(AudioRequestType type, AudioId id, bool resumeBgm = false, bool isLoop = true, bool fade = true)
             {
                 this.type = type;
                 this.id = id;
                 this.resumeBgm = resumeBgm;
+                this.isLoop = isLoop;
+                this.fade = fade;
             }
         }
 
@@ -52,6 +58,14 @@ namespace DeepseaOil.Presentation
             FadingOut,  // 正在淡出，淡出完成后切歌/停止并淡入
             FadingIn,   // 正在淡入
         }
+
+        // Unity AudioSource.priority：数值越小越优先，被偷时先偷数值大的
+        private const int PriorityBgm = 0;        // BGM 最高，永不被偷
+        private const int PriorityLoopSfx = 64;   // 循环音中等
+        private const int PrioritySfx = 128;      // 一次性 SFX 最低（Unity 默认）
+
+        // 同时播放的一次性 SFX 软上限：防止 voice 耗尽、互相偷、听感糊
+        private const int MaxConcurrentSfx = 16;
 
         private readonly Transform _host;
 
@@ -83,8 +97,13 @@ namespace DeepseaOil.Presentation
         // BGM 淡入淡出
         private float _bgmFadeTime = 0.3f;
         private BgmFadeState _bgmFadeState = BgmFadeState.None;
+
+        // BGM 播放意图：守卫据此自愈被外部停掉的循环 BGM
+        private bool _bgmShouldPlay;
+        private bool _bgmStopWarned;
         private AudioClip _pendingBgmClip;
         private bool _pendingBgmResume;   // 挂起的续播意图（淡出完成后切歌时使用）
+        private bool _pendingBgmIsLoop;   // 挂起的循环意图（淡出完成后切歌时使用）
         private float _bgmFadeElapsed;
         private float _bgmFadeStartVolume;
         private float _bgmFadeTargetVolume;
@@ -117,29 +136,37 @@ namespace DeepseaOil.Presentation
             _rootGo.transform.SetParent(_host, false);
             _audioRootT = _rootGo.transform;
 
-            _audioPool = new PoolInClass<GameObject>(
+            _audioPool = new Pool<GameObject>(
                 factory: () =>
                 {
                     var obj = new GameObject("Audio");
                     if (_audioRootT != null) obj.transform.SetParent(_audioRootT, false);
-                    obj.AddComponent<AudioSource>();
+                    var src = obj.AddComponent<AudioSource>();
+                    src.playOnAwake = false;
+                    src.priority = PrioritySfx;
+                    obj.SetActive(false);
                     return obj;
                 },
                 onGet: obj => obj.SetActive(true),
                 onRelease: obj => obj.SetActive(false)
             );
 
-            _entryPool = new PoolInClass<PlayingEntry>(
+            _entryPool = new Pool<PlayingEntry>(
                 factory: () => new PlayingEntry()
             );
+
+            // 按并发上限预热：第一次音效（每关开场）不再现场建对象告警
+            _audioPool.Prewarm(MaxConcurrentSfx);
+            _entryPool.Prewarm(MaxConcurrentSfx);
 
             _bgmGameObject = new GameObject("MusicAudioSource", typeof(AudioSource));
             _bgmGameObject.transform.SetParent(_audioRootT, false);
 
             _bgmSource = _bgmGameObject.GetComponent<AudioSource>();
-            _bgmSource.loop = true;
+            _bgmSource.loop = true;   // 默认值，每次 SwitchBgmClip 会按请求覆盖
             _bgmSource.playOnAwake = false;
             _bgmSource.volume = _bgmVolume;
+            _bgmSource.priority = PriorityBgm;   // ★ 核心修复：BGM 永不被 SFX 偷 voice
 
             var loopSfxGo = new GameObject("LoopSfxAudioSource", typeof(AudioSource));
             loopSfxGo.transform.SetParent(_audioRootT, false);
@@ -148,6 +175,7 @@ namespace DeepseaOil.Presentation
             _loopSfxSource.loop = true;
             _loopSfxSource.playOnAwake = false;
             _loopSfxSource.volume = _sfxVolume;
+            _loopSfxSource.priority = PriorityLoopSfx;
 
             _initialized = true;
         }
@@ -163,6 +191,25 @@ namespace DeepseaOil.Presentation
             UpdatePlaying(unscaledDeltaTime);
 
             UpdateBgmFade(unscaledDeltaTime);
+
+            KeepBgmAlive();
+        }
+
+        /// <summary>循环 BGM 被外部停掉时拉回来；这是"音乐被踢走"的最后一道保险</summary>
+        private void KeepBgmAlive()
+        {
+            if (!_bgmShouldPlay || _bgmFadeState != BgmFadeState.None) return;
+            if (_bgmSource == null || _bgmSource.clip == null || !_bgmSource.loop) return;
+            if (_bgmSource.isPlaying) return;
+
+            _bgmSource.Play();
+
+            if (_bgmStopWarned) return;
+
+            _bgmStopWarned = true;
+
+            Debug.LogWarning("[Audio] 循环 BGM 被外部停掉，已自动恢复。若这条日志出现在战斗里，" +
+                             "说明除 AudioManager 之外还有人在停 AudioSource。");
         }
 
         /// <summary>请求播放音效，只入队</summary>
@@ -171,10 +218,10 @@ namespace DeepseaOil.Presentation
             _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Sfx, id));
         }
 
-        /// <summary>请求播放 BGM，只入队。resumeFromLastTime 决定本次是否从该 clip 上次停止的进度继续。</summary>
-        public void EnqueueBgm(AudioId id, bool resumeFromLastTime = true)
+        /// <summary>请求播放 BGM，只入队。resumeFromLastTime 续播上次进度；isLoop=false 忽略续播、播完即停；fade=false 直接切换。</summary>
+        public void EnqueueBgm(AudioId id, bool resumeFromLastTime = true, bool isLoop = true, bool fade = true)
         {
-            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id, resumeFromLastTime));
+            _requestQueue.Enqueue(new AudioRequest(AudioRequestType.Bgm, id, resumeFromLastTime, isLoop, fade));
         }
 
         /// <summary>开关一条循环音效（走路等持续音），同一时刻只保留一条</summary>
@@ -201,6 +248,60 @@ namespace DeepseaOil.Presentation
             _loopSfxSource.Play();
         }
 
+        /// <summary>停掉所有正在播放/待播的音效（含循环音效与队列中待消费的 SFX 请求），不动 BGM</summary>
+        public void StopAllSfx(bool clearPending = true)
+        {
+            if (!_initialized) return;
+
+            if (clearPending)
+                ClearPendingSfxRequests();
+
+            // 在播 SFX：停掉、清 clip、归还池
+            for (int i = _playing.Count - 1; i >= 0; i--)
+            {
+                var entry = _playing[i];
+
+                if (entry.source != null)
+                {
+                    entry.source.Stop();
+                    entry.source.clip = null;
+                }
+
+                if (entry.go != null)
+                    _audioPool?.Release(entry.go);
+
+                entry.Reset();
+                _entryPool?.Release(entry);
+                _playing.RemoveAt(i);
+            }
+
+            // 循环音效
+            if (_loopSfxSource != null)
+            {
+                if (_loopSfxSource.isPlaying) _loopSfxSource.Stop();
+                _loopSfxSource.clip = null;
+            }
+        }
+
+        /// <summary>丢弃队列中尚未消费的 SFX 请求，保留 BGM 请求（BGM 的播放意图不应被"清音效"误伤）。</summary>
+        private void ClearPendingSfxRequests()
+        {
+            if (_requestQueue.Count == 0) return;
+
+            int count = _requestQueue.Count;
+            var kept = new List<AudioRequest>(count);
+
+            for (int i = 0; i < count; i++)
+            {
+                var req = _requestQueue.Dequeue();
+                if (req.type != AudioRequestType.Sfx)
+                    kept.Add(req);
+            }
+
+            for (int i = 0; i < kept.Count; i++)
+                _requestQueue.Enqueue(kept[i]);
+        }
+
         private void ProcessRequests()
         {
             int count = _requestQueue.Count;
@@ -216,7 +317,7 @@ namespace DeepseaOil.Presentation
                         break;
 
                     case AudioRequestType.Bgm:
-                        PlayBgmInternal(request.id, request.resumeBgm);
+                        PlayBgmInternal(request.id, request.resumeBgm, request.isLoop, request.fade);
                         break;
                 }
             }
@@ -228,6 +329,10 @@ namespace DeepseaOil.Presentation
             {
                 var entry = _playing[i];
                 entry.remaining -= unscaledDeltaTime;
+
+                // 被时长上限截断的才淡出收尾；短音效整段都是原音量
+                if (entry.fadeTail > 0f && entry.remaining < entry.fadeTail && entry.remaining > 0f)
+                    entry.source.volume = _sfxVolume * (entry.remaining / entry.fadeTail);
 
                 if (entry.remaining <= 0f || !entry.source.isPlaying)
                 {
@@ -273,8 +378,10 @@ namespace DeepseaOil.Presentation
 
             // BGM 渐变与续播状态复位（_bgmSource 随即置 null，保持幂等干净）
             _bgmFadeState = BgmFadeState.None;
+            _bgmShouldPlay = false;
             _pendingBgmClip = null;
             _pendingBgmResume = false;
+            _pendingBgmIsLoop = true;
             _bgmFadeElapsed = 0f;
             _bgmPlayedTime.Clear();
 
@@ -302,6 +409,17 @@ namespace DeepseaOil.Presentation
             if (clip == null)
                 return;
 
+            // 软上限：超过则丢弃本次请求。避免 voice 耗尽、互相偷、听感糊。
+            if (_playing.Count >= MaxConcurrentSfx)
+                return;
+
+            // 同 clip 去重：同一音效正在播时不重复叠加（防刷屏，也省 voice）
+            for (int i = 0; i < _playing.Count; i++)
+            {
+                if (_playing[i].source.clip == clip)
+                    return;
+            }
+
             var go = _audioPool.Get();
 
             if (go == null) return;
@@ -310,27 +428,57 @@ namespace DeepseaOil.Presentation
                 go.transform.SetParent(_audioRootT, false);
 
             var a = go.GetComponent<AudioSource>();
-            if (a == null) a = go.AddComponent<AudioSource>();
+            if (a == null)
+            {
+                a = go.AddComponent<AudioSource>();
+                a.playOnAwake = false;
+            }
+
+            // 池复用前保险：确保上一轮残留已停
+            if (a.isPlaying) a.Stop();
 
             a.clip = clip;
             a.volume = _sfxVolume;
+            a.priority = PrioritySfx;
+            a.loop = false;
             a.Play();
 
             var entry = _entryPool.Get();
             entry.go = go;
             entry.source = a;
-            entry.remaining = clip.length;
+            entry.remaining = SfxPlayback.SecondsOf(id, clip.length);
+            entry.fadeTail = SfxPlayback.IsCapped(id, clip.length) ? SfxPlayback.FadeTailSeconds : 0f;
             _playing.Add(entry);
         }
 
-        private void PlayBgmInternal(AudioId id, bool resumeFromLastTime)
+        private void PlayBgmInternal(AudioId id, bool resumeFromLastTime, bool isLoop, bool fade)
         {
             var clip = GetClip(id);
             if (clip == null)
                 return;
 
-            // 正在播同一个目标（含淡入中）→ 忽略；淡出中允许覆盖待切目标
-            if (clip == _bgmSource.clip
+            // 非循环 BGM：每次都应从头播，续播参数无意义
+            if (!isLoop)
+                resumeFromLastTime = false;
+
+            if (!fade)
+            {
+                // 直接切换：取消任何进行中的渐变与挂起目标，瞬时换成新 clip 并设满音量
+                _bgmFadeState = BgmFadeState.None;
+                _bgmFadeElapsed = 0f;
+                _pendingBgmClip = null;
+                _pendingBgmResume = false;
+                _pendingBgmIsLoop = true;
+
+                SwitchBgmClip(clip, resumeFromLastTime, isLoop);
+                _bgmSource.volume = _bgmVolume;
+                return;
+            }
+
+            // 正在播同一个目标（含淡入中）→ 忽略；淡出中允许覆盖待切目标。
+            // 非循环 BGM 不受此忽略：它需要支持"同 clip 从头重播"（如播完后再次请求）。
+            if (isLoop
+                && clip == _bgmSource.clip
                 && _bgmSource.isPlaying
                 && _bgmFadeState != BgmFadeState.FadingOut)
                 return;
@@ -338,7 +486,7 @@ namespace DeepseaOil.Presentation
             if (_bgmSource.clip == null || !_bgmSource.isPlaying)
             {
                 // 当前没在播，直接切 clip 并淡入（按参数决定是否续播）
-                SwitchBgmClip(clip, resumeFromLastTime);
+                SwitchBgmClip(clip, resumeFromLastTime, isLoop);
                 StartFadeIn();
             }
             else
@@ -346,20 +494,24 @@ namespace DeepseaOil.Presentation
                 // 正在播，先淡出，淡出完成后切 clip 再淡入
                 _pendingBgmClip = clip;
                 _pendingBgmResume = resumeFromLastTime;
+                _pendingBgmIsLoop = isLoop;
                 StartFadeOut();
             }
         }
 
-        /// <summary>切换 BGM clip：从 0 音量起播，交给后续淡入推音量；按参数决定是否从上次进度续播</summary>
-        private void SwitchBgmClip(AudioClip clip, bool resumeFromLastTime)
+        /// <summary>切换 BGM clip：从 0 音量起播，交给后续淡入推音量；按参数决定是否从上次进度续播。非循环强制从头。</summary>
+        private void SwitchBgmClip(AudioClip clip, bool resumeFromLastTime, bool isLoop)
         {
             // 切走前先记住当前 clip 的进度（无论下次续不续播，进度都要更新，避免旧进度污染）
             RememberCurrentBgmTime();
 
             _bgmSource.clip = clip;
             _bgmSource.volume = 0f;
+            _bgmSource.loop = isLoop;
+            _bgmSource.priority = PriorityBgm;   // 保险：每次切歌都确保最高优先级
 
-            if (resumeFromLastTime
+            if (isLoop
+                && resumeFromLastTime
                 && _bgmPlayedTime.TryGetValue(clip, out float t)
                 && t > 0f && t < clip.length)
             {
@@ -371,6 +523,7 @@ namespace DeepseaOil.Presentation
             }
 
             _bgmSource.Play();
+            _bgmShouldPlay = true;
         }
 
         /// <summary>切走/停止前写回当前进度</summary>
@@ -390,6 +543,7 @@ namespace DeepseaOil.Presentation
             _bgmFadeTargetVolume = _bgmVolume;
             _pendingBgmClip = null;
             _pendingBgmResume = false;
+            _pendingBgmIsLoop = true;
         }
 
         private void StartFadeOut()
@@ -431,14 +585,17 @@ namespace DeepseaOil.Presentation
                     {
                         var next = _pendingBgmClip;
                         var resume = _pendingBgmResume;
+                        var loop = _pendingBgmIsLoop;
                         _pendingBgmClip = null;
                         _pendingBgmResume = false;
-                        SwitchBgmClip(next, resume); // 内部会先 RememberCurrentBgmTime
+                        _pendingBgmIsLoop = true;
+                        SwitchBgmClip(next, resume, loop); // 内部会先 RememberCurrentBgmTime
                         StartFadeIn();
                         return;              // 保持 FadingIn 状态，本帧不再收尾
                     }
                     RememberCurrentBgmTime();
                     _bgmSource.Stop();
+                    _bgmShouldPlay = false;
                     _bgmFadeState = BgmFadeState.None;
                     break;
 
@@ -458,6 +615,7 @@ namespace DeepseaOil.Presentation
 
         private AudioClip GetClip(AudioId id)
         {
+            if(id == AudioId.None) return null;
             if (!_idToFileName.TryGetValue(id, out string name))
             {
                 Debug.LogError($"无{id}配置");

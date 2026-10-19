@@ -42,7 +42,9 @@ namespace DeepseaOil.Presentation.UI
             base.OnDestroy();
         }
 
-        public override void ShowMe() { }
+        public override void ShowMe() 
+        {
+        }
 
         public override void HideMe() { }
 
@@ -56,6 +58,7 @@ namespace DeepseaOil.Presentation.UI
 
         private void OnSceneLoadStarted(SceneLoadStarted evt)
         {
+            GameRoot.Instance.Audio.StopAllSfx();
             _sceneLoaded = false;
             _fadeInFinished = false;
             _activationRequested = false;

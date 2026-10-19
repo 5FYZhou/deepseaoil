@@ -84,10 +84,10 @@ namespace DeepseaOil.Logic.Element
             switch (ball)
             {
                 case BallType.Water:
-                    return new ReactionOutcome(TileStateType.BasicWater, 0, 0f, 0f, false, 1.0f);
+                    return new ReactionOutcome(TileStateType.BasicWater, 0, 0f, 0f, false, 0f);
 
                 case BallType.Earth:
-                    return new ReactionOutcome(TileStateType.BasicEarth, 0, 0f, 0f, false, 1.0f);
+                    return new ReactionOutcome(TileStateType.BasicEarth, 0, 0f, 0f, false, 0f);
 
                 default:
                     return ReactionOutcome.Unchanged(currentTile);
