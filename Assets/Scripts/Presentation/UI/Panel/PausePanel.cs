@@ -1,5 +1,4 @@
-﻿using DeepseaOil.Data;
-using DeepseaOil.Logic;
+using DeepseaOil.Data;
 using DeepseaOil.Logic.Events;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,7 +7,7 @@ namespace DeepseaOil.Presentation.UI
 {
     public class PausePanel : BasePanel
     {
-        public override E_UILayer Layer => E_UILayer.Middle;
+        public override E_UILayer Layer => E_UILayer.Top;
         public override bool CanBeHideByKey => true;
         public override bool CloseOnSceneTransition => true;
 
@@ -16,8 +15,7 @@ namespace DeepseaOil.Presentation.UI
 
         public override void HideMe()
         {
-            if (GameRoot.Instance.Game.CurState == GameState.Paused)
-                GameRoot.Instance.Game.ChangeState(GameState.Running);
+            GameRoot.Instance.Game.Resume();
         }
 
         protected override ButtonStyle SetBtnStyle(string name)
@@ -33,7 +31,7 @@ namespace DeepseaOil.Presentation.UI
                     GameRoot.Instance.UI.ShowPanel<SettingPanel>((panel)=>panel.CanSave(true));
                     break;
                 case "BtnContinue":
-                    GameRoot.Instance.Game.ChangeState(GameState.Running);
+                    GameRoot.Instance.Game.Resume();
                     break;
                 case "BtnRestart":
                     string targetScene = SceneManager.GetActiveScene().name;

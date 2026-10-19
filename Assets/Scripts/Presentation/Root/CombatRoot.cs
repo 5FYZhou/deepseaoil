@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
@@ -774,8 +774,8 @@ namespace DeepseaOil.Presentation
                 story.Initialize(this, _root, playerMoveTrigger, pendingRestore != null ? pendingRestore.story : null);
             }
 
-            // 还没开打就先补一档：剧情关卡的首笔自动存档原本要等开场台词播完
-            if (_levelLogic != null && _levelLogic.State == LevelState.NotStarted)
+            // 场景一开始就存一档；读档进来的不覆盖
+            if (pendingRestore == null && _levelLogic != null)
                 _entryAutoSavePending = true;
         }
 
@@ -1109,10 +1109,10 @@ namespace DeepseaOil.Presentation
                 {
                     case TileStateType.BasicFire:
                     case TileStateType.FlameField:
-                        id = AudioId.TileAsh;
+                        //id = AudioId.TileAsh;
                         return true;
                     case TileStateType.BasicIce:
-                        id = AudioId.TileGlassBreak;
+                        //id = AudioId.TileGlassBreak;
                         return true;
                 }
 
@@ -1138,15 +1138,15 @@ namespace DeepseaOil.Presentation
                 case TileStateType.MudSkid:
                     id = AudioId.TileMud;
                     return true;
-                case TileStateType.BasicIce:
-                    id = AudioId.TileFrozenSoil;
-                    return true;
+                //case TileStateType.BasicIce:
+                //    id = AudioId.TileFrozenSoil;
+                //    return true;
                 case TileStateType.TerracottaBrick:
                     id = AudioId.TileBrick;
                     return true;
-                case TileStateType.BasicEarth:
-                    id = AudioId.Tile;
-                    return true;
+                //case TileStateType.BasicEarth:
+                //    id = AudioId.Tile;
+                //    return true;
                 case TileStateType.ChargedThorn:
                     id = AudioId.TileThorn;
                     return true;

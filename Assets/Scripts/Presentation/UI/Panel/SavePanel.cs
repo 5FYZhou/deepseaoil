@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using DeepseaOil.Data;
-using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Service;
 using UnityEngine;
@@ -94,12 +93,6 @@ namespace DeepseaOil.Presentation.UI
                 return;
             }
 
-            if (slotIndex == 0 && IsLevelInProgress())
-            {
-                Debug.LogWarning("[Save] 关卡进行中不能读取 0 号自动存档。", this);
-                return;
-            }
-
             EventBus<RequestLoad>.Publish(new RequestLoad(slotIndex));
         }
 
@@ -172,9 +165,7 @@ namespace DeepseaOil.Presentation.UI
 
                 SaveSlotInfo slot = _slotInfos[i];
                 bool hasSave = slot.Status == SaveSlotStatus.Available;
-                bool canSelect = _mode == SavePanelMode.Save
-                    ? i != 0
-                    : hasSave && (i != 0 || !IsLevelInProgress());
+                bool canSelect = _mode == SavePanelMode.Save ? i != 0 : hasSave;
                 button.interactable = canSelect;
                 ButtonStyle style = hasSave ? ButtonStyle.SaveSlot : ButtonStyle.EmptySaveSlot;
                 if (_slotStyles[i] != style)
@@ -244,14 +235,6 @@ namespace DeepseaOil.Presentation.UI
             }
 
             _thumbTextures.Clear();
-        }
-
-        private static bool IsLevelInProgress()
-        {
-            GameState state = GameRoot.Instance.Game.CurState;
-            return state == GameState.Running
-                || state == GameState.Paused
-                || state == GameState.Settle;
         }
 
         private bool EnsureSlotViews()

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
@@ -775,14 +775,15 @@ namespace DeepseaOil.Presentation.Story
         {
             if (!_hasResumeGameState)
             {
-                _resumeGameState = _root.Game.CurState == GameState.SceneTransition
+                GameState cur = _root.Game.CurState;
+                _resumeGameState = cur == GameState.SceneTransition || cur == GameState.Story
                     ? GameState.Running
-                    : _root.Game.CurState;
+                    : cur;
                 _hasResumeGameState = true;
             }
 
-            if (_root.Game.CurState != GameState.CG && _root.Game.CurState != GameState.SceneTransition)
-                _root.Game.ChangeState(GameState.CG);
+            if (_root.Game.CurState != GameState.Story && _root.Game.CurState != GameState.SceneTransition)
+                _root.Game.ChangeState(GameState.Story);
         }
 
         private void OnRequestHudRefresh(RequestHudRefresh evt)
@@ -799,8 +800,8 @@ namespace DeepseaOil.Presentation.Story
             if (!_playing || !_hasResumeGameState || evt.state != _resumeGameState)
                 return;
 
-            if (_root != null && _root.Game != null && _root.Game.CurState != GameState.CG)
-                _root.Game.ChangeState(GameState.CG);
+            if (_root != null && _root.Game != null && _root.Game.CurState != GameState.Story)
+                _root.Game.ChangeState(GameState.Story);
         }
 
         private void ResumeGameAfterDialogue()
@@ -811,7 +812,7 @@ namespace DeepseaOil.Presentation.Story
             _hasResumeGameState = false;
             _resumeGameState = GameState.None;
 
-            if (_root != null && _root.Game != null && _root.Game.CurState == GameState.CG)
+            if (_root != null && _root.Game != null && _root.Game.CurState == GameState.Story)
                 _root.Game.ChangeState(resumeState);
         }
 

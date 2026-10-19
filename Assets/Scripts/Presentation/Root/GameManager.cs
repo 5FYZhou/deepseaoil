@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Logic;
+using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Presentation.UI;
@@ -11,6 +11,8 @@ namespace DeepseaOil.Presentation
     {
         public GameState CurState { get; private set; } = GameState.None;
 
+        private GameState _stateBeforePause;
+        private bool _hasStateBeforePause;
         private GameState _stateBeforeSceneTransition;
         private GameState _sceneTransitionTargetState;
         private bool _hasSceneTransitionTarget;
@@ -36,6 +38,12 @@ namespace DeepseaOil.Presentation
                 return;
             }
 
+            if (newState == GameState.Paused)
+            {
+                _stateBeforePause = CurState;
+                _hasStateBeforePause = true;
+            }
+
             switch (newState)
             {
                 case GameState.Menu:
@@ -55,6 +63,15 @@ namespace DeepseaOil.Presentation
 
             CurState = newState;
             EventBus<GameStateChanged>.Publish(new GameStateChanged(CurState));
+        }
+
+        public void Resume()
+        {
+            if (CurState != GameState.Paused) return;
+
+            GameState target = _hasStateBeforePause ? _stateBeforePause : GameState.Running;
+            _hasStateBeforePause = false;
+            ChangeState(target);
         }
 
         public void BeginSceneTransition()
