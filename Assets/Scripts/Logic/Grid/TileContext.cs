@@ -48,9 +48,6 @@ namespace DeepseaOil.Logic.Grid
     /// <summary>状态的施加出口：找目标、算方向、判死活都在实现侧；状态只提交"对谁做什么"</summary>
     public interface ITileResolver
     {
-        /// <summary>对格上目标造成一次伤害</summary>
-        void DealCell(Vector3Int cell, float amount);
-
         /// <summary>对格上目标续一次减速；seconds 是续命窗口，按帧调用时就是本帧 Δt</summary>
         void ApplySlowCell(Vector3Int cell, float speedScale, float seconds);
 

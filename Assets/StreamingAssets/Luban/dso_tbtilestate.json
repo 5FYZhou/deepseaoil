@@ -92,7 +92,7 @@
   {
     "id": 6,
     "name": "陶砖",
-    "duration": 12,
+    "duration": 15,
     "dot_damage": 0,
     "slow_rate": 1,
     "touch_stun": 0,
@@ -142,7 +142,7 @@
   {
     "id": 22,
     "name": "带电荆棘",
-    "duration": 20,
+    "duration": 15,
     "dot_damage": 1,
     "slow_rate": 0.5,
     "touch_stun": 3,

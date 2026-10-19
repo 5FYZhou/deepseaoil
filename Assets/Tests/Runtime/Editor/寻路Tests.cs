@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // 敌人寻路 · 运行期测试（纯逻辑：不碰物理、不读场景）
 //
-// ASCII 地形：'#' 墙、'.' 空地、'=' 窄口，首行是**最上面**那排；净空逐采样点铺开（见 NewMaze 与 WallDistance）。
+// ASCII 地形：'#' 墙、'.' 空地、'=' 窄口，首行是最上面那排；净空逐采样点铺开。
 //   距离一律以**采样点**为单位：一格 = 4 个采样点。
 //
 // 跑法：Test Runner ▸ EditMode ▸ Run All
@@ -125,7 +125,7 @@ namespace DeepseaOil.Tests
             return x + y * width;
         }
 
-        /// <remarks>必须是**采样坐标的行主序**：流场按 ±1 / ±SampleWidth 走四邻，格内分块布局会让"相邻"落到别的格上。</remarks>
+        /// <remarks>必须采样坐标行主序：流场按 ±1 / ±SampleWidth 走四邻，分块布局会让"相邻"落到别的格。</remarks>
         private static int Node(int x, int y, int width, int i, int j)
         {
             int sub = NavMap.Subdivision;
@@ -623,6 +623,51 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0f, againstWall.Direction.y, 0.01f, "让开方向那一侧是墙，横向分量仍被加进了方向");
         }
 
+        /// <summary>停住且被同伴挤住时沿切向让开：径向会让停靠与追击互顶。</summary>
+        [Test]
+        public void 停住时同伴挤在一起会沿切向让开()
+        {
+            GridLogic grid = NewMaze(OpenField(6, 3), out _);
+
+            grid.RefreshNavFields(new Vector3Int(5, 1, 0), Skin);
+
+            var motor = new MotorProbe { Position = new Vector2(2.5f, 1.375f) };
+            EnemyLogic enemy = NewEnemy(grid, motor);
+
+            // 目标在正东 0.4：已在停靠环 0.6 内 ⇒ 大脑给 Idle
+            enemy.SetTarget(new Vector2(2.9f, 1.375f));
+
+            // 同伴在正北 0.4（同一格）：推挤方向正南，切向分量完整保留
+            grid.Registry.Register(new Vector3Int(2, 1, 0), new BodyStub { Position = new Vector2(2.5f, 1.775f), Radius = Radius });
+
+            enemy.Tick(0.02f, 0.02f);
+
+            Assert.IsTrue(enemy.Intent.IsIdle, "距离 0.4 已在停靠环内，大脑必须是 Idle，否则测的不是停住散开");
+
+            Steering steered = enemy.ResolveSteering();
+
+            Assert.Greater(steered.Speed, 0f, "停住且被挤住时必须散开：没有物理推挤，不散就是精确叠在一起");
+            Assert.Less(steered.Direction.y, -0.9f, "同伴在北侧，散开方向该向南");
+            Assert.AreEqual(0f, steered.Direction.x, 0.01f, "散开不许带径向分量：那会把怪推进玩家身体或被追击顶回来");
+        }
+
+        /// <summary>停住但没人挤：不许凭空漂移。</summary>
+        [Test]
+        public void 停住且没人挤时不产生漂移()
+        {
+            GridLogic grid = NewMaze(OpenField(6, 3), out _);
+
+            grid.RefreshNavFields(new Vector3Int(5, 1, 0), Skin);
+
+            var motor = new MotorProbe { Position = new Vector2(2.5f, 1.375f) };
+            EnemyLogic enemy = NewEnemy(grid, motor);
+
+            enemy.SetTarget(new Vector2(2.9f, 1.375f));
+            enemy.Tick(0.02f, 0.02f);
+
+            Assert.AreEqual(0f, enemy.ResolveSteering().Speed, 0f, "没被挤住还散开就是凭空漂移");
+        }
+
         [Test]
         public void 卡死满帧后换到次优邻格()
         {
@@ -666,9 +711,7 @@ namespace DeepseaOil.Tests
 
         /// <summary>验收：玩家在敌人正前方 8 单位/秒横向折返 3 次，再顶住它的脸 —— 命令方向不许翻面、单帧 |Δv| 不许超配置、贴脸不许算卡死</summary>
         /// <remarks>夹具自己积分位置，并做引擎会做的那件事：身体贴住时把速度压到零（下一帧帧首读到的就是它）。|Δv| 读账本本帧的提交量，不含物理压速。
-        /// 折返段全程保持 1.8 格间距：要让怪在满速上撞见"原始方向掉头"，贴住身体会把速度压没、把这一条盖掉。
-        /// 改前实测：命令方向单帧转过 60° 有 9 次、单帧 |Δv| 4.88（配置加速度 5 的 49 倍）、贴住满帧即换步。
-        /// 判据阈值压到 20°（60° 太粗，20° 才能把同格摆动纳入判据）；改后 20° 为 0 次。</remarks>
+        /// 折返段全程保持 1.8 格间距：贴住身体会把速度压没、把"满速撞见掉头"这一条盖掉。判据取 20°：60° 太粗，抓不到同格摆动。</remarks>
         [Test]
         public void 玩家折返与贴脸顶住都不该抖()
         {

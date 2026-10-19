@@ -70,6 +70,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>目标快照：受害方可能在结算中死亡注销</summary>
         private readonly List<IEffectTarget> _dealScratch = new();
 
+        /// <summary>DoT 到点目标：伤害在枚举外结算</summary>
+        private readonly List<(IEffectTarget Target, Vector3Int Cell)> _dotDue = new();
+
         /// <summary>径向冲击格缓冲，复用避免热路径分配</summary>
         private readonly List<Vector3Int> _blastCells = new();
 
@@ -88,7 +91,7 @@ namespace DeepseaOil.Logic.Grid
 
         private const float ElementNavDirtyInterval = 0.2f;
 
-        /// <remarks>stateFactory 返回 null=未实现；duo=null 无二级反应；registry=null 自建。数值不在此注入：tile_state / element_rule 已是最终值。</remarks>
+        /// <remarks>stateFactory 返回 null=未实现；duo=null 无二级反应；registry=null 自建。数值不在此注入：两张表已是最终值。</remarks>
         public GridLogic(
             in GridGeometry geometry,
             IReadOnlyList<TileStateSpec> stateSpecs,
@@ -135,8 +138,8 @@ namespace DeepseaOil.Logic.Grid
             _navFields.MarkDirty();
         }
 
-        /// <summary>喂本帧的目标格、皮厚与元素步价；由组合根每物理帧调一次，未变则不作废</summary>
-        /// <remarks>只作废不重建：成本落在调用点，不在每只怪里。</remarks>
+        /// <summary>喂本帧目标格、皮厚与元素步价；组合根每物理帧调一次</summary>
+        /// <remarks>只作废不重建：成本落在调用点。</remarks>
         public void RefreshNavFields(Vector3Int goalCell, float skin)
         {
             _navFields.SetGoal(goalCell, skin, _navElementCost);
@@ -179,8 +182,8 @@ namespace DeepseaOil.Logic.Grid
             return _specs.TryGetValue(state, out TileStateSpec spec) && spec.IsConductor;
         }
 
-        /// <summary>该格是否物理阻挡地貌：只看 tile_state.is_obstacle，无表行返回 false</summary>
-        /// <remarks>静态碰撞体不进这里（它们进 NavMap 的净空），否则绕障会把"贴墙但能过"的格也封死</remarks>
+        /// <summary>该格是否物理阻挡地貌：只看 tile_state.is_obstacle</summary>
+        /// <remarks>静态碰撞体进 NavMap 净空、不进这里，否则"贴墙但能过"的格会被封死</remarks>
         public bool IsObstacle(Vector3Int cell)
         {
             TileStateType state = StateOf(cell);
@@ -189,7 +192,7 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>非空地且非阻挡的地貌：元素格偏好的唯一判据</summary>
-        /// <remarks>范围刻意取"所有非空地"，不是 Damage.ElementFromTile 的火/电/冰三色：水、土、植物、泥浆同样是玩家铺的元素。</remarks>
+        /// <remarks>刻意取"所有非空地"：水、土、植物、泥浆同样是玩家铺的元素，不只是火/电/冰。</remarks>
         public bool IsElementTile(Vector3Int cell)
         {
             TileStateType state = StateOf(cell);
@@ -305,6 +308,9 @@ namespace DeepseaOil.Logic.Grid
 
             FlushElementNavDirty();
 
+            // DoT 先于本帧状态结算：到期那一帧也要算上本格效果
+            TickDots(deltaTime);
+
             // 火海蔓延前沿先推：它的时间基准与本节拍一致
             TileChainReactor.Tick(this, now, deltaTime);
 
@@ -325,7 +331,7 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>球落地：纯函数裁决 → 原子提交地貌 → 当帧结算冲击 → 按需触发连锁</summary>
-        /// <remarks>返回 false：地板外、或地貌与冲击都没发生的空过。首跳伤害在此当帧打出，绝不等待下一次 Tick。</remarks>
+        /// <remarks>返回 false：地板外、或地貌与冲击都没发生的空过。首跳当帧打出，不等下一次 Tick。</remarks>
         public bool OnBallHit(Vector3Int cell, BallType ball)
         {
             if (!_cells.Contains(cell)) return false;
@@ -423,7 +429,7 @@ namespace DeepseaOil.Logic.Grid
             DealCell(cell, amount, 0f);
         }
 
-        /// <summary>对格上目标结算一次：元素默认按该格当前状态定，强制定色由 element 覆盖</summary>
+        /// <summary>对格上目标结算一次；element 覆盖默认的元素定色</summary>
         public void DealCell(Vector3Int cell, float amount, float knockbackCells, ElementKind element = ElementKind.Physical, bool forceElement = false)
         {
             if (amount <= 0f && knockbackCells <= 0f) return;
@@ -454,8 +460,8 @@ namespace DeepseaOil.Logic.Grid
             if (target is IDamageable damageable) damageable.TakeDamage(in damage);
         }
 
-        /// <summary>对格上目标续一次减速；状态实现按帧调，seconds 是本帧窗口</summary>
-        /// 续减速不做快照，离开泥浆自然过期；替换成一次性大窗口会短于物理帧被扣穿
+        /// <summary>对格上目标续减速；seconds 是本帧窗口</summary>
+        /// 续减速不做快照，离开泥浆自然过期；换成一次性大窗口会短于物理帧被扣穿
         public void ApplySlowCell(Vector3Int cell, float speedScale, float seconds)
         {
             if (speedScale >= 1f) return;
@@ -481,7 +487,7 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
-        /// <summary>连锁电击：伤害 + 麻痹一次结算，供 TileChainReactor 逐格调</summary>
+        /// <summary>连锁电击：伤害＋麻痹一次结算，供逐格调</summary>
         public void ApplyInstantShock(Vector3Int cell, int damage, float stunSeconds)
         {
             // 连锁电击不看格状态：导电源也可能是水或荆棘，元素恒为电
@@ -494,8 +500,8 @@ namespace DeepseaOil.Logic.Grid
             EventBus<GridPointVfxOccurred>.Publish(new GridPointVfxOccurred(_geometry.CellCenter(cell), isFlame));
         }
 
-        /// <summary>径向范围冲击：半径内每格结算一次伤害与击退，用于二级反应的波及</summary>
-        /// <remarks>半径按格心欧氏距离判、含中心格；一次反应同格只结算一次。</remarks>
+        /// <summary>径向冲击：半径内每格结算一次伤害与击退</summary>
+        /// <remarks>半径按格心欧氏距离判、含中心格；同格只结算一次。</remarks>
         public void ApplyBlast(Vector3Int center, float radiusCells, int damage, float knockbackCells, float stunSeconds = 0f)
         {
             if (radiusCells < 0f) radiusCells = 0f;
@@ -538,7 +544,7 @@ namespace DeepseaOil.Logic.Grid
             EventBus<GridBlastOccurred>.Publish(new GridBlastOccurred(centerPoint, radiusCells * _geometry.CellSize, centerState));
         }
 
-        /// <summary>半径内铺 resultTile；永久地貌跳过（Normal 例外），保护玩家铺的水/土</summary>
+        /// <summary>半径内铺 resultTile；永久地貌跳过（Normal 例外）</summary>
         public bool SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
         {
             if (radiusCells < 0f) radiusCells = 0f;
@@ -590,7 +596,7 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>切换某格状态；同状态 no-op，未登记的格与无表行的状态一律拒绝</summary>
-        /// <remarks>durationOverride &gt; 0 覆盖表里的 duration（二级反应结果存续用它）；贴图由 EventBus 订阅者刷。</remarks>
+        /// <remarks>durationOverride &gt; 0 覆盖表里的 duration；贴图由 EventBus 订阅者刷。</remarks>
         public bool SwitchTileState(Vector3Int cell, TileStateType next, float durationOverride = 0f)
         {
             if (!_cells.Contains(cell)) return false;
@@ -639,7 +645,7 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>目标跨格进入：只给该目标补"进格一下"</summary>
-        /// <remarks>进格一次性代价＝伤害＋麻痹，持续伤害由状态的 DoT 承担；同格不再进不重复结算。</remarks>
+        /// <remarks>进格一次性代价＝伤害＋麻痹；持续伤害由每秒充能承担，充能不满时跨格不补首跳。</remarks>
         public void OnActorEnterCell(Vector3Int cell, IEffectTarget target)
         {
             if (target == null || target.IsAlive == false) return;
@@ -653,8 +659,32 @@ namespace DeepseaOil.Logic.Grid
 
             if (spec.DotDamage <= 0) return;
 
-            // DoT 的首跳放在这：走进去那一下要立刻痛，不能等满一秒
+            // DoT 首跳：踩进去那一下要立刻痛，但同一秒内跨到别的伤害格不再补
+            if (!_registry.TryConsumeDotCharge(target)) return;
+
             DealTarget(target, _geometry.CellCenter(cell), spec.DotDamage, 0f, Damage.ElementFromTile(StateOf(cell)));
+        }
+
+        /// <summary>地貌 DoT：每只怪自带 1 秒节拍，跨格不重置（逐格结算会让高速穿越变成逐格掉血）</summary>
+        /// <remarks>伤害在归属枚举之外结算：受击可能致死注销，枚举中改不了表。</remarks>
+        private void TickDots(float deltaTime)
+        {
+            if (deltaTime <= 0f) return;
+
+            _registry.AdvanceDotCharges(deltaTime, _dotDue);
+
+            for (int i = 0; i < _dotDue.Count; i++)
+            {
+                (IEffectTarget target, Vector3Int cell) = _dotDue[i];
+
+                int damage = DotDamageOf(cell);
+
+                if (damage <= 0) continue;
+
+                if (!_registry.TryConsumeDotCharge(target)) continue;
+
+                DealTarget(target, _geometry.CellCenter(cell), damage, 0f, Damage.ElementFromTile(StateOf(cell)));
+            }
         }
 
         private void DrainPendingTransitions()

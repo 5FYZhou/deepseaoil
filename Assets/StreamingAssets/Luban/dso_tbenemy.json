@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "普通怪",
-    "max_speed": 4.2,
+    "max_speed": 5,
     "hp": 3,
     "contact_damage": 1,
     "describe": "基础炮灰，成群排队踩陷阱"
@@ -10,7 +10,7 @@
   {
     "id": 2,
     "name": "精英怪",
-    "max_speed": 5.6,
+    "max_speed": 6.4,
     "hp": 8,
     "contact_damage": 2,
     "describe": "移动肉盾，带头冲锋，必掉战备种子"
