@@ -134,6 +134,10 @@ namespace DeepseaOil.Presentation
 
         public int NextLevelId => levelReader != null ? levelReader.NextLevelId : 0;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        public IReadOnlyList<EnemyActor> Enemies => _enemies;
+#endif
+
         public event Action EnemyKilled;
 
         private void Start()
@@ -208,6 +212,10 @@ namespace DeepseaOil.Presentation
         public void RenderTick(float deltaTime)
         {
             if (!IsReady) return;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Diagnostics.EnemyKillAllTool.Poll(this);
+#endif
 
             StopExpiredPlantFlash();
 
