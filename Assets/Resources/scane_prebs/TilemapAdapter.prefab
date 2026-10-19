@@ -120,7 +120,7 @@ MonoBehaviour:
     OverrideMaterial: {fileID: 0}
     ExtraOffsetY: 0
   defaultMaterial: {fileID: 2100000, guid: 4b9d1a76c3e24f8ea5d0b2c91e37a640, type: 2}
-  maxPoolSize: 256
+  maxPoolSize: 1024
 --- !u!114 &7683757329109016829
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -133,6 +133,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: af4a084afe5f44745aeb06ce4334b79a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxPoolSize: 32
+  maxPoolSize: 256
   electricityVfxPrefab: {fileID: 7621487727216103828, guid: 0caf84e5438c26e49821367178f863aa, type: 3}
   tilemapAdapter: {fileID: 0}
