@@ -28,6 +28,7 @@ using DeepseaOil.Presentation.RenderPass;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using DeepseaOil.Presentation.Story;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using cfg.dso;
@@ -37,6 +38,10 @@ namespace DeepseaOil.Presentation
     /// <summary>战斗切片的组合根：装配一次，每帧驱动</summary>
     public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
     {
+        private static readonly ProfilerMarker FixedTickMarker = new("Combat.FixedTick");
+
+        private static readonly ProfilerMarker EnemyLoopMarker = new("Combat.Enemies");
+
         public int Order => SceneOrder.World;
 
         /// <summary>怪所在的 Unity 层号：与预制体根节点层、ProjectSettings 里的层名三处必须一致</summary>
@@ -278,39 +283,69 @@ namespace DeepseaOil.Presentation
         {
             if (!IsReady) return;
 
-            float now = Time.fixedTime;
-
-            // ① 落地冲量：必须在物理帧施加，渲染帧施加会漂
-            _impulses.FixedTick();
-
-            // 导航流场先追玩家本帧所在格：必须早于敌人循环，否则怪读的是上一帧的场
-            if (player != null && _grid != null)
+            using (FixedTickMarker.Auto())
             {
-                _grid.RefreshNavFields(_grid.WorldToCell(player.Position), ConfigModule.NavSkin);
+                float now = Time.fixedTime;
+
+                // ① 落地冲量：必须在物理帧施加，渲染帧施加会漂
+                _impulses.FixedTick();
+
+                // 导航流场先追玩家本帧所在格：必须早于敌人循环，否则怪读的是上一帧的场
+                if (player != null && _grid != null)
+                {
+                    _grid.RefreshNavFields(_grid.WorldToCell(player.Position), ConfigModule.NavSkin);
+                }
+
+                // ② 全场敌人先按本帧位置追一步，再让格子按新位置结算（顺序不能反）
+                using (EnemyLoopMarker.Auto())
+                {
+                    for (int i = _enemies.Count - 1; i >= 0; i--)
+                    {
+                        EnemyActor enemy = _enemies[i];
+                        if (enemy == null)
+                        {
+                            _enemies.RemoveAt(i);
+                            continue;
+                        }
+                        if (enemy.IsAlive)
+                        {
+                            enemy.FixedTick(now, deltaTime);
+                        }
+                    }
+                }
+
+                if (_combat != null)
+                {
+                    _combat.FixedTick(now, deltaTime);
+                }
+
+                // ③ 玩家受击：读物理体位置，须在敌人移动之后
+                UpdatePlayerContact(now);
+            }
+        }
+
+        [ContextMenu("Dump perf counters")]
+        private void DumpPerfCounters()
+        {
+            if (!IsReady)
+            {
+                Debug.Log("[Perf] 尚未装配，无读数。");
+                return;
             }
 
-            // ② 全场敌人先按本帧位置追一步，再让格子按新位置结算（顺序不能反）
-            for (int i = _enemies.Count - 1; i >= 0; i--)
+            int alive = 0;
+
+            for (int i = 0; i < _enemies.Count; i++)
             {
                 EnemyActor enemy = _enemies[i];
-                if (enemy == null)
-                {
-                    _enemies.RemoveAt(i);
-                    continue;
-                }
-                if (enemy.IsAlive)
-                {
-                    enemy.FixedTick(now, deltaTime);
-                }
+                if (enemy != null && enemy.IsAlive) alive++;
             }
 
-            if (_combat != null)
-            {
-                _combat.FixedTick(now, deltaTime);
-            }
-
-            // ③ 玩家受击：读物理体位置，须在敌人移动之后
-            UpdatePlayerContact(now);
+            Debug.Log(
+                $"[Perf] 活怪 {alive}/{_enemies.Count}  " +
+                $"流场 {_grid.NavFields.FieldCount} 张 / 累计重建 {_grid.NavFields.TotalRebuilds} 次（应随玩家跨格增长）  " +
+                $"地貌 {_grid.ActiveStateCount} 格 / 待 Tick {_grid.ScheduledTickCount}  " +
+                $"特效 {EffectModule.GetStats()}");
         }
 
         private void TickSeedInput()

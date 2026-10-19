@@ -72,6 +72,10 @@ namespace DeepseaOil.Data.Settings
 
         public Color damageIce = new(0.70f, 0.90f, 1.00f, 1f);
 
+        [Header("HUD 受击")]
+        [Tooltip("血条受击溅射粒子色：与 LIFE 条暖橙同族，别用纯白（会在奶油底上糊成一片）")]
+        public Color hudHitSpark = new(1f, 0.72f, 0.42f, 1f);
+
         /// <summary>取观感颜色表；缺失时返回字段默认值实例</summary>
         internal static VisualPalette LoadOrDefault()
         {

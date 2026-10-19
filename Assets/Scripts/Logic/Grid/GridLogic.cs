@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 using cfg.dso;
 using DeepseaOil.Data;
@@ -13,6 +14,8 @@ namespace DeepseaOil.Logic.Grid
     /// <remarks>伤害全由格子产生（Apply）。Tick 请求双缓冲：本帧提交、下帧消费；状态转换进待处理表、Tick 后结算。</remarks>
     public sealed class GridLogic : ITileScheduler, ITileResolver
     {
+        private static readonly ProfilerMarker TickMarker = new("Grid.Tick");
+
         public GridGeometry Geometry => _geometry;
 
         public EnemyCellRegistry Registry => _registry;
@@ -303,31 +306,34 @@ namespace DeepseaOil.Logic.Grid
 
         public void Tick(float now, float deltaTime)
         {
-            _now = now;
-            _deltaTime = deltaTime;
-
-            FlushElementNavDirty();
-
-            // DoT 先于本帧状态结算：到期那一帧也要算上本格效果
-            TickDots(deltaTime);
-
-            // 火海蔓延前沿先推：它的时间基准与本节拍一致
-            TileChainReactor.Tick(this, now, deltaTime);
-
-            _queue.Swap();
-
-            IReadOnlyList<Vector3Int> cells = _queue.Current;
-
-            for (int i = 0; i < cells.Count; i++)
+            using (TickMarker.Auto())
             {
-                Vector3Int cell = cells[i];
+                _now = now;
+                _deltaTime = deltaTime;
 
-                if (!_machines.TryGetValue(cell, out TileStateMachine machine)) continue;
+                FlushElementNavDirty();
 
-                machine.Tick(BuildContext(cell));
+                // DoT 先于本帧状态结算：到期那一帧也要算上本格效果
+                TickDots(deltaTime);
+
+                // 火海蔓延前沿先推：它的时间基准与本节拍一致
+                TileChainReactor.Tick(this, now, deltaTime);
+
+                _queue.Swap();
+
+                IReadOnlyList<Vector3Int> cells = _queue.Current;
+
+                for (int i = 0; i < cells.Count; i++)
+                {
+                    Vector3Int cell = cells[i];
+
+                    if (!_machines.TryGetValue(cell, out TileStateMachine machine)) continue;
+
+                    machine.Tick(BuildContext(cell));
+                }
+
+                DrainPendingTransitions();
             }
-
-            DrainPendingTransitions();
         }
 
         /// <summary>球落地：纯函数裁决 → 原子提交地貌 → 当帧结算冲击 → 按需触发连锁</summary>
