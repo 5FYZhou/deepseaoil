@@ -260,6 +260,8 @@ namespace DeepseaOil.Presentation
 
             _autoSaveRequested = false;
 
+            if (CurrentLevelId <= 0) return;
+
             EventBus<RequestAutoSave>.Publish(new RequestAutoSave(CollectGameState(0, true)));
         }
 
@@ -755,17 +757,28 @@ namespace DeepseaOil.Presentation
 
             player.Logic.ConfigureAim(in geometry, playerSpec.MaxThrowDistance, this);
 
-            if (enableLevel && levelReader.CurrentLevelId > 0)
+            if (enableLevel)
             {
                 int levelId = levelReader.CurrentLevelId;
-                _levelLogic = new LevelLogic(levelReader, levelId == 5);
-                if (!UsesScriptedStory(_levelLogic.CurrentLevel.Id))
-                {
-                    _levelLogic.Start();
-                    GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
-                }
 
-                _combat = CreateCombatDirector(_levelLogic);
+                if (ConfigModule.HasLevel(levelId))
+                {
+                    _levelLogic = new LevelLogic(levelReader, levelId == 0 || levelId == 5);
+                    if (!UsesScriptedStory(_levelLogic.CurrentLevel.Id))
+                    {
+                        _levelLogic.Start();
+                        GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
+                    }
+
+                    _combat = CreateCombatDirector(_levelLogic);
+                }
+                else
+                {
+                    Debug.LogError(
+                        $"[Level] level_wave 表里没有关卡 id={levelId} 的行：本关按无波次运行。" +
+                        "关卡场景必须有对应行（教学关 id=0 的 wave_ids 要指向 L0 波次）。",
+                        this);
+                }
             }
 
             IsReady = true;

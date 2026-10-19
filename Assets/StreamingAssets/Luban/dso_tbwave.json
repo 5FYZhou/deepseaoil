@@ -148,5 +148,15 @@
     "spawn_interval": 0.15,
     "grant_seed": 4,
     "describe": "终极割草狂欢，全元素终极对抗"
+  },
+  {
+    "id": 16,
+    "name": "L0",
+    "prep_time": 3,
+    "battle_time": 30,
+    "settle_time": 5,
+    "spawn_interval": 0.2,
+    "grant_seed": 0,
+    "describe": "教程关"
   }
 ]

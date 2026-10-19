@@ -1,5 +1,12 @@
 [
   {
+    "id": 0,
+    "wave_ids": [
+      16
+    ],
+    "describe": "教学关"
+  },
+  {
     "id": 1,
     "wave_ids": [
       1,

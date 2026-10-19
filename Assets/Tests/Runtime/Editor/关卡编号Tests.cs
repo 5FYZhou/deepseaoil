@@ -1,4 +1,4 @@
-// 关卡编号契约：场景 Level_N ⇔ level_wave.id = N；Level_0 是教学关，没有配表行
+// 关卡编号契约：场景 Level_N ⇔ level_wave.id = N；教学关 id=0，配了行才有波次
 using DeepseaOil.Data;
 using NUnit.Framework;
 
@@ -34,9 +34,14 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
-        public void 教学关没有关卡配置()
+        public void 教学关的配表行若存在就必须有波次()
         {
-            Assert.Throws<ConfigLoadException>(() => ConfigModule.GetLevel(0));
+            if (!ConfigModule.HasLevel(0)) return;
+
+            LevelSpec level = ConfigModule.GetLevel(0);
+
+            Assert.AreEqual(0, level.Id);
+            Assert.Greater(level.Waves.Count, 0, "教学关的 level_wave 行必须指向至少一波");
         }
     }
 }

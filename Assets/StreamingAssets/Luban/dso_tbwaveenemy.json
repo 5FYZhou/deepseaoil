@@ -166,5 +166,12 @@
     "enemy_id": 2,
     "count": 5,
     "describe": "⬆ 满屏敌潮，一发大招歼灭"
+  },
+  {
+    "id": 25,
+    "wave_id": 16,
+    "enemy_id": 1,
+    "count": 2,
+    "describe": "教程关：2只普怪"
   }
 ]

@@ -501,6 +501,13 @@ namespace DeepseaOil.Data
             return result;
         }
 
+        public static bool HasLevel(int id)
+        {
+            EnsureAssets();
+
+            return _holder.Tables.TbLevelWave.GetOrDefault(id) != null;
+        }
+
         public static LevelSpec GetLevel(int id)
         {
             EnsureAssets();
