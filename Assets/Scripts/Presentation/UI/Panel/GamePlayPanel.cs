@@ -2,6 +2,7 @@ using cfg.dso;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Presentation.Effects;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -32,6 +33,9 @@ namespace DeepseaOil.Presentation.UI
         [SerializeField] private Sprite spriteState1;
         [SerializeField] private Sprite spriteState2;
         [SerializeField] private Sprite spriteState3;
+
+        [Tooltip("血条整块的节点（抖动对象）。留空按名字找 healthState，再退 ImgHealth")]
+        [SerializeField] private RectTransform healthShakeRoot;
 
         public override E_UILayer Layer => E_UILayer.Bottom;
         public override bool CanBeHideByKey => false;
@@ -107,6 +111,13 @@ namespace DeepseaOil.Presentation.UI
         private SeedType _seedType;
         private string _seedIconKey;
 
+        private RectTransform _healthShakeRoot;
+        private RectTransform _healthBarRect;
+        private EffectHandle _hudShake;
+        private EffectHandle _hudFlash;
+        private EffectHandle _hudSpark;
+        private float _lastHealth = -1f;
+
         private Logic.Wave.WavePhase _curWavePhase;
 
         protected override void Awake()
@@ -129,6 +140,9 @@ namespace DeepseaOil.Presentation.UI
             _imgWater.sprite = spriteWater;
             _imgEarth.sprite = spriteEarth;
 
+            _healthBarRect = healthImage != null ? healthImage.rectTransform : null;
+            _healthShakeRoot = ResolveHealthShakeRoot();
+
             if (healthImage == null || healthImage.material == null)
             {
                 Debug.LogError("[GamePlayPanel] ImgHealth 缺少可用材质。", this);
@@ -149,6 +163,7 @@ namespace DeepseaOil.Presentation.UI
         protected override void OnDestroy()
         {
             Unsubscribe();
+            StopHudHit();
             if (_healthAnimCoroutine != null)
                 StopCoroutine(_healthAnimCoroutine);
             if (_waterIconCoroutine != null)
@@ -172,6 +187,7 @@ namespace DeepseaOil.Presentation.UI
 
         public override void ShowMe()
         {
+            _lastHealth = -1f;
             Subscribe();
             ClearWaveHud();
             EventBus<RequestHudRefresh>.Publish(new RequestHudRefresh());
@@ -180,6 +196,7 @@ namespace DeepseaOil.Presentation.UI
         public override void HideMe()
         {
             Unsubscribe();
+            StopHudHit();
         }
 
         protected override TxtStyle SetTxtStyle(string name)
@@ -252,6 +269,9 @@ namespace DeepseaOil.Presentation.UI
         }
         private void ResetHealthHud()
         {
+            _lastHealth = -1f;
+            StopHudHit();
+
             if (_healthAnimCoroutine != null)
             {
                 StopCoroutine(_healthAnimCoroutine);
@@ -260,6 +280,64 @@ namespace DeepseaOil.Presentation.UI
 
             if (_healthMaterial != null)
                 _healthMaterial.SetFloat(HealthPropertyId, MaterialAtFiveHealth);
+        }
+
+        private RectTransform ResolveHealthShakeRoot()
+        {
+            if (healthShakeRoot != null) return healthShakeRoot;
+
+            RectTransform named = transform.Find("healthState") as RectTransform;
+
+            return named != null ? named : _healthBarRect;
+        }
+
+        private void TryPlayHudHit(float current)
+        {
+            float previous = _lastHealth;
+
+            _lastHealth = current;
+
+            if (previous < 0f) return;
+            if (current >= previous - 0.0001f) return;
+            if (!EffectModule.IsInitialized) return;
+
+            Data.Settings.VisualFeelTuning feel = Data.ConfigModule.VisualFeel;
+
+            if (_healthShakeRoot != null)
+            {
+                EffectContext shake = EffectContext.OnTarget(_healthShakeRoot);
+                shake.Value = feel.hudHitShakeAmplitude;
+                shake.Duration = feel.hudHitShakeDuration;
+
+                _hudShake = EffectModule.Play(EffectId.HudShake, in shake);
+            }
+
+            if (_healthBarRect == null) return;
+
+            EffectContext flash = EffectContext.OnTarget(_healthBarRect);
+            flash.Value = feel.hudHitFlashAlpha;
+            flash.Duration = feel.hudHitFlashDuration;
+
+            _hudFlash = EffectModule.Play(EffectId.HudFlash, in flash);
+
+            EffectContext spark = EffectContext.OnTarget(_healthBarRect);
+            spark.Value = feel.hudHitSparkCount;
+            spark.Duration = feel.hudHitSparkDuration;
+            spark.Modulation = new Vector2(feel.hudHitSparkSpeed, feel.hudHitSparkGravity);
+            spark.Tint = Data.ConfigModule.Visuals.hudHitSpark;
+
+            _hudSpark = EffectModule.Play(EffectId.HudSpark, in spark);
+        }
+
+        private void StopHudHit()
+        {
+            if (_hudShake.IsValid) EffectModule.Stop(_hudShake);
+            if (_hudFlash.IsValid) EffectModule.Stop(_hudFlash);
+            if (_hudSpark.IsValid) EffectModule.Stop(_hudSpark);
+
+            _hudShake = EffectHandle.None;
+            _hudFlash = EffectHandle.None;
+            _hudSpark = EffectHandle.None;
         }
 
         private void ClearWaveHud()
@@ -577,6 +655,8 @@ namespace DeepseaOil.Presentation.UI
 
         private void OnHealthChanged(PlayerHealthChanged evt)
         {
+            TryPlayHudHit(evt.Current);
+
             if (_healthMaterial == null) return;
 
             float targetHealth = GetMaterialHealth(Mathf.Clamp(evt.Current, 0f, 5f));

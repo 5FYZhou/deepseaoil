@@ -19,6 +19,12 @@ namespace DeepseaOil.Presentation.Effects
         Popup = 7,
 
         Hop = 8,
+
+        HudShake = 9,
+
+        HudSpark = 10,
+
+        HudFlash = 11,
     }
 
     internal readonly struct EffectSpec
@@ -103,6 +109,12 @@ namespace DeepseaOil.Presentation.Effects
             new EffectSpec(EffectId.Hop,          EffectDriverKind.Hop,         isSingleton: false, maxSize: 64),
 
             new EffectSpec(EffectId.AlphaTint,    EffectDriverKind.Tint,        isSingleton: false, maxSize: 64),
+
+            new EffectSpec(EffectId.HudShake,     EffectDriverKind.HudShake,    isSingleton: false, maxSize: 4, prewarm: 0),
+
+            new EffectSpec(EffectId.HudSpark,     EffectDriverKind.HudSpark,    isSingleton: false, maxSize: 24, prewarm: 0),
+
+            new EffectSpec(EffectId.HudFlash,     EffectDriverKind.HudFlash,    isSingleton: false, maxSize: 4, prewarm: 0),
         };
 
         internal static EffectSpec[] BuildSpecs(EffectTuning tuning)
