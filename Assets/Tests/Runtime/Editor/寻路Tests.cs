@@ -894,6 +894,7 @@ namespace DeepseaOil.Tests
             var cell = new Vector3Int(2, 2, 0);
 
             Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.BasicWater), "元素格没铺上");
+            grid.Tick(1f, 0.05f);
             grid.RefreshNavFields(goal, Skin);
             Assert.AreEqual(builds + 1, grid.NavFields.TotalRebuilds, "元素格出现没作废流场");
 
@@ -902,14 +903,48 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(builds + 1, grid.NavFields.TotalRebuilds, "元素格没变却每帧重建");
 
             Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.BasicFire), "元素格换色失败");
+            grid.Tick(1.05f, 0.05f);
             grid.RefreshNavFields(goal, Skin);
 
             Assert.AreEqual(builds + 1, grid.NavFields.TotalRebuilds, "元素格换元素格不该重建");
 
             Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.Normal), "元素格清回空地失败");
+            grid.Tick(1.3f, 0.05f);
             grid.RefreshNavFields(goal, Skin);
 
             Assert.AreEqual(builds + 2, grid.NavFields.TotalRebuilds, "元素格消失没作废流场");
+        }
+
+        [Test]
+        public void 元素格每帧都变时流场重建被合并到每秒五次()
+        {
+            GridLogic grid = NewMaze(OpenField(8, 4), out _);
+
+            var goal = new Vector3Int(7, 1, 0);
+            var first = new Vector3Int(2, 1, 0);
+            var second = new Vector3Int(3, 1, 0);
+
+            grid.RefreshNavFields(goal, Skin);
+            grid.NavFieldFor(Radius, Skin);
+
+            int builds = grid.NavFields.TotalRebuilds;
+            float now = 0f;
+
+            for (int i = 0; i < 20; i++)
+            {
+                Vector3Int cell = (i & 1) == 0 ? first : second;
+
+                grid.SwitchTileState(cell, TileStateType.Normal);
+                grid.SwitchTileState(cell, TileStateType.BasicWater);
+
+                now += 0.05f;
+
+                grid.Tick(now, 0.05f);
+                grid.RefreshNavFields(goal, Skin);
+            }
+
+            Assert.LessOrEqual(grid.NavFields.TotalRebuilds - builds, 6,
+                "元素偏好每帧都变时流场重建没被合并：火海/铺水会让每物理帧都全图重算");
         }
 
         [Test]

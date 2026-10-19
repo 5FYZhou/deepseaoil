@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using cfg.dso;
 
 namespace DeepseaOil.Logic.Grid
@@ -7,21 +6,19 @@ namespace DeepseaOil.Logic.Grid
 
     public sealed class TileStateMachine
     {
-        private readonly Dictionary<TileStateType, System.Func<ITileState>> _factories = new();
+        private readonly System.Func<TileStateType, ITileState> _factory;
 
         private ITileState _current;
+
+        /// <summary>工厂由 GridLogic 持有一份并共享：每格各建一张委托表会在铺场时产生成百上千次闭包分配</summary>
+        public TileStateMachine(System.Func<TileStateType, ITileState> factory)
+        {
+            _factory = factory;
+        }
 
         public TileStateType CurrentId => _current != null ? _current.Id : TileStateType.Normal;
 
         public ITileState Current => _current;
-
-        /// <summary>注册一个状态的工厂，Normal 不需要注册</summary>
-        public void Register(TileStateType id, System.Func<ITileState> factory)
-        {
-            if (factory == null) return;
-
-            _factories[id] = factory;
-        }
 
         /// <summary>已经是该状态时不重入、不重置（反复投水球不刷新泥浆计时），返回 false；造不出实例时也返回 false 且不动 _current</summary>
         /// <remarks>durationOverride &gt; 0 时覆盖表里的存活秒数（二级反应的结果存续用它）。</remarks>
@@ -63,9 +60,7 @@ namespace DeepseaOil.Logic.Grid
 
         private ITileState Create(TileStateType id)
         {
-            if (!_factories.TryGetValue(id, out System.Func<ITileState> factory) || factory == null) return null;
-
-            return factory();
+            return _factory != null ? _factory(id) : null;
         }
     }
 }

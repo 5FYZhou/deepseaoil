@@ -434,5 +434,21 @@ namespace DeepseaOil.Tests
                     $"{who}：格层不许把格数当速度域冲量直推 —— 那会让 1 格退成 0.03 格（v²/2a，a=30），与表值差两个数量级");
             }
         }
+
+        [Test]
+        public void 永久且无每帧效果的地貌不再每帧自重排Tick()
+        {
+            var cell = Vector3Int.zero;
+
+            GridLogic grid = NewGrid(new EnemyCellRegistry(), cell);
+
+            Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.BasicFire), "基础火池没切上");
+
+            grid.Tick(0.1f, PhysicsStep);
+            grid.Tick(0.2f, PhysicsStep);
+
+            Assert.AreEqual(0, grid.ScheduledTickCount,
+                "永久且无 slow/dot 的地貌仍在每帧自重排：铺满后每帧要白扫全部格子");
+        }
     }
 }

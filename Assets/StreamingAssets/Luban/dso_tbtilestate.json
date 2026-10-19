@@ -142,7 +142,7 @@
   {
     "id": 22,
     "name": "带电荆棘",
-    "duration": 10,
+    "duration": 20,
     "dot_damage": 1,
     "slow_rate": 0.5,
     "touch_stun": 3,

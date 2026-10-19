@@ -47,6 +47,11 @@ namespace DeepseaOil.Presentation
 
         private const float SeedPlantFlashDuration = 0.2f;
 
+        // 出生音效按"批"不按"只"：60 只一波逐只播会把 BGM 盖住
+        private const int SpawnSfxPerWave = 2;
+
+        private const float SpawnSfxMinInterval = 1.0f;
+
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
         [SerializeField] private PlayerController player = default;
@@ -112,6 +117,10 @@ namespace DeepseaOil.Presentation
         private float _retryAt = float.PositiveInfinity;
 
         private bool _autoSaveRequested;
+
+        private int _spawnSfxLeft;
+
+        private float _nextSpawnSfxAt;
 
         private bool _entryAutoSavePending;
 
@@ -622,7 +631,7 @@ namespace DeepseaOil.Presentation
             actor.Initialize(position, in spec, player.transform, facing, _grid, _registry, actorRoot);
 
             actor.SfxRequested = PlaySfx;
-            if (actor.IsInitialized) PlaySfx(AudioId.EnemySpawn);
+            if (actor.IsInitialized) PlaySpawnSfx();
 
             Track(actor);
         }
@@ -1005,7 +1014,11 @@ namespace DeepseaOil.Presentation
                 return;
             }
 
-            if (evt.Phase == WavePhase.Battle) ApplyWaveTimeOfDay(evt.WaveIndex);
+            if (evt.Phase == WavePhase.Battle)
+            {
+                _spawnSfxLeft = SpawnSfxPerWave;
+                ApplyWaveTimeOfDay(evt.WaveIndex);
+            }
         }
 
         // 波前配给顶替补满：持种也先清仓，节奏不由上一波残留决定
@@ -1274,6 +1287,15 @@ namespace DeepseaOil.Presentation
             }
 
             _root.Audio.EnqueueSfx(id);
+        }
+
+        private void PlaySpawnSfx()
+        {
+            if (_spawnSfxLeft <= 0 || Time.unscaledTime < _nextSpawnSfxAt) return;
+
+            _spawnSfxLeft--;
+            _nextSpawnSfxAt = Time.unscaledTime + SpawnSfxMinInterval;
+            PlaySfx(AudioId.EnemySpawn);
         }
 
         // 扫场景预摆怪；运行时拖入的由 Start 报到

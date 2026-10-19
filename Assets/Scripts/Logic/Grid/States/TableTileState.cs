@@ -17,10 +17,14 @@ namespace DeepseaOil.Logic.Grid.States
         /// <summary>覆盖后的存活秒数；未覆盖时等于表值</summary>
         private float _duration;
 
+        /// <summary>无 slow/dot 的永久地貌不逐帧 Tick</summary>
+        private bool _needsTick;
+
         public TableTileState(TileStateSpec spec)
         {
             _spec = spec;
             _duration = spec.Duration;
+            _needsTick = _duration > 0f || spec.SlowRate < 1f || spec.DotDamage > 0;
         }
 
         public TileStateType Id => _spec.Id;
@@ -30,16 +34,19 @@ namespace DeepseaOil.Logic.Grid.States
 
         public void OverrideDuration(float seconds)
         {
-            if (seconds > 0f) _duration = seconds;
+            if (seconds <= 0f) return;
+
+            _duration = seconds;
+            _needsTick = true;   // 有倒计时就必须进队列
         }
 
-        /// <remarks>进入即开始计时；同状态不重入，所以反复投球不会刷新泥浆计时</remarks>
+        /// <remarks>同状态不重入，反复投球不刷新泥浆计时</remarks>
         public void OnEnter(in TileContext ctx)
         {
             _elapsed = 0f;
             _dotAccumulator = 0f;
 
-            ctx.Scheduler?.ScheduleTick(ctx.Cell);
+            if (_needsTick) ctx.Scheduler?.ScheduleTick(ctx.Cell);
         }
 
         public void OnTick(in TileContext ctx)
@@ -60,7 +67,7 @@ namespace DeepseaOil.Logic.Grid.States
                 }
             }
 
-            ctx.Scheduler?.ScheduleTick(ctx.Cell);
+            if (_needsTick) ctx.Scheduler?.ScheduleTick(ctx.Cell);
         }
 
         public void OnExit(in TileContext ctx)

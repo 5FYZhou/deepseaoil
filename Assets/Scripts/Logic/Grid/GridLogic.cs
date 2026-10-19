@@ -43,6 +43,8 @@ namespace DeepseaOil.Logic.Grid
 
         public int CellCount => _cells.Count;
 
+        public int ScheduledTickCount => _queue.Current.Count;
+
         private readonly GridGeometry _geometry;
         private readonly Dictionary<TileStateType, TileStateSpec> _specs = new();
         private readonly Func<TileStateType, ITileState> _stateFactory;
@@ -79,6 +81,12 @@ namespace DeepseaOil.Logic.Grid
         private float _now;
         private float _deltaTime;
         private float _navElementCost = 0.85f;
+
+        /// <summary>元素偏好待合并：5 Hz 才作废流场</summary>
+        private bool _navElementDirty;
+        private float _nextElementNavDirtyAt;
+
+        private const float ElementNavDirtyInterval = 0.2f;
 
         /// <remarks>stateFactory 返回 null=未实现；duo=null 无二级反应；registry=null 自建。数值不在此注入：tile_state / element_rule 已是最终值。</remarks>
         public GridLogic(
@@ -128,12 +136,21 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>喂本帧的目标格、皮厚与元素步价；由组合根每物理帧调一次，未变则不作废</summary>
-        /// <remarks>只作废不重建：真正重建发生在 NavFieldFor 或紧接的 EnsureNavFields，成本出现在调用点而不是散在每只怪里。</remarks>
+        /// <remarks>只作废不重建：成本落在调用点，不在每只怪里。</remarks>
         public void RefreshNavFields(Vector3Int goalCell, float skin)
         {
             _navFields.SetGoal(goalCell, skin, _navElementCost);
 
             _navFields.RebuildStale(this, Nav);
+        }
+
+        private void FlushElementNavDirty()
+        {
+            if (!_navElementDirty || _now < _nextElementNavDirtyAt) return;
+
+            _navElementDirty = false;
+            _nextElementNavDirtyAt = _now + ElementNavDirtyInterval;
+            _navFields.MarkDirty();
         }
 
         /// <summary>取该体半径的流场；该半径首次出现时建一张（每种怪一次）</summary>
@@ -285,6 +302,8 @@ namespace DeepseaOil.Logic.Grid
         {
             _now = now;
             _deltaTime = deltaTime;
+
+            FlushElementNavDirty();
 
             // 火海蔓延前沿先推：它的时间基准与本节拍一致
             TileChainReactor.Tick(this, now, deltaTime);
@@ -586,9 +605,7 @@ namespace DeepseaOil.Logic.Grid
             {
                 if (next == TileStateType.Normal) return false;
 
-                machine = new TileStateMachine();
-
-                RegisterStateFactories(machine);
+                machine = new TileStateMachine(_stateFactory);
             }
 
             TileStateType previous = machine.CurrentId;
@@ -609,7 +626,8 @@ namespace DeepseaOil.Logic.Grid
             bool obstacleChanged = IsObstacle(cell) != wasObstacle;
             bool elementChanged = IsElementTile(cell) != wasElement;
 
-            if (obstacleChanged || (_navElementCost < 1f && elementChanged)) _navFields.MarkDirty();
+            if (obstacleChanged) _navFields.MarkDirty();
+            else if (_navElementCost < 1f && elementChanged) _navElementDirty = true;
 
             return true;
         }
@@ -661,18 +679,6 @@ namespace DeepseaOil.Logic.Grid
             }
 
             _pendingScratch.Clear();
-        }
-
-        private void RegisterStateFactories(TileStateMachine machine)
-        {
-            if (_stateFactory == null) return;
-
-            foreach (KeyValuePair<TileStateType, TileStateSpec> pair in _specs)
-            {
-                TileStateType id = pair.Key;
-
-                machine.Register(id, () => _stateFactory(id));
-            }
         }
 
         private TileContext BuildContext(Vector3Int cell)

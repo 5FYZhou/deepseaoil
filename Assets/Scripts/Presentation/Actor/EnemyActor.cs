@@ -81,6 +81,8 @@ namespace DeepseaOil.Presentation.Actor
 
         private float _slowMultiplier = 1f;
 
+        private float _hitStopUntil;
+
         /// 贴身伤害，取自 enemy 表；ContactProbe 经 IContactDamager 读
         public int ContactDamage => _spec != null ? _spec.ContactDamage : 0;
 
@@ -266,7 +268,7 @@ namespace DeepseaOil.Presentation.Actor
 
                 EffectModule.Play(EffectId.BurstSparks, in spark);
 
-                StartCoroutine(CoHitStop(feel.hitStopSeconds));
+                BeginHitStop(feel.hitStopSeconds);
             }
 
             if (damage.HasKnockback && _logic != null)
@@ -330,9 +332,32 @@ namespace DeepseaOil.Presentation.Actor
             ApplySlowTint();
             TickStunSpark(deltaTime);
             UpdateCell(force: false);
+            RestoreHitStop(now);
 
             // 运动学快照与移动同频提交：动画与物理体必须看到同一帧真值
             _animView?.SetMotion(EngineVelocity, _motor.Facing, EngineVelocity.magnitude);
+        }
+
+        private void BeginHitStop(float seconds)
+        {
+            if (seconds <= 0f || _animView == null || _animView.Animator == null) return;
+
+            _animView.Animator.speed = 0f;
+            _hitStopUntil = Time.time + seconds;
+        }
+
+        private void RestoreHitStop(float now)
+        {
+            if (_hitStopUntil <= 0f || now < _hitStopUntil) return;
+
+            RestoreHitStopNow();
+        }
+
+        private void RestoreHitStopNow()
+        {
+            _hitStopUntil = 0f;
+
+            if (_animView != null && _animView.Animator != null) _animView.Animator.speed = 1f;
         }
 
         public void ApplySlow(float speedScale, float seconds)
@@ -493,6 +518,9 @@ namespace DeepseaOil.Presentation.Actor
 
             _deathFired = true;
 
+            // 顿帧中死亡不再 FixedTick，必须显式恢复
+            RestoreHitStopNow();
+
             SfxRequested?.Invoke(AudioId.EnemyDie);
 
             if (_motor != null) _motor.Move(Vector2.zero);
@@ -616,7 +644,7 @@ namespace DeepseaOil.Presentation.Actor
             UpdateCell(force: true);
             _animView?.ResetToDefault();
 
-            if (_animView != null && _animView.Animator != null) _animView.Animator.speed = 1f;
+            RestoreHitStopNow();
         }
 
         private System.Collections.IEnumerator CoRespawn()
@@ -629,19 +657,6 @@ namespace DeepseaOil.Presentation.Actor
             _respawnRoutine = null;
 
             ResetToSpawn();
-        }
-
-        private System.Collections.IEnumerator CoHitStop(float seconds)
-        {
-            if (_animView != null && _animView.Animator != null)
-            {
-                _animView.Animator.speed = 0f;
-                yield return new WaitForSeconds(seconds);
-                if (_animView != null && _animView.Animator != null)
-                {
-                    _animView.Animator.speed = 1f;
-                }
-            }
         }
     }
 }
