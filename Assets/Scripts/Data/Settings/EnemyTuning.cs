@@ -40,6 +40,9 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("软分离权重：与流场方向相加后归一。0 = 不分离，过大 = 挤开流场方向绕远")]
         public float separationWeight = 0.25f;
 
+        [Tooltip("停住时的散开速度（世界单位/秒）：被同伴挤住时沿切向挪开；0 或未填按 1.0")]
+        public float spreadSpeed = 1f;
+
         [Tooltip("卡死判定帧数：速度被压到零满这么多物理帧才算卡死")]
         public int stuckFrames = 18;
 

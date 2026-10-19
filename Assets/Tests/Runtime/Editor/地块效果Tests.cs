@@ -1,22 +1,20 @@
 // ---------------------------------------------------------------------------
 // 格上效果链 · 行为测试（"地块改了，敌人却没反应"这一类）
 //
-// 【权责切分】落地冲击（伤害/击退/麻痹/连锁）归 element_rule，经 ReactionResolver 裁决、
-//   由 GridLogic.OnBallHit 一处提交；地面残留（减速/DoT/存活秒数）归 tile_state，
-//   由 TableTileState 按帧提交。两张表不重叠、不互斥。
+// 【权责切分】落地冲击（伤害/击退/麻痹/连锁）归 element_rule，由 GridLogic.OnBallHit 一处提交；
+//   地面残留（减速/存活秒数）归 tile_state、由 TableTileState 按帧提交；
+//   DoT 由 GridLogic.TickDots 按目标每秒结算。两张表不重叠、不互斥。
 //
 // 【守的是静默缺陷】都是"不报错、只是怪毫无反应"那一类：
-//   ① 减速被丢弃：续命窗口短于一个物理拍就被扣穿，表现为"贴着泥浆也不减速"。
-//   ② DoT 双重计时：攒拍只加单帧 Δt，燃烧 3 秒只掉一次血，等于不掉。
-//   ③ 瞬时伤害逐帧重放：站一秒掉 60 点，进格"一下"的语义完全丢失。
-//   ④ 首跳伤害必须当帧打出（落地那一帧就扣血）。
-//   ⑤ 连锁只许发生在导通格上（蒸汽既不可燃也不导通，不许凭空带电）。
+//   ① 减速被丢弃：续命窗口短于一个物理拍就被扣穿（贴着泥浆也不减速）。
+//   ② 瞬时伤害逐帧重放：站一秒掉 60 点，进格"一下"的语义丢失。
+//   ③ 首跳伤害必须当帧打出（落地那一帧就扣血）。
+//   ④ 连锁只许发生在导通格上（蒸汽既不可燃也不导通，不许凭空带电）。
+//   ⑤ DoT 跨格不重置：逐格结算会把高速穿越变成逐格掉血。
 //
-// 【覆盖边界】本文件只跑 Logic ＋ Data（真表、真状态机、真 StatusGroup），
-//   不经过 EnemyActor / CombatDirector / 场景接线：那一层由人工 PlayMode 验收覆盖。
-//
+// 【覆盖边界】只跑 Logic ＋ Data（真表、状态机、StatusGroup），不经 EnemyActor / 场景接线。
 // 【跑法】Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
-// 【为什么自己 Init】EditMode 里 GameRoot 不跑，不自己初始化就撞 EnsureAssets 守卫。
+// 【为什么自己 Init】EditMode 不跑 GameRoot，不自初始化会撞 EnsureAssets 守卫。
 // ---------------------------------------------------------------------------
 
 using System.Collections.Generic;
@@ -35,7 +33,7 @@ namespace DeepseaOil.Tests
 {
     public class 地块效果Tests
     {
-        /// <summary>消费者侧（StatusGroup）按物理帧扣时的步长；渲染帧比它快才是一帧两拍，最容易扣穿减速。</summary>
+        /// <summary>消费者侧（StatusGroup）按物理帧扣时的步长；渲染帧比它快才是一帧两拍。</summary>
         private const float PhysicsStep = 0.02f;
 
         /// <summary>渲染帧步长：30fps 对应"一帧 2 个物理拍"，减速被扣穿的经典形态。</summary>
@@ -59,7 +57,7 @@ namespace DeepseaOil.Tests
             AssetModule.Dispose();
         }
 
-        /// <summary>格上目标替身：只记次数；减速与麻痹转发给**真** StatusGroup，读到的就是运行时那一份。</summary>
+        /// <summary>格上目标替身：只记次数；减速与麻痹转发给真 StatusGroup。</summary>
         private sealed class GridTarget : IDamageable, ISlowable, IStunnable, IKnockBackable
         {
             private readonly StatusGroup _status;
@@ -81,7 +79,7 @@ namespace DeepseaOil.Tests
 
             public float DamageTotal;
 
-            /// <summary>累计收到的击退格数：位移意图只经 TakeDamage 这一条路进来。</summary>
+            /// <summary>累计击退格数：位移意图只经 TakeDamage 进来。</summary>
             public float KnockbackTotal;
 
             public int RawKnockbackCalls;
@@ -119,7 +117,7 @@ namespace DeepseaOil.Tests
             }
         }
 
-        /// <summary>生产同款消费者：EnemyLogic 内部建的那一份 StatusGroup。</summary>
+        /// <summary>生产同款消费者：EnemyLogic 内部建的那一份。</summary>
         private static StatusGroup NewStatus()
         {
             var spec = new EnemySpec(RowFactory.EnemyRow(), TuningFactory.EnemyEntry());
@@ -152,7 +150,7 @@ namespace DeepseaOil.Tests
             return spec != null ? new TableTileState(spec) : null;
         }
 
-        /// <summary>① 续命型减速：渲染帧续命、物理帧扣时，两只钟交错跑，减速必须咬住每一个物理拍。</summary>
+        /// <summary>① 续命型减速：渲染帧续命、物理帧扣时，减速要咬住每个物理拍。</summary>
         [Test]
         public void 泥浆减速咬住每个物理拍()
         {
@@ -240,7 +238,7 @@ namespace DeepseaOil.Tests
             Assert.GreaterOrEqual(target.DamageHits, afterEnter + 1, "DoT 必须按秒续上：内层累加器只加单帧 Δt 时 60 秒才掉一次");
         }
 
-        /// <summary>③ 瞬时伤害：站着不动只吃进格那一次，逐帧重放就是每秒 60 点。</summary>
+        /// <summary>③ 瞬时伤害：站着不动只吃进格那一次。</summary>
         [Test]
         public void 进格一次性伤害只结算一次()
         {
@@ -269,12 +267,12 @@ namespace DeepseaOil.Tests
                 grid.Tick(now, 1f / 60f);
             }
 
-            // 蒸汽 dot_damage=1：进格 1 次 + 1 秒内 1 次 ≈ 2 次；逐帧重放会是 60 次
+            // 蒸汽 dot=1：进格 1 次 + 1 秒内 1 次 ≈ 2 次；逐帧重放会是 60 次
             Assert.LessOrEqual(target.DamageHits, 3, "进格的一次性伤害不许逐帧重放：站一秒掉 60 点是这个缺陷的经典表现");
             Assert.GreaterOrEqual(target.DamageHits, 1, "进格那一下必须痛");
         }
 
-        /// <summary>④ 表里没给时长的减速（duration=-1）：按"只要在格子上就持续生效"处理，不许直接丢弃。</summary>
+        /// <summary>④ duration=-1 的减速：只要在格上就持续生效，不许丢弃。</summary>
         [Test]
         public void 没给时长的减速也生效()
         {
@@ -309,7 +307,7 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(1f, status.SlowScale, 1e-4f, "没人再续命时减速必须过期，否则离开泥浆还一直是半速");
         }
 
-        /// <summary>⑥ 首跳伤害必须当帧打出：打不出这一帧就是「生成火池/蒸汽后怪走上去跳 0 点伤害」。</summary>
+        /// <summary>⑥ 首跳当帧打出：否则「生成火池/蒸汽后怪走上去跳 0 点」。</summary>
         [Test]
         public void 落地瞬间伤害当帧结算()
         {
@@ -342,7 +340,7 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0, target.StunHits, "蒸汽不导电：连锁泛洪的起点必须自己也是导通体");
         }
 
-        /// <summary>⑦ 连锁标记必须真的把泛洪跑起来：表里 trigger_chain=TRUE 的那一行要额外打出电击。</summary>
+        /// <summary>⑦ 连锁标记必须真的跑起泛洪：trigger_chain=TRUE 要额外打电击。</summary>
         [Test]
         public void 连锁标记会触发泛洪()
         {
@@ -433,6 +431,108 @@ namespace DeepseaOil.Tests
                     target.RawKnockbackCalls,
                     $"{who}：格层不许把格数当速度域冲量直推 —— 那会让 1 格退成 0.03 格（v²/2a，a=30），与表值差两个数量级");
             }
+        }
+
+        [Test]
+        public void 永久且无每帧效果的地貌不再每帧自重排Tick()
+        {
+            var cell = Vector3Int.zero;
+
+            GridLogic grid = NewGrid(new EnemyCellRegistry(), cell);
+
+            Assert.IsTrue(grid.SwitchTileState(cell, TileStateType.BasicFire), "基础火池没切上");
+
+            grid.Tick(0.1f, PhysicsStep);
+            grid.Tick(0.2f, PhysicsStep);
+
+            Assert.AreEqual(0, grid.ScheduledTickCount,
+                "永久且无 slow/dot 的地貌仍在每帧自重排：铺满后每帧要白扫全部格子");
+        }
+
+        /// <summary>⑧ 逐格结算会把高速穿越变成逐格掉血：跨格不许重置 1 秒节拍。</summary>
+        [Test]
+        public void 高速穿越伤害面每秒只掉一次()
+        {
+            var registry = new EnemyCellRegistry();
+            var left = Vector3Int.zero;
+            var right = Vector3Int.right;
+
+            GridLogic grid = NewGrid(registry, left);
+
+            grid.RegisterCell(right);
+            grid.SwitchTileState(left, TileStateType.Steam);
+            grid.SwitchTileState(right, TileStateType.Steam);
+
+            var target = new GridTarget(NewStatus()) { Position = grid.Geometry.CellCenter(left) };
+
+            registry.Register(left, target);
+            grid.OnActorEnterCell(left, target);
+
+            Assert.AreEqual(1, target.DamageHits, "踩进蒸汽那一帧必须立刻痛一次");
+
+            float now = 0f;
+
+            // 每 0.1 秒跨一格、来回 12 次 = 1.2 秒：逐格补首跳会变成十几次
+            for (int step = 0; step < 12; step++)
+            {
+                Vector3Int cell = step % 2 == 0 ? right : left;
+
+                registry.Move(target, cell);
+                target.Position = grid.Geometry.CellCenter(cell);
+                grid.OnActorEnterCell(cell, target);
+
+                for (int frame = 0; frame < 6; frame++)
+                {
+                    now += 1f / 60f;
+
+                    grid.Tick(now, 1f / 60f);
+                }
+            }
+
+            Assert.GreaterOrEqual(target.DamageHits, 2, "站在伤害面上的整秒那一跳丢了");
+            Assert.LessOrEqual(target.DamageHits, 3, $"1.2 秒穿越 12 格只该有首跳 + 每秒一跳，实测 {target.DamageHits} 次");
+        }
+
+        /// <summary>⑨ 离开超 1 秒再进来：充能已满，必须当帧痛。</summary>
+        [Test]
+        public void 离开伤害面超过一秒再进来会立刻痛()
+        {
+            var registry = new EnemyCellRegistry();
+            var steam = Vector3Int.zero;
+            var plain = Vector3Int.right;
+
+            GridLogic grid = NewGrid(registry, steam);
+
+            grid.RegisterCell(plain);
+            grid.SwitchTileState(steam, TileStateType.Steam);
+
+            var target = new GridTarget(NewStatus()) { Position = grid.Geometry.CellCenter(steam) };
+
+            registry.Register(steam, target);
+            grid.OnActorEnterCell(steam, target);
+
+            Assert.AreEqual(1, target.DamageHits, "踩进蒸汽那一帧必须立刻痛一次");
+
+            registry.Move(target, plain);
+            target.Position = grid.Geometry.CellCenter(plain);
+            grid.OnActorEnterCell(plain, target);
+
+            float now = 0f;
+
+            for (int i = 0; i < 72; i++)
+            {
+                now += 1f / 60f;
+
+                grid.Tick(now, 1f / 60f);
+            }
+
+            Assert.AreEqual(1, target.DamageHits, "站在普通格上不该掉血");
+
+            registry.Move(target, steam);
+            target.Position = grid.Geometry.CellCenter(steam);
+            grid.OnActorEnterCell(steam, target);
+
+            Assert.AreEqual(2, target.DamageHits, "离开超过一秒再踩回来，首跳必须立刻打出");
         }
     }
 }

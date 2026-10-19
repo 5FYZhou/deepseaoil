@@ -13,6 +13,9 @@ namespace DeepseaOil.Logic
         /// <summary>分离探针步长（格）：落点要跨进邻格，才判得出"推挤方向那一侧站不站得住"</summary>
         private const float ProbeCells = 1f;
 
+        /// <summary>停住散开的推挤死区：低于它不再漂移，避免永久微动</summary>
+        private const float SpreadDeadband = 0.12f;
+
         /// <summary>原始期望方向翻转判据（度）：只做诊断，不参与决策</summary>
         private const float DesiredSwitchDegrees = 20f;
 
@@ -142,6 +145,21 @@ namespace DeepseaOil.Logic
             return new Steering(_gate.Step(direction, velocity, now), speed);
         }
 
+        /// <summary>停住散开的转向：与追击走同一道闸门，推挤方向不逐帧翻面</summary>
+        public Steering ResolveSpread(Vector2 spread, Vector2 velocity, float now)
+        {
+            _jamFrames = 0;
+            ResetDesired(now);
+
+            float magnitude = spread.magnitude;
+
+            if (magnitude <= 0f) return new Steering(Vector2.zero, 0f);
+
+            float speed = ConfigModule.SpreadSpeed * Mathf.Clamp01(magnitude * 2f);
+
+            return new Steering(_gate.Step(spread / magnitude, velocity, now), speed);
+        }
+
         private void ResetDesired(float now)
         {
             _lastDesired = Vector2.zero;
@@ -191,6 +209,31 @@ namespace DeepseaOil.Logic
             if (!EnemyPathFollower.IsPointWalkable(_grid, _grid.Nav, _radius, skin, probe)) return Vector2.zero;
 
             return push.sqrMagnitude > 1f ? push.normalized : push;
+        }
+
+        /// <summary>停住时的散开方向：只留同伴推挤的切向分量，径向会和停靠/追击互顶</summary>
+        /// <remarks>推挤强度低于 SpreadDeadband 视为没挤：否则刚分开的两只会一直微动。</remarks>
+        public Vector2 IdleSpread(Vector2 position, Vector2? target)
+        {
+            if (_grid == null || !_grid.Geometry.IsValid) return Vector2.zero;
+
+            Vector2 push = ComputeSeparation(position, ConfigModule.NavSkin);
+
+            if (push.sqrMagnitude <= 0f) return Vector2.zero;
+
+            if (target.HasValue)
+            {
+                Vector2 toTarget = target.Value - position;
+
+                if (toTarget.sqrMagnitude > 0f)
+                {
+                    toTarget = toTarget.normalized;
+
+                    push -= toTarget * Vector2.Dot(push, toTarget);
+                }
+            }
+
+            return push.sqrMagnitude >= SpreadDeadband * SpreadDeadband ? push : Vector2.zero;
         }
 
         private void Accumulate(EnemyCellRegistry registry, Vector3Int cell, Vector2 position, float margin, ref Vector2 push)
