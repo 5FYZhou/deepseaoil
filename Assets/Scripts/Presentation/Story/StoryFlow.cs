@@ -38,10 +38,23 @@ namespace DeepseaOil.Presentation.Story
             LevelSixDialogue,
             LevelSixWaveDialogue,
             EndingDialogue,
+            Done,
+        }
+
+        private readonly struct StoryParagraph
+        {
+            public readonly int Paragraph;
+            public readonly int StartLine;
+
+            public StoryParagraph(int paragraph, int startLine)
+            {
+                Paragraph = paragraph;
+                StartLine = startLine;
+            }
         }
 
         private readonly List<DialogueSpec> _popupLines = new();
-        private readonly Queue<int> _pendingStoryParagraphs = new();
+        private readonly Queue<StoryParagraph> _pendingStoryParagraphs = new();
 
         private GameRoot _root;
         private CombatRoot _combatRoot;
@@ -75,6 +88,7 @@ namespace DeepseaOil.Presentation.Story
         private bool _popupExpired;
         private bool _hasResumeGameState;
         private StorySaveData _restoreData;
+        private bool _restartAtLevelStart;
         private bool _paused;
         private bool _pendingLineStep;
 
@@ -135,7 +149,8 @@ namespace DeepseaOil.Presentation.Story
             CombatRoot combatRoot,
             GameRoot root,
             PlayerMoveTrigger playerMoveTrigger,
-            StorySaveData restoreData = null)
+            StorySaveData restoreData = null,
+            bool restartAtLevelStart = false)
         {
             if (combatRoot == null || root == null)
             {
@@ -148,6 +163,7 @@ namespace DeepseaOil.Presentation.Story
             _root = root;
             _playerMoveTrigger = playerMoveTrigger;
             _restoreData = restoreData;
+            _restartAtLevelStart = restartAtLevelStart;
             _root.RegisterSceneRoot(this);
         }
 
@@ -173,6 +189,13 @@ namespace DeepseaOil.Presentation.Story
                     _playerMoveTrigger.PlayerExited += OnPlayerMoveTriggerExited;
             }
 
+            if (_restartAtLevelStart)
+            {
+                _restartAtLevelStart = false;
+                BeginRestartIntro();
+                return;
+            }
+
             if (_restoreData != null)
             {
                 StorySaveData restore = _restoreData;
@@ -186,33 +209,70 @@ namespace DeepseaOil.Presentation.Story
 
         private void BeginLevelIntro()
         {
-            switch (_combatRoot.CurrentLevelId)
+            int levelId = _combatRoot.CurrentLevelId;
+            int paragraph = IntroParagraphOf(levelId);
+
+            if (paragraph == 0) return;
+
+            SetPlayerInputLocked(true);
+            BeginParagraph(paragraph, IntroStageOf(levelId));
+        }
+
+        // 开场段号与阶段是同一份约定；重开续播点也从这里取，别在两处各写一套 switch
+        private static int IntroParagraphOf(int levelId)
+        {
+            return levelId >= 1 && levelId <= 6 ? levelId * 1000 + 1 : 0;
+        }
+
+        private static FlowStage IntroStageOf(int levelId)
+        {
+            switch (levelId)
             {
-                case 1:
-                    SetPlayerInputLocked(true);
-                    BeginParagraph(1001, FlowStage.Opening);
-                    break;
-                case 2:
-                    SetPlayerInputLocked(true);
-                    BeginParagraph(2001, FlowStage.LevelTwoDialogue);
-                    break;
-                case 3:
-                    SetPlayerInputLocked(true);
-                    BeginParagraph(3001, FlowStage.LevelThreeDialogue);
-                    break;
-                case 4:
-                    SetPlayerInputLocked(true);
-                    BeginParagraph(4001, FlowStage.LevelFourDialogue);
-                    break;
-                case 5:
-                    SetPlayerInputLocked(true);
-                    BeginParagraph(5001, FlowStage.LevelFiveDialogue);
-                    break;
-                case 6:
-                    SetPlayerInputLocked(true);
-                    BeginParagraph(6001, FlowStage.LevelSixDialogue);
-                    break;
+                case 2: return FlowStage.LevelTwoDialogue;
+                case 3: return FlowStage.LevelThreeDialogue;
+                case 4: return FlowStage.LevelFourDialogue;
+                case 5: return FlowStage.LevelFiveDialogue;
+                case 6: return FlowStage.LevelSixDialogue;
+                default: return FlowStage.Opening;
             }
+        }
+
+        // 重开：关卡已在装配期启动，这里只接续播点；第 1 关从 1003 第 2 句起，其 sfx 就是 BgmMain
+        private void BeginRestartIntro()
+        {
+            SetPlayerInputLocked(false);
+
+            if (_combatRoot.CurrentLevelId == 1)
+            {
+                // 1003 播完要释放 deferred victory，否则第 1 关打完不结算
+                Stage = FlowStage.TutorialEnemyDialogue;
+                BeginParagraph(1003, FlowStage.TutorialEnemyDialogue, 1);
+                return;
+            }
+
+            Stage = FlowStage.Done;
+
+            int paragraph = IntroParagraphOf(_combatRoot.CurrentLevelId);
+            IReadOnlyList<DialogueSpec> lines = ConfigModule.GetDialogueParagraph(paragraph);
+
+            if (lines.Count == 0)
+            {
+                Debug.LogError($"[StoryFlow] 重开时找不到开场段 {paragraph}，开场剧情已跳过。", this);
+                return;
+            }
+
+            BeginParagraph(paragraph, FlowStage.Done, FirstPopupLineIndex(lines));
+        }
+
+        private static int FirstPopupLineIndex(IReadOnlyList<DialogueSpec> lines)
+        {
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (IsPopupLine(lines[i])) return i;
+            }
+
+            // 没有弹窗行就整段跳过：重开只补弹窗，绝不能把对话框再放一遍
+            return lines.Count;
         }
 
         // 读档：已播完的段一律不再重播，只从存档停住的那一行续下去
@@ -238,10 +298,13 @@ namespace DeepseaOil.Presentation.Story
             _levelSixWaveThreeDialogueQueued = data.levelSixWaveThreeDialogueQueued;
             _endingDialogueQueued = data.endingDialogueQueued;
 
+            if (data.seedDialogueQueued && _root != null && _root.Story != null)
+                _root.Story.MarkSeedDialogueSeen();
+
             if (data.pendingParagraphs != null)
             {
                 for (int i = 0; i < data.pendingParagraphs.Count; i++)
-                    _pendingStoryParagraphs.Enqueue(data.pendingParagraphs[i]);
+                    _pendingStoryParagraphs.Enqueue(new StoryParagraph(data.pendingParagraphs[i], 0));
             }
 
             Stage = (FlowStage)data.stage;
@@ -275,8 +338,13 @@ namespace DeepseaOil.Presentation.Story
                 levelSixWaveTwoDialogueQueued = _levelSixWaveTwoDialogueQueued,
                 levelSixWaveThreeDialogueQueued = _levelSixWaveThreeDialogueQueued,
                 endingDialogueQueued = _endingDialogueQueued,
-                pendingParagraphs = new List<int>(_pendingStoryParagraphs)
+                pendingParagraphs = new List<int>(_pendingStoryParagraphs.Count)
             };
+
+            foreach (StoryParagraph pending in _pendingStoryParagraphs)
+            {
+                data.pendingParagraphs.Add(pending.Paragraph);
+            }
 
             if (!_playing || _lines == null) return data;
 
@@ -679,7 +747,18 @@ namespace DeepseaOil.Presentation.Story
             }
 
             _seedDialogueQueued = true;
-            EnqueueStoryParagraph(4002);
+
+            StorySession session = _root != null ? _root.Story : null;
+            bool dialogueSeen = session != null && session.SeedDialogueSeen;
+
+            session?.MarkSeedDialogueSeen();
+
+            // 4002 只有对话框部分看一次；弹窗部分每次重开后的首次拾种都要再播
+            int startLine = dialogueSeen
+                ? FirstPopupLineIndex(ConfigModule.GetDialogueParagraph(4002))
+                : 0;
+
+            EnqueueStoryParagraph(4002, startLine);
         }
 
         private void OnWavePhaseChanged(WavePhaseChanged evt)
@@ -719,7 +798,12 @@ namespace DeepseaOil.Presentation.Story
 
         private void EnqueueStoryParagraph(int paragraph)
         {
-            _pendingStoryParagraphs.Enqueue(paragraph);
+            EnqueueStoryParagraph(paragraph, 0);
+        }
+
+        private void EnqueueStoryParagraph(int paragraph, int startLine)
+        {
+            _pendingStoryParagraphs.Enqueue(new StoryParagraph(paragraph, startLine));
             TryBeginPendingStoryParagraph();
         }
 
@@ -728,7 +812,8 @@ namespace DeepseaOil.Presentation.Story
             if (!_attached || _playing || _pendingStoryParagraphs.Count == 0)
                 return;
 
-            int paragraph = _pendingStoryParagraphs.Dequeue();
+            StoryParagraph request = _pendingStoryParagraphs.Dequeue();
+            int paragraph = request.Paragraph;
             FlowStage stage;
             switch (paragraph)
             {
@@ -751,7 +836,7 @@ namespace DeepseaOil.Presentation.Story
             }
 
             SetPlayerInputLocked(true);
-            BeginParagraph(paragraph, stage);
+            BeginParagraph(paragraph, stage, request.StartLine);
         }
 
         private static bool IsLevelIntroParagraph(int paragraph)

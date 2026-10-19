@@ -631,6 +631,10 @@ namespace DeepseaOil.Presentation
         // 组装战斗切片：依赖全来自参数与 Data 层，无 FindObjectOfType
         private void Assemble()
         {
+            bool restartAtLevelStart = _root != null
+                && _root.Story != null
+                && _root.Story.TryConsumeRestartAtLevelStart(gameObject.scene.name);
+
             if (player == null || gridView == null)
             {
                 Debug.LogError(
@@ -740,7 +744,7 @@ namespace DeepseaOil.Presentation
             {
                 int levelId = levelReader.CurrentLevelId;
                 _levelLogic = new LevelLogic(levelReader, levelId == 1 || levelId == 6);
-                if (!UsesScriptedStory(_levelLogic.CurrentLevel.Id))
+                if (!UsesScriptedStory(levelId) || restartAtLevelStart)
                 {
                     _levelLogic.Start();
                     GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
@@ -771,11 +775,16 @@ namespace DeepseaOil.Presentation
                     story = gameObject.AddComponent<StoryFlow>();
 
                 _story = story;
-                story.Initialize(this, _root, playerMoveTrigger, pendingRestore != null ? pendingRestore.story : null);
+                story.Initialize(
+                    this,
+                    _root,
+                    playerMoveTrigger,
+                    pendingRestore != null ? pendingRestore.story : null,
+                    restartAtLevelStart);
             }
 
-            // 场景一开始就存一档；读档进来的不覆盖
-            if (pendingRestore == null && _levelLogic != null)
+            // 场景入口存一档；读档与重开都不覆盖
+            if (pendingRestore == null && _levelLogic != null && !restartAtLevelStart)
                 _entryAutoSavePending = true;
         }
 
