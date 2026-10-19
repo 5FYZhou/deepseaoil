@@ -17,7 +17,7 @@ namespace DeepseaOil.Presentation.Grid
 
         [Header("池容量")]
         [Tooltip("常驻粒子对象上限：按累计创建数卡，达到后新请求被丢弃")]
-        [SerializeField] private int maxPoolSize = 32;
+        [SerializeField] private int maxPoolSize = 256;
 
         [Tooltip("电格粒子预制体；留空则按约定从 Resources 懒加载 effects/Vfx_Tile_Electricity")]
         [SerializeField] private GameObject electricityVfxPrefab = default;

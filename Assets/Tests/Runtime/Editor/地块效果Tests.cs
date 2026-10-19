@@ -194,7 +194,11 @@ namespace DeepseaOil.Tests
             }
 
             Assert.Greater(target.SlowRenews, 0, "泥浆必须往目标身上续减速：续命窗口为 0 时会被物理帧当场扣穿");
-            Assert.AreEqual(0.5f, target.LastSlowScale, 1e-4f, "减速倍率取表里的 slow_rate=0.5");
+
+            // 期望值取表而不是写死：slow_rate 是平衡旋钮，钉死 0.5 会把「调表」误判成「续命断了」
+            float expectedSlow = ConfigModule.TryGetTileState(TileStateType.Mud).SlowRate;
+
+            Assert.AreEqual(expectedSlow, target.LastSlowScale, 1e-4f, $"减速倍率必须取表里的 slow_rate={expectedSlow}");
             Assert.Greater(
                 slowed,
                 ticks * 9 / 10,

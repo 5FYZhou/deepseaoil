@@ -134,9 +134,9 @@ namespace DeepseaOil.Data
 
         public bool levelFourWaveDialogueQueued;
 
-        public bool levelFiveWaveTwoDialogueQueued;
+        public bool levelFiveSunriseDialogueQueued;
 
-        public bool levelFiveWaveThreeDialogueQueued;
+        public bool levelFiveDuskDialogueQueued;
 
         public bool endingDialogueQueued;
 

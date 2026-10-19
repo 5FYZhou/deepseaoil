@@ -1014,15 +1014,47 @@ namespace DeepseaOil.Presentation
             stats.GrantSeed(seed);
         }
 
-        // L2 W2 转黄昏、L4 W2 入夜；没挂控制器的场景跳过
+        // L2 W2 转黄昏、L4 W2 入夜；L5 按 7 波戏剧时钟走（3 昼 / 5 暮 / 6 夜，其余维持前一段）
         private void ApplyWaveTimeOfDay(int waveIndex)
         {
             if (environment == null) return;
 
             int levelId = CurrentLevelId;
 
+            if (levelId == 5)
+            {
+                switch (waveIndex)
+                {
+                    case 3: environment.TransitionTo(TimeOfDayKind.Day); break;
+                    case 5: environment.TransitionTo(TimeOfDayKind.Dusk); break;
+                    case 6: environment.TransitionTo(TimeOfDayKind.Night); break;
+                }
+
+                return;
+            }
+
             if (levelId == 2 && waveIndex == 2) environment.TransitionTo(TimeOfDayKind.Dusk);
             else if (levelId == 4 && waveIndex == 2) environment.TransitionTo(TimeOfDayKind.Night);
+        }
+
+        // 读档不回放时钟：按停住的波次直接落位，否则会退回场景初值
+        private void SyncTimeOfDay(int waveIndex)
+        {
+            if (environment == null) return;
+
+            int levelId = CurrentLevelId;
+
+            if (levelId == 5)
+            {
+                if (waveIndex >= 6) environment.SetTimeOfDayImmediate(TimeOfDayKind.Night);
+                else if (waveIndex >= 5) environment.SetTimeOfDayImmediate(TimeOfDayKind.Dusk);
+                else if (waveIndex >= 3) environment.SetTimeOfDayImmediate(TimeOfDayKind.Day);
+
+                return;
+            }
+
+            if (levelId == 2 && waveIndex >= 2) environment.SetTimeOfDayImmediate(TimeOfDayKind.Dusk);
+            else if (levelId == 4 && waveIndex >= 2) environment.SetTimeOfDayImmediate(TimeOfDayKind.Night);
         }
 
         /// <summary>抓当前帧快照；缩略图抓帧在此发起</summary>
@@ -1099,6 +1131,8 @@ namespace DeepseaOil.Presentation
             {
                 _levelLogic.ImportSave(data.level);
                 _levelLogic.Waves.ImportSave(data.wave);
+
+                SyncTimeOfDay(_levelLogic.Waves.WaveIndex);
 
                 if (_levelLogic.State == LevelState.Running && _root != null && _root.Audio != null)
                 {

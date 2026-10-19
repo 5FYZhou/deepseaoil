@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Logic;
@@ -64,8 +64,8 @@ namespace DeepseaOil.Presentation.Story
         private bool _playerLeftMoveTrigger;
         private bool _seedDialogueQueued;
         private bool _levelFourWaveDialogueQueued;
-        private bool _levelFiveWaveTwoDialogueQueued;
-        private bool _levelFiveWaveThreeDialogueQueued;
+        private bool _levelFiveSunriseDialogueQueued;
+        private bool _levelFiveDuskDialogueQueued;
         private bool _endingDialogueQueued;
         private bool _attached;
         private bool _playing;
@@ -234,8 +234,8 @@ namespace DeepseaOil.Presentation.Story
 
             _seedDialogueQueued = data.seedDialogueQueued;
             _levelFourWaveDialogueQueued = data.levelFourWaveDialogueQueued;
-            _levelFiveWaveTwoDialogueQueued = data.levelFiveWaveTwoDialogueQueued;
-            _levelFiveWaveThreeDialogueQueued = data.levelFiveWaveThreeDialogueQueued;
+            _levelFiveSunriseDialogueQueued = data.levelFiveSunriseDialogueQueued;
+            _levelFiveDuskDialogueQueued = data.levelFiveDuskDialogueQueued;
             _endingDialogueQueued = data.endingDialogueQueued;
 
             if (data.pendingParagraphs != null)
@@ -272,8 +272,8 @@ namespace DeepseaOil.Presentation.Story
                 stage = (int)Stage,
                 seedDialogueQueued = _seedDialogueQueued,
                 levelFourWaveDialogueQueued = _levelFourWaveDialogueQueued,
-                levelFiveWaveTwoDialogueQueued = _levelFiveWaveTwoDialogueQueued,
-                levelFiveWaveThreeDialogueQueued = _levelFiveWaveThreeDialogueQueued,
+                levelFiveSunriseDialogueQueued = _levelFiveSunriseDialogueQueued,
+                levelFiveDuskDialogueQueued = _levelFiveDuskDialogueQueued,
                 endingDialogueQueued = _endingDialogueQueued,
                 pendingParagraphs = new List<int>(_pendingStoryParagraphs)
             };
@@ -709,14 +709,14 @@ namespace DeepseaOil.Presentation.Story
                 _levelFourWaveDialogueQueued = true;
                 EnqueueStoryParagraph(5002);
             }
-            else if (levelId == 5 && evt.WaveIndex == 2 && !_levelFiveWaveTwoDialogueQueued)
+            else if (levelId == 5 && evt.WaveIndex == 3 && !_levelFiveSunriseDialogueQueued)
             {
-                _levelFiveWaveTwoDialogueQueued = true;
+                _levelFiveSunriseDialogueQueued = true;
                 EnqueueStoryParagraph(6002);
             }
-            else if (levelId == 5 && evt.WaveIndex == 3 && !_levelFiveWaveThreeDialogueQueued)
+            else if (levelId == 5 && evt.WaveIndex == 5 && !_levelFiveDuskDialogueQueued)
             {
-                _levelFiveWaveThreeDialogueQueued = true;
+                _levelFiveDuskDialogueQueued = true;
                 EnqueueStoryParagraph(6003);
             }
         }

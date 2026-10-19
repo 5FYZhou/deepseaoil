@@ -43,5 +43,34 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(0, level.Id);
             Assert.Greater(level.Waves.Count, 0, "教学关的 level_wave 行必须指向至少一波");
         }
+
+        [Test]
+        public void 各关波次数符合5_2编排()
+        {
+            int[] expected = { 2, 3, 4, 4, 7 };
+
+            for (int id = 1; id <= 5; id++)
+            {
+                LevelSpec level = ConfigModule.GetLevel(id);
+
+                Assert.AreEqual(expected[id - 1], level.Waves.Count, $"关卡 {id} 的波次数与 5.2 编排不符");
+            }
+        }
+
+        [Test]
+        public void 教学关那一波正好两只普怪()
+        {
+            LevelSpec level = ConfigModule.GetLevel(0);
+
+            Assert.AreEqual(1, level.Waves.Count, "教学关只该有一波");
+
+            WaveSpec wave = level.Waves[0];
+
+            int total = 0;
+
+            for (int i = 0; i < wave.Enemies.Count; i++) total += wave.Enemies[i].Count;
+
+            Assert.AreEqual(2, total, "教学关那一波必须正好 2 只（教程关不刷精英）");
+        }
     }
 }
