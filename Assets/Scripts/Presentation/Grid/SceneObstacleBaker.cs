@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Movement;
 using UnityEngine;
@@ -9,15 +10,25 @@ namespace DeepseaOil.Presentation.Grid
     public static class SceneObstacleBaker
     {
         /// <summary>单点查询上限：超出会高估净空（站不住的点判成可走），宁可报错也不要静默漏</summary>
-        private const int HitCapacity = 32;
+        private const int HitCapacity = 128;
 
         private static readonly Collider2D[] Hits = new Collider2D[HitCapacity];
 
+        // 触发器不进候选（同 IsBlocking 口径）
+        private static readonly ContactFilter2D Filter = new ContactFilter2D { useTriggers = false };
+
+        private static bool _saturationReported;
+
+        // 同一批装饰体被上千个采样点反复问：分类一次缓存，Bake 开头清
+        private static readonly Dictionary<Collider2D, bool> BlockingCache = new Dictionary<Collider2D, bool>();
+
         /// <summary>烘焙净空图；clearanceCap 是解析上限（世界单位），更远一律饱和到它</summary>
-        /// <remarks>净空 = min(到静态碰撞体的距离, 到阻挡地貌格的距离)：阻挡地貌的碰撞体按口径不进障碍集，不按格再补一次距离，怪就会贴着它站。未登记格的采样点留 0；合法格为空或几何非法时返回 null（拿 null 就是"没烘焙"）。</remarks>
+        /// <remarks>净空 = min(到静态碰撞体, 到阻挡地貌格的距离)：阻挡地貌碰撞体不进障碍集，不补距离怪会贴它站。未登记格留 0；几何非法或空返回 null（null = 没烘焙）。</remarks>
         public static NavMap Bake(GridLogic grid, float clearanceCap)
         {
             if (grid == null || !grid.Geometry.IsValid) return null;
+
+            BlockingCache.Clear();
 
             float cap = clearanceCap > 0f && !float.IsNaN(clearanceCap) ? clearanceCap : 1f;
 
@@ -61,17 +72,19 @@ namespace DeepseaOil.Presentation.Grid
         }
 
         /// <summary>取点到最近阻挡碰撞体的距离，超过 cap 饱和到 cap</summary>
-        /// <remarks>查询盒半边长恰为 cap：最近点落在 cap 内的碰撞体必与该盒相交，漏不掉；漏判的方向是"高估净空"，故命中数触顶仍要报错。
-        /// 实测最近点比几何距离近约 0.01（Physics2D 默认接触偏移），净空因此偏保守：一格宽缺口量出来是 0.5 而不是 0.5+，皮厚预算要留出这 0.01。</remarks>
+        /// <remarks>查询盒半边长恰为 cap：漏判方向是"高估净空"，故命中数触顶仍要报错。
+        /// 实测最近点比几何距离近约 0.01（Physics2D 接触偏移），一格宽缺口量出 0.5 而不是 0.5+，皮厚预算要留出这 0.01。</remarks>
         private static float SampleClearance(Vector2 point, float cap)
         {
-            int count = Physics2D.OverlapBoxNonAlloc(point, new Vector2(cap * 2f, cap * 2f), 0f, Hits);
+            int count = Physics2D.OverlapBox(point, new Vector2(cap * 2f, cap * 2f), 0f, Filter, Hits);
 
-            if (count >= HitCapacity)
+            if (count >= HitCapacity && !_saturationReported)
             {
+                _saturationReported = true;
+
                 Debug.LogError(
                     $"[ObstacleBake] 点 ({point.x:F2}, {point.y:F2}) 的碰撞体查询命中 {count} 个，已达上限 {HitCapacity}：" +
-                    "净空可能被高估（站不住的点会被判成可走）。排查该处是否叠了过多碰撞体。");
+                    "净空可能被高估（站不住的点会被判成可走）。每次启动只报一次，排查该处是否叠了过多碰撞体。");
             }
 
             float nearest = cap;
@@ -82,7 +95,13 @@ namespace DeepseaOil.Presentation.Grid
 
                 if (hit == null) continue;
 
-                if (!IsBlocking(hit)) continue;
+                if (!BlockingCache.TryGetValue(hit, out bool blocking))
+                {
+                    blocking = IsBlocking(hit);
+                    BlockingCache[hit] = blocking;
+                }
+
+                if (!blocking) continue;
 
                 float distance = Vector2.Distance(point, hit.ClosestPoint(point));
 

@@ -71,6 +71,11 @@ namespace DeepseaOil.Presentation
 
             GameState target = _hasStateBeforePause ? _stateBeforePause : GameState.Running;
             _hasStateBeforePause = false;
+
+            // 场景入口填 Paused 时 before 可能是 None/SceneTransition；不回落到 Running 就永远解不开 timeScale=0
+            if (target == GameState.None || target == GameState.SceneTransition || target == GameState.Settle)
+                target = GameState.Running;
+
             ChangeState(target);
         }
 

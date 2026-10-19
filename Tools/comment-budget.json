@@ -193,7 +193,7 @@
     "Assets/Scripts/Presentation/Projectile/BallShadow.cs": 377,
     "Assets/Scripts/Presentation/Projectile/BallView.cs": 366,
     "Assets/Scripts/Presentation/Root/CombatRoot.cs": 1830,
-    "Assets/Scripts/Presentation/Root/GameManager.cs": 172,
+    "Assets/Scripts/Presentation/Root/GameManager.cs": 237,
     "Assets/Scripts/Presentation/Root/GameRoot.cs": 1782,
     "Assets/Scripts/Presentation/Root/PlayerController.cs": 1394,
     "Assets/Scripts/Presentation/Root/SceneFlowConfig.cs": 156,
@@ -249,6 +249,7 @@
     "Assets/Scripts/Logic/World/SeedPlanter.cs": "播种裁决改为非阻挡即可种 + 直投质变优先",
     "Assets/Scripts/Presentation/Actor/EnemyActor.cs": "减速阶差着色阈值与麻痹火花的全局并发配额",
     "Assets/Scripts/Presentation/Root/CombatRoot.cs": "L5 七波戏剧时钟（3 昼 / 5 暮 / 6 夜）、读档落位，以及 main #38 重开跳过开场的装配期分支（合并时超原上限 179）",
+    "Assets/Scripts/Presentation/Root/GameManager.cs": "Resume 回落到 Running：场景入口填 Paused 时的 timeScale=0 死锁防护",
     "Assets/Tests/Runtime/Editor/网格连锁Tests.cs": "5.2 新增种子直投二级质变与阻挡拒收两条用例"
   }
 }
