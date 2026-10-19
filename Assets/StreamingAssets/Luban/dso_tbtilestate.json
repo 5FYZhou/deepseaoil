@@ -14,7 +14,7 @@
     "name": "基础水",
     "duration": -1,
     "dot_damage": 0,
-    "slow_rate": 0.85,
+    "slow_rate": 0.9,
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": true
@@ -24,7 +24,7 @@
     "name": "基础土",
     "duration": -1,
     "dot_damage": 0,
-    "slow_rate": 0.85,
+    "slow_rate": 0.9,
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": true
@@ -34,7 +34,7 @@
     "name": "普通泥浆",
     "duration": 10,
     "dot_damage": 0,
-    "slow_rate": 0.5,
+    "slow_rate": 0.7,
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": true
@@ -84,7 +84,7 @@
     "name": "基础植物区",
     "duration": -1,
     "dot_damage": 0,
-    "slow_rate": 0.7,
+    "slow_rate": 0.8,
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": false
@@ -144,7 +144,7 @@
     "name": "带电荆棘",
     "duration": 10,
     "dot_damage": 1,
-    "slow_rate": 0.4,
+    "slow_rate": 0.5,
     "touch_stun": 3,
     "is_obstacle": false,
     "is_conductor": false
@@ -154,7 +154,7 @@
     "name": "霜冻冰刺",
     "duration": 10,
     "dot_damage": 1,
-    "slow_rate": 0.5,
+    "slow_rate": 0.6,
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": false
