@@ -49,6 +49,32 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("蒸汽爆轰震屏时长（秒）")]
         public float blastShakeDuration = 0.16f;
 
+        [Header("HUD 受击")]
+        [Tooltip("血条抖动幅度（血条节点局部 UI 单位；该节点缩放 0.65，屏幕像素约为它的 0.65 倍）")]
+        public float hudHitShakeAmplitude = 20f;
+
+        [Tooltip("血条抖动时长（秒）")]
+        public float hudHitShakeDuration = 0.18f;
+
+        [Tooltip("血条闪白峰值 alpha（0~1）")]
+        [Range(0f, 1f)]
+        public float hudHitFlashAlpha = 0.9f;
+
+        [Tooltip("血条闪白时长（秒）")]
+        public float hudHitFlashDuration = 0.1f;
+
+        [Tooltip("一次受击溅出的粒子数")]
+        public int hudHitSparkCount = 10;
+
+        [Tooltip("粒子初速（血条局部 UI 单位/秒）")]
+        public float hudHitSparkSpeed = 420f;
+
+        [Tooltip("粒子重力（血条局部 UI 单位/秒²）")]
+        public float hudHitSparkGravity = 1200f;
+
+        [Tooltip("粒子寿命（秒）")]
+        public float hudHitSparkDuration = 0.4f;
+
         [Header("网格光脉冲")]
         [Tooltip("蒸汽爆轰的光强倍数：1＝纯白，1.8 会把中心压成过曝白核")]
         public float steamImpulseIntensity = 1.8f;

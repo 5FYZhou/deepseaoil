@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DeepseaOil.Data;
 using DeepseaOil.Presentation.Effects.Drivers;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace DeepseaOil.Presentation.Effects
@@ -9,6 +10,8 @@ namespace DeepseaOil.Presentation.Effects
     /// <remarks>Init 要在 AssetModule.Init 之后；除 Init 调两次外，失败一律只 LogError/LogWarning 并返回 EffectHandle.None。</remarks>
     public static class EffectModule
     {
+        private static readonly ProfilerMarker TickMarker = new("Effects.Tick");
+
         /// <summary>启动时同步预加载的清单，不进列表则首次 Play 走异步懒加载</summary>
         public static readonly EffectId[] PreloadList =
         {
@@ -131,11 +134,14 @@ namespace DeepseaOil.Presentation.Effects
         {
             if (!_initialized) return;
 
-            if (_loads.Count > 0) PollPendingLoads();
-
-            foreach (KeyValuePair<EffectId, IEffectDriver> kv in _drivers)
+            using (TickMarker.Auto())
             {
-                kv.Value?.Tick(dt);
+                if (_loads.Count > 0) PollPendingLoads();
+
+                foreach (KeyValuePair<EffectId, IEffectDriver> kv in _drivers)
+                {
+                    kv.Value?.Tick(dt);
+                }
             }
         }
 

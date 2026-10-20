@@ -1,4 +1,5 @@
 using System;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace DeepseaOil.Logic.Grid
@@ -7,6 +8,14 @@ namespace DeepseaOil.Logic.Grid
     /// <remarks>四邻、行末不绕行；_dist 是 BFS 步数（可达性与诊断），_cost 是元素权重步价，_next 按权重建树。元素格每步比普通格便宜，路线可能多绕几格，MaxDetourCells 的代价上限兜底。数组一次性分配，重建是纯循环、零分配。</remarks>
     public sealed class NavField
     {
+        private static readonly ProfilerMarker BuildMarker = new("Nav.Build");
+
+        private static readonly ProfilerMarker TerrainMarker = new("Nav.Build.Terrain");
+
+        private static readonly ProfilerMarker BfsMarker = new("Nav.Build.Bfs");
+
+        private static readonly ProfilerMarker TreeMarker = new("Nav.Build.Tree");
+
         /// <summary>种子外搜半径：玩家贴栅栏站会让所在格净空不足，种子必须外搜</summary>
         private const int SeedRing = 2;
 
@@ -27,8 +36,11 @@ namespace DeepseaOil.Logic.Grid
         private int[] _queue = Array.Empty<int>();
 
         private byte[] _free = Array.Empty<byte>();
-        private byte[] _blocked = Array.Empty<byte>();
-        private byte[] _preferred = Array.Empty<byte>();
+
+        /// <summary>每采样点是否元素格（1/0）：与 _free 同趟填，建树时免掉反查格</summary>
+        private byte[] _stepSample = Array.Empty<byte>();
+
+        private readonly int[] _stepCost = new int[2];
 
         private int[] _heapNode = Array.Empty<int>();
         private int[] _heapCost = Array.Empty<int>();
@@ -36,6 +48,15 @@ namespace DeepseaOil.Logic.Grid
         private int _heapCount;
 
         private int _width = 1;
+
+        /// <summary>地形快照版本：_free / _stepSample 只在它、图引用、皮厚之一变化时重算（换目标格不变）</summary>
+        private int _terrainVersion = -1;
+
+        private NavMap _terrainMap;
+
+        private float _terrainSkin = float.NaN;
+
+        private bool _preferredAny;
 
         public NavField(float radius)
         {
@@ -59,105 +80,148 @@ namespace DeepseaOil.Logic.Grid
         public Vector3Int Goal { get; private set; }
 
         /// <summary>按当前目标格、阻挡与元素格重建整场；重建是纯函数</summary>
-        public void Build(NavMap map, GridLogic grid, Vector3Int goalCell, float skin, float elementCost)
+        public void Build(NavMap map, GridLogic grid, Vector3Int goalCell, float skin, float elementCost, int terrainVersion)
         {
-            RebuildCount++;
-
-            Goal = goalCell;
-            Skin = skin;
-            ElementCost = SanitizeCost(elementCost);
-            _map = map;
-
-            if (map == null || !map.IsValid || grid == null)
+            using (BuildMarker.Auto())
             {
-                ResetField();
+                RebuildCount++;
 
-                return;
+                Goal = goalCell;
+                Skin = skin;
+                ElementCost = SanitizeCost(elementCost);
+                _map = map;
+
+                if (map == null || !map.IsValid || grid == null)
+                {
+                    ResetField();
+
+                    return;
+                }
+
+                _width = map.SampleWidth;
+
+                _offsets[0] = -1;
+                _offsets[1] = 1;
+                _offsets[2] = -_width;
+                _offsets[3] = _width;
+
+                int count = map.SampleCount;
+
+                EnsureCapacity(count);
+
+                bool terrainDirty = _terrainVersion != terrainVersion
+                    || !ReferenceEquals(_terrainMap, map)
+                    || !Mathf.Approximately(_terrainSkin, skin)
+                    || _stepSample.Length < count;
+
+                if (terrainDirty)
+                {
+                    using (TerrainMarker.Auto())
+                    {
+                        BuildTerrain(map, grid, skin);
+                    }
+
+                    _terrainVersion = terrainVersion;
+                    _terrainMap = map;
+                    _terrainSkin = skin;
+                }
+
+                Array.Fill(_dist, -1);
+                Array.Fill(_next, -1);
+                Array.Fill(_cost, int.MaxValue);
+
+                int seed = ResolveSeed(map, goalCell);
+
+                if (seed < 0)
+                {
+                    ReachableCount = 0;
+
+                    return;
+                }
+
+                using (BfsMarker.Auto())
+                {
+                    int head = 0;
+                    int tail = 0;
+                    int lastCol = _width - 1;
+
+                    _dist[seed] = 0;
+                    _next[seed] = -1;
+                    _queue[tail++] = seed;
+
+                    while (head < tail)
+                    {
+                        int current = _queue[head++];
+                        int col = current % _width;
+
+                        for (int n = 0; n < 4; n++)
+                        {
+                            int next = current + _offsets[n];
+
+                            if (n == 0 && col == 0) continue;
+                            if (n == 1 && col == lastCol) continue;
+                            if (next < 0 || next >= count) continue;
+
+                            if (_free[next] == 0) continue;
+                            if (_dist[next] >= 0) continue;
+
+                            _dist[next] = _dist[current] + 1;
+                            _next[next] = current;
+                            _queue[tail++] = next;
+                        }
+                    }
+
+                    ReachableCount = tail;
+                }
+
+                int elementStepCost = Mathf.Clamp(Mathf.RoundToInt(NormalStepCost * ElementCost), 1, NormalStepCost);
+
+                // 没有元素格时加权树与 BFS 父指针逐点等价，整段可省
+                if (elementStepCost >= NormalStepCost || !_preferredAny)
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        _cost[i] = _dist[i] >= 0 ? _dist[i] * NormalStepCost : int.MaxValue;
+                    }
+
+                    return;
+                }
+
+                using (TreeMarker.Auto())
+                {
+                    BuildWeightedTree(count, seed, elementStepCost);
+                }
             }
+        }
 
-            _width = map.SampleWidth;
+        private void BuildTerrain(NavMap map, GridLogic grid, float skin)
+        {
+            int cellCount = map.CellCount;
+            float clearance = Radius + skin;
 
-            _offsets[0] = -1;
-            _offsets[1] = 1;
-            _offsets[2] = -_width;
-            _offsets[3] = _width;
+            _preferredAny = false;
 
-            int count = map.SampleCount;
-
-            EnsureCapacity(count, map.CellCount);
-
-            for (int i = 0; i < map.CellCount; i++)
+            for (int c = 0; c < cellCount; c++)
             {
-                // 一格一次：IsObstacle / IsElementTile 都要查表，放进采样点内层会按 16 倍翻
-                Vector3Int cell = map.CellOf(i);
+                // 一格两次查表：放进采样点内层会按 16 倍翻
+                Vector3Int cell = map.CellOf(c);
                 bool obstacle = grid.IsObstacle(cell);
+                bool preferred = !obstacle && grid.IsElementTile(cell);
+                byte step = preferred ? (byte)1 : (byte)0;
 
-                _blocked[i] = obstacle ? (byte)1 : (byte)0;
-                _preferred[i] = !obstacle && grid.IsElementTile(cell) ? (byte)1 : (byte)0;
-            }
+                if (preferred) _preferredAny = true;
 
-            for (int i = 0; i < count; i++)
-            {
-                _free[i] = map.SampleClearance(i) > Radius + Skin && _blocked[map.CellIndexOfSample(i)] == 0 ? (byte)1 : (byte)0;
-            }
-
-            Array.Fill(_dist, -1);
-            Array.Fill(_next, -1);
-            Array.Fill(_cost, int.MaxValue);
-
-            int seed = ResolveSeed(map, goalCell);
-
-            if (seed < 0)
-            {
-                ReachableCount = 0;
-
-                return;
-            }
-
-            int head = 0;
-            int tail = 0;
-
-            _dist[seed] = 0;
-            _next[seed] = -1;
-            _queue[tail++] = seed;
-
-            while (head < tail)
-            {
-                int current = _queue[head++];
-
-                for (int n = 0; n < 4; n++)
+                for (int j = 0; j < NavMap.Subdivision; j++)
                 {
-                    int next = current + _offsets[n];
+                    for (int k = 0; k < NavMap.Subdivision; k++)
+                    {
+                        int index = map.SampleIndexOf(c, k, j);
 
-                    if (next < 0 || next >= count) continue;
-
-                    // 横向偏移只在同一行内合法：末列 +1 会绕到下一行首列
-                    if (n < 2 && current / _width != next / _width) continue;
-
-                    if (_free[next] == 0) continue;
-                    if (_dist[next] >= 0) continue;
-
-                    _dist[next] = _dist[current] + 1;
-                    _next[next] = current;
-                    _queue[tail++] = next;
+                        _free[index] = !obstacle && map.SampleClearance(index) > clearance ? (byte)1 : (byte)0;
+                        _stepSample[index] = step;
+                    }
                 }
             }
-
-            ReachableCount = tail;
-
-            int elementStepCost = Mathf.Clamp(Mathf.RoundToInt(NormalStepCost * ElementCost), 1, NormalStepCost);
-
-            if (elementStepCost >= NormalStepCost)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    _cost[i] = _dist[i] >= 0 ? _dist[i] * NormalStepCost : int.MaxValue;
-                }
-
-                return;
-            }
-
-            BuildWeightedTree(map, count, seed, elementStepCost);
         }
 
         public bool TryGetStep(int index, out int next)
@@ -264,9 +328,12 @@ namespace DeepseaOil.Logic.Grid
             return best;
         }
 
-        private void BuildWeightedTree(NavMap map, int count, int seed, int elementStepCost)
+        private void BuildWeightedTree(int count, int seed, int elementStepCost)
         {
             int detourBudget = Mathf.RoundToInt(MaxDetourCells * NavMap.Subdivision * NormalStepCost);
+
+            _stepCost[0] = NormalStepCost;
+            _stepCost[1] = elementStepCost;
 
             _heapCount = 0;
 
@@ -276,22 +343,24 @@ namespace DeepseaOil.Logic.Grid
             _next[seed] = -1;
             PushOrDecrease(seed);
 
+            int lastCol = _width - 1;
+
             while (_heapCount > 0)
             {
                 int current = Pop();
                 int baseCost = _cost[current];
+                int col = current % _width;
 
                 for (int n = 0; n < 4; n++)
                 {
                     int next = current + _offsets[n];
 
+                    if (n == 0 && col == 0) continue;
+                    if (n == 1 && col == lastCol) continue;
                     if (next < 0 || next >= count) continue;
-                    if (n < 2 && current / _width != next / _width) continue;
                     if (_free[next] == 0) continue;
 
-                    int cellIndex = map.CellIndexOfSample(next);
-                    int step = _preferred[cellIndex] != 0 ? elementStepCost : NormalStepCost;
-                    int newCost = baseCost + step;
+                    int newCost = baseCost + _stepCost[_stepSample[next]];
 
                     // 元素路线允许比最短路贵，但不超过 MaxDetourCells 格
                     if (newCost > _dist[next] * NormalStepCost + detourBudget) continue;
@@ -522,7 +591,7 @@ namespace DeepseaOil.Logic.Grid
             return node;
         }
 
-        private void EnsureCapacity(int sampleCount, int cellCount)
+        private void EnsureCapacity(int sampleCount)
         {
             if (_dist.Length < sampleCount)
             {
@@ -536,8 +605,7 @@ namespace DeepseaOil.Logic.Grid
             }
 
             if (_free.Length < sampleCount) _free = new byte[sampleCount];
-            if (_blocked.Length < cellCount) _blocked = new byte[cellCount];
-            if (_preferred.Length < cellCount) _preferred = new byte[cellCount];
+            if (_stepSample.Length < sampleCount) _stepSample = new byte[sampleCount];
         }
 
         private void ResetField()
