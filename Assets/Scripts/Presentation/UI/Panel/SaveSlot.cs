@@ -1,4 +1,5 @@
-﻿using DeepseaOil.Logic.Events;
+﻿using System.Globalization;
+using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Service;
 using TMPro;
 using UnityEngine;
@@ -83,8 +84,8 @@ namespace DeepseaOil.Presentation.UI
                     : (_index > 0 ? $"存档槽 {_index + 1}" : "自动存档");
             }
 
-            if (txtPlayerLeft != null) txtPlayerLeft.text = string.Empty;
-            if (txtPlayerRight != null) txtPlayerRight.text = string.Empty;
+            if (txtPlayerLeft != null) txtPlayerLeft.text = "角色生命";
+            if (txtPlayerRight != null) txtPlayerRight.text = FormatHp(info);
             if (txtProcessLeft != null) txtProcessLeft.text = "关卡进度";
             if (txtProcessRight != null)
             {
@@ -105,6 +106,18 @@ namespace DeepseaOil.Presentation.UI
 
             if (txtTimeRight != null)
                 txtTimeRight.text = split > 0 ? info.TimeText.Substring(split + 1) : "--";
+        }
+
+        private static string FormatHp(SaveSlotInfo info)
+        {
+            if (info.PlayerMaxHp <= 0f) return "--";
+
+            return $"{FormatHpValue(info.PlayerHp)}/{FormatHpValue(info.PlayerMaxHp)}";
+        }
+
+        private static string FormatHpValue(float value)
+        {
+            return value.ToString("0.#", CultureInfo.InvariantCulture);
         }
     }
 }

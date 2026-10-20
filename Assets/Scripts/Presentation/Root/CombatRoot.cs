@@ -248,14 +248,16 @@ namespace DeepseaOil.Presentation
 
             _drops.Tick(deltaTime);
 
+            TickLifeFountain(deltaTime);
+
+            TimeOfDayKind timeOfDay = environment != null ? environment.CurrentTimeOfDay : TimeOfDayKind.Day;
+
             for (int i = 0; i < fountains.Length; i++)
             {
                 Fountain fountain = fountains[i];
 
-                if (fountain != null) fountain.Tick(deltaTime);
+                if (fountain != null) fountain.Tick(deltaTime, timeOfDay);
             }
-
-            TickLifeFountain(deltaTime);
 
             TickSeedInput();
 
@@ -510,9 +512,21 @@ namespace DeepseaOil.Presentation
                 player.EngineVelocity.magnitude,
                 deltaTime);
 
+            _lifeFountainSource.SetLifeCharge(LifeChargeOf(logic.Stats), _lifeFountain.IsStill);
+
             if (!healed) return;
 
             if (logic.Stats.TryHeal()) PlaySfx(AudioId.PlayerHeal);
+        }
+
+        // 满血不亮进度：否则每 3 秒白闪一下
+        private float LifeChargeOf(PlayerStats stats)
+        {
+            if (stats == null || stats.Current >= stats.Spec.MaxHp) return 0f;
+
+            int interval = _lifeFountain.HealInterval;
+
+            return interval > 0 ? Mathf.Clamp01(_lifeFountain.StillSeconds / interval) : 0f;
         }
 
         private void UpdatePlayerContact(float now)

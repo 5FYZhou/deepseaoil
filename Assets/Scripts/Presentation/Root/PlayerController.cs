@@ -242,7 +242,6 @@ namespace DeepseaOil.Presentation
         public void FixedTick(float deltaTime)
         {
             if (Logic == null) return;
-
             if (!Logic.IsAlive) return;
 
             InputSnapshot raw = inputProvider.ConsumeSnapshot();

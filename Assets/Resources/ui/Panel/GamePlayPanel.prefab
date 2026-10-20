@@ -149,6 +149,7 @@ MonoBehaviour:
   spriteState1: {fileID: -1297058644435085196, guid: 2f0c0f01feb953142af9fc13e374ba2b, type: 3}
   spriteState2: {fileID: 8376185893146329433, guid: 2f0c0f01feb953142af9fc13e374ba2b, type: 3}
   spriteState3: {fileID: 5433305164997284167, guid: 2f0c0f01feb953142af9fc13e374ba2b, type: 3}
+  healthShakeRoot: {fileID: 0}
 --- !u!1 &601008400191419922
 GameObject:
   m_ObjectHideFlags: 0
@@ -247,7 +248,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -1407,8 +1408,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 5
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 4fc6886f0390dbc4c9aa1fa8af787e76, type: 2}
+  m_sharedMaterial: {fileID: 2649497661168390149, guid: 4fc6886f0390dbc4c9aa1fa8af787e76, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1438,7 +1439,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -1647,7 +1648,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
