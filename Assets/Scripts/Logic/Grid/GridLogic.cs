@@ -412,7 +412,7 @@ namespace DeepseaOil.Logic.Grid
             if (outcome.TriggerChain)
             {
                 ScheduleTick(cell);
-                TileChainReactor.Trigger(this, cell, outcome.NextTile);
+                TileChainReactor.Trigger(this, cell, outcome.NextTile, 0f, outcome.ImpactRadius);
                 any = true;
             }
 

@@ -154,6 +154,14 @@ namespace DeepseaOil.Data.Settings
             }
         }
 
+        // 减速压暗：0.7 = 表里泥浆档，到它吃满 enemyBodySlowed
+        public Color SlowTintColor(float speedScale)
+        {
+            const float fullScale = 0.7f;
+
+            return Color.Lerp(Color.white, enemyBodySlowed, Mathf.Clamp01((1f - speedScale) / (1f - fullScale)));
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
