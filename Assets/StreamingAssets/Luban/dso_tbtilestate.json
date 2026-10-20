@@ -96,7 +96,7 @@
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": false,
-    "priority": 20
+    "priority": 15
   },
   {
     "id": 6,
