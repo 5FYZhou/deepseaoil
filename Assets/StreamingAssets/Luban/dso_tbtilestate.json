@@ -7,7 +7,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 1
   },
   {
     "id": 14,
@@ -17,7 +18,8 @@
     "slow_rate": 0.9,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": true
+    "is_conductor": true,
+    "priority": 10
   },
   {
     "id": 15,
@@ -27,7 +29,8 @@
     "slow_rate": 0.9,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": true
+    "is_conductor": true,
+    "priority": 10
   },
   {
     "id": 2,
@@ -37,7 +40,8 @@
     "slow_rate": 0.7,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": true
+    "is_conductor": true,
+    "priority": 10
   },
   {
     "id": 3,
@@ -47,7 +51,8 @@
     "slow_rate": 1.2,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": true
+    "is_conductor": true,
+    "priority": 10
   },
   {
     "id": 16,
@@ -57,7 +62,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 20
   },
   {
     "id": 18,
@@ -67,7 +73,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": true
+    "is_conductor": true,
+    "priority": 20
   },
   {
     "id": 17,
@@ -77,7 +84,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 20
   },
   {
     "id": 19,
@@ -87,7 +95,8 @@
     "slow_rate": 0.8,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 20
   },
   {
     "id": 6,
@@ -97,7 +106,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": true,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 15
   },
   {
     "id": 5,
@@ -107,7 +117,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 15
   },
   {
     "id": 8,
@@ -117,7 +128,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 15
   },
   {
     "id": 20,
@@ -127,7 +139,8 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": true
+    "is_conductor": true,
+    "priority": 10
   },
   {
     "id": 21,
@@ -137,27 +150,30 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 10
   },
   {
     "id": 22,
     "name": "带电荆棘",
     "duration": 15,
-    "dot_damage": 1,
+    "dot_damage": 2,
     "slow_rate": 0.5,
     "touch_stun": 3,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 20
   },
   {
     "id": 23,
     "name": "霜冻冰刺",
     "duration": 10,
-    "dot_damage": 1,
+    "dot_damage": 2,
     "slow_rate": 0.6,
-    "touch_stun": 0,
+    "touch_stun": 1,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 20
   },
   {
     "id": 24,
@@ -167,6 +183,7 @@
     "slow_rate": 1,
     "touch_stun": 0,
     "is_obstacle": false,
-    "is_conductor": false
+    "is_conductor": false,
+    "priority": 20
   }
 ]

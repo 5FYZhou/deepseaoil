@@ -61,12 +61,14 @@ namespace DeepseaOil.Tests
             bool isObstacle = false,
             bool isConductor = false,
             string name = "测试地块",
-            float touchStun = 0f)
+            float touchStun = 0f,
+            int priority = 0)
             => new TileState(JSON.Parse(
                 $"{{\"id\":{id},\"name\":\"{name}\",\"duration\":{duration},\"slow_rate\":{slowRate}," +
                 $"\"dot_damage\":{dotDamage},\"touch_stun\":{touchStun}," +
                 $"\"is_obstacle\":{(isObstacle ? "true" : "false")}," +
-                $"\"is_conductor\":{(isConductor ? "true" : "false")}}}"));
+                $"\"is_conductor\":{(isConductor ? "true" : "false")}," +
+                $"\"priority\":{priority}}}"));
 
         /// <summary>一行元素反应规则：原格 + 球种 → 结果与冲击；radius 默认 1 格</summary>
         public static ElementRule ElementRuleRow(

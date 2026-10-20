@@ -28,6 +28,7 @@ public sealed partial class TileState : Luban.BeanBase
         { if(!_buf["touch_stun"].IsNumber) { throw new SerializationException(); }  TouchStun = _buf["touch_stun"]; }
         { if(!_buf["is_obstacle"].IsBoolean) { throw new SerializationException(); }  IsObstacle = _buf["is_obstacle"]; }
         { if(!_buf["is_conductor"].IsBoolean) { throw new SerializationException(); }  IsConductor = _buf["is_conductor"]; }
+        { if(!_buf["priority"].IsNumber) { throw new SerializationException(); }  Priority = _buf["priority"]; }
     }
 
     public static TileState DeserializeTileState(JSONNode _buf)
@@ -67,6 +68,10 @@ public sealed partial class TileState : Luban.BeanBase
     /// 网格关联导通
     /// </summary>
     public readonly bool IsConductor;
+    /// <summary>
+    /// 覆盖优先级
+    /// </summary>
+    public readonly int Priority;
    
     public const int __ID__ = 1483327413;
     public override int GetTypeId() => __ID__;
@@ -86,6 +91,7 @@ public sealed partial class TileState : Luban.BeanBase
         + "touchStun:" + TouchStun + ","
         + "isObstacle:" + IsObstacle + ","
         + "isConductor:" + IsConductor + ","
+        + "priority:" + Priority + ","
         + "}";
     }
 }

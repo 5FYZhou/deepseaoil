@@ -57,7 +57,8 @@ namespace DeepseaOil.Logic.World
                 return TileChainReactor.CommitDuoDirect(grid, cell, duo);
             }
 
-            if (!grid.SwitchTileState(cell, seedSpec.SpawnTile)) return false;
+            // 播种是玩家直接动作：直接写，不吃覆盖秩
+            if (!grid.ForceTileState(cell, seedSpec.SpawnTile)) return false;
 
             TileChainReactor.TriggerDuo(grid, cell, duoCatalog);
 

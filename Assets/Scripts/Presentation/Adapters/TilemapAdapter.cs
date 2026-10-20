@@ -257,7 +257,7 @@ namespace DeepseaOil.Presentation.Adapters
 
                 if (state == TileStateType.Normal) continue;
 
-                if (grid.SwitchTileState(cell, state)) count++;
+                if (grid.ForceTileState(cell, state)) count++;
             }
 
             _initialSetupLoaded = count;

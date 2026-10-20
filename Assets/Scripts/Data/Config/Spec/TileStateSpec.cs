@@ -34,5 +34,8 @@ namespace DeepseaOil.Data
 
         /// <summary>麻痹秒数，0=不麻痹</summary>
         public float TouchStun => _row.TouchStun;
+
+        /// <summary>覆盖秩，越大越硬；只裁决间接铺地貌</summary>
+        public int Priority => _row.Priority;
     }
 }
