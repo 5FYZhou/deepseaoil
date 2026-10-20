@@ -184,7 +184,7 @@ namespace DeepseaOil.Logic.Grid
         // <summary>燎原爆燃：点燃本格并挂上前沿</summary>
         private static void StartFlame(GridLogic grid, Vector3Int origin, TileStateType state)
         {
-            if (IsFlammable(state)) grid.SwitchTileState(origin, TileStateType.FlameField);
+            if (IsFlammable(state)) grid.ForceTileState(origin, TileStateType.FlameField);
 
             AddFront(grid, origin);
         }
@@ -211,8 +211,8 @@ namespace DeepseaOil.Logic.Grid
 
                 if (!IsFlammable(grid.StateOf(next))) continue;
 
-                // 烧穿：荆棘/植物区变成火海，火海到期后由状态自己回 Normal
-                grid.SwitchTileState(next, TileStateType.FlameField);
+                // 烧穿：荆棘/植物区变成火海，火海到期后由状态自己回 Normal（点火看可燃性，不走覆盖秩）
+                grid.ForceTileState(next, TileStateType.FlameField);
 
                 AddFront(grid, next);
             }
@@ -246,7 +246,7 @@ namespace DeepseaOil.Logic.Grid
         {
             if (grid.StateOf(origin) != duo.ResultTile)
             {
-                grid.SwitchTileState(origin, duo.ResultTile, duo.ResultDuration);
+                grid.ForceTileState(origin, duo.ResultTile, duo.ResultDuration);
             }
 
             float radius = duo.EffectRadius;

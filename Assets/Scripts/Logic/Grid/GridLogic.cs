@@ -238,7 +238,7 @@ namespace DeepseaOil.Logic.Grid
 
                 if (state.StateId == TileStateType.Normal) continue;
 
-                if (SwitchTileState(cell, state.StateId, 0f)) applied++;
+                if (ForceTileState(cell, state.StateId, 0f)) applied++;
             }
 
             return applied;
@@ -281,7 +281,7 @@ namespace DeepseaOil.Logic.Grid
 
             for (int i = 0; i < _restoreCells.Count; i++)
             {
-                SwitchTileState(_restoreCells[i], TileStateType.Normal);
+                ForceTileState(_restoreCells[i], TileStateType.Normal);
             }
 
             _restoreCells.Clear();
@@ -300,7 +300,7 @@ namespace DeepseaOil.Logic.Grid
 
                 if (next == TileStateType.Normal) continue;
 
-                SwitchTileState(cell, next, data.remaining > 0f ? data.remaining : 0f);
+                ForceTileState(cell, next, data.remaining > 0f ? data.remaining : 0f);
             }
         }
 
@@ -368,8 +368,8 @@ namespace DeepseaOil.Logic.Grid
 
         private bool ApplyTileChange(Vector3Int cell, in ReactionOutcome outcome)
         {
-            // 落点必须无条件切换：永久地貌保护只该拦次级波及，拦落点等于反应不生效
-            bool changed = SwitchTileState(cell, outcome.NextTile, 0f);
+            // 落点必须无条件切换：覆盖秩只该拦次级波及，拦落点等于反应不生效
+            bool changed = ForceTileState(cell, outcome.NextTile, 0f);
 
             if (outcome.ImpactRadius <= 0f) return changed;
 
@@ -550,7 +550,7 @@ namespace DeepseaOil.Logic.Grid
             EventBus<GridBlastOccurred>.Publish(new GridBlastOccurred(centerPoint, radiusCells * _geometry.CellSize, centerState));
         }
 
-        /// <summary>半径内铺 resultTile；永久地貌跳过（Normal 例外）</summary>
+        /// <summary>半径内铺 resultTile；逐格按覆盖秩裁决</summary>
         public bool SpreadTileInRadius(Vector3Int center, float radiusCells, TileStateType resultTile, float durationOverride = 0f)
         {
             if (radiusCells < 0f) radiusCells = 0f;
@@ -591,19 +591,39 @@ namespace DeepseaOil.Logic.Grid
 
                 if (state == resultTile) continue;
 
-                if (state != TileStateType.Normal
-                    && _specs.TryGetValue(state, out TileStateSpec spec)
-                    && spec.Duration <= 0f) continue;
-
                 if (SwitchTileState(cell, resultTile, durationOverride)) any = true;
             }
 
             return any;
         }
 
-        /// <summary>切换某格状态；同状态 no-op，未登记的格与无表行的状态一律拒绝</summary>
-        /// <remarks>durationOverride &gt; 0 覆盖表里的 duration；贴图由 EventBus 订阅者刷。</remarks>
+        /// <summary>按覆盖秩尝试切换；秩不足或未登记静默拒绝</summary>
+        /// <remarks>durationOverride &gt; 0 覆盖表里的 duration；直接写入走 ForceTileState。</remarks>
         public bool SwitchTileState(Vector3Int cell, TileStateType next, float durationOverride = 0f)
+        {
+            return WriteTile(cell, next, durationOverride, false);
+        }
+
+        /// <summary>无条件切换：直接写入专用</summary>
+        public bool ForceTileState(Vector3Int cell, TileStateType next, float durationOverride = 0f)
+        {
+            return WriteTile(cell, next, durationOverride, true);
+        }
+
+        // 覆盖秩：大压小、平级后写赢；空地双向放行（否则到期回不了空地）
+        private bool CanOverwrite(TileStateType current, TileStateType next)
+        {
+            if (next == TileStateType.Normal || current == TileStateType.Normal) return true;
+
+            return PriorityOf(next) >= PriorityOf(current);
+        }
+
+        private int PriorityOf(TileStateType state)
+        {
+            return _specs.TryGetValue(state, out TileStateSpec spec) ? spec.Priority : 0;
+        }
+
+        private bool WriteTile(Vector3Int cell, TileStateType next, float durationOverride, bool force)
         {
             if (!_cells.Contains(cell)) return false;
 
@@ -621,6 +641,9 @@ namespace DeepseaOil.Logic.Grid
             }
 
             TileStateType previous = machine.CurrentId;
+
+            if (!force && !CanOverwrite(previous, next)) return false;
+
             bool changed = machine.SwitchTo(next, BuildContext(cell), durationOverride);
 
             if (!changed)

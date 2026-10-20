@@ -297,7 +297,7 @@ namespace DeepseaOil.Tests
 
             // 基础植物区 + 纯水 → 普通泥浆，所以水球砸不出火；火海只能由二级反应（火 × 植物）
             // 或火种本身产生。这里直接把起点摆成火海，只测蔓延引擎本身的那两条语义。
-            grid.SwitchTileState(origin, TileStateType.FlameField);
+            grid.ForceTileState(origin, TileStateType.FlameField);
 
             TileChainReactor.Trigger(grid, origin, TileStateType.FlameField);
 
