@@ -53,10 +53,39 @@ MonoBehaviour:
   landingRadius: 3
   minLandingDistance: 0.8
   autoTriggerRadius: 1.5
+  enterChangeSeconds: 0.35
+  exitChangeSeconds: 0.1
   overrideSelfLightColor: 0
   selfLightOverride: {r: 1, g: 0.72, b: 0.35, a: 1}
   selfLightIntensity: 0.2
   selfLightPulseDepth: 0.1
+  emissiveBoostDay: 0.6
+  emissiveBoostNight: 0.5
+  shadowMinAlphaScale: 0.58
+  lifeChargeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!58 &1484185468337858255
 CircleCollider2D:
   m_ObjectHideFlags: 0

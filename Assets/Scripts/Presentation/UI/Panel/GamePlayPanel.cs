@@ -267,8 +267,14 @@ namespace DeepseaOil.Presentation.UI
             ClearWaveHud();
             _hasAmmoSnapshot = false;
             _seedCount = 0;
+            _seedType = SeedType.None;
+
+            if (_txtSeed != null)
+                _txtSeed.gameObject.SetActive(false);
+
             ResetHealthHud();
         }
+
         private void ResetHealthHud()
         {
             _lastHealth = -1f;
@@ -532,7 +538,9 @@ namespace DeepseaOil.Presentation.UI
             _hasAmmoSnapshot = true;
 
             if (initialize || seedTypeChanged)
+            {
                 UpdateSeedIcon(evt.Seed);
+            }
 
             if (_txtSeed != null)
             {
