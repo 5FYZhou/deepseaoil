@@ -120,7 +120,7 @@ MonoBehaviour:
     OverrideMaterial: {fileID: 0}
     ExtraOffsetY: 0
   defaultMaterial: {fileID: 2100000, guid: 4b9d1a76c3e24f8ea5d0b2c91e37a640, type: 2}
-  maxPoolSize: 1024
+  maxPoolSize: 2048
 --- !u!114 &7683757329109016829
 MonoBehaviour:
   m_ObjectHideFlags: 0
