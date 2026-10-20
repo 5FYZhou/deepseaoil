@@ -473,7 +473,6 @@ namespace DeepseaOil.Presentation
                 else
                 {
                     _levelLogic?.ChangeState(LevelState.Defeat);
-                    GameRoot.Instance.Game.ChangeState(Logic.GameState.Settle);
                 }
                 return;
             }
@@ -524,6 +523,7 @@ namespace DeepseaOil.Presentation
 
                 // 只报事实，怎么播由玩家侧翻译
                 player.OnDeathTriggered();
+                GameRoot.Instance.Game.ChangeState(Logic.GameState.Settle);
             }
         }
 

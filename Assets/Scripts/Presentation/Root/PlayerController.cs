@@ -243,8 +243,6 @@ namespace DeepseaOil.Presentation
         {
             if (Logic == null) return;
 
-            if (!Logic.IsAlive) return;
-
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
 
             Vector2 move = SnapMoveToEightDirections(raw.Move, _spec.SnapToEightDirections);

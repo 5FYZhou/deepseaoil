@@ -33,6 +33,10 @@ namespace DeepseaOil.Logic.Service
 
         public string Error { get; }
 
+        public float PlayerHp { get; }
+
+        public float PlayerMaxHp { get; }
+
         public SaveSlotInfo(
             int slotIndex,
             SaveSlotStatus status,
@@ -40,7 +44,9 @@ namespace DeepseaOil.Logic.Service
             int currentLevelId,
             string title,
             string timeText,
-            string error)
+            string error,
+            float playerHp = 0f,
+            float playerMaxHp = 0f)
         {
             SlotIndex = slotIndex;
             Status = status;
@@ -49,6 +55,8 @@ namespace DeepseaOil.Logic.Service
             Title = title;
             TimeText = timeText;
             Error = error;
+            PlayerHp = playerHp;
+            PlayerMaxHp = playerMaxHp;
         }
     }
 
@@ -120,7 +128,9 @@ namespace DeepseaOil.Logic.Service
                 data.header.currentLevelId,
                 data.header.title,
                 data.header.timeText,
-                null);
+                null,
+                data.player != null ? data.player.hp : 0f,
+                data.player != null ? data.player.maxHp : 0f);
         }
 
         public SaveSlotInfo[] GetSlotInfos()

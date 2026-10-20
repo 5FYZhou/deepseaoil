@@ -194,7 +194,10 @@ namespace DeepseaOil.Presentation.UI
             Sprite disabled = sprites.GetSprite(info.disabledName);
 
             if (button.targetGraphic is Image image)
+            {
                 image.sprite = normal;
+                image.color = Color.white;
+            }
             
             button.transition = Selectable.Transition.SpriteSwap;
             SpriteState state = button.spriteState;

@@ -65,7 +65,7 @@ namespace DeepseaOil.Logic.Service {
 
         private void OnGameStateChanged(GameStateChanged evt)
         {
-            if(evt.state == GameState.Running)
+            if(evt.state == GameState.Running || evt.state == GameState.Settle)
             {
                 SetPaused(false);
             }

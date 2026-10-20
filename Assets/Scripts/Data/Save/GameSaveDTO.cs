@@ -40,6 +40,8 @@ namespace DeepseaOil.Data
 
         public float hp;
 
+        public float maxHp;
+
         public int water;
 
         public int earth;

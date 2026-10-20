@@ -44,6 +44,7 @@ namespace DeepseaOil.Tests
                     faceX = 0f,
                     faceY = 1f,
                     hp = 2f,
+                    maxHp = 3f,
                     water = 3,
                     earth = 4,
                     seedType = 1,
@@ -84,6 +85,7 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(source.header.savedAtUtc, restored.header.savedAtUtc);
             Assert.AreEqual(source.header.timeText, restored.header.timeText);
             Assert.AreEqual(source.player.posY, restored.player.posY, 1e-5f);
+            Assert.AreEqual(source.player.maxHp, restored.player.maxHp, 1e-5f);
             Assert.AreEqual(source.wave.pendingSeed, restored.wave.pendingSeed);
             Assert.AreEqual(source.wave.settleDelayStarted, restored.wave.settleDelayStarted);
 
