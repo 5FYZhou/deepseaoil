@@ -107,6 +107,24 @@ namespace DeepseaOil.Tests
             Assert.Greater(snap.TableCount, 0, "DataMetrics.TableCount 应为正数");
         }
 
+        /// <summary>减速压暗肉眼可辨：泥浆档至少压到 0.8</summary>
+        [Test]
+        public void A1b_减速压暗肉眼可辨()
+        {
+            var palette = ConfigModule.Visuals;
+
+            Assert.IsNotNull(palette, "VisualPalette 必须有值：观感取值唯一入口");
+
+            Assert.AreEqual(1f, palette.SlowTintColor(1f).r, 1e-4f, "没减速必须是纯白的乘数");
+
+            float mud = palette.SlowTintColor(0.7f).r;
+            float water = palette.SlowTintColor(0.9f).r;
+
+            Assert.LessOrEqual(mud, 0.8f, "泥浆档（0.7）必须压到 0.8 以下，否则肉眼看不出来");
+            Assert.Less(water, 1f, "弱减速（0.9）也要有可见的压暗");
+            Assert.Greater(water, mud, "减速越狠必须越暗");
+        }
+
         // ================================================================
         // A2 · 装配错误必须暴露：两个 Init 都是「重复调用即抛」
         // ================================================================
