@@ -26,7 +26,7 @@
     "source_tile": 2,
     "ball_type": 0,
     "result_tile": 3,
-    "impact_damage": 0,
+    "impact_damage": 1,
     "impact_knockback": 1,
     "impact_stun": 0,
     "impact_radius": 0,
@@ -70,7 +70,7 @@
     "source_tile": 17,
     "ball_type": 0,
     "result_tile": 5,
-    "impact_damage": 0,
+    "impact_damage": 1,
     "impact_knockback": 2,
     "impact_stun": 1,
     "impact_radius": 0,
@@ -139,7 +139,7 @@
     "impact_damage": 1,
     "impact_knockback": 0,
     "impact_stun": 0,
-    "impact_radius": 1,
+    "impact_radius": 0,
     "trigger_chain": false
   },
   {
@@ -150,7 +150,7 @@
     "impact_damage": 1,
     "impact_knockback": 0,
     "impact_stun": 0,
-    "impact_radius": 1,
+    "impact_radius": 0,
     "trigger_chain": false
   },
   {
@@ -183,7 +183,7 @@
     "impact_damage": 1,
     "impact_knockback": 0,
     "impact_stun": 0,
-    "impact_radius": 1,
+    "impact_radius": 0,
     "trigger_chain": false
   },
   {
@@ -194,7 +194,7 @@
     "impact_damage": 1,
     "impact_knockback": 0,
     "impact_stun": 0,
-    "impact_radius": 1,
+    "impact_radius": 0,
     "trigger_chain": false
   }
 ]

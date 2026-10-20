@@ -16,6 +16,9 @@ namespace DeepseaOil.Logic.Grid
         /// <summary>燎原火海每步蔓延的间隔（秒）</summary>
         public const float FlameSpreadStep = 0.2f;
 
+        /// <summary>荆棘传染步长（秒）</summary>
+        public const float ThornSpreadStep = 0.1f;
+
         /// <summary>导电连锁麻痹秒数：导体 touch_stun 皆 0（白皮书§6.4）</summary>
         public const float ChainStunSeconds = 1.5f;
 
@@ -29,6 +32,10 @@ namespace DeepseaOil.Logic.Grid
 
         // <summary>火海蔓延前沿：(格, 下次蔓延时刻)</summary>
         private static readonly List<(Vector3Int Cell, float At)> _flameFront = new List<(Vector3Int, float)>(16);
+
+        // <summary>荆棘传染前沿：(格, 下次传染时刻, 存活覆盖)</summary>
+        private static readonly List<(Vector3Int Cell, float At, float Duration)> _thornFront =
+            new List<(Vector3Int, float, float)>(16);
 
         // 半径格缓冲：白雾/超导共用，互不嵌套
         private static readonly List<Vector3Int> _radiusCells = new List<Vector3Int>(32);
@@ -45,23 +52,31 @@ namespace DeepseaOil.Logic.Grid
             _queue.Clear();
             _visited.Clear();
             _flameFront.Clear();
+            _thornFront.Clear();
             _dueFront.Clear();
             _now = 0f;
             _warnedOverflow = false;
         }
 
-        // <summary>推进火海蔓延前沿；</summary>
+        // <summary>推进火海蔓延与荆棘传染前沿</summary>
         public static void Tick(GridLogic grid, float now, float deltaTime)
         {
             _now = now;
 
-            if (_flameFront.Count == 0 || grid == null) return;
+            if (grid == null) return;
 
+            if (_flameFront.Count > 0) TickFlame(grid);
+
+            if (_thornFront.Count > 0) TickThorn(grid);
+        }
+
+        private static void TickFlame(GridLogic grid)
+        {
             _dueFront.Clear();
 
             for (int i = 0; i < _flameFront.Count; i++)
             {
-                if (_flameFront[i].At <= now) _dueFront.Add(_flameFront[i].Cell);
+                if (_flameFront[i].At <= _now) _dueFront.Add(_flameFront[i].Cell);
             }
 
             for (int i = 0; i < _dueFront.Count; i++)
@@ -75,9 +90,16 @@ namespace DeepseaOil.Logic.Grid
         }
 
         /// <summary>一次落地的连锁入口</summary>
-        public static void Trigger(GridLogic grid, Vector3Int origin, TileStateType result)
+        public static void Trigger(GridLogic grid, Vector3Int origin, TileStateType result, float durationOverride = 0f, float radius = 0f)
         {
             if (grid == null || !grid.HasCell(origin)) return;
+
+            // 荆棘同样可燃：必须排在火海分支之前，否则生成当帧就被点成火海
+            if (result == TileStateType.ChargedThorn)
+            {
+                StartThorn(grid, origin, radius, durationOverride);
+                return;
+            }
 
             if (result == TileStateType.FlameField || IsFlammable(result))
             {
@@ -218,6 +240,80 @@ namespace DeepseaOil.Logic.Grid
             }
         }
 
+        // <summary>荆棘传染：每 0.1s 一步，只吃基础植物区；超预算的留到下一帧</summary>
+        private static void TickThorn(GridLogic grid)
+        {
+            int budget = MaxChainSteps;
+
+            for (int i = _thornFront.Count - 1; i >= 0; i--)
+            {
+                if (budget <= 0) return;
+
+                var entry = _thornFront[i];
+
+                if (entry.At > _now) continue;
+
+                _thornFront.RemoveAt(i);
+
+                budget -= SpreadThorn(grid, entry.Cell, entry.Duration);
+            }
+        }
+
+        // <summary>一步感染：相邻的基础植物区变荆棘，返回本步感染格数</summary>
+        private static int SpreadThorn(GridLogic grid, Vector3Int cell, float duration)
+        {
+            if (grid.StateOf(cell) != TileStateType.ChargedThorn) return 0;
+
+            int infected = 0;
+
+            GridQuery.GetNeighbors4(cell, _neighbors);
+
+            for (int i = 0; i < _neighbors.Count; i++)
+            {
+                Vector3Int next = _neighbors[i];
+
+                if (!grid.HasCell(next)) continue;
+
+                if (grid.StateOf(next) != TileStateType.BasicPlant) continue;
+
+                if (!grid.SwitchTileState(next, TileStateType.ChargedThorn, duration)) continue;
+
+                AddThornFront(grid, next, duration);
+
+                infected++;
+            }
+
+            return infected;
+        }
+
+        // <summary>入队：只收当前已是荆棘的格，同格不重复</summary>
+        private static void AddThornFront(GridLogic grid, Vector3Int cell, float duration)
+        {
+            if (grid.StateOf(cell) != TileStateType.ChargedThorn) return;
+
+            for (int i = 0; i < _thornFront.Count; i++)
+            {
+                if (_thornFront[i].Cell == cell) return;
+            }
+
+            _thornFront.Add((cell, _now + ThornSpreadStep, duration));
+        }
+
+        // <summary>起链：起点与即时波及到的荆棘全部入队</summary>
+        private static void StartThorn(GridLogic grid, Vector3Int origin, float radius, float duration)
+        {
+            AddThornFront(grid, origin, duration);
+
+            if (radius <= 0f) return;
+
+            CollectCellsInRadius(grid, origin, radius, _radiusCells);
+
+            for (int i = 0; i < _radiusCells.Count; i++)
+            {
+                AddThornFront(grid, _radiusCells[i], duration);
+            }
+        }
+
         private static void AddFront(GridLogic grid, Vector3Int cell)
         {
             grid.ScheduleTick(cell);
@@ -263,6 +359,13 @@ namespace DeepseaOil.Logic.Grid
             if (!duo.TriggerChain) return;
 
             TileStateType result = grid.StateOf(origin);
+
+            if (result == TileStateType.ChargedThorn)
+            {
+                StartThorn(grid, origin, duo.EffectRadius, duo.ResultDuration);
+
+                return;
+            }
 
             if (result == TileStateType.FlameField || IsFlammable(result))
             {

@@ -408,7 +408,7 @@ namespace DeepseaOil.Presentation.Actor
             if (_registry != null && _registered) _registry.Unregister(this);
         }
 
-        /// <summary>减速越狠越靠近 enemyBodySlowed；跨 TintStep 才重播</summary>
+        /// <summary>减速越狠越暗：色阶见 VisualPalette.SlowTintColor；跨 TintStep 才重播</summary>
         private void ApplySlowTint()
         {
             if (Mathf.Abs(_slowMultiplier - _tintScale) < TintStep) return;
@@ -420,7 +420,7 @@ namespace DeepseaOil.Presentation.Actor
             if (_tintScale >= 1f) return;
 
             EffectContext ctx = EffectContext.OnTarget(transform);
-            ctx.Tint = Color.Lerp(ConfigModule.Visuals.enemyBodySlowed, Color.white, Mathf.Clamp01(_tintScale));
+            ctx.Tint = ConfigModule.Visuals.SlowTintColor(_tintScale);
 
             _slowTintHandle = EffectModule.Play(EffectId.SlowTint, in ctx);
         }
