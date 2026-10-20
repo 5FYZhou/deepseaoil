@@ -32,6 +32,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 8058230638859969252}
   - {fileID: 3055263357559432511}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -57,6 +58,43 @@ MonoBehaviour:
   selfLightOverride: {r: 0.31243825, g: 1, b: 0, a: 1}
   selfLightIntensity: 0.2
   selfLightPulseDepth: 0.1
+  emissiveBoostDay: 0.35
+  emissiveBoostNight: 0.4
+  emissiveFadeSeconds: 0.35
+  shadowMinAlphaScale: 0.58
+  lifeChargeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.75043654
+      value: 0.46369663
+      inSlope: 1.1606036
+      outSlope: 1.1606036
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.15477519
+      outWeight: 0.12722753
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!58 &1484185468337858255
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -138,7 +176,7 @@ Transform:
   m_LocalScale: {x: 10, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 3055263357559432511}
+  m_Father: {fileID: 300719338575049777}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &8010036952801740108
 SpriteRenderer:
@@ -221,8 +259,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 8058230638859969252}
+  m_Children: []
   m_Father: {fileID: 300719338575049777}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &1362575489724567055

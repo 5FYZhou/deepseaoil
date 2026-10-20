@@ -1,4 +1,4 @@
-﻿using DeepseaOil.Generated;
+using DeepseaOil.Generated;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Input;
 using UnityEngine;
@@ -33,6 +33,8 @@ namespace DeepseaOil.Presentation.Input
         private bool _storyInputLocked;
 
         private bool _inputEnabled;
+
+        private readonly UIPointerGate _pointerGate = new UIPointerGate();
 
         /// <summary>本渲染帧瞄准屏幕坐标；是"当前位置"不是"按下沿"</summary>
         public Vector2 AimScreen { get; private set; }
@@ -143,7 +145,7 @@ namespace DeepseaOil.Presentation.Input
 
             if (_aim != null) AimScreen = _aim.ReadValue<Vector2>();
 
-            AttackPressedThisFrame = Pressed(_attack);
+            AttackPressedThisFrame = Pressed(_attack) && !_pointerGate.OwnsPress(AimScreen);
 
             AltAttackPressedThisFrame = Pressed(_altAttack);
 
@@ -202,7 +204,7 @@ namespace DeepseaOil.Presentation.Input
 
         public void OnGameStateChanged(GameStateChanged evt)
         {
-            if(evt.state == Logic.GameState.Running)
+            if(evt.state == Logic.GameState.Running || evt.state == Logic.GameState.Settle)
             {
                 SetInputEnabled(true);
             }

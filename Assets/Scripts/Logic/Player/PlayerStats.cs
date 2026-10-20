@@ -100,6 +100,7 @@ namespace DeepseaOil.Logic.Player
             return new PlayerSaveData
             {
                 hp = _current,
+                maxHp = _spec.MaxHp,
                 water = Water,
                 earth = Earth,
                 seedType = (int)Seed,
