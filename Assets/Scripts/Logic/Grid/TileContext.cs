@@ -41,7 +41,7 @@ namespace DeepseaOil.Logic.Grid
 
         void Transition(Vector3Int cell, TileStateType next);
 
-        /// <summary>直接切状态（同步、同帧生效）；durationOverride &gt; 0 时覆盖表里的存活秒数</summary>
+        /// <summary>直接切状态（同步、同帧生效）；durationOverride &gt; 0 时覆盖表里的存活秒数；间接铺地貌受覆盖秩裁决</summary>
         bool SwitchTileState(Vector3Int cell, TileStateType next, float durationOverride = 0f);
     }
 
