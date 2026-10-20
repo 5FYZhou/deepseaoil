@@ -44,11 +44,11 @@ namespace DeepseaOil.Logic.Level
             int nextLevelId = levelReader.NextLevelId;
             WavePlayMode playMode = levelReader.PlayMode;
 
-            if (currentLevelId <= 0)
+            if (currentLevelId < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(levelReader),
                     currentLevelId,
-                    "Current level ID must be positive.");
+                    "Current level ID must not be negative.");
 
             if (!Enum.IsDefined(typeof(WavePlayMode), playMode))
                 throw new ArgumentOutOfRangeException(nameof(levelReader), playMode, "Unknown wave play mode.");

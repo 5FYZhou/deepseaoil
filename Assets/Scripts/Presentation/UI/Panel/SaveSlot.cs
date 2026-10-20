@@ -93,10 +93,10 @@ namespace DeepseaOil.Presentation.UI
                     txtProcessRight.text = "暂无进度";
                 else if (info.Status == SaveSlotStatus.Invalid)
                     txtProcessRight.text = "存档异常";
-                else if (info.CurrentLevelId == 1)
+                else if (info.CurrentLevelId == 0)
                     txtProcessRight.text = "教学关";
                 else
-                    txtProcessRight.text = $"第 {info.CurrentLevelId - 1} 关";
+                    txtProcessRight.text = $"第 {info.CurrentLevelId} 关";
             }
 
             int split = string.IsNullOrEmpty(info.TimeText) ? -1 : info.TimeText.IndexOf(' ');

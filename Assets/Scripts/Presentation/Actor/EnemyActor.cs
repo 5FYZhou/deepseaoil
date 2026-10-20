@@ -22,6 +22,15 @@ namespace DeepseaOil.Presentation.Actor
     [DisallowMultipleComponent]
     public sealed class EnemyActor : MonoBehaviour, IDamageable, ISlowable, IKnockBackable, IStunnable, IManagedActor, IContactDamager, IYSortAnchor, IAggroBreakable, IEnemyBody
     {
+        // TintStep：肉眼分不出的倍率差；火花节拍与并发上限压在 ChainShock 池 1/16 以内
+        private const float TintStep = 0.05f;
+
+        private const float SparkInterval = 0.3f;
+
+        private const int SparkCapacity = 8;
+
+        private static int _sparkActive;
+
         [Header("死亡反馈")]
         [Tooltip("死亡时播放的特效；由预制体配置")]
         [SerializeField] private EffectId deathEffect = EffectId.Shatter;
@@ -72,6 +81,8 @@ namespace DeepseaOil.Presentation.Actor
 
         private float _slowMultiplier = 1f;
 
+        private float _hitStopUntil;
+
         /// 贴身伤害，取自 enemy 表；ContactProbe 经 IContactDamager 读
         public int ContactDamage => _spec != null ? _spec.ContactDamage : 0;
 
@@ -90,8 +101,11 @@ namespace DeepseaOil.Presentation.Actor
 
         private bool _deathDone;
 
-        /// 上一物理帧的减速态
-        private bool _slowOn;
+        private float _tintScale = 1f;
+
+        private bool _sparkOn;
+
+        private float _sparkTimer;
 
         public bool IsAlive => Stats != null && Stats.IsAlive;
 
@@ -254,7 +268,7 @@ namespace DeepseaOil.Presentation.Actor
 
                 EffectModule.Play(EffectId.BurstSparks, in spark);
 
-                StartCoroutine(CoHitStop(feel.hitStopSeconds));
+                BeginHitStop(feel.hitStopSeconds);
             }
 
             if (damage.HasKnockback && _logic != null)
@@ -316,10 +330,34 @@ namespace DeepseaOil.Presentation.Actor
             _slowMultiplier = _logic.Status.SlowScale;
 
             ApplySlowTint();
+            TickStunSpark(deltaTime);
             UpdateCell(force: false);
+            RestoreHitStop(now);
 
             // 运动学快照与移动同频提交：动画与物理体必须看到同一帧真值
             _animView?.SetMotion(EngineVelocity, _motor.Facing, EngineVelocity.magnitude);
+        }
+
+        private void BeginHitStop(float seconds)
+        {
+            if (seconds <= 0f || _animView == null || _animView.Animator == null) return;
+
+            _animView.Animator.speed = 0f;
+            _hitStopUntil = Time.time + seconds;
+        }
+
+        private void RestoreHitStop(float now)
+        {
+            if (_hitStopUntil <= 0f || now < _hitStopUntil) return;
+
+            RestoreHitStopNow();
+        }
+
+        private void RestoreHitStopNow()
+        {
+            _hitStopUntil = 0f;
+
+            if (_animView != null && _animView.Animator != null) _animView.Animator.speed = 1f;
         }
 
         public void ApplySlow(float speedScale, float seconds)
@@ -365,29 +403,68 @@ namespace DeepseaOil.Presentation.Actor
 
         private void OnDestroy()
         {
+            ReleaseSparkSlot();
+
             if (_registry != null && _registered) _registry.Unregister(this);
         }
 
-        /// <summary>只在减速状态跨阶时通知 EffectModule；本类不写身体颜色</summary>
+        /// <summary>减速越狠越靠近 enemyBodySlowed；跨 TintStep 才重播</summary>
         private void ApplySlowTint()
         {
-            bool slowed = _slowMultiplier < 1f;
+            if (Mathf.Abs(_slowMultiplier - _tintScale) < TintStep) return;
 
-            if (slowed == _slowOn) return;
+            _tintScale = _slowMultiplier;
 
-            _slowOn = slowed;
+            if (_slowTintHandle.IsValid) EffectModule.Stop(_slowTintHandle);
 
-            if (slowed)
+            if (_tintScale >= 1f) return;
+
+            EffectContext ctx = EffectContext.OnTarget(transform);
+            ctx.Tint = Color.Lerp(ConfigModule.Visuals.enemyBodySlowed, Color.white, Mathf.Clamp01(_tintScale));
+
+            _slowTintHandle = EffectModule.Play(EffectId.SlowTint, in ctx);
+        }
+
+        /// <summary>全局最多 SparkCapacity 只同时跳，否则打爆 ChainShock 池</summary>
+        private void TickStunSpark(float deltaTime)
+        {
+            bool stunned = _logic != null && _logic.Status.IsStunned;
+
+            if (!stunned)
             {
-                EffectContext ctx = EffectContext.OnTarget(transform);
-                ctx.Tint = ConfigModule.Visuals.enemyBodySlowed;
+                ReleaseSparkSlot();
 
-                _slowTintHandle = EffectModule.Play(EffectId.SlowTint, in ctx);
+                _sparkTimer = 0f;
 
                 return;
             }
 
-            EffectModule.Stop(_slowTintHandle);
+            if (!_sparkOn)
+            {
+                if (_sparkActive >= SparkCapacity) return;
+
+                _sparkActive++;
+                _sparkOn = true;
+            }
+
+            _sparkTimer -= deltaTime;
+
+            if (_sparkTimer > 0f) return;
+
+            _sparkTimer = SparkInterval;
+
+            EffectContext ctx = EffectContext.At(Position);
+            ctx.Value = 0.35f;
+
+            EffectModule.Play(EffectId.ChainShock, in ctx);
+        }
+
+        private void ReleaseSparkSlot()
+        {
+            if (!_sparkOn) return;
+
+            _sparkOn = false;
+            _sparkActive--;
         }
 
         private void UpdateCell(bool force)
@@ -440,6 +517,9 @@ namespace DeepseaOil.Presentation.Actor
             if (_deathFired) return;
 
             _deathFired = true;
+
+            // 顿帧中死亡不再 FixedTick，必须显式恢复
+            RestoreHitStopNow();
 
             SfxRequested?.Invoke(AudioId.EnemyDie);
 
@@ -564,7 +644,7 @@ namespace DeepseaOil.Presentation.Actor
             UpdateCell(force: true);
             _animView?.ResetToDefault();
 
-            if (_animView != null && _animView.Animator != null) _animView.Animator.speed = 1f;
+            RestoreHitStopNow();
         }
 
         private System.Collections.IEnumerator CoRespawn()
@@ -577,19 +657,6 @@ namespace DeepseaOil.Presentation.Actor
             _respawnRoutine = null;
 
             ResetToSpawn();
-        }
-
-        private System.Collections.IEnumerator CoHitStop(float seconds)
-        {
-            if (_animView != null && _animView.Animator != null)
-            {
-                _animView.Animator.speed = 0f;
-                yield return new WaitForSeconds(seconds);
-                if (_animView != null && _animView.Animator != null)
-                {
-                    _animView.Animator.speed = 1f;
-                }
-            }
         }
     }
 }

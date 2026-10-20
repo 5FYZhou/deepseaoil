@@ -28,6 +28,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
         private readonly Dictionary<int, ParticleInstance> _active = new Dictionary<int, ParticleInstance>();
         private readonly List<int> _recycleScratch = new List<int>();
 
+        private readonly Dictionary<GameObject, SystemsCache> _cache = new Dictionary<GameObject, SystemsCache>();
+        private readonly Stack<ParticleInstance> _freeInstances = new Stack<ParticleInstance>();
+
         private GameObject _prefab;
         private Vector3 _prefabScale = Vector3.one;
 
@@ -132,7 +135,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 return EffectHandle.None;
             }
 
-            ParticleSystem[] systems = go.GetComponentsInChildren<ParticleSystem>(true);
+            SystemsCache cache = GetCache(go);
+            ParticleSystem[] systems = cache.Systems;
+
             if (systems.Length == 0)
             {
                 if (!_warnedNoParticleSystem)
@@ -153,7 +158,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             for (int i = 0; i < systems.Length; i++)
             {
-                ParticleSystemRenderer psr = systems[i].GetComponent<ParticleSystemRenderer>();
+                ParticleSystemRenderer psr = cache.Renderers[i];
 
                 if (psr == null) continue;
 
@@ -173,17 +178,17 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 systems[i].Play(false);
             }
 
-            var inst = new ParticleInstance
-            {
-                Id = ++_nextInstanceId,
-                Epoch = _epoch,
-                Go = go,
-                Systems = systems,
-                Follow = ctx.Anchor,
-                FollowRequested = ctx.Anchor != null,
-                Duration = EstimateDuration(systems),
-                Intensity = value,
-            };
+            ParticleInstance inst = RentInstance();
+
+            inst.Id = ++_nextInstanceId;
+            inst.Epoch = _epoch;
+            inst.Go = go;
+            inst.Systems = systems;
+            inst.Follow = ctx.Anchor;
+            inst.FollowRequested = ctx.Anchor != null;
+            inst.Elapsed = 0f;
+            inst.Duration = cache.Duration;
+            inst.Intensity = value;
 
             _active[inst.Id] = inst;
             if (_isSingleton) _singleton = inst;
@@ -267,6 +272,9 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             _pool?.Dispose();
             _pool = null;
             _prefab = null;
+
+            _cache.Clear();
+            _freeInstances.Clear();
         }
 
         private void BuildPool(GameObject prefab)
@@ -431,14 +439,54 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                     ParticleSystem ps = inst.Systems[i];
                     if (ps != null) ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
                 }
-
-                inst.Systems = null;
             }
 
             if (inst.Go != null && _pool != null)
             {
                 _pool.Release(inst.Go);
             }
+
+            inst.Id = 0;
+            inst.Epoch = 0;
+            inst.Go = null;
+            inst.Systems = null;
+            inst.Follow = null;
+            inst.FollowRequested = false;
+            inst.Elapsed = 0f;
+            inst.Duration = 0f;
+            inst.Intensity = 0f;
+
+            _freeInstances.Push(inst);
+        }
+
+        private ParticleInstance RentInstance()
+        {
+            return _freeInstances.Count > 0 ? _freeInstances.Pop() : new ParticleInstance();
+        }
+
+        /// <summary>池对象的粒子系统/渲染器/时长只探一次：池化只省了 Instantiate</summary>
+        private SystemsCache GetCache(GameObject go)
+        {
+            if (_cache.TryGetValue(go, out SystemsCache cached)) return cached;
+
+            ParticleSystem[] systems = go.GetComponentsInChildren<ParticleSystem>(true);
+            var renderers = new ParticleSystemRenderer[systems.Length];
+
+            for (int i = 0; i < systems.Length; i++)
+            {
+                renderers[i] = systems[i].GetComponent<ParticleSystemRenderer>();
+            }
+
+            var built = new SystemsCache
+            {
+                Systems = systems,
+                Renderers = renderers,
+                Duration = EstimateDuration(systems),
+            };
+
+            _cache[go] = built;
+
+            return built;
         }
 
         private EffectHandle HandleOf(ParticleInstance inst) => new EffectHandle(inst.Id, inst.Epoch, this);
@@ -468,6 +516,13 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             public float Elapsed;
             public float Duration;
             public float Intensity;
+        }
+
+        private sealed class SystemsCache
+        {
+            public ParticleSystem[] Systems;
+            public ParticleSystemRenderer[] Renderers;
+            public float Duration;
         }
     }
 }

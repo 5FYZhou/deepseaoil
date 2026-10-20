@@ -36,5 +36,11 @@ namespace DeepseaOil.Presentation.Effects
         Hop,
 
         AlphaTint,
+
+        HudShake,
+
+        HudSpark,
+
+        HudFlash,
     }
 }

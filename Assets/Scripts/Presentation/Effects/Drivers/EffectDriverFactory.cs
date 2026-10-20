@@ -31,6 +31,15 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 case EffectDriverKind.Hop:
                     return new HopDriver(spec);
 
+                case EffectDriverKind.HudShake:
+                    return new HudShakeDriver(spec);
+
+                case EffectDriverKind.HudSpark:
+                    return new HudSparkDriver(spec);
+
+                case EffectDriverKind.HudFlash:
+                    return new HudFlashDriver(spec);
+
                 default:
                     return new ParticleDriver(spec, root);
             }

@@ -30,7 +30,7 @@ namespace DeepseaOil.Presentation.Effects
 
         [Header("同帧队列")]
         [Tooltip("单帧单特效最大排队 Play 数，超了丢弃最旧的")]
-        public int maxQueuedPlaysPerEffect = 64;
+        public int maxQueuedPlaysPerEffect = 128;
 
         private static EffectTuning Cached;
 

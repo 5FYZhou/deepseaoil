@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DeepseaOil.Data.Settings;
 using UnityEngine;
@@ -6,7 +6,7 @@ using cfg.dso;
 
 namespace DeepseaOil.Data
 {
-        /// <summary>数值配置模块，Data 层唯一取值入口：调用方只用 GetXxx 与包装件</summary>
+        /// <summary>数值配置模块，Data 层唯一取值入口</summary>
         // 生成行只准出现在 Data/Config/**，破例须登记
     public static class ConfigModule
     {
@@ -253,7 +253,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>全部元素反应规则；顺序无语义，查询由 ReactionResolver 负责</summary>
+        /// <summary>全部元素反应规则；顺序无语义</summary>
         public static IReadOnlyList<ElementRuleSpec> GetElementRules()
         {
             EnsureAssets();
@@ -322,7 +322,7 @@ namespace DeepseaOil.Data
             return result;
         }
 
-        /// <summary>读一个敌人种类：耐久来自 enemy 表，运动学来自 EnemyTuning 条目</summary>
+        /// <summary>读敌人种类：耐久来自 enemy 表，运动学来自 EnemyTuning</summary>
         public static EnemySpec GetEnemy(int id = Ids.Enemy)
         {
             EnsureAssets();
@@ -396,6 +396,21 @@ namespace DeepseaOil.Data
             }
         }
 
+        /// <summary>元素格步价倍率：1=关闭偏好；非法值落回 0.85</summary>
+        public static float NavElementCost
+        {
+            get
+            {
+                EnsureAssets();
+
+                float value = _enemyTuning.elementTileCost;
+
+                if (float.IsNaN(value) || value <= 0f) return 0.85f;
+
+                return value < 0.5f ? 0.5f : (value > 1f ? 1f : value);
+            }
+        }
+
         /// <summary>入弯最低速度倍率：路线方向与当前速度对齐度为 0 时的目标速度倍率</summary>
         public static float CornerSpeedFactor
         {
@@ -429,6 +444,19 @@ namespace DeepseaOil.Data
             }
         }
 
+        /// <summary>停住散开速度：≤0 / NaN 落回 1.0（字段后加，老资产里可能还没这条）</summary>
+        public static float SpreadSpeed
+        {
+            get
+            {
+                EnsureAssets();
+
+                float value = _enemyTuning.spreadSpeed;
+
+                return value > 0f && !float.IsNaN(value) ? value : 1f;
+            }
+        }
+
         /// <summary>卡死判定帧数：速度被压到零满这么多物理帧才算卡死</summary>
         public static int StuckFrames
         {
@@ -451,7 +479,7 @@ namespace DeepseaOil.Data
             }
         }
 
-        /// <summary>读玩家数值，"玩家"取值的唯一入口：移动参数（SO）与水球射程都从这里出去</summary>
+        /// <summary>读玩家数值，"玩家"的唯一入口：移动参数与水球射程</summary>
         public static PlayerSpec GetPlayer(int id = Ids.Player)
         {
             EnsureAssets();
@@ -484,6 +512,13 @@ namespace DeepseaOil.Data
             }
 
             return result;
+        }
+
+        public static bool HasLevel(int id)
+        {
+            EnsureAssets();
+
+            return _holder.Tables.TbLevelWave.GetOrDefault(id) != null;
         }
 
         public static LevelSpec GetLevel(int id)

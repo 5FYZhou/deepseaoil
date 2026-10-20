@@ -101,7 +101,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 state.FlashDuration = ctx.Duration > 0f ? ctx.Duration : DefaultDuration;
                 state.FlashRemaining = state.FlashDuration;
 
-                EnsureSpriteTexture(state);
+                if (state.FlashOn) EnsureSpriteTexture(state);
+
                 ApplyFlash(state, 1f);
             }
             else if (id == EffectId.SlowTint)
@@ -196,13 +197,13 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 }
 
                 // 动画换帧会换精灵：不跟着换贴图的话闪白会画成上一帧的剪影
-                EnsureSpriteTexture(state);
-
                 if (state.FlashRemaining > 0f)
                 {
                     state.FlashRemaining -= dt;
 
                     bool expired = state.FlashRemaining <= 0f;
+
+                    if (!expired) EnsureSpriteTexture(state);
 
                     // 必须逐帧重提交：只写一次会一直挂在纯白不淡出
                     ApplyFlash(state, expired ? 0f : state.FlashRemaining / state.FlashDuration);

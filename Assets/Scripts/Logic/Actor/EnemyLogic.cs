@@ -12,7 +12,7 @@ namespace DeepseaOil.Logic
         private readonly StatusGroup _status;
         private readonly EnemyMoveGroup _move;
 
-        /// <summary>绕障与转向；AttachGrid 之前为 null，此时只走大脑的直线意图</summary>
+        /// <summary>绕障与转向；AttachGrid 前为 null，只走直线意图</summary>
         private readonly EnemyNavigator _navigator;
 
         /// <summary>低速线：物理把速度压到零才算卡住，慢速蹭墙不算</summary>
@@ -25,7 +25,10 @@ namespace DeepseaOil.Logic
 
         private Vector2? _target;
 
-        /// <remarks>冲量必须挂起，不能当场写账本：账本在帧首清累积区，两次 Tick 之间写会被下一固定帧清掉</remarks>
+        /// <summary>本帧停住散开方向；非零时按 Move 走</summary>
+        private Vector2 _spreadDirection;
+
+        /// <remarks>冲量必须挂起：账本帧首清累积区，当场写会被下一固定帧清掉</remarks>
         private Vector2 _pendingKnockback;
 
         public EnemyLogic(IActorMotor motor, EnemySpec spec)
@@ -44,7 +47,7 @@ namespace DeepseaOil.Logic
 
         public IEnemyBrain Brain { get; }
 
-        /// <summary>本帧意图，由 Brain.Decide 产出；状态层唯一读口</summary>
+        /// <summary>本帧意图；状态层唯一读口</summary>
         public EnemyIntent Intent { get; private set; }
 
         public StatusGroup Status => _status;
@@ -72,24 +75,23 @@ namespace DeepseaOil.Logic
         {
         }
 
-        /// <summary>本帧可执行的方向与速度：流场跟随、入弯降速、软分离、卡死换步都在转向器里落地</summary>
+        /// <summary>本帧方向与速度：流场/入弯/分离/换步都在转向器里落地</summary>
         public Steering ResolveSteering()
         {
-            return _navigator.Resolve(
-                Intent,
-                Motor.Position,
-                ((IMovementMotor)Motor).Velocity,
-                Motor.Motion.MoveAcceleration,
-                Ctx.now);
+            Vector2 velocity = ((IMovementMotor)Motor).Velocity;
+
+            if (_spreadDirection.sqrMagnitude > 0f) return _navigator.ResolveSpread(_spreadDirection, velocity, Ctx.now);
+
+            return _navigator.Resolve(Intent, Motor.Position, velocity, Motor.Motion.MoveAcceleration, Ctx.now);
         }
 
         /// <summary>卡死判定：物理把速度压到零而大脑仍在追，连续满帧即换步</summary>
-        /// <remarks>没接线网格时整套绕障都不存在，卡死判定也就无从谈起（换步方向要让场给）。</remarks>
+        /// <remarks>没接线网格时整套绕障不存在，卡死判定无从谈起。</remarks>
         private void DetectStuck()
         {
             if (_navigator == null || _stuckFramesMax <= 0) return;
 
-            // 走 IMovementMotor 面取速度：直接取 Motor.Velocity 与 IActorLedger.Velocity 二义
+            // 取速度必须走 IMovementMotor 面：Motor.Velocity 与 IActorLedger.Velocity 二义
             if (((IMovementMotor)Motor).Velocity.sqrMagnitude > StuckSpeedSqr)
             {
                 _stuckFrames = 0;
@@ -124,14 +126,19 @@ namespace DeepseaOil.Logic
 
         public void Tick(float now, float deltaTime)
         {
-            // 意图必须先入上下文，故大脑决策放此处
+            // 意图必须先入上下文
             var brainContext = _target.HasValue
                 ? new EnemyBrainContext(Motor.Position, _target.Value, true)
                 : EnemyBrainContext.WithoutTarget(Motor.Position);
 
             Intent = Brain.Decide(in brainContext);
 
-            var snapshot = new InputSnapshot(Intent.Direction, false);
+            // 停住也要散开：没有物理推挤时，不加这一步多只怪会精确叠在同一点
+            _spreadDirection = Intent.IsIdle ? _navigator.IdleSpread(Motor.Position, _target) : Vector2.zero;
+
+            Vector2 move = _spreadDirection.sqrMagnitude > 0f ? _spreadDirection : Intent.Direction;
+
+            var snapshot = new InputSnapshot(move, false);
             var context = new LogicContext(now, deltaTime, default, snapshot);
 
             FixedTick(context);

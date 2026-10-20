@@ -17,7 +17,7 @@ MonoBehaviour:
     radius: 0.3
     acceleration: 12
     knockbackDecay: 30
-    stopDistance: 0.6
+    stopDistance: 0.75
     turnRateLimit: 540
     turnSmoothSeconds: 0.05
     chaseRange: 60
@@ -32,7 +32,7 @@ MonoBehaviour:
     radius: 0.5
     acceleration: 16
     knockbackDecay: 30
-    stopDistance: 0.6
+    stopDistance: 0.9
     turnRateLimit: 540
     turnSmoothSeconds: 0.05
     chaseRange: 60
@@ -45,6 +45,7 @@ MonoBehaviour:
       maxAmount: 0.5
   navSkin: 0.05
   navClearanceCap: 1
+  elementTileCost: 0.85
   cornerSpeedFactor: 0.4
   separationRadius: 0.45
   separationWeight: 0.25

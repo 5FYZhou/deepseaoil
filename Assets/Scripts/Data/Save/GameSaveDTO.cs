@@ -132,13 +132,13 @@ namespace DeepseaOil.Data
 
         public int lineIndex;
 
-        public bool seedDialogueQueued;
+        public bool levelThreeWaveDialogueQueued;
 
-        public bool levelFiveWaveDialogueQueued;
+        public bool levelFourWaveDialogueQueued;
 
-        public bool levelSixWaveTwoDialogueQueued;
+        public bool levelFiveSunriseDialogueQueued;
 
-        public bool levelSixWaveThreeDialogueQueued;
+        public bool levelFiveDuskDialogueQueued;
 
         public bool endingDialogueQueued;
 
@@ -149,7 +149,7 @@ namespace DeepseaOil.Data
     [Serializable]
     public class GameSaveData
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         public int schemaVersion;
 

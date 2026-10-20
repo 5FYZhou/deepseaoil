@@ -376,7 +376,7 @@ namespace DeepseaOil.Presentation.Adapters
 
             if (usable == 0 && fallbackEffectTilemap == null)
             {
-                Debug.LogWarning(
+                Debug.Log(
                     "[Grid] TilemapAdapter 的 effectLayers 一层都没接、fallbackEffectTilemap 也留空：" +
                     "状态变化只记逻辑、不显示（泥浆不会出现）。至少给一层接上 Tilemap。", this);
 

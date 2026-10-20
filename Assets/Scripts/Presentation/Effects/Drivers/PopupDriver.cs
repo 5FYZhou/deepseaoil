@@ -24,6 +24,7 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
         private readonly Dictionary<int, PopupInstance> _active = new Dictionary<int, PopupInstance>();
         private readonly List<int> _recycleScratch = new List<int>();
+        private readonly Dictionary<GameObject, PopupParts> _parts = new Dictionary<GameObject, PopupParts>();
 
         private Pool<GameObject> _pool;
         private int _nextId;
@@ -115,34 +116,47 @@ namespace DeepseaOil.Presentation.Effects.Drivers
                 return EffectHandle.None;
             }
 
-            PopupView view = go.GetComponent<PopupView>();
+            PopupView view;
+            Renderer label;
 
-            if (view == null)
+            if (_parts.TryGetValue(go, out PopupParts cached))
             {
-                if (!_warnedNoView)
-                {
-                    _warnedNoView = true;
-                    Debug.LogError($"{_tag} 预制体根节点上没有 PopupView，伤害飘字无法播放。" +
-                                   $"请检查 Assets/Resources/{_assetKey}.prefab。本驱动只报一次。");
-                }
-
-                _pool.Release(go);
-                return EffectHandle.None;
+                view = cached.View;
+                label = cached.Label;
             }
-
-            Renderer label = view.GetComponentInChildren<Renderer>(true);
-
-            if (label == null)
+            else
             {
-                if (!_warnedNoLabel)
+                view = go.GetComponent<PopupView>();
+
+                if (view == null)
                 {
-                    _warnedNoLabel = true;
-                    Debug.LogError($"{_tag} 预制体上没有带渲染器的 TMP_Text（PopupView.label 未接），伤害飘字无法播放。" +
-                                   $"请检查 Assets/Resources/{_assetKey}.prefab。本驱动只报一次。");
+                    if (!_warnedNoView)
+                    {
+                        _warnedNoView = true;
+                        Debug.LogError($"{_tag} 预制体根节点上没有 PopupView，伤害飘字无法播放。" +
+                                       $"请检查 Assets/Resources/{_assetKey}.prefab。本驱动只报一次。");
+                    }
+
+                    _pool.Release(go);
+                    return EffectHandle.None;
                 }
 
-                _pool.Release(go);
-                return EffectHandle.None;
+                label = view.GetComponentInChildren<Renderer>(true);
+
+                if (label == null)
+                {
+                    if (!_warnedNoLabel)
+                    {
+                        _warnedNoLabel = true;
+                        Debug.LogError($"{_tag} 预制体上没有带渲染器的 TMP_Text（PopupView.label 未接），伤害飘字无法播放。" +
+                                       $"请检查 Assets/Resources/{_assetKey}.prefab。本驱动只报一次。");
+                    }
+
+                    _pool.Release(go);
+                    return EffectHandle.None;
+                }
+
+                _parts[go] = new PopupParts { View = view, Label = label };
             }
 
             VisualFeelTuning feel = ConfigModule.VisualFeel;
@@ -277,6 +291,8 @@ namespace DeepseaOil.Presentation.Effects.Drivers
 
             _pool?.Dispose();
             _pool = null;
+
+            _parts.Clear();
         }
 
         private void Recycle(PopupInstance inst)
@@ -309,6 +325,12 @@ namespace DeepseaOil.Presentation.Effects.Drivers
             public float Elapsed;
             public float Duration;
             public int HandleId;
+        }
+
+        private sealed class PopupParts
+        {
+            public PopupView View;
+            public Renderer Label;
         }
     }
 }

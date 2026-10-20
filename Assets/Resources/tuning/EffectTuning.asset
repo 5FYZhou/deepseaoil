@@ -14,48 +14,48 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pools:
   - Id: 1
-    MaxSize: 32
-    Prewarm: 8
+    MaxSize: 64
+    Prewarm: 16
   - Id: 2
-    MaxSize: 32
+    MaxSize: 64
     Prewarm: 0
   - Id: 4
     MaxSize: 1
     Prewarm: 0
   - Id: 5
-    MaxSize: 16
-    Prewarm: 4
+    MaxSize: 32
+    Prewarm: 8
   - Id: 6
-    MaxSize: 16
+    MaxSize: 64
     Prewarm: 0
   - Id: 7
     MaxSize: 1
     Prewarm: 0
   - Id: 8
-    MaxSize: 16
-    Prewarm: 4
+    MaxSize: 32
+    Prewarm: 8
   - Id: 9
-    MaxSize: 64
-    Prewarm: 32
+    MaxSize: 256
+    Prewarm: 48
   - Id: 10
-    MaxSize: 128
+    MaxSize: 256
     Prewarm: 32
   - Id: 11
-    MaxSize: 32
+    MaxSize: 128
     Prewarm: 0
   - Id: 12
-    MaxSize: 32
-    Prewarm: 0
-  - Id: 13
-    MaxSize: 16
-    Prewarm: 0
-  - Id: 14
     MaxSize: 64
     Prewarm: 0
+  - Id: 13
+    MaxSize: 32
+    Prewarm: 0
+  - Id: 14
+    MaxSize: 96
+    Prewarm: 24
   - Id: 15
     MaxSize: 64
     Prewarm: 0
   - Id: 16
     MaxSize: 64
     Prewarm: 0
-  maxQueuedPlaysPerEffect: 64
+  maxQueuedPlaysPerEffect: 256

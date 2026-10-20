@@ -9,7 +9,9 @@ namespace DeepseaOil.Logic.Events
     {
         private const int InitialCapacity = 4;
         private Action<T>[] _handlers = new Action<T>[InitialCapacity];
+        private Action<T>[] _snapshot = new Action<T>[InitialCapacity];
         private int _writeIndex;
+        private int _publishDepth;
 
         // HandlerCount：当前有效订阅者数量。
         public int HandlerCount => _writeIndex;
@@ -46,25 +48,46 @@ namespace DeepseaOil.Logic.Events
             _writeIndex = 0;
         }
 
-        /// <summary>发布事件。遍历快照（每次发布分配数组，有 GC 消耗）：发布中增删的订阅者收不到本次事件；订阅者异常被隔离，不打断其余订阅者。</summary>
+        /// <summary>发布事件。遍历快照：发布中增删的订阅者收不到本次事件；订阅者异常被隔离，不打断其余订阅者。</summary>
         public void Publish(in T evt)
         {
             int count = _writeIndex;
             if (count == 0) return;
 
-            var snapshot = new Action<T>[count];
+            bool reuse = _publishDepth == 0;
+            Action<T>[] snapshot;
+
+            if (reuse)
+            {
+                if (_snapshot.Length < count) _snapshot = new Action<T>[count];
+
+                snapshot = _snapshot;
+                _publishDepth = 1;
+            }
+            else
+            {
+                snapshot = new Action<T>[count];
+            }
+
             Array.Copy(_handlers, snapshot, count);
 
-            for (int i = 0; i < count; i++)
+            try
             {
-                try
+                for (int i = 0; i < count; i++)
                 {
-                    snapshot[i]?.Invoke(evt);
+                    try
+                    {
+                        snapshot[i]?.Invoke(evt);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogException(ex);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Debug.LogException(ex);
-                }
+            }
+            finally
+            {
+                if (reuse) _publishDepth = 0;
             }
         }
 

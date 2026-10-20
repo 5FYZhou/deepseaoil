@@ -10,6 +10,8 @@ namespace DeepseaOil.Presentation.Visual
 
         private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
 
+        private static readonly int FaceColorId = Shader.PropertyToID("_FaceColor");
+
         [SerializeField] private TMP_Text label;
 
         private Material _outlineMaterial;
@@ -17,6 +19,9 @@ namespace DeepseaOil.Presentation.Visual
         private float _appliedOutlineWidth = -1f;
         private float _appliedFontScale = -1f;
         private Color _appliedOutlineColor;
+
+        private bool _materialChecked;
+        private bool _faceColorOn;
 
         public void SetStyle(float outlineWidth, Color outlineColor, float fontScale)
         {
@@ -63,20 +68,34 @@ namespace DeepseaOil.Presentation.Visual
             label.color = color;
         }
 
-        /// <summary>只改 alpha：颜色由 SetColor 定，写整色会把元素色抹掉</summary>
+        /// <summary>只改 alpha：写实例材质 _FaceColor/_OutlineColor，写顶点色会每帧重建网格</summary>
         public void SetAlpha(float alpha)
         {
             if (label == null) return;
 
-            Color color = label.color;
-            color.a = alpha;
+            if (!_faceColorOn)
+            {
+                Color vertex = label.color;
+                vertex.a = alpha;
 
-            label.color = color;
+                label.color = vertex;
+
+                return;
+            }
+
+            _outlineMaterial.SetColor(FaceColorId, new Color(1f, 1f, 1f, alpha));
+
+            Color outline = _appliedOutlineColor;
+            outline.a = alpha;
+
+            _outlineMaterial.SetColor(OutlineColorId, outline);
         }
 
         private void EnsureOutlineMaterial()
         {
-            if (_outlineMaterial != null) return;
+            if (_materialChecked) return;
+
+            _materialChecked = true;
 
             Material source = label.fontSharedMaterial;
 
@@ -85,6 +104,8 @@ namespace DeepseaOil.Presentation.Visual
             _outlineMaterial = new Material(source) { name = source.name + "_Outline" };
 
             label.fontSharedMaterial = _outlineMaterial;
+
+            _faceColorOn = _outlineMaterial.HasProperty(FaceColorId);
         }
 
         private void OnDestroy()

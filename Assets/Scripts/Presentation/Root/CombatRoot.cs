@@ -28,6 +28,7 @@ using DeepseaOil.Presentation.RenderPass;
 using DeepseaOil.Presentation.Visual;
 using DeepseaOil.Presentation.World;
 using DeepseaOil.Presentation.Story;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using cfg.dso;
@@ -37,15 +38,24 @@ namespace DeepseaOil.Presentation
     /// <summary>战斗切片的组合根：装配一次，每帧驱动</summary>
     public sealed class CombatRoot : MonoBehaviour, ISceneRoot, IRenderTicked, IPhysicsTicked, IThrowSink
     {
+        private static readonly ProfilerMarker FixedTickMarker = new("Combat.FixedTick");
+
+        private static readonly ProfilerMarker EnemyLoopMarker = new("Combat.Enemies");
+
         public int Order => SceneOrder.World;
 
         /// <summary>怪所在的 Unity 层号：与预制体根节点层、ProjectSettings 里的层名三处必须一致</summary>
         private const int EnemyLayer = 8;
 
-        // Q 键丢弃后脚下掉落物的不可拾取窗口，秒
+        // Q 丢弃后掉落物的不可拾取窗口（秒）
         private const float SeedDiscardPickupCooldown = 1.2f;
 
         private const float SeedPlantFlashDuration = 0.2f;
+
+        // 出生音效按"批"不按"只"：60 只一波逐只播会把 BGM 盖住
+        private const int SpawnSfxPerWave = 2;
+
+        private const float SpawnSfxMinInterval = 1.0f;
 
         [Header("必需接线")]
         [Tooltip("玩家组合根（场景里的 PlayerController）。")]
@@ -69,6 +79,9 @@ namespace DeepseaOil.Presentation
 
         [Tooltip("第一关教学期间监测玩家离开的共享触发区。")]
         [SerializeField] private PlayerMoveTrigger playerMoveTrigger;
+
+        [Tooltip("场景时段控制器（EnvironmentDirector）。留空则装配时从场景里找；找不到就不切昼夜。")]
+        [SerializeField] private EnvironmentDirector environment = default;
 
         [Tooltip("是否刷敌人。关掉可以只验投掷链路。")]
         [SerializeField] private bool enableLevel = true;
@@ -110,6 +123,10 @@ namespace DeepseaOil.Presentation
 
         private bool _autoSaveRequested;
 
+        private int _spawnSfxLeft;
+
+        private float _nextSpawnSfxAt;
+
         private bool _entryAutoSavePending;
 
         private bool _restoring;
@@ -126,6 +143,14 @@ namespace DeepseaOil.Presentation
         public IReadOnlyList<Fountain> Fountains => fountains;
 
         public int CurrentLevelId => IsReady && _levelLogic != null ? _levelLogic.CurrentLevel.Id : 0;
+
+        public bool HasLevel => _levelLogic != null;
+
+        public int NextLevelId => levelReader != null ? levelReader.NextLevelId : 0;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        public IReadOnlyList<EnemyActor> Enemies => _enemies;
+#endif
 
         public event Action EnemyKilled;
 
@@ -144,14 +169,16 @@ namespace DeepseaOil.Presentation
 
         public void BeginLevel()
         {
-            if (!IsReady || _levelLogic == null)
+            if (!IsReady)
             {
                 Debug.LogError("[CombatRoot] 关卡尚未装配，不能开始关卡。", this);
                 return;
             }
 
+            if (_levelLogic == null) return;
+
             _levelLogic.Start();
-            if(CurrentLevelId != 1)
+            if(CurrentLevelId != 0)
                 GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
         }
 
@@ -200,6 +227,10 @@ namespace DeepseaOil.Presentation
         {
             if (!IsReady) return;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Diagnostics.EnemyKillAllTool.Poll(this);
+#endif
+
             StopExpiredPlantFlash();
 
             _grid.Tick(Time.time, deltaTime);
@@ -243,6 +274,8 @@ namespace DeepseaOil.Presentation
 
             _autoSaveRequested = false;
 
+            if (CurrentLevelId <= 0) return;
+
             EventBus<RequestAutoSave>.Publish(new RequestAutoSave(CollectGameState(0, true)));
         }
 
@@ -250,39 +283,69 @@ namespace DeepseaOil.Presentation
         {
             if (!IsReady) return;
 
-            float now = Time.fixedTime;
-
-            // ① 落地冲量：必须在物理帧施加，渲染帧施加会漂
-            _impulses.FixedTick();
-
-            // 导航流场先追玩家本帧所在格：必须早于敌人循环，否则怪读的是上一帧的场
-            if (player != null && _grid != null)
+            using (FixedTickMarker.Auto())
             {
-                _grid.RefreshNavFields(_grid.WorldToCell(player.Position), ConfigModule.NavSkin);
+                float now = Time.fixedTime;
+
+                // ① 落地冲量：必须在物理帧施加，渲染帧施加会漂
+                _impulses.FixedTick();
+
+                // 导航流场先追玩家本帧所在格：必须早于敌人循环，否则怪读的是上一帧的场
+                if (player != null && _grid != null)
+                {
+                    _grid.RefreshNavFields(_grid.WorldToCell(player.Position), ConfigModule.NavSkin);
+                }
+
+                // ② 全场敌人先按本帧位置追一步，再让格子按新位置结算（顺序不能反）
+                using (EnemyLoopMarker.Auto())
+                {
+                    for (int i = _enemies.Count - 1; i >= 0; i--)
+                    {
+                        EnemyActor enemy = _enemies[i];
+                        if (enemy == null)
+                        {
+                            _enemies.RemoveAt(i);
+                            continue;
+                        }
+                        if (enemy.IsAlive)
+                        {
+                            enemy.FixedTick(now, deltaTime);
+                        }
+                    }
+                }
+
+                if (_combat != null)
+                {
+                    _combat.FixedTick(now, deltaTime);
+                }
+
+                // ③ 玩家受击：读物理体位置，须在敌人移动之后
+                UpdatePlayerContact(now);
+            }
+        }
+
+        [ContextMenu("Dump perf counters")]
+        private void DumpPerfCounters()
+        {
+            if (!IsReady)
+            {
+                Debug.Log("[Perf] 尚未装配，无读数。");
+                return;
             }
 
-            // ② 全场敌人先按本帧位置追一步，再让格子按新位置结算（顺序不能反）
-            for (int i = _enemies.Count - 1; i >= 0; i--)
+            int alive = 0;
+
+            for (int i = 0; i < _enemies.Count; i++)
             {
                 EnemyActor enemy = _enemies[i];
-                if (enemy == null)
-                {
-                    _enemies.RemoveAt(i);
-                    continue;
-                }
-                if (enemy.IsAlive)
-                {
-                    enemy.FixedTick(now, deltaTime);
-                }
+                if (enemy != null && enemy.IsAlive) alive++;
             }
 
-            if (_combat != null)
-            {
-                _combat.FixedTick(now, deltaTime);
-            }
-
-            // ③ 玩家受击：读物理体位置，须在敌人移动之后
-            UpdatePlayerContact(now);
+            Debug.Log(
+                $"[Perf] 活怪 {alive}/{_enemies.Count}  " +
+                $"流场 {_grid.NavFields.FieldCount} 张 / 累计重建 {_grid.NavFields.TotalRebuilds} 次（应随玩家跨格增长）  " +
+                $"地貌 {_grid.ActiveStateCount} 格 / 待 Tick {_grid.ScheduledTickCount}  " +
+                $"特效 {EffectModule.GetStats()}");
         }
 
         private void TickSeedInput()
@@ -452,7 +515,6 @@ namespace DeepseaOil.Presentation
             if (logic.Stats.TryHeal()) PlaySfx(AudioId.PlayerHeal);
         }
 
-        // 判定是纯函数（ContactProbe.TryFindAttacker），可在 EditMode 测
         private void UpdatePlayerContact(float now)
         {
             PlayerLogic logic = player != null ? player.Logic : null;
@@ -473,6 +535,7 @@ namespace DeepseaOil.Presentation
                 else
                 {
                     _levelLogic?.ChangeState(LevelState.Defeat);
+                    GameRoot.Instance.Game.ChangeState(Logic.GameState.Settle);
                 }
                 return;
             }
@@ -521,9 +584,7 @@ namespace DeepseaOil.Presentation
             {
                 _retryAt = now + spec.RetryDelay;
 
-                // 只报事实，怎么播由玩家侧翻译
                 player.OnDeathTriggered();
-                GameRoot.Instance.Game.ChangeState(Logic.GameState.Settle);
             }
         }
 
@@ -605,7 +666,7 @@ namespace DeepseaOil.Presentation
             actor.Initialize(position, in spec, player.transform, facing, _grid, _registry, actorRoot);
 
             actor.SfxRequested = PlaySfx;
-            if (actor.IsInitialized) PlaySfx(AudioId.EnemySpawn);
+            if (actor.IsInitialized) PlaySpawnSfx();
 
             Track(actor);
         }
@@ -628,7 +689,7 @@ namespace DeepseaOil.Presentation
             return _balls != null && _balls.Throw(in intent);
         }
 
-        // 组装战斗切片：依赖全来自参数与 Data 层，无 FindObjectOfType
+        // 依赖全来自参数与 Data 层；只有环境光走一次场景查找
         private void Assemble()
         {
             bool restartAtLevelStart = _root != null
@@ -668,7 +729,7 @@ namespace DeepseaOil.Presentation
 
             IReadOnlyList<ProjectileSpec> balls = ConfigModule.GetAllBalls();
 
-            // 元素层两张表：球砸地面的规则网，以及地面与地面的二级反应
+            // 元素层两张表：一级规则网与二级跨界反应
             IReadOnlyList<ElementRuleSpec> elementRules = ConfigModule.GetElementRules();
 
             DuoReactionCatalog duo = ConfigModule.GetDuoReactions();
@@ -692,6 +753,8 @@ namespace DeepseaOil.Presentation
                 duo,
                 _registry);
 
+            _grid.NavElementCost = ConfigModule.NavElementCost;
+
             // 先订阅格子状态变化再灌初始状态，否则那批泥浆不会被画出来
             gridView.Attach();
 
@@ -704,6 +767,8 @@ namespace DeepseaOil.Presentation
             {
                 _tileLightmap = new GameObject("TileGridLightmap").AddComponent<TileGridLightmap>();
             }
+
+            if (environment == null) environment = FindObjectOfType<EnvironmentDirector>();
 
             // 尺寸取实画矩形：硬编码 64×36 会裁掉最右一列
             gridView.TryGetCellBounds(out BoundsInt lightmapBounds);
@@ -743,14 +808,25 @@ namespace DeepseaOil.Presentation
             if (enableLevel)
             {
                 int levelId = levelReader.CurrentLevelId;
-                _levelLogic = new LevelLogic(levelReader, levelId == 1 || levelId == 6);
-                if (!UsesScriptedStory(levelId) || restartAtLevelStart)
-                {
-                    _levelLogic.Start();
-                    GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
-                }
 
-                _combat = CreateCombatDirector(_levelLogic);
+                if (ConfigModule.HasLevel(levelId))
+                {
+                    _levelLogic = new LevelLogic(levelReader, levelId == 0 || levelId == 5);
+                    if (!UsesScriptedStory(levelId) || restartAtLevelStart)
+                    {
+                        _levelLogic.Start();
+                        GameRoot.Instance.Audio.EnqueueBgm(cfg.dso.AudioId.BgmMain);
+                    }
+
+                    _combat = CreateCombatDirector(_levelLogic);
+                }
+                else
+                {
+                    Debug.LogError(
+                        $"[Level] level_wave 表里没有关卡 id={levelId} 的行：本关按无波次运行。" +
+                        "关卡场景必须有对应行（教学关 id=0 的 wave_ids 要指向 L0 波次）。",
+                        this);
+                }
             }
 
             IsReady = true;
@@ -790,7 +866,7 @@ namespace DeepseaOil.Presentation
 
         private static bool UsesScriptedStory(int levelId)
         {
-            return levelId >= 1 && levelId <= 6;
+            return levelId >= 0 && levelId <= 5;
         }
 
         private void SyncFountainLights()
@@ -952,21 +1028,90 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        // HUD 加载完成时重播：三块读数各播一次当前值
+        // HUD 加载完重播读数
         private void OnRequestHudRefresh(RequestHudRefresh evt)
         {
             player?.Logic?.Stats.Announce();
             _combat?.Announce();
         }
 
-        /// <summary>备战期自动存档；只在渲染帧采集落盘</summary>
+        /// <summary>备战期存档与配给；开战期推进昼夜</summary>
         private void OnWavePhaseChanged(WavePhaseChanged evt)
         {
             if (_restoring) return;
 
-            if (evt.Phase != WavePhase.Prep) return;
+            if (evt.Phase == WavePhase.Prep)
+            {
+                _autoSaveRequested = true;
 
-            _autoSaveRequested = true;
+                GrantWaveSeed();
+
+                return;
+            }
+
+            if (evt.Phase == WavePhase.Battle)
+            {
+                _spawnSfxLeft = SpawnSfxPerWave;
+                ApplyWaveTimeOfDay(evt.WaveIndex);
+            }
+        }
+
+        // 波前配给顶替补满：持种也先清仓，节奏不由上一波残留决定
+        private void GrantWaveSeed()
+        {
+            if (_levelLogic == null || player == null || player.Logic == null) return;
+
+            SeedType seed = _levelLogic.Waves.ConsumeSeedGrant();
+
+            if (seed == SeedType.None) return;
+
+            PlayerStats stats = player.Logic.Stats;
+
+            stats.TryDiscardSeed(out _, out _);
+            stats.GrantSeed(seed);
+        }
+
+        // L2 W2 转黄昏、L4 W2 入夜；L5 按 7 波戏剧时钟走（3 昼 / 5 暮 / 6 夜，其余维持前一段）
+        private void ApplyWaveTimeOfDay(int waveIndex)
+        {
+            if (environment == null) return;
+
+            int levelId = CurrentLevelId;
+
+            if (levelId == 5)
+            {
+                switch (waveIndex)
+                {
+                    case 3: environment.TransitionTo(TimeOfDayKind.Day); break;
+                    case 5: environment.TransitionTo(TimeOfDayKind.Dusk); break;
+                    case 6: environment.TransitionTo(TimeOfDayKind.Night); break;
+                }
+
+                return;
+            }
+
+            if (levelId == 2 && waveIndex == 2) environment.TransitionTo(TimeOfDayKind.Dusk);
+            else if (levelId == 4 && waveIndex == 2) environment.TransitionTo(TimeOfDayKind.Night);
+        }
+
+        // 读档不回放时钟：按停住的波次直接落位，否则会退回场景初值
+        private void SyncTimeOfDay(int waveIndex)
+        {
+            if (environment == null) return;
+
+            int levelId = CurrentLevelId;
+
+            if (levelId == 5)
+            {
+                if (waveIndex >= 6) environment.SetTimeOfDayImmediate(TimeOfDayKind.Night);
+                else if (waveIndex >= 5) environment.SetTimeOfDayImmediate(TimeOfDayKind.Dusk);
+                else if (waveIndex >= 3) environment.SetTimeOfDayImmediate(TimeOfDayKind.Day);
+
+                return;
+            }
+
+            if (levelId == 2 && waveIndex >= 2) environment.SetTimeOfDayImmediate(TimeOfDayKind.Dusk);
+            else if (levelId == 4 && waveIndex >= 2) environment.SetTimeOfDayImmediate(TimeOfDayKind.Night);
         }
 
         /// <summary>抓当前帧快照；缩略图抓帧在此发起</summary>
@@ -1044,9 +1189,11 @@ namespace DeepseaOil.Presentation
                 _levelLogic.ImportSave(data.level);
                 _levelLogic.Waves.ImportSave(data.wave);
 
+                SyncTimeOfDay(_levelLogic.Waves.WaveIndex);
+
                 if (_levelLogic.State == LevelState.Running && _root != null && _root.Audio != null)
                 {
-                    if (CurrentLevelId != 1)
+                    if (CurrentLevelId != 0)
                         _root.Audio.EnqueueBgm(AudioId.BgmMain);
                 }
             }
@@ -1139,7 +1286,6 @@ namespace DeepseaOil.Presentation
                 case TileStateType.FrostSpike:
                     id = AudioId.TileIceShard;
                     return true;
-                //case TileStateType.BasicFire:
                 case TileStateType.FlameField:
                     id = AudioId.TileBurn;
                     return true;
@@ -1159,7 +1305,6 @@ namespace DeepseaOil.Presentation
                 case TileStateType.ChargedThorn:
                     id = AudioId.TileThorn;
                     return true;
-                //case TileStateType.BasicElectricity:
                 case TileStateType.ConductZone:
                     id = AudioId.TileConduct;
                     return true;
@@ -1179,7 +1324,16 @@ namespace DeepseaOil.Presentation
             _root.Audio.EnqueueSfx(id);
         }
 
-        // 装配期扫一次场景预摆怪（运行时拖入的由 Start 报到）
+        private void PlaySpawnSfx()
+        {
+            if (_spawnSfxLeft <= 0 || Time.unscaledTime < _nextSpawnSfxAt) return;
+
+            _spawnSfxLeft--;
+            _nextSpawnSfxAt = Time.unscaledTime + SpawnSfxMinInterval;
+            PlaySfx(AudioId.EnemySpawn);
+        }
+
+        // 扫场景预摆怪；运行时拖入的由 Start 报到
         private void AssembleSceneEnemies()
         {
             if (actorRoot != null)

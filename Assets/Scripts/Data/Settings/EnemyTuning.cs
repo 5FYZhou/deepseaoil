@@ -27,6 +27,10 @@ namespace DeepseaOil.Data.Settings
         [Tooltip("净空烘焙解析上限（世界单位）：查询盒半边长与净空饱和值都是它，必须大于最大体半径")]
         public float navClearanceCap = 1.0f;
 
+        [Range(0.5f, 1f)]
+        [Tooltip("元素格步价倍率：1=关闭偏好；0.85=每步便宜15%，约允许1-2格绕路")]
+        public float elementTileCost = 0.85f;
+
         [Tooltip("入弯最低速度倍率：路线方向与当前速度对齐度为 0 时的目标速度倍率。0.4 把 90° 转弯半径收到约 0.4 格")]
         public float cornerSpeedFactor = 0.4f;
 
@@ -35,6 +39,9 @@ namespace DeepseaOil.Data.Settings
 
         [Tooltip("软分离权重：与流场方向相加后归一。0 = 不分离，过大 = 挤开流场方向绕远")]
         public float separationWeight = 0.25f;
+
+        [Tooltip("停住时的散开速度（世界单位/秒）：被同伴挤住时沿切向挪开；0 或未填按 1.0")]
+        public float spreadSpeed = 1f;
 
         [Tooltip("卡死判定帧数：速度被压到零满这么多物理帧才算卡死")]
         public int stuckFrames = 18;
