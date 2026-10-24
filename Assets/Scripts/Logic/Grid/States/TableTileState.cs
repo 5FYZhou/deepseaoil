@@ -57,14 +57,19 @@ namespace DeepseaOil.Logic.Grid.States
 
                 if (_elapsed >= _duration)
                 {
-                    // 到期落回常规；转换在本帧 Tick 循环之后统一结算，不会立刻重入 OnExit
-                    ctx.Scheduler?.Transition(ctx.Cell, TileStateType.Normal);
+                    // 到期去向：带电荆棘退回植物区（供玩家复用），其余落回空地；转换在本帧 Tick 循环之后统一结算
+                    ctx.Scheduler?.Transition(ctx.Cell, ExpireTo());
 
                     return;
                 }
             }
 
             if (_needsTick) ctx.Scheduler?.ScheduleTick(ctx.Cell);
+        }
+
+        private TileStateType ExpireTo()
+        {
+            return _spec.Id == TileStateType.ChargedThorn ? TileStateType.BasicPlant : TileStateType.Normal;
         }
 
         public void OnExit(in TileContext ctx)

@@ -15,6 +15,19 @@
   {
     "id": 2,
     "elem_a": 16,
+    "elem_b": 22,
+    "result_tile": 21,
+    "impact_damage": 0,
+    "impact_knockback": 0,
+    "result_duration": 3,
+    "effect_radius": 1,
+    "pull_strength": 0,
+    "break_aggro": false,
+    "trigger_chain": true
+  },
+  {
+    "id": 3,
+    "elem_a": 16,
     "elem_b": 18,
     "result_tile": 8,
     "impact_damage": 4,
@@ -26,7 +39,7 @@
     "trigger_chain": false
   },
   {
-    "id": 3,
+    "id": 4,
     "elem_a": 17,
     "elem_b": 18,
     "result_tile": 5,
@@ -39,7 +52,7 @@
     "trigger_chain": false
   },
   {
-    "id": 4,
+    "id": 5,
     "elem_a": 18,
     "elem_b": 19,
     "result_tile": 22,
@@ -52,7 +65,7 @@
     "trigger_chain": true
   },
   {
-    "id": 5,
+    "id": 6,
     "elem_a": 17,
     "elem_b": 16,
     "result_tile": 8,
@@ -65,7 +78,7 @@
     "trigger_chain": false
   },
   {
-    "id": 6,
+    "id": 7,
     "elem_a": 17,
     "elem_b": 19,
     "result_tile": 23,

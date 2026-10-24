@@ -96,7 +96,7 @@
     "touch_stun": 0,
     "is_obstacle": false,
     "is_conductor": false,
-    "priority": 20
+    "priority": 15
   },
   {
     "id": 6,
@@ -156,13 +156,13 @@
   {
     "id": 22,
     "name": "带电荆棘",
-    "duration": 15,
-    "dot_damage": 2,
+    "duration": 3,
+    "dot_damage": 0,
     "slow_rate": 0.5,
-    "touch_stun": 3,
+    "touch_stun": 1.5,
     "is_obstacle": false,
-    "is_conductor": false,
-    "priority": 20
+    "is_conductor": true,
+    "priority": 15
   },
   {
     "id": 23,
@@ -173,7 +173,7 @@
     "touch_stun": 1,
     "is_obstacle": false,
     "is_conductor": false,
-    "priority": 20
+    "priority": 15
   },
   {
     "id": 24,
