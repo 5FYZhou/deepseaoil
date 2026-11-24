@@ -1,6 +1,10 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using UnityEngine.InputSystem;
+#endif
+
 namespace DeepseaOil.Presentation.Lighting
 {
     /// <summary>全局环境光照时段控制器：驱动场景唯一 Global Light 2D</summary>
@@ -57,10 +61,18 @@ namespace DeepseaOil.Presentation.Lighting
             TimeOfDaySetting current = ResolveSetting(_currentKind);
 
             ApplySettingDirectly(in current);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Debug.Log($"[TimeOfDay] 按 {TestHotkey} 轮转昼/暮/夜，与 Inspector 右键测试菜单同一条过渡。");
+#endif
         }
 
         private void Update()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            PollTestHotkey();
+#endif
+
             if (_editorRefreshPending)
             {
                 _editorRefreshPending = false;
@@ -166,12 +178,30 @@ namespace DeepseaOil.Presentation.Lighting
         private void TestTransitionToNight() => TriggerTestTransition(TimeOfDayKind.Night);
 
         [ContextMenu("测试: 轮转切换至下一时段 (Next)")]
-        private void TestTransitionToNext()
+        private void TestTransitionToNext() => TransitionToNext();
+
+        /// <summary>轮转下一时段：Day → Dusk → Night → Day</summary>
+        public void TransitionToNext()
         {
             // 3 = TimeOfDayKind 成员数：加新时段要同步改，否则 Next 静默跳错格
             int next = ((int)_targetKind + 1) % 3;
             TriggerTestTransition((TimeOfDayKind)next);
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// <summary>测试热键：与 EnemyKillAllTool 的 K 同源（Keyboard.current），编辑器与开发包才编译</summary>
+        internal const Key TestHotkey = Key.L;
+
+        // 暂停（timeScale=0）时 Update 仍会跑，所以暂停中也能按；过渡靠 deltaTime，恢复后才真正插值
+        private void PollTestHotkey()
+        {
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard == null || !keyboard[TestHotkey].wasPressedThisFrame) return;
+
+            TransitionToNext();
+        }
+#endif
 
         private void TriggerTestTransition(TimeOfDayKind kind)
         {

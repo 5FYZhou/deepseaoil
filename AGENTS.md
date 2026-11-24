@@ -3,6 +3,16 @@
 > 本文件是所有参与本工程的 AI Agent 的**最高行为宪章**。
 > 任何代码生成、修改、重构必须严格无条件遵守以下纪律。
 
+## 0. Agent Workflow Kit v3 任务治理入口
+
+本节与下方 Unity 工程铁律同时生效；若有冲突，以更严格的约束为准。
+
+- 所有新需求先读 `AI_Context/README_AI.md` 与 `AI_Context/ROLE_SESSIONS.md`，再按 Secretary / Planner / Worker / Watchdog 职责拆分会话。
+- L1/L2 必须经过：任务登记 -> `FEED_DROP` 备菜 -> Planner 草案 -> CEO 批准 -> Worker 施工 -> 独立 Watchdog 验证 -> CEO 验收。
+- L0 可由 CEO 用三行 mini 简报直派 Worker，但仍须保留 Diff、真实命令证据与 `ACCEPTANCE.md`。
+- 未经 CEO 批准不得写业务代码；任何范围、依赖、配置、序列化资产或验收标准变化都必须停止并升版重审。
+- Worker 不得自证，Watchdog 只判不修；编译、测试、审计和真实运行输出才可作为通过证据。
+
 ---
 
 ## 1. 唯一机器判据：编译门 (Compile Gate)

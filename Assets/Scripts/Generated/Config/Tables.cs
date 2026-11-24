@@ -12,102 +12,102 @@ using Luban.SimpleJSON;
 
 namespace cfg
 {
-public partial class Tables
-{
-    /// <summary>
-    /// 投掷物表
-    /// </summary>
-    public dso.TbProjectile TbProjectile {get; }
-    /// <summary>
-    /// 敌人表
-    /// </summary>
-    public dso.TbEnemy TbEnemy {get; }
-    /// <summary>
-    /// 格子状态表
-    /// </summary>
-    public dso.TbTileState TbTileState {get; }
-    /// <summary>
-    /// 玩家数值表
-    /// </summary>
-    public dso.TbPlayer TbPlayer {get; }
-    /// <summary>
-    /// 波次表
-    /// </summary>
-    public dso.TbWave TbWave {get; }
-    /// <summary>
-    /// 关卡初始格子状态
-    /// </summary>
-    public dso.TbTileInitial TbTileInitial {get; }
-    /// <summary>
-    /// 元素反应规则
-    /// </summary>
-    public dso.TbElementRule TbElementRule {get; }
-    /// <summary>
-    /// 种子基建配置表
-    /// </summary>
-    public dso.TbSeed TbSeed {get; }
-    /// <summary>
-    /// 二级元素跨界反应表
-    /// </summary>
-    public dso.TbElementDuoReaction TbElementDuoReaction {get; }
-    /// <summary>
-    /// 波次与敌人对应表
-    /// </summary>
-    public dso.TbWaveEnemy TbWaveEnemy {get; }
-    /// <summary>
-    /// 关卡与关卡中各波次对应表
-    /// </summary>
-    public dso.TbLevelWave TbLevelWave {get; }
-    /// <summary>
-    /// 音效类型与对应文件的名称
-    /// </summary>
-    public dso.TbAudioMap TbAudioMap {get; }
-    /// <summary>
-    /// 敌人掉落物配置表
-    /// </summary>
-    public dso.TbEnemyDrop TbEnemyDrop {get; }
-    /// <summary>
-    /// 剧情文本表
-    /// </summary>
-    public dso.TbSlotDialogue TbSlotDialogue {get; }
+    public partial class Tables
+    {
+        /// <summary>
+        /// 投掷物表
+        /// </summary>
+        public dso.TbProjectile TbProjectile { get; }
+        /// <summary>
+        /// 敌人表
+        /// </summary>
+        public dso.TbEnemy TbEnemy { get; }
+        /// <summary>
+        /// 格子状态表
+        /// </summary>
+        public dso.TbTileState TbTileState { get; }
+        /// <summary>
+        /// 玩家数值表
+        /// </summary>
+        public dso.TbPlayer TbPlayer { get; }
+        /// <summary>
+        /// 波次表
+        /// </summary>
+        public dso.TbWave TbWave { get; }
+        /// <summary>
+        /// 关卡初始格子状态
+        /// </summary>
+        public dso.TbTileInitial TbTileInitial { get; }
+        /// <summary>
+        /// 元素反应规则
+        /// </summary>
+        public dso.TbElementRule TbElementRule { get; }
+        /// <summary>
+        /// 种子基建配置表
+        /// </summary>
+        public dso.TbSeed TbSeed { get; }
+        /// <summary>
+        /// 二级元素跨界反应表
+        /// </summary>
+        public dso.TbElementDuoReaction TbElementDuoReaction { get; }
+        /// <summary>
+        /// 波次与敌人对应表
+        /// </summary>
+        public dso.TbWaveEnemy TbWaveEnemy { get; }
+        /// <summary>
+        /// 关卡与关卡中各波次对应表
+        /// </summary>
+        public dso.TbLevelWave TbLevelWave { get; }
+        /// <summary>
+        /// 音效类型与对应文件的名称
+        /// </summary>
+        public dso.TbAudioMap TbAudioMap { get; }
+        /// <summary>
+        /// 敌人掉落物配置表
+        /// </summary>
+        public dso.TbEnemyDrop TbEnemyDrop { get; }
+        /// <summary>
+        /// 剧情文本表
+        /// </summary>
+        public dso.TbSlotDialogue TbSlotDialogue { get; }
 
-    public Tables(System.Func<string, JSONNode> loader)
-    {
-        TbProjectile = new dso.TbProjectile(loader("dso_tbprojectile"));
-        TbEnemy = new dso.TbEnemy(loader("dso_tbenemy"));
-        TbTileState = new dso.TbTileState(loader("dso_tbtilestate"));
-        TbPlayer = new dso.TbPlayer(loader("dso_tbplayer"));
-        TbWave = new dso.TbWave(loader("dso_tbwave"));
-        TbTileInitial = new dso.TbTileInitial(loader("dso_tbtileinitial"));
-        TbElementRule = new dso.TbElementRule(loader("dso_tbelementrule"));
-        TbSeed = new dso.TbSeed(loader("dso_tbseed"));
-        TbElementDuoReaction = new dso.TbElementDuoReaction(loader("dso_tbelementduoreaction"));
-        TbWaveEnemy = new dso.TbWaveEnemy(loader("dso_tbwaveenemy"));
-        TbLevelWave = new dso.TbLevelWave(loader("dso_tblevelwave"));
-        TbAudioMap = new dso.TbAudioMap(loader("dso_tbaudiomap"));
-        TbEnemyDrop = new dso.TbEnemyDrop(loader("dso_tbenemydrop"));
-        TbSlotDialogue = new dso.TbSlotDialogue(loader("dso_tbslotdialogue"));
-        ResolveRef();
+        public Tables(System.Func<string, JSONNode> loader)
+        {
+            TbProjectile = new dso.TbProjectile(loader("dso_tbprojectile"));
+            TbEnemy = new dso.TbEnemy(loader("dso_tbenemy"));
+            TbTileState = new dso.TbTileState(loader("dso_tbtilestate"));
+            TbPlayer = new dso.TbPlayer(loader("dso_tbplayer"));
+            TbWave = new dso.TbWave(loader("dso_tbwave"));
+            TbTileInitial = new dso.TbTileInitial(loader("dso_tbtileinitial"));
+            TbElementRule = new dso.TbElementRule(loader("dso_tbelementrule"));
+            TbSeed = new dso.TbSeed(loader("dso_tbseed"));
+            TbElementDuoReaction = new dso.TbElementDuoReaction(loader("dso_tbelementduoreaction"));
+            TbWaveEnemy = new dso.TbWaveEnemy(loader("dso_tbwaveenemy"));
+            TbLevelWave = new dso.TbLevelWave(loader("dso_tblevelwave"));
+            TbAudioMap = new dso.TbAudioMap(loader("dso_tbaudiomap"));
+            TbEnemyDrop = new dso.TbEnemyDrop(loader("dso_tbenemydrop"));
+            TbSlotDialogue = new dso.TbSlotDialogue(loader("dso_tbslotdialogue"));
+            ResolveRef();
+        }
+
+        private void ResolveRef()
+        {
+            TbProjectile.ResolveRef(this);
+            TbEnemy.ResolveRef(this);
+            TbTileState.ResolveRef(this);
+            TbPlayer.ResolveRef(this);
+            TbWave.ResolveRef(this);
+            TbTileInitial.ResolveRef(this);
+            TbElementRule.ResolveRef(this);
+            TbSeed.ResolveRef(this);
+            TbElementDuoReaction.ResolveRef(this);
+            TbWaveEnemy.ResolveRef(this);
+            TbLevelWave.ResolveRef(this);
+            TbAudioMap.ResolveRef(this);
+            TbEnemyDrop.ResolveRef(this);
+            TbSlotDialogue.ResolveRef(this);
+        }
     }
-    
-    private void ResolveRef()
-    {
-        TbProjectile.ResolveRef(this);
-        TbEnemy.ResolveRef(this);
-        TbTileState.ResolveRef(this);
-        TbPlayer.ResolveRef(this);
-        TbWave.ResolveRef(this);
-        TbTileInitial.ResolveRef(this);
-        TbElementRule.ResolveRef(this);
-        TbSeed.ResolveRef(this);
-        TbElementDuoReaction.ResolveRef(this);
-        TbWaveEnemy.ResolveRef(this);
-        TbLevelWave.ResolveRef(this);
-        TbAudioMap.ResolveRef(this);
-        TbEnemyDrop.ResolveRef(this);
-        TbSlotDialogue.ResolveRef(this);
-    }
-}
 
 }
 
