@@ -1,8 +1,8 @@
 # 00 CONTEXT MANIFEST — GD-2026-0002
 
 - Task ID: GD-2026-0002
-- Base Commit: df60015f9d333a2e122f9cfca97fc3b289e0c1f8
-- Generated At: 2026-11-24T23:52:41+08:00
+- Base Commit: 45b0a43abe3238baae4d2ead63cf60aefe799984
+- Generated At: 2026-11-25T15:18:50+08:00
 - Generation Mode: append
 - Chat Safe: ON
 - Budget Limit: 150000
@@ -13,8 +13,8 @@
 | --- | ---: | --- |
 | L1 | 2518 | 不在 4,096–8,000 隐式缓存甜点区 |
 | L2 | 3262 | 模块层建议 ≤ 30,000 |
-| L3 | 76212 | 代码层建议 ≤ 100,000 |
-| Total | 81992 | 未超过 150000 |
+| L3 | 79278 | 代码层建议 ≤ 100,000 |
+| Total | 85058 | 未超过 150000 |
 
 > Token 为启发式估算：每个 CJK 字符计 1，其余非空白字符合计 ÷ 4 后向上取整。
 
@@ -53,7 +53,7 @@
 | `L3__Assets_Scripts_Logic_Player_CombatGroup.cs` | L3 | `Assets/Scripts/Logic/Player/CombatGroup.cs` | 678 |
 | `L3__Assets_Scripts_Logic_Player_MoveGroup.cs` | L3 | `Assets/Scripts/Logic/Player/MoveGroup.cs` | 799 |
 | `L3__Assets_Scripts_Logic_Player_PlayerLogic.cs` | L3 | `Assets/Scripts/Logic/Player/PlayerLogic.cs` | 863 |
-| `L3__Assets_Scripts_Logic_Player_PlayerStats.cs` | L3 | `Assets/Scripts/Logic/Player/PlayerStats.cs` | 1154 |
+| `L3__Assets_Scripts_Logic_Player_PlayerStats.cs` | L3 | `Assets/Scripts/Logic/Player/PlayerStats.cs` | 1235 |
 | `L3__Assets_Scripts_Logic_Wave_WaveLogic.cs` | L3 | `Assets/Scripts/Logic/Wave/WaveLogic.cs` | 1818 |
 | `L3__Assets_Scripts_Logic_World_SeedPlanter.cs` | L3 | `Assets/Scripts/Logic/World/SeedPlanter.cs` | 423 |
 | `L3__Assets_Scripts_Presentation_Actor_CombatDirector.cs` | L3 | `Assets/Scripts/Presentation/Actor/CombatDirector.cs` | 2333 |
@@ -62,8 +62,8 @@
 | `L3__Assets_Scripts_Presentation_Adapters_EnemyMotor.cs` | L3 | `Assets/Scripts/Presentation/Adapters/EnemyMotor.cs` | 116 |
 | `L3__Assets_Scripts_Presentation_Adapters_PlayerMotor.cs` | L3 | `Assets/Scripts/Presentation/Adapters/PlayerMotor.cs` | 55 |
 | `L3__Assets_Scripts_Presentation_Input_InputProvider.cs` | L3 | `Assets/Scripts/Presentation/Input/InputProvider.cs` | 1122 |
-| `L3__Assets_Scripts_Presentation_Root_CombatRoot.cs` | L3 | `Assets/Scripts/Presentation/Root/CombatRoot.cs` | 7973 |
-| `L3__Assets_Scripts_Presentation_Root_PlayerController.cs` | L3 | `Assets/Scripts/Presentation/Root/PlayerController.cs` | 2671 |
+| `L3__Assets_Scripts_Presentation_Root_CombatRoot.cs` | L3 | `Assets/Scripts/Presentation/Root/CombatRoot.cs` | 8149 |
+| `L3__Assets_Scripts_Presentation_Root_PlayerController.cs` | L3 | `Assets/Scripts/Presentation/Root/PlayerController.cs` | 3183 |
 | `L3__Assets_StreamingAssets_Luban_dso_tbenemy.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbenemy.json` | 70 |
 | `L3__Assets_StreamingAssets_Luban_dso_tblevelwave.json` | L3 | `Assets/StreamingAssets/Luban/dso_tblevelwave.json` | 121 |
 | `L3__Assets_StreamingAssets_Luban_dso_tbplayer.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbplayer.json` | 72 |
@@ -73,7 +73,7 @@
 | `L3__Assets_Tests_Runtime_Editor_WaveLogicTests.cs` | L3 | `Assets/Tests/Runtime/Editor/WaveLogicTests.cs` | 488 |
 | `L3__Assets_Tests_Runtime_Editor_存档Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/存档Tests.cs` | 1766 |
 | `L3__Assets_Tests_Runtime_Editor_敌人预制体Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/敌人预制体Tests.cs` | 1720 |
-| `L3__Assets_Tests_Runtime_Editor_移动Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/移动Tests.cs` | 5711 |
+| `L3__Assets_Tests_Runtime_Editor_移动Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/移动Tests.cs` | 7996 |
 | `L3__Docs_玩家反馈_G.肖昕怡.md` | L3 | `Docs/玩家反馈/G.肖昕怡.md` | 75 |
 | `L3__Docs_玩家反馈_README.md` | L3 | `Docs/玩家反馈/README.md` | 341 |
 | `L3__Docs_玩家反馈_TapTap评价.md` | L3 | `Docs/玩家反馈/TapTap评价.md` | 3044 |
@@ -84,12 +84,11 @@
 | `L3__Docs_玩家反馈_转述反馈_2026-10-21.md` | L3 | `Docs/玩家反馈/转述反馈_2026-10-21.md` | 156 |
 | `L3__Docs_设计_玩家反馈处理指导思想.md` | L3 | `Docs/设计/玩家反馈处理指导思想.md` | 1158 |
 | `L3__Docs_设计_策划案_荒原复苏指南_v4.0.md` | L3 | `Docs/设计/策划案_荒原复苏指南_v4.0.md` | 7033 |
-| `L3__git_recent_context.txt` | L3 | `git:recent` | 1126 |
+| `L3__git_recent_context.txt` | L3 | `git:recent` | 1138 |
 
 ## Project Tree Summary
 
 ```text
-.DS_Store
 .gitattributes
 .gitignore
 .vsconfig
@@ -101,6 +100,7 @@ AI_Context/CODING_STANDARDS.md
 AI_Context/DECISION_LOG.md
 AI_Context/DEPENDENCIES.md
 AI_Context/EVIDENCE/
+AI_Context/EVIDENCE/GD-2026-0002/
 AI_Context/EVIDENCE/GD-YYYY-NNNN/
 AI_Context/KNOWN_ISSUES.md
 AI_Context/METRICS.md
@@ -115,10 +115,8 @@ AI_Context/TASKS/GD-2026-0001/
 AI_Context/TASKS/GD-2026-0002/
 AI_Context/TASKS/GD-2026-0003/
 AI_Context/TASKS/_templates/
-Assembly-CSharp-Editor.csproj
 Assembly-CSharp.csproj
 Assets/
-Assets/.DS_Store
 Assets/Editor.meta
 Assets/Editor/
 Assets/Editor/DeepseaOil.EditorTools.asmdef
@@ -159,7 +157,6 @@ Assets/Luban.Runtime/StringUtil.cs
 Assets/Luban.Runtime/StringUtil.cs.meta
 Assets/Resources.meta
 Assets/Resources/
-Assets/Resources/.DS_Store
 Assets/Resources/Fonts.meta
 Assets/Resources/Fonts/
 Assets/Resources/Icons.meta
@@ -262,8 +259,12 @@ Assets/Shaders/Procedural_CartoonTile.shader
 Assets/Shaders/Procedural_CartoonTile.shader.meta
 Assets/StreamingAssets.meta
 Assets/StreamingAssets/
+Assets/StreamingAssets/Luban.meta
+Assets/StreamingAssets/Luban/
 Assets/Tests.meta
 Assets/Tests/
+Assets/Tests/Runtime/
+Assets/Tests/Scene/
 Assets/TextMesh Pro.meta
 Assets/TextMesh Pro/
 Assets/UniversalRenderPipelineGlobalSettings.asset
@@ -279,6 +280,7 @@ DeepseaOil.Presentation.csproj
 DeepseaOil.Tests.EditMode.csproj
 DeepseaOil.Tests.Scene.csproj
 Docs/
+GD-2026-0002.sln
 Luban.Runtime.csproj
 Packages/
 ProjectSettings/
@@ -286,8 +288,6 @@ README.md
 Tools/
 UserSettings/
 cfg.csproj
-deepseaoil.csproj
-deepseaoil.sln
 scripts/
 ```
 

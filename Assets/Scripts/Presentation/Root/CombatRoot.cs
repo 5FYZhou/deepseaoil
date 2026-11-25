@@ -50,6 +50,10 @@ namespace DeepseaOil.Presentation
         // Q 丢弃后掉落物的不可拾取窗口（秒）
         private const float SeedDiscardPickupCooldown = 1.2f;
 
+        private const float SeedSupplyPickupCooldown = 0.4f;
+
+        private const float SeedSupplyLandingDistance = 0.55f;
+
         private const float SeedPlantFlashDuration = 0.2f;
 
         // 出生音效按"批"不按"只"：60 只一波逐只播会把 BGM 盖住
@@ -392,19 +396,15 @@ namespace DeepseaOil.Presentation
             // 发射失败原样退回：种子已扣，静默少一颗是看不出来的
             if (_balls == null || !_balls.ThrowSeed(origin, target, seed, out _))
             {
-                logic.Stats.GrantSeed(seed);
+                logic.Stats.TryRestoreSeed(seed);
             }
         }
 
         // 落地只走播种：不调 OnBallHit，故无元素冲量与伤害
         private void OnSeedBallLanded(SeedType seed, Vector2 point)
         {
-            PlayerStats stats = player?.Logic?.Stats;
-
             if (_grid == null || !_grid.Geometry.IsValid)
             {
-                stats?.GrantSeed(seed);
-
                 return;
             }
 
@@ -412,16 +412,12 @@ namespace DeepseaOil.Presentation
 
             if (spec == null)
             {
-                stats?.GrantSeed(seed);
-
                 return;
             }
 
-            // 飞行途中落点格可能已被别的球改掉，失败一律退回
+            // 投出后失败仍消耗；补种仅用于球未发射
             if (!SeedPlanter.ExecutePlant(_grid, _grid.WorldToCell(point), seed, spec, ConfigModule.GetDuoReactions()))
             {
-                stats?.GrantSeed(seed);
-
                 return;
             }
 
@@ -898,6 +894,8 @@ namespace DeepseaOil.Presentation
                 _tileLightmap.AddSteadyEmitter(
                     fountain.transform.position, fountain.SelfLightColor, fountain.SelfLightIntensity, fountain.SelfLightPulseDepth);
             }
+
+            _cursorIndicator?.AppendSteadyLight(_tileLightmap, Time.time);
         }
 
         private void AttachFountains()
@@ -1042,7 +1040,6 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        // HUD 加载完重播读数
         private void OnRequestHudRefresh(RequestHudRefresh evt)
         {
             player?.Logic?.Stats.Announce();
@@ -1070,7 +1067,6 @@ namespace DeepseaOil.Presentation
             }
         }
 
-        // 波前配给顶替补满：持种也先清仓，节奏不由上一波残留决定
         private void GrantWaveSeed()
         {
             if (_levelLogic == null || player == null || player.Logic == null) return;
@@ -1081,8 +1077,53 @@ namespace DeepseaOil.Presentation
 
             PlayerStats stats = player.Logic.Stats;
 
-            stats.TryDiscardSeed(out _, out _);
-            stats.GrantSeed(seed);
+            if (!TryGrantOrDropSeed(
+                    stats,
+                    seed,
+                    player.Position,
+                    player.Logic.Motor.Facing,
+                    player.World.Bounds,
+                    _drops,
+                    out bool dropped)
+                || !dropped)
+            {
+                return;
+            }
+
+            _drops.SetLastPickupCooldown(SeedSupplyPickupCooldown);
+        }
+
+        private static bool TryGrantOrDropSeed(
+            PlayerStats stats,
+            SeedType seed,
+            Vector2 origin,
+            Vector2 facing,
+            BoundsArea bounds,
+            IDropSpawner drops,
+            out bool dropped)
+        {
+            dropped = false;
+
+            if (stats == null || seed == SeedType.None) return false;
+
+            if (stats.CanPickupSeed()) return stats.GrantSeed(seed);
+
+            if (facing.sqrMagnitude <= 1e-6f) facing = Vector2.right;
+
+            Vector2 landing = origin + facing.normalized * SeedSupplyLandingDistance;
+
+            if (bounds.TryClamp(landing, out Vector2 clamped)) landing = clamped;
+
+            if (drops == null)
+            {
+                Debug.LogWarning("[Combat] 波前配给无法生成掉落物：DropDirector 未装配。", null);
+
+                return false;
+            }
+
+            dropped = drops.TrySpawn(new DropSpawnRequest(DropType.Seed, origin, landing, seed));
+
+            return dropped;
         }
 
         // L2 W2 转黄昏、L4 W2 入夜；L5 按 7 波戏剧时钟走（3 昼 / 5 暮 / 6 夜，其余维持前一段）
