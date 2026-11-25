@@ -85,7 +85,7 @@ MonoBehaviour:
   carryLightColor: {r: 0.4955511, g: 0.4955511, b: 0.46505558, a: 1}
   carryLightIntensity: 0.1
   steadyPulseHertz: 0.35
-  impulseDecayRate: 14
+  impulseDecayRate: 4.5
 --- !u!1 &4906690357276219092
 GameObject:
   m_ObjectHideFlags: 0

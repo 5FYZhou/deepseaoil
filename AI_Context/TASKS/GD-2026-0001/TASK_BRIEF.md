@@ -7,7 +7,7 @@ Project / Engine / Tool Version: 荒原复苏指南 / Unity 2022.3.62f3c1
 
 Task Level: PENDING    Risk Level: PENDING
 
-Status: APPROVED
+Status: ACCEPTED_WITH_FOLLOW_UP
 
 1. 我想实现什么（Objective）
    根据玩家评论原文，与 CEO 共同整理、去重和过滤诉求，形成可讨论的更新需求集合，再决定哪些诉求进入后续任务规划。
@@ -52,4 +52,4 @@ Status: APPROVED
    本轮需求整理至少产出：已分类诉求清单、重复/冲突标记、过滤理由、待 CEO 决策的短清单；最终是否进入开发及范围由 CEO 确认。
 
 10. 其他说明与不确定事项
-   `PLAN_v01.md` 已获 CEO 批准；`APPROVAL_RECORD.md` 已填写。施工必须从批准提交后的 `VReason/Update` 分出独立 Worktree。
+   `PLAN_v01.md` 已执行并经 CEO 以 `ACCEPT WITH FOLLOW-UP` 签收。独立 Play/V4 与 V5 性能证据保留为后续项。

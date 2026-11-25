@@ -92,9 +92,9 @@ namespace DeepseaOil.Presentation.Lighting
         [SerializeField] private float steadyPulseHertz = 0.35f;
 
         [Header("瞬态脉冲")]
-        [Tooltip("脉冲指数衰减速率：数值越大熄灭越快，14 约在 0.18 秒内完全熄灭")]
-        [Range(6f, 30f)]
-        [SerializeField] private float impulseDecayRate = 14f;
+        [Tooltip("脉冲指数衰减速率：数值越大熄灭越快，4.5 约在 0.6 秒内熄灭")]
+        [Range(1f, 30f)]
+        [SerializeField] private float impulseDecayRate = 4.5f;
 
         [Header("更新频率")]
         [Tooltip("每秒重算并上传光图的次数；呼吸/电弧频率都远低于它，降频只省 CPU，不改观感")]

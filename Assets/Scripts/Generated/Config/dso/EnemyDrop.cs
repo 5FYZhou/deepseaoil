@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class EnemyDrop : Luban.BeanBase
 {
-    public EnemyDrop(JSONNode _buf) 
+    public EnemyDrop(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["enemy_id"].IsNumber) { throw new SerializationException(); }  EnemyId = _buf["enemy_id"]; }
@@ -52,7 +52,7 @@ public sealed partial class EnemyDrop : Luban.BeanBase
     /// 触发掉落几率(0~1)
     /// </summary>
     public readonly float Probability;
-   
+
     public const int __ID__ = 1294612425;
     public override int GetTypeId() => __ID__;
 

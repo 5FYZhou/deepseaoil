@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class Seed : Luban.BeanBase
 {
-    public Seed(JSONNode _buf) 
+    public Seed(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = (dso.SeedType)_buf["id"].AsInt; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
@@ -47,7 +47,7 @@ public sealed partial class Seed : Luban.BeanBase
     /// 图标资源Key
     /// </summary>
     public readonly string IconKey;
-   
+
     public const int __ID__ = 393973247;
     public override int GetTypeId() => __ID__;
 

@@ -172,6 +172,41 @@ namespace DeepseaOil.EditorTools.Tests
                 files);
         }
 
+        [Test]
+        public void 镜像生成文本_移除行尾空白且保留内容()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "LubanTrim_" + Path.GetRandomFileName());
+            string src = Path.Combine(root, "src");
+            string dst = Path.Combine(root, "dst");
+
+            Directory.CreateDirectory(Path.Combine(src, "code"));
+            Directory.CreateDirectory(Path.Combine(src, "data"));
+
+            try
+            {
+                string codeSource = "class Probe  \r\n{\r\n    int value = 1; \t\r\n}\r\n";
+                string dataSource = "{\r\n  \"id\": 1, \r\n  \"name\": \"x\" \r\n}\r\n";
+
+                File.WriteAllText(Path.Combine(src, "code", "Probe.cs"), codeSource);
+                File.WriteAllText(Path.Combine(src, "data", "probe.json"), dataSource);
+
+                LubanImport.MirrorCopy(Path.Combine(src, "code"), Path.Combine(dst, "code"), null);
+                LubanImport.MirrorCopy(Path.Combine(src, "data"), Path.Combine(dst, "data"), null);
+
+                Assert.AreEqual(
+                    "class Probe\r\n{\r\n    int value = 1;\r\n}\r\n",
+                    File.ReadAllText(Path.Combine(dst, "code", "Probe.cs")));
+
+                Assert.AreEqual(
+                    "{\r\n  \"id\": 1,\r\n  \"name\": \"x\"\r\n}\r\n",
+                    File.ReadAllText(Path.Combine(dst, "data", "probe.json")));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
         // ================================================================
         // 5 · 环境闸门
         // ================================================================

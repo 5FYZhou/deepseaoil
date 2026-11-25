@@ -5,6 +5,12 @@ namespace DeepseaOil.Logic.World
     // <summary>生命神泉的静止回血规则：</summary>
     public sealed class LifeFountainState
     {
+        private const float BaseChargeRate = 1f;
+        private const float AccelPerSecond = 1f;
+        private const float MaxChargeRate = 2.8f;
+        private const float InRangeDecayPerSecond = 0.35f;
+        private const float OutRangeDecayPerSecond = 0.6f;
+
         /// <summary>速度判据（世界单位/秒）：比这更快就算在动</summary>
         public const float SpeedEpsilon = 0.05f;
 
@@ -14,6 +20,8 @@ namespace DeepseaOil.Logic.World
         private readonly int _healInterval;
 
         private float _still;
+
+        private float _stillStreak;
 
         private Vector2 _lastPosition;
 
@@ -36,6 +44,7 @@ namespace DeepseaOil.Logic.World
         public void Leave()
         {
             _still = 0f;
+            _stillStreak = 0f;
             _hasLastPosition = false;
             IsStill = false;
         }
@@ -49,43 +58,47 @@ namespace DeepseaOil.Logic.World
             float speed,
             float deltaTime)
         {
-            if (!withinRange || hasMoveInput || deltaTime <= 0f)
+            if (deltaTime <= 0f) return false;
+
+            bool stationary = withinRange && !hasMoveInput && speed <= SpeedEpsilon;
+
+            if (_hasLastPosition)
             {
-                Leave();
-
-                return false;
-            }
-
-            if (_hasLastPosition && Vector2.Distance(position, _lastPosition) > MoveEpsilon)
-            {
-                Leave();
-
-                _lastPosition = position;
-                _hasLastPosition = true;
-
-                return false;
-            }
-
-            if (speed > SpeedEpsilon)
-            {
-                Leave();
-
-                _lastPosition = position;
-                _hasLastPosition = true;
-
-                return false;
+                stationary &= (position - _lastPosition).sqrMagnitude <= MoveEpsilon * MoveEpsilon;
             }
 
             _lastPosition = position;
             _hasLastPosition = true;
 
-            _still += deltaTime;
+            if (!withinRange)
+            {
+                _stillStreak = 0f;
+                _still = Mathf.Max(0f, _still - OutRangeDecayPerSecond * deltaTime);
+                IsStill = false;
 
+                return false;
+            }
+
+            if (!stationary)
+            {
+                _stillStreak = 0f;
+                _still = Mathf.Max(0f, _still - InRangeDecayPerSecond * deltaTime);
+                IsStill = false;
+
+                return false;
+            }
+
+            _stillStreak += deltaTime;
+
+            float rate = Mathf.Min(MaxChargeRate, BaseChargeRate + AccelPerSecond * _stillStreak);
+
+            _still += rate * deltaTime;
             IsStill = true;
 
             if (_still < _healInterval) return false;
 
             _still = 0f;
+            _stillStreak = 0f;
 
             return true;
         }

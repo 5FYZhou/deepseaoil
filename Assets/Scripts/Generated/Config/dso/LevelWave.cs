@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class LevelWave : Luban.BeanBase
 {
-    public LevelWave(JSONNode _buf) 
+    public LevelWave(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { var __json0 = _buf["wave_ids"]; if(!__json0.IsArray) { throw new SerializationException(); } WaveIds = new System.Collections.Generic.List<int>(__json0.Count); foreach(JSONNode __e0 in __json0.Children) { int __v0;  { if(!__e0.IsNumber) { throw new SerializationException(); }  __v0 = __e0; }  WaveIds.Add(__v0); }   }
@@ -42,7 +42,7 @@ public sealed partial class LevelWave : Luban.BeanBase
     /// 关卡名称与核心体验
     /// </summary>
     public readonly string Describe;
-   
+
     public const int __ID__ = 689113551;
     public override int GetTypeId() => __ID__;
 

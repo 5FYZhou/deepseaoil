@@ -20,13 +20,13 @@ public partial class TbTileInitial
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.TileInitial> _dataMap;
     private readonly System.Collections.Generic.List<dso.TileInitial> _dataList;
-    
+
     public TbTileInitial(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.TileInitial>(count);
         _dataList = new System.Collections.Generic.List<dso.TileInitial>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.TileInitial _v;

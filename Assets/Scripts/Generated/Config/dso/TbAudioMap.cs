@@ -20,13 +20,13 @@ public partial class TbAudioMap
 {
     private readonly System.Collections.Generic.Dictionary<dso.AudioId, dso.AudioMap> _dataMap;
     private readonly System.Collections.Generic.List<dso.AudioMap> _dataList;
-    
+
     public TbAudioMap(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<dso.AudioId, dso.AudioMap>(count);
         _dataList = new System.Collections.Generic.List<dso.AudioMap>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.AudioMap _v;

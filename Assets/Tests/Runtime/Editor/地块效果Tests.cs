@@ -22,9 +22,12 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Combat;
 using DeepseaOil.Logic.Element;
+using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Grid;
 using DeepseaOil.Logic.Grid.States;
 using DeepseaOil.Logic.Input;
+using DeepseaOil.Presentation.Actor;
+using DeepseaOil.Presentation.Grid;
 using NUnit.Framework;
 using UnityEngine;
 using cfg.dso;
@@ -42,6 +45,8 @@ namespace DeepseaOil.Tests
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
+            EventBus<TileStateChanged>.Clear();
+
             AssetModule.Dispose();
 
             if (!ConfigModule.IsReady)
@@ -54,6 +59,8 @@ namespace DeepseaOil.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
+            EventBus<TileStateChanged>.Clear();
+
             AssetModule.Dispose();
         }
 
@@ -533,6 +540,123 @@ namespace DeepseaOil.Tests
             grid.OnActorEnterCell(steam, target);
 
             Assert.AreEqual(2, target.DamageHits, "离开超过一秒再踩回来，首跳必须立刻打出");
+        }
+
+        [Test]
+        public void 陶砖生成时把格内敌人推到相邻可走格()
+        {
+            var geometry = new GridGeometry(Vector2.zero, 1f);
+            var grid = new GridLogic(
+                geometry,
+                ConfigModule.GetAllTileStates(),
+                CreateState,
+                ConfigModule.GetDuoReactions());
+            var map = new NavMap(Vector2Int.zero, new Vector2Int(3, 3), in geometry);
+
+            for (int y = 0; y < 3; y++)
+            {
+                for (int x = 0; x < 3; x++)
+                {
+                    var cell = new Vector3Int(x, y, 0);
+                    grid.RegisterCell(cell);
+                    map.TryIndex(cell, out int index);
+                    map.SetCellClearance(index, 1f);
+                }
+            }
+
+            grid.SetNavMap(map);
+
+            var directorGo = new GameObject("TileObstacleDirectorProbe", typeof(TileObstacleDirector));
+            GameObject enemyGo = null;
+            TileObstacleDirector director = null;
+
+            try
+            {
+                director = directorGo.GetComponent<TileObstacleDirector>();
+                director.Initialize(in geometry);
+                director.SetGrid(grid);
+                director.Attach();
+
+                var cell = new Vector3Int(1, 1, 0);
+                Vector2 center = geometry.CellCenter(cell);
+
+                enemyGo = Object.Instantiate(Resources.Load<GameObject>("enemies/Enemy_1"));
+                var enemy = enemyGo.GetComponent<EnemyActor>();
+                EnemySpec enemySpec = ConfigModule.GetEnemy(1);
+
+                enemy.Initialize(
+                    center,
+                    in enemySpec,
+                    null,
+                    Vector2.right,
+                    grid,
+                    grid.Registry,
+                    null);
+
+                Physics2D.SyncTransforms();
+
+                Assert.IsTrue(grid.ForceTileState(cell, TileStateType.TerracottaBrick), "陶砖没有生成");
+                Physics2D.SyncTransforms();
+
+                Vector3Int movedCell = grid.WorldToCell(enemy.Position);
+
+                Assert.AreNotEqual(cell, movedCell, "敌人仍留在砖格中心");
+                Assert.IsFalse(grid.IsObstacle(movedCell), "敌人被推到了另一个阻挡格");
+                Assert.GreaterOrEqual(Manhattan(movedCell, cell), 1, "敌人没有跨出砖格");
+            }
+            finally
+            {
+                if (director != null) director.Detach();
+                if (enemyGo != null) Object.DestroyImmediate(enemyGo);
+                Object.DestroyImmediate(directorGo);
+            }
+        }
+
+        [Test]
+        public void 反馈调优的地块与反应范围已写入真表()
+        {
+            TileStateSpec frost = ConfigModule.GetTileState(TileStateType.FrostSpike);
+            TileStateSpec mud = ConfigModule.GetTileState(TileStateType.Mud);
+            TileStateSpec water = ConfigModule.GetTileState(TileStateType.BasicWater);
+            TileStateSpec earth = ConfigModule.GetTileState(TileStateType.BasicEarth);
+
+            Assert.AreEqual(0f, frost.TouchStun, 0.0001f, "霜冻冰刺仍会麻痹");
+            Assert.That(frost.SlowRate, Is.InRange(0.35f, 0.4f), "霜冻冰刺减速不在目标区间");
+            Assert.Greater(mud.Priority, water.Priority, "泥浆优先级未高于基础水");
+            Assert.Greater(mud.Priority, earth.Priority, "泥浆优先级未高于基础土");
+
+            IReadOnlyList<ElementRuleSpec> rules = ConfigModule.GetElementRules();
+
+            for (int i = 0; i < rules.Count; i++)
+            {
+                ElementRuleSpec rule = rules[i];
+
+                if (rule.Id == 4 || rule.Id == 15)
+                {
+                    Assert.AreEqual(2.5f, rule.ImpactRadius, 0.0001f, $"规则 {rule.Id} 半径未升到 2.5");
+                }
+                else if (rule.Id == 3 || rule.Id == 6 || rule.Id == 7 || rule.Id == 8
+                    || rule.Id == 12 || rule.Id == 13 || rule.Id == 14 || rule.Id == 17 || rule.Id == 18)
+                {
+                    Assert.AreEqual(1f, rule.ImpactRadius, 0.0001f, $"规则 {rule.Id} 半径未升到 1");
+                }
+            }
+
+            DuoReactionCatalog duo = ConfigModule.GetDuoReactions();
+
+            for (int i = 0; i < duo.Rules.Count; i++)
+            {
+                DuoReactionSpec rule = duo.Rules[i];
+
+                float expected = rule.Id == 4 ? 3.5f : (rule.Id == 3 || rule.Id == 6 ? 2.5f : 1.5f);
+
+                Assert.AreEqual(expected, rule.EffectRadius, 0.0001f, $"二级反应 {rule.Id} 半径错误");
+            }
+        }
+
+        private static int Manhattan(Vector3Int a, Vector3Int b)
+        {
+            return Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
         }
     }
 }

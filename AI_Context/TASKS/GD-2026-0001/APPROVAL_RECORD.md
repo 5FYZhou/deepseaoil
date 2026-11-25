@@ -34,6 +34,53 @@ Conditions / Explicitly Forbidden:
 - 严禁修改 `TimerWheel.cs`、`SaveSlot.cs`、`InputSys.cs`、`Packages/manifest.json`、`ProjectSettings/**`。
 - 多 Worktree 流程若与旧版单工作树校验器冲突，以本批准记录为准；不得因此放宽编译、测试、导表或范围门禁。
 
+## CEO Scope Expansion A01
+
+- Approved Time: 2026-11-25（Asia/Shanghai）
+- Reason: EditMode 首轮暴露 4 个旧断言与已批准的元素范围/覆盖秩设计冲突；其中永久地貌保护属于 AC-06，原 PLAN 未列出实际实现文件。
+- Additional MODIFY Scope:
+  - `Assets/Tests/Runtime/Editor/地块范围Tests.cs`
+  - `Assets/Tests/Runtime/Editor/荆棘连锁Tests.cs`
+  - `Assets/Scripts/Logic/Grid/GridLogic.cs`
+- Approved behavior:
+  - 元素范围测试改读/构造当前表语义，不再写死旧半径。
+  - 永久地貌可被直接落点写入，但不得被次级半径铺设覆盖。
+  - 带电荆棘遵守 tile_state 覆盖秩，不越级覆盖基础电源。
+- Forbidden scope and original safety rules remain unchanged.
+
+## CEO Post-Work Acceptance
+
+- Approved Time: 2026-11-25 15:04 (UTC+8)
+- CEO reviewed the final Worker Diff and accepted the current additional visual/runtime tuning, including the Unity/IDE-generated diff, as authorized content for independent Watchdog review.
+- This acceptance is an audit-scope authorization, not a final PASS.
+- Watchdog must independently verify correctness, scope overlap, build settings, generated assets, comments, tests and evidence before producing an ACCEPTANCE result.
+
+## CEO Scope Expansion A02
+
+- Approved Time: 2026-11-25 15:31 (UTC+8)
+- Reason: Watchdog found Luban 5.1.0 emits trailing whitespace into two generated C# files; CEO also requested a longer start-game CG before scene transition.
+- Additional MODIFY Scope:
+  - `Tools/luban-mirror.ps1`
+  - `Assets/Editor/LubanImport.cs`
+  - `Assets/Tests/Tools/LubanWorkflowTests.cs`
+  - `Tools/comment-budget.json`（仅登记或定点调整本追加范围涉及文件）
+  - `Assets/Scripts/Presentation/UI/Panel/CGPanel.cs`
+  - `Assets/Resources/ui/Panel/CGPanel.prefab`
+- Approved behavior:
+  - Luban CLI 与 Unity 镜像链路应在生成/镜像阶段确定性移除生成文本的行尾空白；不得手工修补生成文件。
+  - 开始游戏 Timeline 播放结束后增加可配置尾段停留，首版目标为额外 2 秒，再开始场景切换。
+- All original forbidden paths and Worktree boundaries remain unchanged.
+
+## CEO Amendment A03
+
+- Updated Time: 2026-11-25 16:14 (UTC+8)
+- Withdraw approved behavior: 开始游戏 CG 尾段停留修改取消；`CGPanel.cs` 与 `CGPanel.prefab` 必须保持与 HEAD 一致，不得作为本任务交付。
+- Retain approved behavior: Luban CLI 与 Unity 镜像链路的生成文本行尾空白规范化。
+- Approve Test Runner lifecycle remediation inside existing scope:
+  - `Assets/Scripts/Presentation/Grid/TileObstacleDirector.cs`
+  - `Assets/Tests/Runtime/Editor/地块效果Tests.cs`
+- The compaction/remediation must not change gameplay behavior beyond fixing stale static event subscriptions and destroyed pool-object access.
+
 Branch: `ai/GD-2026-0001`  
 Base Commit: `df60015f9d333a2e122f9cfca97fc3b289e0c1f8`  
 Worktree Start: approved `VReason/Update` commit.  

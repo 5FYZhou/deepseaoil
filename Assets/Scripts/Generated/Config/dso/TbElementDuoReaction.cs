@@ -20,13 +20,13 @@ public partial class TbElementDuoReaction
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.ElementDuoReaction> _dataMap;
     private readonly System.Collections.Generic.List<dso.ElementDuoReaction> _dataList;
-    
+
     public TbElementDuoReaction(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.ElementDuoReaction>(count);
         _dataList = new System.Collections.Generic.List<dso.ElementDuoReaction>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.ElementDuoReaction _v;

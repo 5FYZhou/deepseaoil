@@ -10,7 +10,7 @@
 
 
 namespace cfg.dso
-{ 
+{
     public enum BallType
     {
         /// <summary>
@@ -23,5 +23,5 @@ namespace cfg.dso
         Earth = 1,
     }
 
-} 
+}
 

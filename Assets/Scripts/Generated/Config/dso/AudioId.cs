@@ -10,7 +10,7 @@
 
 
 namespace cfg.dso
-{ 
+{
     public enum AudioId
     {
         /// <summary>
@@ -159,5 +159,5 @@ namespace cfg.dso
         PlayerDie = 35,
     }
 
-} 
+}
 

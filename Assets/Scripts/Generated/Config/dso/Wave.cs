@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class Wave : Luban.BeanBase
 {
-    public Wave(JSONNode _buf) 
+    public Wave(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
@@ -67,7 +67,7 @@ public sealed partial class Wave : Luban.BeanBase
     /// 战术目标
     /// </summary>
     public readonly string Describe;
-   
+
     public const int __ID__ = 394089095;
     public override int GetTypeId() => __ID__;
 

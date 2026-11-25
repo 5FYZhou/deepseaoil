@@ -20,13 +20,13 @@ public partial class TbLevelWave
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.LevelWave> _dataMap;
     private readonly System.Collections.Generic.List<dso.LevelWave> _dataList;
-    
+
     public TbLevelWave(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.LevelWave>(count);
         _dataList = new System.Collections.Generic.List<dso.LevelWave>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.LevelWave _v;
