@@ -311,6 +311,21 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(baseline, Affected(Bake(_grid, Cap), Cap), "障碍已拆，旧净空没清干净");
         }
 
+        [Test]
+        public void 阻挡地貌不进入静态净空烘焙()
+        {
+            var cell = new Vector3Int(2, 2, 0);
+
+            Assert.IsTrue(_grid.SwitchTileState(cell, TileStateType.TerracottaBrick), "陶砖没有切上");
+            Assert.IsTrue(_grid.IsObstacle(cell), "陶砖不是阻挡地貌");
+
+            NavMap map = Bake(_grid, Cap);
+
+            Assert.IsTrue(
+                map.IsWalkable(cell, 0.3f, 0.05f),
+                "静态烘焙把带生命周期的陶砖永久写进了净空图");
+        }
+
         /// <summary>⑤ 真实预制体：玩家与敌人的碰撞体绝不能被烘成墙，否则角色脚下长出隐形障碍</summary>
         [Test]
         public void 真实角色预制体不被烘焙()

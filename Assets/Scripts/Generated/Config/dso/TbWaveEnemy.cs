@@ -20,13 +20,13 @@ public partial class TbWaveEnemy
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.WaveEnemy> _dataMap;
     private readonly System.Collections.Generic.List<dso.WaveEnemy> _dataList;
-    
+
     public TbWaveEnemy(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.WaveEnemy>(count);
         _dataList = new System.Collections.Generic.List<dso.WaveEnemy>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.WaveEnemy _v;

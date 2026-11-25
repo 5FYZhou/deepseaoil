@@ -20,13 +20,13 @@ public partial class TbSeed
 {
     private readonly System.Collections.Generic.Dictionary<dso.SeedType, dso.Seed> _dataMap;
     private readonly System.Collections.Generic.List<dso.Seed> _dataList;
-    
+
     public TbSeed(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<dso.SeedType, dso.Seed>(count);
         _dataList = new System.Collections.Generic.List<dso.Seed>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.Seed _v;

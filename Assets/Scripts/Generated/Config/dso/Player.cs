@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class Player : Luban.BeanBase
 {
-    public Player(JSONNode _buf) 
+    public Player(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
@@ -102,7 +102,7 @@ public sealed partial class Player : Luban.BeanBase
     /// 种子使用次数上限
     /// </summary>
     public readonly int SeedCapacity;
-   
+
     public const int __ID__ = 571649775;
     public override int GetTypeId() => __ID__;
 

@@ -20,13 +20,13 @@ public partial class TbPlayer
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.Player> _dataMap;
     private readonly System.Collections.Generic.List<dso.Player> _dataList;
-    
+
     public TbPlayer(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.Player>(count);
         _dataList = new System.Collections.Generic.List<dso.Player>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.Player _v;

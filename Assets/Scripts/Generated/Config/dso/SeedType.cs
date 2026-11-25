@@ -10,7 +10,7 @@
 
 
 namespace cfg.dso
-{ 
+{
     public enum SeedType
     {
         /// <summary>
@@ -35,5 +35,5 @@ namespace cfg.dso
         Plant = 4,
     }
 
-} 
+}
 

@@ -20,13 +20,13 @@ public partial class TbEnemyDrop
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.EnemyDrop> _dataMap;
     private readonly System.Collections.Generic.List<dso.EnemyDrop> _dataList;
-    
+
     public TbEnemyDrop(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.EnemyDrop>(count);
         _dataList = new System.Collections.Generic.List<dso.EnemyDrop>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.EnemyDrop _v;

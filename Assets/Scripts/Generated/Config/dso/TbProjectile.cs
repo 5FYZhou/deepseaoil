@@ -20,13 +20,13 @@ public partial class TbProjectile
 {
     private readonly System.Collections.Generic.Dictionary<dso.BallType, dso.Projectile> _dataMap;
     private readonly System.Collections.Generic.List<dso.Projectile> _dataList;
-    
+
     public TbProjectile(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<dso.BallType, dso.Projectile>(count);
         _dataList = new System.Collections.Generic.List<dso.Projectile>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.Projectile _v;

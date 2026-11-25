@@ -22,7 +22,6 @@ namespace DeepseaOil.Presentation.World
     {
         private static readonly int EmissiveBoostId = Shader.PropertyToID("_EmissiveBoost");
 
-        // 生命泉蓄力表现：光色白→绿、强度 0.2→0.35、View 上浮、ShadowView 缩小
         private static readonly Color LifeChargeColorStart = Color.white;
 
         private static readonly Color LifeChargeColorEnd = DefaultLightColor(FountainKind.Life);
@@ -30,9 +29,6 @@ namespace DeepseaOil.Presentation.World
         private const float LifeChargeIntensityStart = 0.2f;
         private const float LifeChargeIntensityEnd = 0.35f;
 
-        private const float LifeViewLiftMax = 0.3f;
-
-        // 蓄满时 ShadowView 相对初始缩放的最低比例（越小 = 阴影缩得越厉害）
         private const float LifeShadowScaleMinX = 0.55f;
         private const float LifeShadowScaleMinY = 0.85f;
 
@@ -57,6 +53,9 @@ namespace DeepseaOil.Presentation.World
         [Header("触发区")]
         [Tooltip("自动补 Trigger 时的半径（世界单位）：1.5 覆盖以泉眼为中心的九宫格")]
         [SerializeField] private float autoTriggerRadius = 1.5f;
+
+        [Tooltip("生命泉触发半径倍率")]
+        [SerializeField] private float lifeTriggerRadiusMultiplier = 1.15f;
 
         [Header("变化时长")]
         [Tooltip("进入变化（蓄力上升 / 进圈变亮 / 阴影加深）的平滑时长（秒）：0 = 瞬间跳变。升慢降快，这里给大值")]
@@ -92,13 +91,20 @@ namespace DeepseaOil.Presentation.World
         [Range(0f, 1.5f)]
         [SerializeField] private float emissiveBoostNight = 0.4f;
 
+        [Tooltip("泉眼自发光与生命泉回落的变化时长（秒）")]
+        [Range(0f, 2f)]
+        [SerializeField] private float emissiveFadeSeconds = 0.35f;
+
         [Header("阴影透明度")]
         [Tooltip("发光时 ShadowView 透明度相对初始值的最低比例：0 = 完全透明，1 = 不变")]
         [Range(0f, 1f)]
         [SerializeField] private float shadowMinAlphaScale = 0.58f;
 
         [Header("生命泉回血表现")]
-        [Tooltip("蓄力进度 0→1 的归一化表现曲线：同时驱动光色白→绿、亮度 0.2→0.35、View 的 Y 上浮与 ShadowView 缩小。Y 上浮与缩放上限写死在代码里")]
+        [Tooltip("蓄满时 View 相对初始位置的最大上浮高度（世界单位）")]
+        [SerializeField] private float lifeViewLiftMax = 0.4f;
+
+        [Tooltip("蓄力进度 0→1 的归一化表现曲线：同时驱动光色白→绿、亮度 0.2→0.35、View 的 Y 上浮与 ShadowView 缩小")]
         [SerializeField] private AnimationCurve lifeChargeCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
 
         private IDropSpawner _spawner;
@@ -143,13 +149,11 @@ namespace DeepseaOil.Presentation.World
 
         public bool PlayerInside => _playerInside;
 
-        // 显示进度：蓄力时 = _lifeCharge（0→1）；回血后退白时 = 1→0，共用同一条曲线
         private float LifeDisplayProgress
             => _lifeDischarging
                 ? Mathf.Lerp(1f, 0f, _lifeDischarge)
                 : _lifeCharge;
 
-        // 曲线输出的归一化表现值 0→1，光、Y 与阴影缩放共用
         private float LifeCurveValue
             => lifeChargeCurve != null
                 ? Mathf.Clamp01(lifeChargeCurve.Evaluate(LifeDisplayProgress))
@@ -196,9 +200,17 @@ namespace DeepseaOil.Presentation.World
         {
             _lifeStill = still;
             _lifeChargeTarget = Mathf.Clamp01(progress01);
+
+            if (_lifeChargeTarget <= 0f)
+            {
+                if (still) _lifeCharge = 0f;
+
+                return;
+            }
+
+            _lifeCharge = _lifeChargeTarget;
         }
 
-        // 回血完成：从当前绿端/最高点迅速退回白与基准 Y
         public void NotifyLifeHealed()
         {
             _lifeDischarging = true;
@@ -251,12 +263,54 @@ namespace DeepseaOil.Presentation.World
 
         private void EnsureTrigger()
         {
-            if (GetComponent<Collider2D>() != null) return;
+            Collider2D existing = GetComponent<Collider2D>();
+
+            if (kind == FountainKind.Life)
+            {
+                float multiplier = SanitizeMultiplier(lifeTriggerRadiusMultiplier);
+
+                if (existing is CircleCollider2D existingCircle)
+                {
+                    existingCircle.radius = ScaleTriggerRadius(existingCircle.radius, multiplier);
+                }
+                else if (existing == null)
+                {
+                    var created = gameObject.AddComponent<CircleCollider2D>();
+
+                    created.isTrigger = true;
+                    created.radius = ScaleTriggerRadius(autoTriggerRadius, multiplier);
+                }
+                else
+                {
+                    Debug.LogWarning("[Fountain] 生命泉已有一个非圆形触发体：无法按圆半径扩大 15%。", this);
+                }
+
+                if (radiusView != null)
+                {
+                    radiusView.transform.localScale *= multiplier;
+                }
+
+                return;
+            }
+
+            if (existing != null) return;
 
             var circle = gameObject.AddComponent<CircleCollider2D>();
 
             circle.isTrigger = true;
             circle.radius = autoTriggerRadius > 0f ? autoTriggerRadius : 1.5f;
+        }
+
+        public static float ScaleTriggerRadius(float radius, float multiplier)
+        {
+            return Mathf.Max(0f, radius) * SanitizeMultiplier(multiplier);
+        }
+
+        private static float SanitizeMultiplier(float multiplier)
+        {
+            if (float.IsNaN(multiplier) || float.IsInfinity(multiplier) || multiplier <= 0f) return 1.15f;
+
+            return multiplier;
         }
 
         // 推进一个渲染帧；暂停时 dt 为 0，节拍冻结
@@ -285,20 +339,21 @@ namespace DeepseaOil.Presentation.World
             SpawnOne();
         }
 
-        // 统一“进入/离开”时长：目标值朝 1 的方向 = 进入（慢），朝 0 = 离开（快）
         private float ChangeSeconds(float current, float target)
             => target > current ? enterChangeSeconds : exitChangeSeconds;
 
-        // 蓄力上升慢、回落快
         private void TickLifeCharge(float deltaTime)
         {
-            float seconds = ChangeSeconds(_lifeCharge, _lifeChargeTarget);
+            if (_lifeChargeTarget >= _lifeCharge) return;
+
+            float seconds = emissiveFadeSeconds > 0f
+                ? emissiveFadeSeconds
+                : ChangeSeconds(_lifeCharge, _lifeChargeTarget);
 
             _lifeCharge = Mathf.MoveTowards(
                 _lifeCharge, _lifeChargeTarget, seconds > 0f ? deltaTime / seconds : 1f);
         }
 
-        // 回血后的绿→白 + Y 落回 + 阴影复原：按“离开”时长迅速推进
         private void TickLifeDischarge(float deltaTime)
         {
             if (!_lifeDischarging) return;
@@ -315,12 +370,11 @@ namespace DeepseaOil.Presentation.World
             }
         }
 
-        // 光与 Y 共用 LifeCurveValue：读秒时缓慢上浮，回血后同曲线迅速落回；Y 上限写死
         private void ApplyLifeViewLift()
         {
             if (_viewTransform == null) return;
 
-            float lift = LifeViewLiftMax * LifeCurveValue;
+            float lift = lifeViewLiftMax * LifeCurveValue;
 
             if (Mathf.Approximately(lift, _viewLiftApplied)) return;
 
@@ -333,7 +387,6 @@ namespace DeepseaOil.Presentation.World
             _viewTransform.localPosition = p;
         }
 
-        // 阴影随蓄力升高而缩小：与 View 上浮、光色共用 LifeCurveValue，退白时同步复原
         private void ApplyLifeShadowScale()
         {
             if (_shadowTransform == null) return;
@@ -356,7 +409,7 @@ namespace DeepseaOil.Presentation.World
             if (_emissiveMaterial == null) return;
 
             float target = GlowsInside(kind, _playerInside, _lifeStill) ? 1f : 0f;
-            float seconds = ChangeSeconds(_emissiveRamp, target);
+            float seconds = emissiveFadeSeconds > 0f ? emissiveFadeSeconds : 1f;
             float step = seconds > 0f ? deltaTime / seconds : 1f;
 
             _emissiveRamp = Mathf.MoveTowards(_emissiveRamp, target, step);
@@ -374,7 +427,6 @@ namespace DeepseaOil.Presentation.World
             TickShadowAlpha();
         }
 
-        // 阴影透明度与发光 ramp 同步：发光越强，阴影越淡；离圈时平滑回到初始值
         private void TickShadowAlpha()
         {
             if (!_shadowColorCaptured || _shadowRenderer == null) return;

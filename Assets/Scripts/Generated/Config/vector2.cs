@@ -13,34 +13,34 @@ using Luban.SimpleJSON;
 
 namespace cfg
 {
-    public partial struct vector2
+public partial struct vector2
+{
+    public vector2(JSONNode _buf)
     {
-        public vector2(JSONNode _buf)
-        {
-            { if (!_buf["x"].IsNumber) { throw new SerializationException(); } X = _buf["x"]; }
-            { if (!_buf["y"].IsNumber) { throw new SerializationException(); } Y = _buf["y"]; }
-        }
-
-        public static vector2 Deserializevector2(JSONNode _buf)
-        {
-            return new vector2(_buf);
-        }
-
-        public readonly float X;
-        public readonly float Y;
-
-
-        public void ResolveRef(Tables tables)
-        {
-        }
-
-        public override string ToString()
-        {
-            return "{ "
-            + "x:" + X + ","
-            + "y:" + Y + ","
-            + "}";
-        }
+        { if(!_buf["x"].IsNumber) { throw new SerializationException(); }  X = _buf["x"]; }
+        { if(!_buf["y"].IsNumber) { throw new SerializationException(); }  Y = _buf["y"]; }
     }
+
+    public static vector2 Deserializevector2(JSONNode _buf)
+    {
+        return new vector2(_buf);
+    }
+
+    public readonly float X;
+    public readonly float Y;
+
+
+    public  void ResolveRef(Tables tables)
+    {
+    }
+
+    public override string ToString()
+    {
+        return "{ "
+        + "x:" + X + ","
+        + "y:" + Y + ","
+        + "}";
+    }
+}
 }
 

@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class Enemy : Luban.BeanBase
 {
-    public Enemy(JSONNode _buf) 
+    public Enemy(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
@@ -57,7 +57,7 @@ public sealed partial class Enemy : Luban.BeanBase
     /// 描述
     /// </summary>
     public readonly string Describe;
-   
+
     public const int __ID__ = -684392006;
     public override int GetTypeId() => __ID__;
 

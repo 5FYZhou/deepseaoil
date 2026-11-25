@@ -28,6 +28,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $stage = Join-Path $root 'ConfigWorkspace/output'
+$utf8 = [System.Text.UTF8Encoding]::new($false)
 $pairs = @(
     @{ Src = Join-Path $stage 'code'; Dst = Join-Path $root 'Assets/Scripts/Generated/Config' },
     @{ Src = Join-Path $stage 'data'; Dst = Join-Path $root 'Assets/StreamingAssets/Luban' }
@@ -56,6 +57,19 @@ function Get-Sha([string]$path) {
     return (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash
 }
 
+function Test-GeneratedText([string]$path) {
+    return $path.EndsWith('.cs', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $path.EndsWith('.json', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-NormalizedText([string]$path) {
+    return [regex]::Replace(
+        [System.IO.File]::ReadAllText($path),
+        '[ \t]+(?=\r?$)',
+        '',
+        [System.Text.RegularExpressions.RegexOptions]::Multiline)
+}
+
 foreach ($p in $pairs) {
     $srcFiles = @{}
     foreach ($f in Get-ChildItem -LiteralPath $p.Src -Recurse -File) {
@@ -74,10 +88,14 @@ foreach ($p in $pairs) {
 
     foreach ($rel in $srcFiles.Keys) {
         $dstPath = Join-Path $p.Dst $rel
+        $normalize = Test-GeneratedText $rel
         if (Test-Path -LiteralPath $dstPath) {
-            if ((Get-Sha $srcFiles[$rel]) -eq (Get-Sha $dstPath)) { continue }
+            if ($normalize) {
+                if ((Get-NormalizedText $srcFiles[$rel]) -ceq [System.IO.File]::ReadAllText($dstPath)) { continue }
+            }
+            elseif ((Get-Sha $srcFiles[$rel]) -eq (Get-Sha $dstPath)) { continue }
         }
-        $copies += [pscustomobject]@{ Src = $srcFiles[$rel]; Dst = $dstPath }
+        $copies += [pscustomobject]@{ Src = $srcFiles[$rel]; Dst = $dstPath; Normalize = $normalize }
     }
 
     # 孤儿 .meta：镜像区里有 .meta，但同名文件在**目标区**已不存在
@@ -115,7 +133,12 @@ foreach ($path in $deletes) {
 foreach ($c in $copies) {
     $dir = Split-Path -Parent $c.Dst
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    Copy-Item -LiteralPath $c.Src -Destination $c.Dst -Force
+    if ($c.Normalize) {
+        [System.IO.File]::WriteAllText($c.Dst, (Get-NormalizedText $c.Src), $utf8)
+    }
+    else {
+        Copy-Item -LiteralPath $c.Src -Destination $c.Dst -Force
+    }
 }
 
 foreach ($path in $metaDeletes) {

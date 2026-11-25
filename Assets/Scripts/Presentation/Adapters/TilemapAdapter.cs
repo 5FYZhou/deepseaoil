@@ -214,6 +214,8 @@ namespace DeepseaOil.Presentation.Adapters
                 count++;
             }
 
+            obstacleDirector?.SetGrid(grid);
+
             if (count == 0)
             {
                 Debug.LogError(

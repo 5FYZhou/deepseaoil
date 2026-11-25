@@ -175,8 +175,8 @@ namespace DeepseaOil.Tests
 
             Assert.AreEqual(TileStateType.ChargedThorn, grid.StateOf(origin), "电源 × 植物区 → 带电荆棘");
 
-            // 表的 effect_radius=1：即时十字（含空地）当帧就变荆棘
-            Assert.AreEqual(TileStateType.ChargedThorn, grid.StateOf(power), "即时十字：电源格也按表被荆棘覆盖");
+            // 表的 effect_radius=1.5：即时十字中，电源保持其更高覆盖秩
+            Assert.AreEqual(TileStateType.BasicElectricity, grid.StateOf(power), "荆棘不应越级覆盖基础电源");
             Assert.AreEqual(TileStateType.ChargedThorn, grid.StateOf(east), "即时十字：东邻");
             Assert.AreEqual(TileStateType.ChargedThorn, grid.StateOf(west), "即时十字：西邻");
             Assert.AreEqual(TileStateType.ChargedThorn, grid.StateOf(south), "即时十字：南邻空地也按表变荆棘");

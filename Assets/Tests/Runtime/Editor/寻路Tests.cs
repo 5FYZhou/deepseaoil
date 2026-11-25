@@ -158,7 +158,14 @@ namespace DeepseaOil.Tests
         /// <summary>造一只只认网格与执行的敌人</summary>
         private static EnemyLogic NewEnemy(GridLogic grid, MotorProbe motor, float radius = Radius, float acceleration = Acceleration)
         {
-            var entry = new EnemyTuningEntry { id = 1, radius = radius, acceleration = acceleration };
+            var entry = new EnemyTuningEntry
+            {
+                id = 1,
+                radius = radius,
+                acceleration = acceleration,
+                turnRateLimit = 720f,
+                turnSmoothSeconds = 0.03f,
+            };
             var spec = new EnemySpec(RowFactory.EnemyRow(), entry);
 
             var logic = new EnemyLogic(motor, spec);
@@ -459,6 +466,33 @@ namespace DeepseaOil.Tests
 
             Assert.IsTrue(grid.Nav.IsWalkable(new Vector3Int(1, 1, 0), Radius, Skin), "净空本身没变（地貌阻挡与净空是两套判据）");
             Assert.AreEqual(-1, field.DistOf(CenterNode(1, 1, 6)), "地貌阻挡起来了，那个采样点仍在场里");
+        }
+
+        [Test]
+        public void 动态阻挡侵占邻格贴身采样点且消散后恢复()
+        {
+            GridLogic grid = NewMaze(OpenField(6, 3), out NavMap map);
+            var obstacleCell = new Vector3Int(2, 1, 0);
+            var goal = new Vector3Int(5, 1, 0);
+
+            grid.RefreshNavFields(goal, Skin);
+            NavField field = grid.NavFieldFor(Radius, Skin);
+            int near = Node(3, 1, 6, 0, 1);
+            int far = Node(3, 1, 6, 3, 1);
+
+            Assert.GreaterOrEqual(field.DistOf(near), 0, "前置空地采样点不可达");
+            Assert.IsTrue(grid.SwitchTileState(obstacleCell, ObstacleState()), "阻挡地貌没切上");
+
+            grid.RefreshNavFields(goal, Skin);
+
+            Assert.AreEqual(-1, field.DistOf(near), "邻格贴砖采样点仍在场里");
+            Assert.GreaterOrEqual(field.DistOf(far), 0, "远离砖体的采样点被误封");
+
+            Assert.IsTrue(grid.SwitchTileState(obstacleCell, TileStateType.Normal), "阻挡地貌没消散");
+
+            grid.RefreshNavFields(goal, Skin);
+
+            Assert.GreaterOrEqual(field.DistOf(near), 0, "陶砖消散后邻格采样点没有恢复");
         }
 
         /// <summary>表里第一个 is_obstacle = true 的状态</summary>
@@ -1132,6 +1166,18 @@ namespace DeepseaOil.Tests
             Assert.Greater(elite.StopDistance, elite.Radius + PlayerHalfWidth, "精英怪停靠环还在物理接触里");
             Assert.Less(normal.StopDistance, player.ContactRadius, "普通怪停靠环超出贴身伤害半径");
             Assert.Less(elite.StopDistance, player.ContactRadius, "精英怪停靠环超出贴身伤害半径");
+        }
+
+        [Test]
+        public void 敌人速度低于玩家且拐角保速提升()
+        {
+            PlayerSpec player = ConfigModule.GetPlayer();
+            EnemySpec normal = ConfigModule.GetEnemy(1);
+            EnemySpec elite = ConfigModule.GetEnemy(2);
+
+            Assert.Less(normal.MaxSpeed, elite.MaxSpeed, "普通怪不应快于精英怪");
+            Assert.Less(elite.MaxSpeed, player.Config.moveSpeed, "精英怪满速不应高于玩家");
+            Assert.AreEqual(0.5f, ConfigModule.CornerSpeedFactor, 0.0001f, "拐角保速未提升");
         }
     }
 }

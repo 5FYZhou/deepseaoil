@@ -398,6 +398,17 @@ namespace DeepseaOil.EditorTools
                 string dir = Path.GetDirectoryName(dstPath);
                 if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
+                if (IsGeneratedText(srcPath))
+                {
+                    string source = NormalizeTrailingWhitespace(File.ReadAllText(srcPath));
+
+                    if (File.Exists(dstPath) && source == File.ReadAllText(dstPath))
+                        continue;
+
+                    File.WriteAllText(dstPath, source, new UTF8Encoding(false));
+                    continue;
+                }
+
                 if (File.Exists(dstPath) && SameContent(srcPath, dstPath))
                     continue;   // 内容一致就不动它：生成的 .meta 与 GUID 保持稳定，git diff 干净
 
@@ -421,6 +432,17 @@ namespace DeepseaOil.EditorTools
             var fb = new FileInfo(b);
             if (fa.Length != fb.Length) return false;
             return Hash(a) == Hash(b);
+        }
+
+        static bool IsGeneratedText(string path)
+        {
+            return path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+        }
+
+        static string NormalizeTrailingWhitespace(string text)
+        {
+            return Regex.Replace(text, "[ \t]+(?=\r?$)", "", RegexOptions.Multiline);
         }
 
         static string Hash(string path)

@@ -20,13 +20,13 @@ public partial class TbSlotDialogue
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.SlotDialogue> _dataMap;
     private readonly System.Collections.Generic.List<dso.SlotDialogue> _dataList;
-    
+
     public TbSlotDialogue(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.SlotDialogue>(count);
         _dataList = new System.Collections.Generic.List<dso.SlotDialogue>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.SlotDialogue _v;

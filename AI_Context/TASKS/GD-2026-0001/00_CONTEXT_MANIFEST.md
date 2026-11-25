@@ -1,8 +1,8 @@
 # 00 CONTEXT MANIFEST — GD-2026-0001
 
 - Task ID: GD-2026-0001
-- Base Commit: df60015f9d333a2e122f9cfca97fc3b289e0c1f8
-- Generated At: 2026-11-24T23:52:41+08:00
+- Base Commit: 45b0a43abe3238baae4d2ead63cf60aefe799984
+- Generated At: 2026-11-25T15:20:53+08:00
 - Generation Mode: append
 - Chat Safe: ON
 - Budget Limit: 150000
@@ -13,8 +13,8 @@
 | --- | ---: | --- |
 | L1 | 2518 | 不在 4,096–8,000 隐式缓存甜点区 |
 | L2 | 3262 | 模块层建议 ≤ 30,000 |
-| L3 | 98012 | 代码层建议 ≤ 100,000 |
-| Total | 103792 | 未超过 150000 |
+| L3 | 98447 | 代码层建议 ≤ 100,000 |
+| Total | 104227 | 未超过 150000 |
 
 > Token 为启发式估算：每个 CJK 字符计 1，其余非空白字符合计 ÷ 4 后向上取整。
 
@@ -59,7 +59,7 @@
 | `L3__Assets_Scripts_Logic_Actor_States_EnemyChaseState.cs` | L3 | `Assets/Scripts/Logic/Actor/States/EnemyChaseState.cs` | 174 |
 | `L3__Assets_Scripts_Logic_DeepseaOil.Logic.asmdef.txt` | L3 | `Assets/Scripts/Logic/DeepseaOil.Logic.asmdef` | 89 |
 | `L3__Assets_Scripts_Logic_Element_ReactionResolver.cs` | L3 | `Assets/Scripts/Logic/Element/ReactionResolver.cs` | 646 |
-| `L3__Assets_Scripts_Logic_Grid_GridLogic.cs` | L3 | `Assets/Scripts/Logic/Grid/GridLogic.cs` | 5099 |
+| `L3__Assets_Scripts_Logic_Grid_GridLogic.cs` | L3 | `Assets/Scripts/Logic/Grid/GridLogic.cs` | 5167 |
 | `L3__Assets_Scripts_Logic_Grid_GridQuery.cs` | L3 | `Assets/Scripts/Logic/Grid/GridQuery.cs` | 203 |
 | `L3__Assets_Scripts_Logic_Grid_TileAim.cs` | L3 | `Assets/Scripts/Logic/Grid/TileAim.cs` | 444 |
 | `L3__Assets_Scripts_Logic_Grid_TileChainReactor.cs` | L3 | `Assets/Scripts/Logic/Grid/TileChainReactor.cs` | 2934 |
@@ -74,7 +74,7 @@
 | `L3__Assets_Scripts_Presentation_Actor_EnemyActor.cs` | L3 | `Assets/Scripts/Presentation/Actor/EnemyActor.cs` | 3997 |
 | `L3__Assets_Scripts_Presentation_Adapters_EnemyMotor.cs` | L3 | `Assets/Scripts/Presentation/Adapters/EnemyMotor.cs` | 116 |
 | `L3__Assets_Scripts_Presentation_Adapters_PlayerMotor.cs` | L3 | `Assets/Scripts/Presentation/Adapters/PlayerMotor.cs` | 55 |
-| `L3__Assets_Scripts_Presentation_Adapters_TilemapAdapter.cs` | L3 | `Assets/Scripts/Presentation/Adapters/TilemapAdapter.cs` | 4151 |
+| `L3__Assets_Scripts_Presentation_Adapters_TilemapAdapter.cs` | L3 | `Assets/Scripts/Presentation/Adapters/TilemapAdapter.cs` | 4159 |
 | `L3__Assets_Scripts_Presentation_Ball_BallDirector.cs` | L3 | `Assets/Scripts/Presentation/Ball/BallDirector.cs` | 967 |
 | `L3__Assets_Scripts_Presentation_Combat_WeaponAimController.cs` | L3 | `Assets/Scripts/Presentation/Combat/WeaponAimController.cs` | 3132 |
 | `L3__Assets_Scripts_Presentation_DeepseaOil.Presentation.asmdef.txt` | L3 | `Assets/Scripts/Presentation/DeepseaOil.Presentation.asmdef` | 142 |
@@ -92,7 +92,7 @@
 | `L3__Assets_Scripts_Presentation_UI_Panel_GamePlayPanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/GamePlayPanel.cs` | 3990 |
 | `L3__Assets_Scripts_Presentation_UI_Panel_HudPanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/HudPanel.cs` | 1135 |
 | `L3__Assets_Scripts_Presentation_UI_Panel_PausePanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/PausePanel.cs` | 372 |
-| `L3__Assets_Scripts_Presentation_World_Fountain.cs` | L3 | `Assets/Scripts/Presentation/World/Fountain.cs` | 3008 |
+| `L3__Assets_Scripts_Presentation_World_Fountain.cs` | L3 | `Assets/Scripts/Presentation/World/Fountain.cs` | 3089 |
 | `L3__Assets_Scripts_Presentation_World_PlayerMoveTrigger.cs` | L3 | `Assets/Scripts/Presentation/World/PlayerMoveTrigger.cs` | 155 |
 | `L3__Docs_工程_关卡编号与场景映射.md` | L3 | `Docs/工程/关卡编号与场景映射.md` | 2007 |
 | `L3__Docs_玩家反馈_G.肖昕怡.md` | L3 | `Docs/玩家反馈/G.肖昕怡.md` | 75 |
@@ -105,12 +105,11 @@
 | `L3__Docs_玩家反馈_转述反馈_2026-10-21.md` | L3 | `Docs/玩家反馈/转述反馈_2026-10-21.md` | 156 |
 | `L3__Docs_设计_玩家反馈处理指导思想.md` | L3 | `Docs/设计/玩家反馈处理指导思想.md` | 1158 |
 | `L3__Docs_设计_策划案_荒原复苏指南_v4.0.md` | L3 | `Docs/设计/策划案_荒原复苏指南_v4.0.md` | 7033 |
-| `L3__git_recent_context.txt` | L3 | `git:recent` | 1126 |
+| `L3__git_recent_context.txt` | L3 | `git:recent` | 1404 |
 
 ## Project Tree Summary
 
 ```text
-.DS_Store
 .gitattributes
 .gitignore
 .vsconfig
@@ -122,6 +121,7 @@ AI_Context/CODING_STANDARDS.md
 AI_Context/DECISION_LOG.md
 AI_Context/DEPENDENCIES.md
 AI_Context/EVIDENCE/
+AI_Context/EVIDENCE/GD-2026-0001/
 AI_Context/EVIDENCE/GD-YYYY-NNNN/
 AI_Context/KNOWN_ISSUES.md
 AI_Context/METRICS.md
@@ -139,7 +139,6 @@ AI_Context/TASKS/_templates/
 Assembly-CSharp-Editor.csproj
 Assembly-CSharp.csproj
 Assets/
-Assets/.DS_Store
 Assets/Editor.meta
 Assets/Editor/
 Assets/Editor/DeepseaOil.EditorTools.asmdef
@@ -180,7 +179,6 @@ Assets/Luban.Runtime/StringUtil.cs
 Assets/Luban.Runtime/StringUtil.cs.meta
 Assets/Resources.meta
 Assets/Resources/
-Assets/Resources/.DS_Store
 Assets/Resources/Fonts.meta
 Assets/Resources/Fonts/
 Assets/Resources/Icons.meta
@@ -283,6 +281,8 @@ Assets/Shaders/Procedural_CartoonTile.shader
 Assets/Shaders/Procedural_CartoonTile.shader.meta
 Assets/StreamingAssets.meta
 Assets/StreamingAssets/
+Assets/StreamingAssets/Luban.meta
+Assets/StreamingAssets/Luban/
 Assets/Tests.meta
 Assets/Tests/
 Assets/TextMesh Pro.meta
@@ -300,6 +300,7 @@ DeepseaOil.Presentation.csproj
 DeepseaOil.Tests.EditMode.csproj
 DeepseaOil.Tests.Scene.csproj
 Docs/
+GD-2026-0001.sln
 Luban.Runtime.csproj
 Packages/
 ProjectSettings/
@@ -308,7 +309,6 @@ Tools/
 UserSettings/
 cfg.csproj
 deepseaoil.csproj
-deepseaoil.sln
 scripts/
 ```
 

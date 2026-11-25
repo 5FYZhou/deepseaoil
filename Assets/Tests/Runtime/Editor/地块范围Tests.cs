@@ -83,9 +83,9 @@ namespace DeepseaOil.Tests
             }
         }
 
-        /// <summary>① 半径 0 只改落点：泥浆遇水冲成稀泥，邻格一格都不许动</summary>
+        /// <summary>① 泥浆遇水冲成稀泥，并按当前表的 1.0 半径铺十字</summary>
         [Test]
-        public void 半径零只改落点一格()
+        public void 泥浆遇水冲稀并铺十字()
         {
             TileChainReactor.Clear();
 
@@ -101,15 +101,15 @@ namespace DeepseaOil.Tests
 
             ReactionOutcome outcome = ReactionResolver.Resolve(TileStateType.Mud, BallType.Water);
 
-            Assert.AreEqual(0f, outcome.ImpactRadius, 1e-4f, "impact_radius=0 被钳回了非零：范围铺设会多铺一圈");
+            Assert.AreEqual(1f, outcome.ImpactRadius, 1e-4f, "泥浆遇水半径应取当前表值 1.0");
 
             grid.OnBallHit(center, BallType.Water);
 
             Assert.AreEqual(TileStateType.MudSkid, grid.StateOf(center), "泥浆遇水该冲成稀泥");
 
-            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(1, 0, 0)), "半径 0 不许波及邻格");
-            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(0, 1, 0)), "半径 0 不许波及邻格");
-            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(1, 1, 0)), "半径 0 不许波及邻格");
+            Assert.AreEqual(TileStateType.MudSkid, grid.StateOf(new Vector3Int(1, 0, 0)), "十字东格没铺稀泥");
+            Assert.AreEqual(TileStateType.MudSkid, grid.StateOf(new Vector3Int(0, 1, 0)), "十字北格没铺稀泥");
+            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(1, 1, 0)), "对角线不该进入十字");
         }
 
         /// <summary>② 半径 1.0：十字 5 格全部铺泥浆、5 格全部结算伤害，对角线不动</summary>
@@ -155,9 +155,9 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(1, 1, 0)), "对角线不该被 1.0 半径纳入");
         }
 
-        /// <summary>③ 半径 1.5：花浇水炸开九宫 9 格草丛，两格开外不动</summary>
+        /// <summary>③ 半径 2.5：花浇水扩到二环，圆形边界外不动</summary>
         [Test]
-        public void 半径一点五铺九宫九格()
+        public void 半径二点五扩展到二环()
         {
             TileChainReactor.Clear();
 
@@ -174,6 +174,11 @@ namespace DeepseaOil.Tests
             grid.OnBallHit(center, BallType.Water);
 
             Assert.AreEqual(TileStateType.BasicPlant, grid.StateOf(center), "花浇水该长成植物区");
+            Assert.AreEqual(
+                2.5f,
+                ReactionResolver.Resolve(TileStateType.BasicFlower, BallType.Water).ImpactRadius,
+                1e-4f,
+                "花浇水半径应取当前表值 2.5");
 
             for (int dy = -1; dy <= 1; dy++)
             {
@@ -188,7 +193,8 @@ namespace DeepseaOil.Tests
                 }
             }
 
-            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(2, 0, 0)), "半径 1.5 不该铺到两格开外");
+            Assert.AreEqual(TileStateType.BasicPlant, grid.StateOf(new Vector3Int(2, 0, 0)), "半径 2.5 应覆盖二环十字");
+            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(2, 2, 0)), "圆形半径 2.5 不应覆盖二环对角");
         }
 
         /// <summary>④ 永久地貌（水/土/火/电源/冰面）不被次级铺设顶掉</summary>

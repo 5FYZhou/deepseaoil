@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class SlotDialogue : Luban.BeanBase
 {
-    public SlotDialogue(JSONNode _buf) 
+    public SlotDialogue(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["paragraph"].IsNumber) { throw new SerializationException(); }  Paragraph = _buf["paragraph"]; }
@@ -52,7 +52,7 @@ public sealed partial class SlotDialogue : Luban.BeanBase
     /// 一句文本内容
     /// </summary>
     public readonly string Context;
-   
+
     public const int __ID__ = -1525048444;
     public override int GetTypeId() => __ID__;
 
