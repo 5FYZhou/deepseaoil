@@ -137,3 +137,139 @@ Watchdog 结论建议: **FAIL（静态返工已关闭，但 L2 必需运行层�
 剩余阻断: 无敌/死亡/配给/闪烁与追加光标的正式 EditMode/Play/V5 未运行。
 用户决定: ACCEPT / ACCEPT WITH FOLLOW-UP / REJECT
 必须由 CEO 决策: 在合入前安排正式 Unity 运行证据，或明确批准 L2 验收降层；本会话不能把源码可编译等同于行为通过。
+
+## REVIEW ROUND 3
+
+复核时间（含时区）: 2026-11-25 16:32 +08:00  
+复核对象: rebase 后 `69c9a63`、功能提交 `e150c5f`、A03 报告与 Manifest
+
+### R3-1. 提交与基线
+
+```text
+69c9a63 chore(GD-2026-0002): rebase onto latest update and refresh handover
+  parent: e150c5f feat(GD-2026-0002): complete player survival and cursor fixes
+    parent: 302417d docs: 记录 GD-2026-0001 合入基线
+```
+
+| 项 | 实测 | 状态 |
+| --- | --- | --- |
+| HEAD | `69c9a63c3fb5e4e83ee0ce0656801bbfea10c1a9` | **一致** |
+| 功能提交父基线 | `302417d67d262655721ddffd2ee4cadfc6931826` | **一致** |
+| 分支 | `ai/GD-2026-0002` | **一致** |
+| Worktree | clean | **PASS** |
+| Manifest Base Commit | `302417d67d26…` | **PASS** |
+| rebase 冲突 | 无 | **PASS** |
+
+A03 文档提交只增加/更新 Manifest 与 A03 报告；功能提交承担业务、资产和测试 Diff。
+
+### R3-2. 独立门禁
+
+```text
+validate_handover --for watchdog -> PASS 20 / FAIL 0 / WARN 0
+compile-gate -Topology           -> 0 error / 0 warning
+comment-lint                     -> 退出码 1；仅 3 个既有禁改文件
+comment-lint -Mode tags          -> PASS，280 文件
+git diff --check                 -> 退出码 0
+```
+
+全量注释硬违规为：
+
+```text
+TimerWheel.cs
+AudioManager.cs
+SaveSlot.cs
+```
+
+本任务的 `PlayerStats.cs`、`PlayerController.cs`、`CombatRoot.cs`、`TileCursorIndicator.cs`、`移动Tests.cs`、`全局光照Tests.cs` 均未进入硬违规或容差区。
+
+`-StagedOnly` 在 clean committed branch 上没有 C# Diff，会触发脚本 0 文件除零；因此使用全量门与 tags 门作为适用验证，`-StagedOnly` 为 `NOT APPLICABLE`，不是代码通过证据。
+
+### R3-3. 0001 主线内容保护
+
+独立执行：
+
+```text
+git diff --exit-code VReason/Update..HEAD --
+  Tools/comment-budget.json
+  Tools/luban-mirror.ps1
+  Assets/Editor/LubanImport.cs
+  ConfigWorkspace/Data
+  Assets/Scripts/Generated/Config
+  Assets/StreamingAssets/Luban
+  .vscode ProjectSettings
+-> 退出码 0
+```
+
+补充核对：
+
+- `Tools/comment-budget.json` 与主线完全一致。
+- 主线中的 `生命神泉Tests.cs: 0` 条目仍保留。
+- `移动Tests.cs: 3346` 未被覆盖。
+- 0001 的配表、生成物、Luban 工具链均未由本分支改写。
+- `.vscode/**` 与 `ProjectSettings/**` 无 Diff。
+
+rebase 前后 7 个本任务业务/资产文件逐一计算 Git blob hash，全部一致：
+
+```text
+TileCursorIndicator.prefab     same
+PlayerStats.cs                 same
+TileCursorIndicator.cs         same
+CombatRoot.cs                  same
+PlayerController.cs            same
+全局光照Tests.cs                same
+移动Tests.cs                    same
+```
+
+说明 rebase 没有通过冲突解决或格式化悄悄改变 0002 原有实现。
+
+### R3-4. 当前范围
+
+`git diff VReason/Update..HEAD` 共 13 个路径：
+
+- 7 个批准业务/资产/测试文件；
+- 6 个任务文档/交接文件。
+
+无 `.vscode`、`ProjectSettings`、批 1 配表/生成物、Luban 工具、批 3 UI/Story/Audio 或其他业务路径。路径范围 **PASS**。
+
+### R3-5. 核心静态回归复查
+
+| 功能 | 静态结果 |
+| --- | --- |
+| 无敌窗口 | `PlayerStats.IsInvulnerable` 保留存活守卫与 NaN 语义 |
+| 幽灵穿怪 | `PlayerController` 只对缓存后的非 Trigger 碰撞体叠加 Enemy 层排除，不使用全局层矩阵修改 |
+| 死亡刹停 | `OnDeathTriggered` 先复位幽灵/闪烁并直接写零速度 |
+| 生命周期复位 | 死亡、重生、销毁均恢复 `excludeLayers` 与渲染可见性 |
+| 种子耗尽 | `TryRestoreSeed` 只恢复一次消费，不重置整槽 |
+| 波前配给 | 满槽保留旧种并通过 `IDropSpawner` 生成脚边掉落；空槽直接入袋 |
+| 光标追加 | 最低透明度、缩放呼吸、自发光登记与 `0.06–0.10` 强度仍存在 |
+| 测试源码 | M25–M32 与 5 个光标测试均保留 |
+
+未发现 rebase 引入的静态玩法回归。
+
+### R3-6. 运行层
+
+- Worker EditMode Test Runner: `NOT RUN`。
+- Watchdog EditMode: `NOT RUN`。
+- Watchdog Play Mode: `NOT RUN`。
+- Watchdog V5 Profiler / GC Alloc: `NOT RUN`。
+- 现有 `unity-open-retry.log` 为早期环境失败日志，不能作为通过证据。
+
+A03 报告的 `PASS WITH WARNINGS` 只表达交接物可审，并不等于 L2 验收完成。
+
+### R3-7. 第三轮结论
+
+Watchdog 结论建议: **FAIL（仅因 L2 正式运行层未完成）**  
+已关闭: 提交/rebase 结构、Manifest 基线、交接、编译/拓扑、注释 tags、任务文件预算、0001 主线内容保护、范围与静态玩法回归。  
+剩余阻断: EditMode、Play Mode、V5 均无 Worker/Watchdog 正式运行证据。  
+用户决定: **ACCEPT WITH FOLLOW-UP**  
+CEO 签收时间: 2026-11-25 16:36 (UTC+8)  
+CEO 运行事实:
+
+- 已按任务说明完成 EditMode 与 Play 手测，符合预期、未发现问题。
+- 本轮按“优先合入、避免继续拖延”原则签收。
+
+Follow-up:
+
+- Watchdog 独立 Play/V4 验证。
+- V5 Profiler / GC Alloc。
+- Test Runner XML 或用例通过数补档（如后续工具链支持）。

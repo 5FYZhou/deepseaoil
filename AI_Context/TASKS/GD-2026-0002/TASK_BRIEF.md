@@ -7,7 +7,7 @@ Project / Engine / Tool Version: 荒原复苏指南 / Unity 2022.3.62f3c1
 
 Task Level: L2    Risk Level: R2
 
-Status: APPROVED
+Status: ACCEPTED_WITH_FOLLOW_UP
 
 1. 我想实现什么（Objective）
    修复玩家受击时穿入或穿过怪群、角色死亡后持续滑行的体验缺陷；调整波前种子配给和掉落位置，使新种子落到玩家脚边且不静默覆盖现有种子。
@@ -47,4 +47,4 @@ Status: APPROVED
    由 Planner 在后续 PLAN 中给出可判定验收。至少应覆盖：受击不穿怪、死亡不滑行、波前种子不静默覆盖、`compile-gate.ps1 -Topology` 全绿、相关 EditMode 测试与 `Range.unity` 实机观察。
 
 10. 其他说明与不确定事项
-    `PLAN_v01.md` 已获 CEO 批准；`APPROVAL_RECORD.md` 已填写。施工必须从批准提交后的 `VReason/Update` 分出独立 Worktree。
+    `PLAN_v01.md` 已执行并经 CEO 以 `ACCEPT WITH FOLLOW-UP` 签收。独立 Play/V4 与 V5 性能证据保留为后续项。
