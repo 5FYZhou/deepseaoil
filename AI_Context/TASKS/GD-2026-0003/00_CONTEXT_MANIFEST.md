@@ -1,8 +1,8 @@
 # 00 CONTEXT MANIFEST — GD-2026-0003
 
 - Task ID: GD-2026-0003
-- Base Commit: df60015f9d333a2e122f9cfca97fc3b289e0c1f8
-- Generated At: 2026-11-24T23:52:41+08:00
+- Base Commit: aaee801271c7c49a8e5059c42406863cd3de1906
+- Generated At: 2026-11-25T16:43:18+08:00
 - Generation Mode: append
 - Chat Safe: ON
 - Budget Limit: 150000
@@ -12,9 +12,9 @@
 | 层级 | 估算 Token | 预算/状态 |
 | --- | ---: | --- |
 | L1 | 2518 | 不在 4,096–8,000 隐式缓存甜点区 |
-| L2 | 3262 | 模块层建议 ≤ 30,000 |
-| L3 | 99136 | 代码层建议 ≤ 100,000 |
-| Total | 104916 | 未超过 150000 |
+| L2 | 3312 | 模块层建议 ≤ 30,000 |
+| L3 | 107051 | 代码层建议 ≤ 100,000 |
+| Total | 112881 | 未超过 150000 |
 
 > Token 为启发式估算：每个 CJK 字符计 1，其余非空白字符合计 ÷ 4 后向上取整。
 
@@ -25,7 +25,7 @@
 | `L1__PROJECT_OVERVIEW.md` | L1 | `AI_Context/PROJECT_OVERVIEW.md` | 572 |
 | `L1__CODING_STANDARDS.md` | L1 | `AI_Context/CODING_STANDARDS.md` | 912 |
 | `L1__BUILD_AND_TEST.md` | L1 | `AI_Context/BUILD_AND_TEST.md` | 1034 |
-| `L2__PROJECT_BOARD.md` | L2 | `AI_Context/PROJECT_BOARD.md` | 781 |
+| `L2__PROJECT_BOARD.md` | L2 | `AI_Context/PROJECT_BOARD.md` | 831 |
 | `L2__ARCHITECTURE.md` | L2 | `AI_Context/ARCHITECTURE.md` | 896 |
 | `L2__MODULE_MAP.md` | L2 | `AI_Context/MODULE_MAP.md` | 979 |
 | `L2__DEPENDENCIES.md` | L2 | `AI_Context/DEPENDENCIES.md` | 606 |
@@ -35,16 +35,16 @@
 | `L3__AI_Context_README_AI.md` | L3 | `AI_Context/README_AI.md` | 941 |
 | `L3__AI_Context_TASKS_GD-2026-0001_PLANNER_PROJECT_OVERVIEW.md` | L3 | `AI_Context/TASKS/GD-2026-0001/PLANNER_PROJECT_OVERVIEW.md` | 2830 |
 | `L3__AI_Context_TASKS_GD-2026-0001_PLAN_v01.md` | L3 | `AI_Context/TASKS/GD-2026-0001/PLAN_v01.md` | 8208 |
-| `L3__Assets_Resources_config_AudioConfig.asset.txt` | L3 | `Assets/Resources/config/AudioConfig.asset` | 100 |
+| `L3__Assets_Resources_config_AudioConfig.asset.txt` | L3 | `Assets/Resources/config/AudioConfig.asset` | 125 |
 | `L3__Assets_Resources_config_UIConfig.asset.txt` | L3 | `Assets/Resources/config/UIConfig.asset` | 312 |
-| `L3__Assets_Resources_ui_Panel_DialoguePanel.prefab.txt` | L3 | `Assets/Resources/ui/Panel/DialoguePanel.prefab` | 8780 |
+| `L3__Assets_Resources_ui_Panel_DialoguePanel.prefab.txt` | L3 | `Assets/Resources/ui/Panel/DialoguePanel.prefab` | 8809 |
 | `L3__Assets_Resources_ui_Panel_GamePlayPanel.prefab.txt` | L3 | `Assets/Resources/ui/Panel/GamePlayPanel.prefab` | 12978 |
 | `L3__Assets_Scripts_Data_Config_Spec_AudioMapSpec.cs` | L3 | `Assets/Scripts/Data/Config/Spec/AudioMapSpec.cs` | 53 |
 | `L3__Assets_Scripts_Data_Config_Spec_DialogueSpec.cs` | L3 | `Assets/Scripts/Data/Config/Spec/DialogueSpec.cs` | 75 |
-| `L3__Assets_Scripts_Data_Settings_AudioConfig.cs` | L3 | `Assets/Scripts/Data/Settings/AudioConfig.cs` | 112 |
+| `L3__Assets_Scripts_Data_Settings_AudioConfig.cs` | L3 | `Assets/Scripts/Data/Settings/AudioConfig.cs` | 217 |
 | `L3__Assets_Scripts_Data_Settings_UIConfig.cs` | L3 | `Assets/Scripts/Data/Settings/UIConfig.cs` | 331 |
-| `L3__Assets_Scripts_Presentation_Audio_AudioManager.cs` | L3 | `Assets/Scripts/Presentation/Audio/AudioManager.cs` | 4224 |
-| `L3__Assets_Scripts_Presentation_Audio_SfxPlayback.cs` | L3 | `Assets/Scripts/Presentation/Audio/SfxPlayback.cs` | 183 |
+| `L3__Assets_Scripts_Presentation_Audio_AudioManager.cs` | L3 | `Assets/Scripts/Presentation/Audio/AudioManager.cs` | 4098 |
+| `L3__Assets_Scripts_Presentation_Audio_SfxPlayback.cs` | L3 | `Assets/Scripts/Presentation/Audio/SfxPlayback.cs` | 287 |
 | `L3__Assets_Scripts_Presentation_Effects_Drivers_HudFlashDriver.cs` | L3 | `Assets/Scripts/Presentation/Effects/Drivers/HudFlashDriver.cs` | 1572 |
 | `L3__Assets_Scripts_Presentation_Effects_Drivers_HudShakeDriver.cs` | L3 | `Assets/Scripts/Presentation/Effects/Drivers/HudShakeDriver.cs` | 1185 |
 | `L3__Assets_Scripts_Presentation_Effects_Drivers_HudSparkDriver.cs` | L3 | `Assets/Scripts/Presentation/Effects/Drivers/HudSparkDriver.cs` | 1554 |
@@ -52,20 +52,24 @@
 | `L3__Assets_Scripts_Presentation_Effects_EffectModule.cs` | L3 | `Assets/Scripts/Presentation/Effects/EffectModule.cs` | 2419 |
 | `L3__Assets_Scripts_Presentation_Input_InputProvider.cs` | L3 | `Assets/Scripts/Presentation/Input/InputProvider.cs` | 1122 |
 | `L3__Assets_Scripts_Presentation_Input_InputSys.inputactions.txt` | L3 | `Assets/Scripts/Presentation/Input/InputSys.inputactions` | 5939 |
-| `L3__Assets_Scripts_Presentation_Story_StoryFlow.cs` | L3 | `Assets/Scripts/Presentation/Story/StoryFlow.cs` | 5374 |
+| `L3__Assets_Scripts_Presentation_Story_StoryFlow.cs` | L3 | `Assets/Scripts/Presentation/Story/StoryFlow.cs` | 5501 |
 | `L3__Assets_Scripts_Presentation_Story_StorySession.cs` | L3 | `Assets/Scripts/Presentation/Story/StorySession.cs` | 134 |
 | `L3__Assets_Scripts_Presentation_UI_BasePanel.cs` | L3 | `Assets/Scripts/Presentation/UI/BasePanel.cs` | 1395 |
-| `L3__Assets_Scripts_Presentation_UI_Component_Typewriter.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/Typewriter.cs` | 461 |
+| `L3__Assets_Scripts_Presentation_UI_Component_HudHintBanner.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/HudHintBanner.cs` | 2720 |
+| `L3__Assets_Scripts_Presentation_UI_Component_PopupMotion.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/PopupMotion.cs` | 840 |
+| `L3__Assets_Scripts_Presentation_UI_Component_SupplyNavIndicator.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/SupplyNavIndicator.cs` | 1860 |
+| `L3__Assets_Scripts_Presentation_UI_Component_Typewriter.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/Typewriter.cs` | 820 |
 | `L3__Assets_Scripts_Presentation_UI_Component_UIFader.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/UIFader.cs` | 500 |
-| `L3__Assets_Scripts_Presentation_UI_Panel_DialoguePanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/DialoguePanel.cs` | 1111 |
-| `L3__Assets_Scripts_Presentation_UI_Panel_GamePlayPanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/GamePlayPanel.cs` | 3990 |
+| `L3__Assets_Scripts_Presentation_UI_Panel_DialoguePanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/DialoguePanel.cs` | 2075 |
+| `L3__Assets_Scripts_Presentation_UI_Panel_GamePlayPanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/GamePlayPanel.cs` | 5093 |
 | `L3__Assets_Scripts_Presentation_UI_Panel_HudPanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/HudPanel.cs` | 1135 |
 | `L3__Assets_Scripts_Presentation_UI_Panel_PausePanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/PausePanel.cs` | 372 |
 | `L3__Assets_Scripts_Presentation_UI_Panel_TransitionPanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/TransitionPanel.cs` | 668 |
 | `L3__Assets_Scripts_Presentation_UI_UIMgr.cs` | L3 | `Assets/Scripts/Presentation/UI/UIMgr.cs` | 4393 |
 | `L3__Assets_StreamingAssets_Luban_dso_tbaudiomap.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbaudiomap.json` | 255 |
-| `L3__Assets_StreamingAssets_Luban_dso_tbslotdialogue.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbslotdialogue.json` | 3557 |
+| `L3__Assets_StreamingAssets_Luban_dso_tbslotdialogue.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbslotdialogue.json` | 3510 |
 | `L3__Assets_Tests_Runtime_Editor_HUD受击反馈Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/HUD受击反馈Tests.cs` | 2312 |
+| `L3__Assets_Tests_Runtime_Editor_引导与UI反馈Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/引导与UI反馈Tests.cs` | 978 |
 | `L3__Assets_Tests_Runtime_Editor_音频策略Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/音频策略Tests.cs` | 304 |
 | `L3__Assets_Tests_Runtime_Editor_飘字可读性Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/飘字可读性Tests.cs` | 450 |
 | `L3__Docs_玩家反馈_G.肖昕怡.md` | L3 | `Docs/玩家反馈/G.肖昕怡.md` | 75 |
@@ -78,12 +82,10 @@
 | `L3__Docs_玩家反馈_转述反馈_2026-10-21.md` | L3 | `Docs/玩家反馈/转述反馈_2026-10-21.md` | 156 |
 | `L3__Docs_设计_玩家反馈处理指导思想.md` | L3 | `Docs/设计/玩家反馈处理指导思想.md` | 1158 |
 | `L3__Docs_设计_策划案_荒原复苏指南_v4.0.md` | L3 | `Docs/设计/策划案_荒原复苏指南_v4.0.md` | 7033 |
-| `L3__git_recent_context.txt` | L3 | `git:recent` | 1126 |
 
 ## Project Tree Summary
 
 ```text
-.DS_Store
 .gitattributes
 .gitignore
 .vsconfig
@@ -95,6 +97,8 @@ AI_Context/CODING_STANDARDS.md
 AI_Context/DECISION_LOG.md
 AI_Context/DEPENDENCIES.md
 AI_Context/EVIDENCE/
+AI_Context/EVIDENCE/GD-2026-0001/
+AI_Context/EVIDENCE/GD-2026-0003/
 AI_Context/EVIDENCE/GD-YYYY-NNNN/
 AI_Context/KNOWN_ISSUES.md
 AI_Context/METRICS.md
@@ -109,10 +113,8 @@ AI_Context/TASKS/GD-2026-0001/
 AI_Context/TASKS/GD-2026-0002/
 AI_Context/TASKS/GD-2026-0003/
 AI_Context/TASKS/_templates/
-Assembly-CSharp-Editor.csproj
 Assembly-CSharp.csproj
 Assets/
-Assets/.DS_Store
 Assets/Editor.meta
 Assets/Editor/
 Assets/Editor/DeepseaOil.EditorTools.asmdef
@@ -153,7 +155,6 @@ Assets/Luban.Runtime/StringUtil.cs
 Assets/Luban.Runtime/StringUtil.cs.meta
 Assets/Resources.meta
 Assets/Resources/
-Assets/Resources/.DS_Store
 Assets/Resources/Fonts.meta
 Assets/Resources/Fonts/
 Assets/Resources/Icons.meta
@@ -256,8 +257,11 @@ Assets/Shaders/Procedural_CartoonTile.shader
 Assets/Shaders/Procedural_CartoonTile.shader.meta
 Assets/StreamingAssets.meta
 Assets/StreamingAssets/
+Assets/StreamingAssets/Luban.meta
+Assets/StreamingAssets/Luban/
 Assets/Tests.meta
 Assets/Tests/
+Assets/Tests/Runtime/
 Assets/TextMesh Pro.meta
 Assets/TextMesh Pro/
 Assets/UniversalRenderPipelineGlobalSettings.asset
@@ -273,6 +277,7 @@ DeepseaOil.Presentation.csproj
 DeepseaOil.Tests.EditMode.csproj
 DeepseaOil.Tests.Scene.csproj
 Docs/
+GD-2026-0003.sln
 Luban.Runtime.csproj
 Packages/
 ProjectSettings/
@@ -280,8 +285,6 @@ README.md
 Tools/
 UserSettings/
 cfg.csproj
-deepseaoil.csproj
-deepseaoil.sln
 scripts/
 ```
 

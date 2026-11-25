@@ -1,0 +1,17 @@
+ .../TASKS/GD-2026-0003/00_CONTEXT_MANIFEST.md      |   39 +-
+ AI_Context/TASKS/GD-2026-0003/APPROVAL_RECORD.md   |   11 +
+ .../Fonts/SourceHanSansSC-Normal SDF.asset         |  159 ++-
+ Assets/Resources/Fonts/蒙黑体 SDF.asset            | 1070 +++++++++++++++++---
+ .../UI/ui_panel_tanchuangtouxiangkuang.psd.meta    |    4 +-
+ Assets/Resources/config/AudioConfig.asset          |    5 +
+ Assets/Resources/ui/Panel/DialoguePanel.prefab     |   65 +-
+ Assets/Scripts/Data/Settings/AudioConfig.cs        |   16 +
+ Assets/Scripts/Presentation/Audio/AudioManager.cs  |  310 ++++--
+ Assets/Scripts/Presentation/Audio/SfxPlayback.cs   |   23 +
+ Assets/Scripts/Presentation/Story/StoryFlow.cs     |   46 +-
+ .../Presentation/UI/Component/Typewriter.cs        |  108 +-
+ .../Scripts/Presentation/UI/Panel/DialoguePanel.cs |  186 +++-
+ .../Scripts/Presentation/UI/Panel/GamePlayPanel.cs |  199 +++-
+ ConfigWorkspace/Data/slot_dialogue.xlsx            |  Bin 18551 -> 15352 bytes
+ Tools/comment-budget.json                          |    1 +
+ 16 files changed, 1899 insertions(+), 343 deletions(-)

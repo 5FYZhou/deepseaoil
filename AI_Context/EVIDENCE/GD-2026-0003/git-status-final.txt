@@ -1,0 +1,30 @@
+## ai/GD-2026-0003
+ M .vscode/settings.json
+ M "Assets/Resources/Fonts/SourceHanSansSC-Normal SDF.asset"
+ M "Assets/Resources/Fonts/蒙黑体 SDF.asset"
+ M Assets/Resources/art/UI/ui_panel_tanchuangtouxiangkuang.psd.meta
+ M Assets/Resources/config/AudioConfig.asset
+ M Assets/Resources/ui/Panel/DialoguePanel.prefab
+ M Assets/Scripts/Data/Settings/AudioConfig.cs
+ M Assets/Scripts/Generated/Config/Tables.cs
+ M Assets/Scripts/Generated/Config/vector2.cs
+ M Assets/Scripts/Presentation/Audio/AudioManager.cs
+ M Assets/Scripts/Presentation/Audio/SfxPlayback.cs
+ M Assets/Scripts/Presentation/Story/StoryFlow.cs
+ M Assets/Scripts/Presentation/UI/Component/Typewriter.cs
+ M Assets/Scripts/Presentation/UI/Panel/DialoguePanel.cs
+ M Assets/Scripts/Presentation/UI/Panel/GamePlayPanel.cs
+ M Assets/StreamingAssets/Luban/dso_tbslotdialogue.json
+ M ConfigWorkspace/Data/slot_dialogue.xlsx
+ M ProjectSettings/EditorBuildSettings.asset
+?? AI_Context/EVIDENCE/GD-2026-0003/
+?? AI_Context/TASKS/GD-2026-0003/EXECUTION_REPORT_A02.md
+?? AI_Context/TASKS/GD-2026-0003/EXECUTION_REPORT_A03.md
+?? Assets/Scripts/Presentation/UI/Component/HudHintBanner.cs
+?? Assets/Scripts/Presentation/UI/Component/HudHintBanner.cs.meta
+?? Assets/Scripts/Presentation/UI/Component/PopupMotion.cs
+?? Assets/Scripts/Presentation/UI/Component/PopupMotion.cs.meta
+?? Assets/Scripts/Presentation/UI/Component/SupplyNavIndicator.cs
+?? Assets/Scripts/Presentation/UI/Component/SupplyNavIndicator.cs.meta
+?? Assets/Tests/Runtime/Editor/引导与UI反馈Tests.cs
+?? Assets/Tests/Runtime/Editor/引导与UI反馈Tests.cs.meta

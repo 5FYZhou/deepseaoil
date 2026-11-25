@@ -47,3 +47,14 @@ Approval Time: 2026-11-24 23:48 (UTC+8)
 5. 验收标准可观察、可执行。
 6. 风险与回滚充分，主工作区已有未提交文档不得被覆盖。
 7. 暂停点与升版条件明确。
+
+## CEO Scope Expansion and Post-Work Acceptance
+
+- Approved Time: 2026-11-25 15:04 (UTC+8)
+- CEO reviewed the iterative UI, audio, popup, typography, navigation and HUD refinements and accepted the current Diff as authorized content for independent Watchdog review.
+- Additional review scope includes:
+  - Current TMP font asset and UI Sprite `.meta` diffs
+  - Current `.vscode/settings.json` and `ProjectSettings/EditorBuildSettings.asset` diffs
+  - Current generated `Tables.cs`, `vector2.cs` and `dso_tbslotdialogue.json`
+- This is an audit-scope authorization, not a final PASS.
+- Watchdog must independently verify build-scene correctness, generated-output consistency, merge ordering, comments, tests and runtime evidence.

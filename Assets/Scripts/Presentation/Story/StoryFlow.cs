@@ -17,9 +17,9 @@ namespace DeepseaOil.Presentation.Story
 {
     public sealed class StoryFlow : MonoBehaviour, ISceneRoot, IRenderTicked
     {
-        private const float PopupDurationSeconds = 3f;
-
         private const float CameraGlideSeconds = 0.7f;
+
+        [SerializeField] private float postTypewriterHoldSeconds = 3f;
 
         private enum FlowStage
         {
@@ -368,7 +368,7 @@ namespace DeepseaOil.Presentation.Story
                 ProcessLines();
             }
 
-            if (_popupExpired && _popupActive)
+            if (_popupExpired && _popupActive && (_panel == null || !_panel.IsPopupTyping))
             {
                 ProcessPopupExpired();
                 if (!_waitingForContinue)
@@ -496,6 +496,7 @@ namespace DeepseaOil.Presentation.Story
 
             _panel = panel;
             _panel.ContinueRequested += OnContinueRequested;
+            _panel.PopupTypingCompleted += OnPopupTypingCompleted;
             _panel.SetPaused(_paused);
 
             // 面板可能在暂停期间加载完：真正开演推迟到 RenderTick，恢复后才推进
@@ -593,17 +594,39 @@ namespace DeepseaOil.Presentation.Story
             }
 
             _popupActive = true;
+            _popupTimer = TimerHandle.Invalid;
+            _popupExpired = false;
 
-            // 走缩放时间的轮：暂停即停，恢复后接着走完这 3 秒
-            _popupTimer = _root.Timer.Schedule(PopupDurationSeconds, OnPopupTimerElapsed);
-            if (!_popupTimer.IsValid)
-            {
-                Debug.LogError("[StoryFlow] 未能安排弹窗计时器。", this);
-                CancelParagraph();
-                return;
-            }
+            if (!_panel.IsPopupTyping)
+                SchedulePopupHold();
 
             PlaySfx(line.Sfx);
+        }
+
+        private void OnPopupTypingCompleted()
+        {
+            if (_playing && _popupActive && !_popupExpired)
+                SchedulePopupHold();
+        }
+
+        private void SchedulePopupHold()
+        {
+            if (_popupTimer.IsValid || _root == null || _root.Timer == null)
+                return;
+
+            _popupTimer = _root.Timer.Schedule(
+                NormalizePopupHoldSeconds(postTypewriterHoldSeconds),
+                OnPopupTimerElapsed);
+
+            if (_popupTimer.IsValid) return;
+
+            Debug.LogError("[StoryFlow] 未能安排弹窗停留计时器。", this);
+            CancelParagraph();
+        }
+
+        public static float NormalizePopupHoldSeconds(float seconds)
+        {
+            return float.IsNaN(seconds) || seconds < 0f ? 0f : seconds;
         }
 
         private void OnPopupTimerElapsed()
@@ -977,6 +1000,7 @@ namespace DeepseaOil.Presentation.Story
             if (_panel == null) return;
 
             _panel.ContinueRequested -= OnContinueRequested;
+            _panel.PopupTypingCompleted -= OnPopupTypingCompleted;
             _panel = null;
         }
     }
