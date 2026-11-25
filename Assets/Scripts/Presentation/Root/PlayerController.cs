@@ -40,6 +40,12 @@ namespace DeepseaOil.Presentation
 
         private bool _dashSfxOn;
 
+        private const int EnemyLayerBit = 1 << 8;
+
+        private const float GhostFlashGrace = 0.12f;
+
+        private const float GhostFlickerHz = 14f;
+
         private const float DirectionEpsilon = 1e-6f;
 
         private const float OctantRadians = 2f * Mathf.PI / 8f;
@@ -58,6 +64,18 @@ namespace DeepseaOil.Presentation
         private float _cameraPlaneDepth = 100f;
 
         private ActorAnimationView _animView;
+
+        private Collider2D[] _solidColliders;
+
+        private LayerMask[] _baseExcludeLayers;
+
+        private bool _isGhosting;
+
+        private bool _flickerHidden;
+
+        private bool _baseRendererEnabled;
+
+        private float _ghostStartTime;
 
         private Vector2 _spawnPoint;
 
@@ -115,6 +133,9 @@ namespace DeepseaOil.Presentation
         {
             if (Logic == null) return;
 
+            SetGhosting(false);
+            SetFlicker(false);
+
             Vector2 position = _spawnPoint;
 
             if (_bounds.TryClamp(position, out Vector2 clamped)) position = clamped;
@@ -128,6 +149,11 @@ namespace DeepseaOil.Presentation
         /// <summary>已死、进入重生等待：世界侧裁决死亡时调</summary>
         public void OnDeathTriggered()
         {
+            SetGhosting(false);
+            SetFlicker(false);
+
+            motor?.Move(Vector2.zero);
+
             _animView?.TriggerDie();
         }
 
@@ -143,6 +169,8 @@ namespace DeepseaOil.Presentation
             ctx.Tint = Color.white;
 
             EffectModule.Play(EffectId.Flash, in ctx);
+
+            RefreshGhostState(Time.fixedTime);
 
             GameRoot.Instance.Audio.EnqueueSfx(AudioId.PlayerHurt);
         }
@@ -175,7 +203,6 @@ namespace DeepseaOil.Presentation
                 animView = view.AddComponent<ActorAnimationView>();
             }
 
-            // 两个字段各司其职：animView 是序列化接线，_animView 是运行期缓存
             _animView = animView;
         }
 
@@ -190,6 +217,8 @@ namespace DeepseaOil.Presentation
             }
 
             EnsureAnimationView();
+
+            CacheSolidColliders();
 
             _bounds = ReadBounds();
             _world = new WorldInfo(Vector2.zero, in _bounds);
@@ -212,6 +241,9 @@ namespace DeepseaOil.Presentation
 
         private void OnDestroy()
         {
+            SetGhosting(false);
+            SetFlicker(false);
+
             // 循环音效挂在常驻音频根上：不在这里关，离开战斗场景后脚步声会一直响
             if (_moveSfxOn) _root?.Audio?.SetLoopSfx(AudioId.PlayerMove, false);
 
@@ -242,6 +274,9 @@ namespace DeepseaOil.Presentation
         public void FixedTick(float deltaTime)
         {
             if (Logic == null) return;
+
+            RefreshGhostState(Time.fixedTime);
+
             if (!Logic.IsAlive) return;
 
             InputSnapshot raw = inputProvider.ConsumeSnapshot();
@@ -281,6 +316,8 @@ namespace DeepseaOil.Presentation
             float speed = EngineVelocity.magnitude;
 
             _animView?.SetMotion(_world.MoveDirection, Logic.Motor.Facing, speed);
+
+            TickGhostFlicker();
 
             TickFootDust(deltaTime, speed);
 
@@ -378,6 +415,93 @@ namespace DeepseaOil.Presentation
             Vector3 world = camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, _cameraPlaneDepth));
 
             return new Vector2(world.x, world.y);
+        }
+
+        private void CacheSolidColliders()
+        {
+            Collider2D[] colliders = GetComponentsInChildren<Collider2D>(true);
+
+            int solidCount = 0;
+
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                if (!colliders[i].isTrigger) solidCount++;
+            }
+
+            _solidColliders = new Collider2D[solidCount];
+            _baseExcludeLayers = new LayerMask[solidCount];
+
+            int cursor = 0;
+
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider2D collider = colliders[i];
+
+                if (collider.isTrigger) continue;
+
+                _solidColliders[cursor] = collider;
+                _baseExcludeLayers[cursor] = collider.excludeLayers;
+                cursor++;
+            }
+
+            SpriteRenderer body = _animView != null ? _animView.Renderer : null;
+
+            _baseRendererEnabled = body != null && body.enabled;
+        }
+
+        private void RefreshGhostState(float now)
+        {
+            bool ghosting = Logic != null && Logic.Stats.IsInvulnerable(now);
+
+            if (ghosting == _isGhosting) return;
+
+            SetGhosting(ghosting);
+            SetFlicker(ghosting);
+        }
+
+        private void SetGhosting(bool ghosting)
+        {
+            _isGhosting = ghosting;
+
+            if (_solidColliders == null || _baseExcludeLayers == null) return;
+
+            int enemyMask = ghosting ? EnemyLayerBit : 0;
+
+            for (int i = 0; i < _solidColliders.Length; i++)
+            {
+                Collider2D collider = _solidColliders[i];
+
+                if (collider != null) collider.excludeLayers = _baseExcludeLayers[i].value | enemyMask;
+            }
+        }
+
+        private void SetFlicker(bool flicker)
+        {
+            SpriteRenderer body = _animView != null ? _animView.Renderer : null;
+
+            if (body == null) return;
+
+            _ghostStartTime = Time.time;
+            _flickerHidden = false;
+            body.enabled = flicker || _baseRendererEnabled;
+        }
+
+        private void TickGhostFlicker()
+        {
+            if (!_isGhosting) return;
+
+            SpriteRenderer body = _animView != null ? _animView.Renderer : null;
+
+            if (body == null) return;
+
+            float elapsed = Time.time - _ghostStartTime - GhostFlashGrace;
+
+            bool hidden = elapsed >= 0f && (Mathf.FloorToInt(elapsed * GhostFlickerHz) & 1) == 1;
+
+            if (hidden == _flickerHidden) return;
+
+            _flickerHidden = hidden;
+            body.enabled = !hidden;
         }
 
         /// <summary>活动区域碰撞体折算成纯数据矩形</summary>

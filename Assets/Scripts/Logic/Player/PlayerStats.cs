@@ -56,6 +56,11 @@ namespace DeepseaOil.Logic.Player
             return !(now < invulnerableUntil);
         }
 
+        public bool IsInvulnerable(float now)
+        {
+            return IsAlive && !CanTakeDamage(now, _invulnerableUntil);
+        }
+
         // 被无敌帧挡掉时不扣血也不写无敌
         public bool ApplyDamage(float amount, float now)
         {
@@ -209,6 +214,27 @@ namespace DeepseaOil.Logic.Player
             _seedCount--;
 
             if (_seedCount == 0) Seed = SeedType.None;
+
+            PublishAmmo();
+
+            return true;
+        }
+
+        public bool TryRestoreSeed(SeedType seed)
+        {
+            if (seed == SeedType.None || _seedCapacity <= 0) return false;
+
+            if (_seedCount <= 0)
+            {
+                Seed = seed;
+                _seedCount = 1;
+            }
+            else
+            {
+                if (Seed != seed || _seedCount >= _seedCapacity) return false;
+
+                _seedCount++;
+            }
 
             PublishAmmo();
 

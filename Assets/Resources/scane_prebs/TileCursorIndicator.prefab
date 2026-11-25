@@ -138,6 +138,11 @@ MonoBehaviour:
   validBaseColor: {r: 1, g: 0.95, b: 0.82, a: 0.85}
   invalidColor: {r: 1, g: 0.46, b: 0.46, a: 0.85}
   baseBreathFrequency: 0.3
-  baseBreathMinAlphaRatio: 0.75
+  baseBreathMinAlpha: 0.75
+  baseBreathScaleMin: 0.96
+  baseBreathScaleMax: 1.04
   punchScale: 0.92
   punchDuration: 0.15
+  validSelfLightColor: {r: 1, g: 0.95, b: 0.82, a: 1}
+  invalidSelfLightColor: {r: 1, g: 0.46, b: 0.46, a: 1}
+  selfLightIntensity: 0.08

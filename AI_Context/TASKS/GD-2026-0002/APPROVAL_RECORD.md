@@ -33,3 +33,17 @@ Approval Time: 2026-11-24 23:48 (UTC+8)
 5. 验收标准可观察、可执行。
 6. 风险与回滚充分，主工作区已有未提交文档不得被覆盖。
 7. 暂停点与升版条件明确。
+
+## CEO Scope Expansion and Post-Work Acceptance
+
+- Approved Time: 2026-11-25 15:04 (UTC+8)
+- Additional approved behavior:
+  - 种子投出失败仅恢复本次消费，不重置整槽。
+  - 光标最低透明度、缩放呼吸、自发光颜色/强度/范围呼吸与 `0.06–0.10` 强度变化。
+- Additional review scope:
+  - `Assets/Scripts/Presentation/Grid/TileCursorIndicator.cs`
+  - `Assets/Resources/scane_prebs/TileCursorIndicator.prefab`
+  - `Assets/Tests/Runtime/Editor/全局光照Tests.cs`
+  - Current `.vscode/settings.json` and `ProjectSettings/EditorBuildSettings.asset` diffs
+- This acceptance allows all current worker changes to enter independent review; it is not a PASS.
+- Watchdog must verify correctness and report any unintended build-scene or configuration regression.

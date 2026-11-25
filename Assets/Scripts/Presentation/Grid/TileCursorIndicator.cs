@@ -1,5 +1,7 @@
 using DeepseaOil.Logic.Events;
+using DeepseaOil.Presentation.Lighting;
 using UnityEngine;
+using UnityEngine.Serialization;
 // 在 DeepseaOil.Presentation.Grid 里直接写 Grid 会被解析成命名空间（CS0118），必须用别名
 using GridComponent = UnityEngine.Grid;
 
@@ -50,9 +52,18 @@ namespace DeepseaOil.Presentation.Grid
         [Range(0.1f, 2f)]
         [SerializeField] private float baseBreathFrequency = 0.3f;
 
-        [Tooltip("底盘呼吸波谷占基准颜色的比例（0~1）")]
-        [Range(0.1f, 1f)]
-        [SerializeField] private float baseBreathMinAlphaRatio = 0.75f;
+        [Tooltip("底盘呼吸的最低绝对透明度（0~1）")]
+        [FormerlySerializedAs("baseBreathMinAlphaRatio")]
+        [Range(0.5f, 1f)]
+        [SerializeField] private float baseBreathMinAlpha = 0.75f;
+
+        [Tooltip("缩放呼吸的最小倍率")]
+        [Range(0.8f, 1f)]
+        [SerializeField] private float baseBreathScaleMin = 0.96f;
+
+        [Tooltip("缩放呼吸的最大倍率")]
+        [Range(1f, 1.2f)]
+        [SerializeField] private float baseBreathScaleMax = 1.04f;
 
         [Header("吸附回弹动效 (Scale Bounce)")]
         [Tooltip("换格瞬间缩放比例（小于 1 为轻柔收缩弹回）")]
@@ -62,6 +73,23 @@ namespace DeepseaOil.Presentation.Grid
         [Tooltip("回弹动画持续时间（秒）")]
         [Range(0.04f, 0.25f)]
         [SerializeField] private float punchDuration = 0.15f;
+
+        [Header("全局光自发光")]
+        [Tooltip("有效瞄准时投向全局光场的颜色")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color validSelfLightColor = new Color(1.0f, 0.95f, 0.82f, 1f);
+
+        [Tooltip("无效瞄准时投向全局光场的颜色")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color invalidSelfLightColor = new Color(1.0f, 0.46f, 0.46f, 1f);
+
+        [Tooltip("投向全局光场的强度；0 = 关闭")]
+        [Range(0f, 1f)]
+        [SerializeField] private float selfLightIntensity = 0.08f;
+
+        [Tooltip("自发光强度呼吸深度：默认 0.02 对应 0.06~0.10")]
+        [Range(0f, 0.1f)]
+        [SerializeField] private float selfLightBreathDepth = 0.02f;
 
         private MaterialPropertyBlock _basePropBlock;
         private int _colorPropId;
@@ -122,7 +150,7 @@ namespace DeepseaOil.Presentation.Grid
             if (!isActiveAndEnabled) return;
             if (deltaTime <= 0f) return;
 
-            UpdateBaseVisuals(deltaTime);
+            UpdateBaseVisuals(Time.time, deltaTime);
         }
 
         private void OnAimChanged(AimChanged evt)
@@ -142,6 +170,17 @@ namespace DeepseaOil.Presentation.Grid
 
             _seedTintOverride = canPlant;
             ApplyVisualState();
+        }
+
+        public void AppendSteadyLight(TileGridLightmap lightmap, float now)
+        {
+            if (lightmap == null || _currentState == TileIndicatorState.Hidden || !_hasAim || !_canSnap) return;
+
+            Color color = _currentState == TileIndicatorState.ValidAim ? validSelfLightColor : invalidSelfLightColor;
+            float wave = BreathWave(now);
+            float intensity = Mathf.Clamp(selfLightIntensity + (wave * 2f - 1f) * selfLightBreathDepth, 0f, 1f);
+
+            lightmap.AddSteadyEmitter(_targetCellCenter, color, intensity, 0f);
         }
 
         private void ApplyVisualState()
@@ -219,30 +258,45 @@ namespace DeepseaOil.Presentation.Grid
             }
         }
 
-        private void UpdateBaseVisuals(float deltaTime)
+        private void UpdateBaseVisuals(float now, float deltaTime)
         {
-            if (baseQuadTransform != null && _punchTimer > 0f)
+            float wave = BreathWave(now);
+
+            if (baseQuadTransform != null)
             {
-                _punchTimer -= deltaTime;
+                float scaleMin = Mathf.Min(baseBreathScaleMin, baseBreathScaleMax);
+                float scaleMax = Mathf.Max(baseBreathScaleMin, baseBreathScaleMax);
+                float breathScale = Mathf.Lerp(scaleMin, scaleMax, wave);
+                float punchScaleFactor = 1f;
 
-                float duration = Mathf.Max(punchDuration, 1e-4f);
-                float progress = 1f - Mathf.Clamp01(_punchTimer / duration);
-                float currentScale = Mathf.Lerp(punchScale, 1f, progress);
+                if (_punchTimer > 0f)
+                {
+                    _punchTimer -= deltaTime;
 
-                baseQuadTransform.localScale = _punchTimer <= 0f
-                    ? Vector3.one
-                    : new Vector3(currentScale, currentScale, 1f);
+                    float duration = Mathf.Max(punchDuration, 1e-4f);
+                    float progress = 1f - Mathf.Clamp01(_punchTimer / duration);
+                    punchScaleFactor = _punchTimer <= 0f ? 1f : Mathf.Lerp(punchScale, 1f, progress);
+                }
+
+                float scale = breathScale * punchScaleFactor;
+                baseQuadTransform.localScale = new Vector3(scale, scale, 1f);
             }
 
             if (baseRenderer == null || _basePropBlock == null) return;
 
             Color baseColor = _currentState == TileIndicatorState.ValidAim ? validBaseColor : invalidColor;
-            float frequency = Mathf.Max(baseBreathFrequency, 1e-4f);
-            float wave = (Mathf.Cos(Time.time * frequency * 2f * Mathf.PI) + 1f) * 0.5f;
-            float ratio = Mathf.Lerp(Mathf.Clamp01(baseBreathMinAlphaRatio), 1f, wave);
+            float minimumAlpha = Mathf.Min(Mathf.Clamp01(baseBreathMinAlpha), baseColor.a);
 
-            _basePropBlock.SetColor(_colorPropId, baseColor * ratio);
+            baseColor.a = Mathf.Lerp(minimumAlpha, baseColor.a, wave);
+
+            _basePropBlock.SetColor(_colorPropId, baseColor);
             baseRenderer.SetPropertyBlock(_basePropBlock);
+        }
+
+        private float BreathWave(float now)
+        {
+            float frequency = Mathf.Max(baseBreathFrequency, 1e-4f);
+            return (Mathf.Cos(now * frequency * 2f * Mathf.PI) + 1f) * 0.5f;
         }
 
         private void ResolveGrid()
