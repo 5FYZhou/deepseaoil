@@ -3,7 +3,7 @@
 //
 //   ① 0 = 落点单格（曾同时被构造器钳成 1.0、又被 >1.0 门槛放行，两个错误互相抵消）
 //   ② 1.0 = 十字 5 格、1.5 = 九宫 9 格，地貌与伤害同构铺设
-//   ③ 永久地貌不被次级覆盖；二级反应优先时不铺一级地貌
+//   ③ 次级地貌按优先级覆盖基础地貌；二级反应优先时不铺一级地貌
 //
 // 【跑法】Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
@@ -155,9 +155,9 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(1, 1, 0)), "对角线不该被 1.0 半径纳入");
         }
 
-        /// <summary>③ 半径 2.5：花浇水扩到二环，圆形边界外不动</summary>
+        /// <summary>③ 半径 2.0：花浇水扩到二环，圆形边界外不动</summary>
         [Test]
-        public void 半径二点五扩展到二环()
+        public void 半径二扩展到二环()
         {
             TileChainReactor.Clear();
 
@@ -175,10 +175,10 @@ namespace DeepseaOil.Tests
 
             Assert.AreEqual(TileStateType.BasicPlant, grid.StateOf(center), "花浇水该长成植物区");
             Assert.AreEqual(
-                2.5f,
+                2f,
                 ReactionResolver.Resolve(TileStateType.BasicFlower, BallType.Water).ImpactRadius,
                 1e-4f,
-                "花浇水半径应取当前表值 2.5");
+                "花浇水半径应取当前表值 2.0");
 
             for (int dy = -1; dy <= 1; dy++)
             {
@@ -193,13 +193,13 @@ namespace DeepseaOil.Tests
                 }
             }
 
-            Assert.AreEqual(TileStateType.BasicPlant, grid.StateOf(new Vector3Int(2, 0, 0)), "半径 2.5 应覆盖二环十字");
-            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(2, 2, 0)), "圆形半径 2.5 不应覆盖二环对角");
+            Assert.AreEqual(TileStateType.BasicPlant, grid.StateOf(new Vector3Int(2, 0, 0)), "半径 2.0 应覆盖二环十字");
+            Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(2, 2, 0)), "圆形半径 2.0 不应覆盖二环对角");
         }
 
-        /// <summary>④ 永久地貌（水/土/火/电源/冰面）不被次级铺设顶掉</summary>
+        /// <summary>④ 次级扩散只按优先级覆盖：泥浆 12 覆盖基础水 10</summary>
         [Test]
-        public void 永久地貌不被次级覆盖()
+        public void 次级扩散按优先级覆盖基础地貌()
         {
             TileChainReactor.Clear();
 
@@ -218,7 +218,7 @@ namespace DeepseaOil.Tests
             grid.OnBallHit(center, BallType.Water);
 
             Assert.AreEqual(TileStateType.Mud, grid.StateOf(center), "落点该变泥浆");
-            Assert.AreEqual(TileStateType.BasicWater, grid.StateOf(water), "永久水格被次级铺设顶掉了");
+            Assert.AreEqual(TileStateType.Mud, grid.StateOf(water), "泥浆优先级高于基础水，次级扩散应覆盖");
             Assert.AreEqual(TileStateType.Mud, grid.StateOf(new Vector3Int(0, 1, 0)), "空邻格该被铺成泥浆");
         }
 

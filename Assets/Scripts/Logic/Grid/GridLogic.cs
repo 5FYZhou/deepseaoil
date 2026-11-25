@@ -590,7 +590,6 @@ namespace DeepseaOil.Logic.Grid
                 TileStateType state = StateOf(cell);
 
                 if (state == resultTile) continue;
-                if (IsSecondaryImmutable(state)) continue;
 
                 if (SwitchTileState(cell, resultTile, durationOverride)) any = true;
             }
@@ -617,15 +616,6 @@ namespace DeepseaOil.Logic.Grid
             if (next == TileStateType.Normal || current == TileStateType.Normal) return true;
 
             return PriorityOf(next) >= PriorityOf(current);
-        }
-
-        private static bool IsSecondaryImmutable(TileStateType state)
-        {
-            return state == TileStateType.BasicWater
-                || state == TileStateType.BasicEarth
-                || state == TileStateType.BasicFire
-                || state == TileStateType.BasicElectricity
-                || state == TileStateType.BasicIce;
         }
 
         private int PriorityOf(TileStateType state)

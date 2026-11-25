@@ -633,7 +633,7 @@ namespace DeepseaOil.Tests
 
                 if (rule.Id == 4 || rule.Id == 15)
                 {
-                    Assert.AreEqual(2.5f, rule.ImpactRadius, 0.0001f, $"规则 {rule.Id} 半径未升到 2.5");
+                    Assert.AreEqual(2f, rule.ImpactRadius, 0.0001f, $"规则 {rule.Id} 半径与真表不一致");
                 }
                 else if (rule.Id == 3 || rule.Id == 6 || rule.Id == 7 || rule.Id == 8
                     || rule.Id == 12 || rule.Id == 13 || rule.Id == 14 || rule.Id == 17 || rule.Id == 18)
@@ -648,7 +648,7 @@ namespace DeepseaOil.Tests
             {
                 DuoReactionSpec rule = duo.Rules[i];
 
-                float expected = rule.Id == 4 ? 3.5f : (rule.Id == 3 || rule.Id == 6 ? 2.5f : 1.5f);
+                float expected = rule.Id == 3 || rule.Id == 4 || rule.Id == 6 ? 2f : 1.5f;
 
                 Assert.AreEqual(expected, rule.EffectRadius, 0.0001f, $"二级反应 {rule.Id} 半径错误");
             }
