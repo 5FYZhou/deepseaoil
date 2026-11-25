@@ -10,6 +10,8 @@ namespace DeepseaOil.Presentation
 
         public const float FadeTailSeconds = 0.12f;
 
+        public const float DefaultUiBlipCooldown = 0.055f;
+
         public static float SecondsOf(AudioId id, float clipLength)
         {
             float length = float.IsNaN(clipLength) || clipLength < 0f ? 0f : clipLength;
@@ -22,6 +24,27 @@ namespace DeepseaOil.Presentation
             if (id == AudioId.PlayerDie) return false;
 
             return clipLength > DefaultMaxSeconds;
+        }
+
+        public static bool TryReserveUiBlip(float unscaledTime, float cooldown, ref float nextAvailable)
+        {
+            if (unscaledTime < nextAvailable)
+                return false;
+
+            float safeCooldown = float.IsNaN(cooldown) || cooldown <= 0f
+                ? DefaultUiBlipCooldown
+                : cooldown;
+
+            nextAvailable = unscaledTime + safeCooldown;
+
+            return true;
+        }
+
+        public static float UiBlipPitch(int sequence)
+        {
+            int step = sequence < 0 ? -sequence : sequence;
+
+            return 0.98f + step % 3 * 0.02f;
         }
     }
 }

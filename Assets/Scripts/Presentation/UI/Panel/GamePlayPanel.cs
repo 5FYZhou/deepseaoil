@@ -23,6 +23,9 @@ namespace DeepseaOil.Presentation.UI
         private const float HilightTime = 0.2f;
         private const float WaveTextFadeDuration = 0.2f;
         private const float BattleTextHoldDuration = 3f;
+        private const int KeyLabelBackgroundSize = 32;
+        private const int KeyLabelCornerRadius = 9;
+        private static readonly Color KeyLabelBackgroundColor = new Color(0.3f, 0.3f, 0.3f, 0.84f);
 
         [SerializeField] private Sprite spriteWater;
         [SerializeField] private Sprite spriteEarth;
@@ -33,6 +36,9 @@ namespace DeepseaOil.Presentation.UI
         [SerializeField] private Sprite spriteState1;
         [SerializeField] private Sprite spriteState2;
         [SerializeField] private Sprite spriteState3;
+        [SerializeField] private Sprite navWaterIcon;
+        [SerializeField] private Sprite navEarthIcon;
+        [SerializeField] private Sprite navLifeIcon;
 
         [Tooltip("血条整块的节点（抖动对象）。留空按名字找 healthState，再退 ImgHealth")]
         [SerializeField] private RectTransform healthShakeRoot;
@@ -94,6 +100,14 @@ namespace DeepseaOil.Presentation.UI
         private Image _imgEarth;
         private Image _imgSeed;
         private Image _imgSlecteState;
+        private TMP_Text _waterKeyLabel;
+        private TMP_Text _earthKeyLabel;
+        private TMP_Text _seedKeyLabel;
+        private TMP_Text _seedDiscardLabel;
+        private Sprite _keyLabelBackgroundSprite;
+        private Texture2D _keyLabelBackgroundTexture;
+        private HudHintBanner _hintBanner;
+        private SupplyNavIndicator _supplyNav;
         private Coroutine _healthAnimCoroutine;
         private Coroutine _waterIconCoroutine;
         private Coroutine _earthIconCoroutine;
@@ -141,6 +155,17 @@ namespace DeepseaOil.Presentation.UI
             _imgWater.sprite = spriteWater;
             _imgEarth.sprite = spriteEarth;
 
+            CreateSlotKeyLabels();
+            _hintBanner = GetComponent<HudHintBanner>();
+            if (_hintBanner == null)
+                _hintBanner = gameObject.AddComponent<HudHintBanner>();
+            _hintBanner.Initialize(_txtNextWave != null ? _txtNextWave : _txtWater);
+
+            _supplyNav = GetComponent<SupplyNavIndicator>();
+            if (_supplyNav == null)
+                _supplyNav = gameObject.AddComponent<SupplyNavIndicator>();
+            _supplyNav.Initialize(navWaterIcon, navEarthIcon, navLifeIcon);
+
             _healthBarRect = healthImage != null ? healthImage.rectTransform : null;
             _healthShakeRoot = ResolveHealthShakeRoot();
 
@@ -180,10 +205,181 @@ namespace DeepseaOil.Presentation.UI
 
             ReleaseSeedIcon();
 
+            if (_keyLabelBackgroundSprite != null)
+                Destroy(_keyLabelBackgroundSprite);
+
+            if (_keyLabelBackgroundTexture != null)
+                Destroy(_keyLabelBackgroundTexture);
+
             if (_healthMaterial != null)
                 Destroy(_healthMaterial);
 
             base.OnDestroy();
+        }
+
+        private void CreateSlotKeyLabels()
+        {
+            _keyLabelBackgroundSprite = CreateRoundedRectSprite(out _keyLabelBackgroundTexture);
+
+            _waterKeyLabel = CreateKeyLabel(
+                _imgWaterBG,
+                "LblWaterKey",
+                "LMB",
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(69f, 36f),
+                new Vector2(39f, 23f),
+                _keyLabelBackgroundSprite,
+                _txtWater);
+
+            _earthKeyLabel = CreateKeyLabel(
+                _imgEarthBG,
+                "LblEarthKey",
+                "RMB",
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(69f, 36f),
+                new Vector2(39f, 23f),
+                _keyLabelBackgroundSprite,
+                _txtEarth);
+
+            _seedKeyLabel = CreateKeyLabel(
+                _imgSeedBG,
+                "LblSeedKey",
+                "E",
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(42f, 36f),
+                new Vector2(26f, 23f),
+                _keyLabelBackgroundSprite,
+                _txtSeed);
+
+            _seedDiscardLabel = CreateKeyLabel(
+                _imgSeedBG,
+                "LblSeedDiscard",
+                "Q 丢弃",
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(91f, 36f),
+                new Vector2(-50f, 23f),
+                _keyLabelBackgroundSprite,
+                _txtSeed);
+        }
+
+        private static TMP_Text CreateKeyLabel(
+            Image parent,
+            string name,
+            string value,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Vector2 size,
+            Vector2 position,
+            Sprite backgroundSprite,
+            TMP_Text fontSource)
+        {
+            if (parent == null)
+                return null;
+
+            var go = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.SetParent(parent.rectTransform, false);
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = position;
+
+            Image background = go.GetComponent<Image>();
+            background.sprite = backgroundSprite;
+            background.type = Image.Type.Sliced;
+            background.color = KeyLabelBackgroundColor;
+            background.raycastTarget = false;
+
+            var textGo = new GameObject(
+                name + "Text",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(TextMeshProUGUI));
+
+            RectTransform textRect = textGo.GetComponent<RectTransform>();
+            textRect.SetParent(rect, false);
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(4f, 2f);
+            textRect.offsetMax = new Vector2(-4f, -2f);
+
+            TMP_Text label = textGo.GetComponent<TMP_Text>();
+            label.text = value;
+            label.font = fontSource != null ? fontSource.font : null;
+            label.fontSize = value.Length > 2 ? 23f : 27f;
+            label.fontStyle = FontStyles.Bold;
+            label.color = Color.white;
+            label.alignment = TextAlignmentOptions.Center;
+            label.enableWordWrapping = false;
+            label.raycastTarget = false;
+
+            Outline outline = textGo.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.62f);
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = true;
+
+            return label;
+        }
+
+        private static Sprite CreateRoundedRectSprite(out Texture2D texture)
+        {
+            int size = KeyLabelBackgroundSize;
+            int radius = KeyLabelCornerRadius;
+            float half = size * 0.5f;
+            float inner = half - radius;
+
+            texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "HudKeyLabelRoundedRect",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+
+            Color32[] pixels = new Color32[size * size];
+
+            for (int y = 0; y < size; y++)
+            {
+                float py = Mathf.Abs(y + 0.5f - half) - inner;
+
+                for (int x = 0; x < size; x++)
+                {
+                    float px = Mathf.Abs(x + 0.5f - half) - inner;
+                    float outsideX = Mathf.Max(px, 0f);
+                    float outsideY = Mathf.Max(py, 0f);
+                    float distance = Mathf.Sqrt(outsideX * outsideX + outsideY * outsideY)
+                        + Mathf.Min(Mathf.Max(px, py), 0f)
+                        - radius;
+                    byte alpha = (byte)(Mathf.Clamp01(0.5f - distance) * 255f);
+                    pixels[y * size + x] = new Color32(255, 255, 255, alpha);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect,
+                new Vector4(radius, radius, radius, radius),
+                false);
+
+            sprite.name = "HudKeyLabelRoundedRect";
+
+            return sprite;
         }
 
         public override void ShowMe()
@@ -457,7 +653,6 @@ namespace DeepseaOil.Presentation.UI
             float elapsed = 0f;
             while (elapsed < WaveTextFadeDuration)
             {
-                // 不吃 timeScale
                 elapsed += Time.unscaledDeltaTime;
                 text.alpha = Mathf.Lerp(start, target, Mathf.Clamp01(elapsed / WaveTextFadeDuration));
                 yield return null;
