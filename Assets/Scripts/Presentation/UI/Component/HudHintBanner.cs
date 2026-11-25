@@ -3,6 +3,7 @@ using DeepseaOil.Data;
 using DeepseaOil.Logic;
 using DeepseaOil.Logic.Events;
 using DeepseaOil.Logic.Level;
+using DeepseaOil.Logic.Player;
 using DeepseaOil.Logic.Wave;
 using DeepseaOil.Presentation.World;
 using TMPro;
@@ -47,6 +48,10 @@ namespace DeepseaOil.Presentation.UI
         private float _healthMax;
         private int _warningCount;
         private int _activePriority;
+        private bool _seedSlotFull;
+        private bool _pendingSeedSlotFull;
+        private bool _ammoSnapshotPending;
+        private bool _hasSeedSnapshot;
         private bool _paused;
         private bool _registered;
         private bool _built;
@@ -100,6 +105,7 @@ namespace DeepseaOil.Presentation.UI
             {
                 _lowHealthSeconds = 0f;
                 HideImmediate();
+                FlushAmmoSnapshot();
                 return;
             }
 
@@ -112,6 +118,7 @@ namespace DeepseaOil.Presentation.UI
             if (!lowHealth || inLife || IsStoryState())
             {
                 _lowHealthSeconds = 0f;
+                FlushAmmoSnapshot();
                 return;
             }
 
@@ -136,6 +143,8 @@ namespace DeepseaOil.Presentation.UI
                     priority: 30,
                     holdSeconds: 6f);
             }
+
+            FlushAmmoSnapshot();
         }
 
         public static bool IsLowHealth(float current, float max)
@@ -397,9 +406,18 @@ namespace DeepseaOil.Presentation.UI
 
             SeedSpec seed = ConfigModule.GetSeed(evt.GrantSeed);
             string name = seed != null ? seed.Name : evt.GrantSeed.ToString();
+            PlayerStats stats = CombatRoot.Current != null && CombatRoot.Current.Player != null
+                && CombatRoot.Current.Player.Logic != null
+                ? CombatRoot.Current.Player.Logic.Stats
+                : null;
+            bool canPickupNow = stats == null || stats.CanPickupSeed();
+            bool placedAtFeet = ShouldAnnounceSeedDrop(
+                _hasSeedSnapshot,
+                _seedSlotFull,
+                canPickupNow);
 
             ShowPrompt(
-                $"支援送达，获得<color=#85c6c8><b>【{name}】</b></color>，按 E 砸地配合水土触发反应",
+                BuildSeedSupplyMessage(name, placedAtFeet),
                 priority: 10,
                 holdSeconds: defaultHoldSeconds);
         }
@@ -412,6 +430,35 @@ namespace DeepseaOil.Presentation.UI
 
         private void OnAmmoChanged(PlayerAmmoChanged evt)
         {
+            _pendingSeedSlotFull = evt.Seed != SeedType.None && evt.SeedCount > 0;
+            _ammoSnapshotPending = true;
+        }
+
+        public static bool ShouldAnnounceSeedDrop(
+            bool hasSeedSnapshot,
+            bool seedSlotWasFull,
+            bool canPickupNow)
+        {
+            return hasSeedSnapshot ? seedSlotWasFull : !canPickupNow;
+        }
+
+        public static string BuildSeedSupplyMessage(string name, bool placedAtFeet)
+        {
+            string seedName = $"<color=#85c6c8><b>【{name}】</b></color>";
+
+            return placedAtFeet
+                ? $"支援送达，{seedName}已放在脚边；按 Q 丢弃旧种即可拾取"
+                : $"支援送达，获得{seedName}，按 E 砸地配合水土触发反应";
+        }
+
+        private void FlushAmmoSnapshot()
+        {
+            if (!_ammoSnapshotPending)
+                return;
+
+            _seedSlotFull = _pendingSeedSlotFull;
+            _hasSeedSnapshot = true;
+            _ammoSnapshotPending = false;
         }
 
         private void OnGameStateChanged(GameStateChanged evt)
@@ -427,6 +474,10 @@ namespace DeepseaOil.Presentation.UI
             _lowHealthSeconds = 0f;
             _warningCooldown = 0f;
             _warningCount = 0;
+            _seedSlotFull = false;
+            _pendingSeedSlotFull = false;
+            _ammoSnapshotPending = false;
+            _hasSeedSnapshot = false;
             HideImmediate();
         }
 

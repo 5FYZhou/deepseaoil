@@ -6,11 +6,16 @@
 - Approved Plan: `PLAN_v01.md` / `APPROVED`
 - Plan Version: `v01`
 - Branch: `ai/GD-2026-0003`
-- Base: `45b0a43abe3238baae4d2ead63cf60aefe799984`
+- Original approved baseline: `45b0a43abe3238baae4d2ead63cf60aefe799984`
+- Pre-rebase snapshot: `75b7ce6`
+- Rebase target / manifest base: `aaee801271c7c49a8e5059c42406863cd3de1906`
+- Clean rebase result before final A03 fixes: `a1712211a6e70eef1b3f05076dae45aef4dac5ab`
 - Unity version when reported: `2022.3.62f3c1`
 - Computer-Use: prohibited; not used.
 - Input evidence: Play Mode Console and CEO feedback.
-- Scope result: fixes map to approved UI, Audio, Story, Prefab and test files.
+- Scope result: fixes map to approved UI, Audio, Story, Prefab and test files;
+  rebase preserves 0001/0002 gameplay, configuration, Luban output and shared
+  comment-budget entries.
 
 ## 2. Actual Changes
 
@@ -35,9 +40,11 @@
 | `ConfigWorkspace/Data/slot_dialogue.xlsx` | Replaced all 84 F-column contexts with Planner's final wording, then applied the balanced tutorial rewrite to 30 IDs; all non-context fields, the other 54 rows and camera row ordering preserved. |
 | `Assets/Scripts/Presentation/UI/Component/HudHintBanner.cs` | Re-binds the active UI TMP font/material; uses `#343433` 0.94 fill, `#595a58` border, warm-white text with dark outline, dynamic single-line width, a 4px status accent and palette-red/green emphasis for the low-health prompt. |
 | `Assets/Scripts/Presentation/UI/Component/SupplyNavIndicator.cs` | Uses the low-saturation guide palette (`#85C6C8` water, `#D0B185` earth, `#7EB88A` life), a dark outline and a short, wide 96px droplet contour; low-health breathing retained. |
+| `Assets/Scripts/Presentation/UI/Component/HudHintBanner.cs` | Added the approved seed-full branch: a frame-stable ammo snapshot distinguishes a successful grant from an old seed occupying the slot, then shows the at-feet / `Q` replacement prompt. |
+| `Assets/Tests/Runtime/Editor/引导与UI反馈Tests.cs` | Added regression coverage for the seed-full grant-versus-drop branch and both prompt variants. |
 | `ProjectSettings/EditorBuildSettings.asset` | Restored to HEAD baseline with legal `Level_3` and `Level_4` entries and GUIDs. |
 | `.vscode/settings.json` | Restored to HEAD baseline, removing Worktree-specific IDE noise. |
-| Luban generated files | Restored `Tables.cs`, `vector2.cs`, and `dso_tbslotdialogue.json` to HEAD; source workbook remains changed for post-batch-1 regeneration. |
+| Luban generated files | After rebase, regenerated from the latest source tables through `output/` and mirrored with `-Apply`; `dso_tbslotdialogue.json` updated, generated C# and 0001/0002 JSON remained content-identical. |
 
 ## 3. Step Results
 
@@ -54,16 +61,25 @@
 | Fix popup activation / entrance ordering | PASS — root activates before fade/enter; static inactive lifecycle test added |
 | Compile/topology gate | PASS — `0 Error(s) / 0 Warning(s)` |
 | Watchdog handover validation | PASS — 20 PASS / 0 FAIL / 0 WARN |
-| Comment tag gate | PASS — 283 files |
+| Comment tag gate | PASS — 284 files |
 | Luban strict validation, no-write | PASS — validation end, `outputSaver=null` |
 | Full-tree whitespace gate | PASS — `git diff --check` exit 0 |
 | Baseline restore audit | PASS — Build Settings, `.vscode` and Luban generated files have no Diff; `Level_3` / `Level_4` each appear once |
+| Rebase onto `VReason/Update@aaee801` | PASS — clean, no conflict; 0001/0002 files and shared budget entries preserved |
+| Luban full strict generation | PASS — generated against latest source tables with exit 0 |
+| Luban mirror apply | PASS — 1 generated JSON copied, 0 deletions, 0 orphan `.meta`; preview is 0/0/0 |
+| Seed-full support branch | PASS by implementation and compiled regression test source |
+| Context handoff refresh | PASS — Manifest base locked to `aaee801`; `FEED_DROP/` contains 60 validated mappings |
+| Watchdog handover validation | PASS — 20 PASS / 0 FAIL / 0 WARN after final refresh |
 | EditMode / Play Mode | CEO performed iterative manual Play checks; no final Worker evidence bundle was produced |
 
 ## 4. Commands
 
 ```powershell
 Set-Location 'T:\GAMES\deepseaoil-worktrees\GD-2026-0003'
+git add -- <approved scope only>
+git commit -m "feat(GD-2026-0003): complete guided UI feedback implementation"
+git rebase aaee801271c7c49a8e5059c42406863cd3de1906
 pwsh Tools/compile-gate.ps1 -Topology
 pwsh Tools/comment-lint.ps1
 pwsh Tools/comment-lint.ps1 -Mode tags
@@ -73,13 +89,29 @@ python scripts/validate_handover.py AI_Context/TASKS/GD-2026-0003 --for watchdog
 git diff --check
 
 Set-Location 'T:\GAMES\deepseaoil-worktrees\GD-2026-0003\ConfigWorkspace'
-dotnet Tools/Luban/Luban.dll --conf luban.conf -t client --strict -f `
-  -c cs-simple-json -d json -x outputSaver=null `
+dotnet Tools/Luban/Luban.dll --conf luban.conf -t client --strict `
+  -c cs-simple-json -d json `
+  -x outputCodeDir=output/code -x outputDataDir=output/data `
   -x pathValidator.rootDir=T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Assets
+
+Set-Location 'T:\GAMES\deepseaoil-worktrees\GD-2026-0003'
+pwsh Tools/luban-mirror.ps1 -Apply
+pwsh Tools/luban-mirror.ps1
 ```
 
 Evidence:
 
+- `AI_Context/EVIDENCE/GD-2026-0003/final-luban-generate.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-luban-mirror-apply.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-luban-mirror-preview.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-compile-gate.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-comment-tags.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-comment-budget.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-comment-full.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-pycompile.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-stage-context.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-watchdog-validation.txt`
+- `AI_Context/EVIDENCE/GD-2026-0003/final-git-diff-check.txt`
 - `AI_Context/EVIDENCE/GD-2026-0003/rework-compile-gate.log`
 - `AI_Context/EVIDENCE/GD-2026-0003/rework-comment-tags.log`
 - `AI_Context/EVIDENCE/GD-2026-0003/rework-comment-report.log`
@@ -102,11 +134,13 @@ Evidence:
 | AC | A03 state |
 | --- | --- |
 | AC-01 | PASS — compile/topology green |
-| AC-03 | Typing blips, 15 chars/sec and 3-second post-typing hold implemented |
+| AC-02 | PASS (static) — latest source tables generated strictly from `aaee801`; mirror preview 0/0/0; Level_0 Play remains `NOT RUN` |
+| AC-03 | Typing blips, 15 chars/sec and 3-second post-typing hold implemented; formal EditMode/Play `NOT RUN` |
 | AC-04 | Wobble, edge direction, dynamic height, text fit and inactive coroutine guards implemented |
 | AC-05 | Labels are white, midpoint-sized and use dark-gray rounded backgrounds |
 | AC-06 | Missing optional art no longer emits errors; low-saturation outlined navigation droplets retained |
-| AC-08 | Tag gate PASS; changed files remain within budgets; full gate has only 3 pre-existing baseline failures |
+| AC-07 | Seed delivery, seed-full at-feet / `Q` branch and low-health guards implemented; formal Play `NOT RUN` |
+| AC-08 | Tag gate PASS; changed files remain within budgets; full gate has only 2 pre-existing baseline failures |
 
 ## 6. Tests
 
@@ -123,17 +157,18 @@ DialoguePanel.cs              0 / 0
 GamePlayPanel.cs             15 / 21
 PopupMotion.cs                0 / 988
 SupplyNavIndicator.cs         0 / 1777
-HudHintBanner.cs              0 / 2099
+HudHintBanner.cs              0 / 2341
 引导与UI反馈Tests.cs           0 / 0
 ```
 
-The full comment gate still has three unmodified baseline failures:
-`TimerWheel.cs`, `SaveSlot.cs`, and `Fountain.cs`.
+After rebasing onto the latest main, the full comment gate has two
+unmodified baseline failures: `TimerWheel.cs` and `SaveSlot.cs`.
+`Fountain.cs` is now within budget from the merged batch work.
 
-Workflow script syntax compilation exited `0`. Tag mode passed all 283
-files. Luban strict validation completed with `outputSaver=null` and exit
-`0`. Full-tree `git diff --check` exited `0`. Watchdog handover validation
-reported `PASS 20 / FAIL 0 / WARN 0`.
+Workflow script syntax compilation exited `0`. Tag mode passed all 284
+files. Luban strict full generation completed with exit `0`; mirror apply
+copied one JSON and subsequent preview reported 0 deletions / 0 copies /
+0 orphan `.meta`. Full-tree `git diff --check` exited `0`.
 
 Formal Unity EditMode Test Runner, Play Mode and V5 remain `NOT RUN` for
 this Worker rework.
@@ -148,27 +183,38 @@ this Worker rework.
 - Confirm typing blips are audible and the popup remains 3 seconds after typing completes.
 - No `Icons/Nav_*` errors should be emitted when art is absent.
 - Confirm the low-health prompt remains one line for 6 seconds and uses the final palette colors.
+- When the seed slot is already occupied at wave prep, confirm the support
+  banner says the new seed is beside the player and instructs `Q` discard
+  before pickup.
 
 ## 8. Deviations
 
 - Optional navigation art is now supplied through serialized `GamePlayPanel` sprite fields instead of mandatory `Icons/Nav_*` resource loads.
-- Unity's editor previously auto-triggered Luban output; the three affected generated files were restored to HEAD. The changed source workbook remains pending the approved batch-1 rebase/regeneration window.
+- The branch was rebased cleanly onto `aaee801271c7`; no conflict required
+  manual resolution because the earlier prohibited environment files had
+  already been restored.
+- Luban was fully regenerated from the rebased source tables, then mirrored
+  through the approved `output/` staging flow. No generated file was hand-edited.
 - The later CEO-directed nine-slice work changed `ui_panel_tanchuangtouxiangkuang.psd.meta` outside the original file whitelist; the four Sprite borders are now required by the popup Prefab.
 - Unity/TMP side effects also changed two TMP font assets. They are preserved for review; `.vscode/settings.json` and `ProjectSettings/EditorBuildSettings.asset` were restored to HEAD under CEO rework authorization.
 
 ## 9. Remaining Issues
 
 - An independent Watchdog must verify the final Diff, EditMode result and Play evidence; this Worker does not self-certify.
-- Generated Luban mirrors have been restored to HEAD and must be regenerated only after batch 1 merges.
-- Full comment-lint remains red only on three pre-existing unmodified files.
+- Full comment-lint remains red only on two pre-existing unmodified files:
+  `TimerWheel.cs` and `SaveSlot.cs`.
 - Formal EditMode, Play Mode and V5 evidence remain `NOT RUN` for this Worker rework.
-- Luban full mirror regeneration and `pwsh Tools/luban-mirror.ps1` remain `NOT RUN` until batch 1 merges; the no-write strict validation passed.
+- CEO Play testing should cover seed-full notification timing and whether the
+  at-feet copy matches the spawned drop's actual visual position.
 
 ## 10. Rollback
 
 Reverse the approved UI/Audio/Story/Test/Prefab/xlsx hunks listed above. Do not hand-edit generated Luban output independently; regenerate it at the approved merge point. User/Unity side-effect files must be reviewed individually before rollback.
 
-No commit, push, merge, or rebase was performed.
+Use `75b7ce6` as the recoverable pre-rebase snapshot. To roll back the
+rebase only, reset the task branch to that snapshot before CEO review. To
+roll back generated data, regenerate from source rather than editing files.
+No push or main-branch merge was performed.
 
 ## 11. Conclusion
 
@@ -177,7 +223,7 @@ Conclusion: PASS WITH WARNINGS
 `PASS WITH WARNINGS`
 
 Implementation and iterative CEO Play feedback are complete. Compile/topology,
-tag gate, no-write Luban validation, full whitespace check and Watchdog
-handover validation are green; full comment-lint retains only three pre-existing
-baseline failures. Final independent Watchdog verification, formal Unity test
-runs and post-batch-1 Luban regeneration remain mandatory.
+tag gate, full Luban generation/mirror, full whitespace check and Watchdog
+handover validation are green; full comment-lint retains only two pre-existing
+baseline failures. Final independent Watchdog verification and formal Unity
+test runs remain mandatory.

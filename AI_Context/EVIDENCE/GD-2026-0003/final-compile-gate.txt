@@ -1,0 +1,188 @@
+生成模板：Assembly-CSharp.csproj
+  DeepseaOil.EditorTools              8 个 .cs，引用 DeepseaOil.Presentation, Unity.RenderPipelines.Core.Runtime, Unity.RenderPipelines.Universal.Runtime
+  Luban.Runtime                       7 个 .cs，引用
+  DeepseaOil.Data                    45 个 .cs，引用 cfg, Luban.Runtime
+  DeepseaOil.Foundation              11 个 .cs，引用
+  cfg                                37 个 .cs，引用 Luban.Runtime
+  DeepseaOil.Generated.Input          1 个 .cs，引用 Unity.InputSystem
+  DeepseaOil.Logic                   87 个 .cs，引用 cfg, DeepseaOil.Data, DeepseaOil.Foundation, Luban.Runtime
+  DeepseaOil.Presentation           103 个 .cs，引用 cfg, Cinemachine, DeepseaOil.Data, DeepseaOil.Foundation, DeepseaOil.Generated.Input, DeepseaOil.Logic, Luban.Runtime, Unity.InputSystem, Unity.RenderPipelines.Core.Runtime, Unity.RenderPipelines.Universal.Runtime, Unity.TextMeshPro, UnityEngine.UI
+  DeepseaOil.Tests.EditMode          34 个 .cs，引用 cfg, DeepseaOil.Data, DeepseaOil.Foundation, DeepseaOil.Logic, DeepseaOil.Presentation, Luban.Runtime, Unity.RenderPipelines.Core.Runtime, Unity.RenderPipelines.Universal.Runtime, UnityEditor.TestRunner, UnityEngine.TestRunner, UnityEngine.UI
+  DeepseaOil.Tests.Scene              2 个 .cs，引用 DeepseaOil.Data, DeepseaOil.Foundation, DeepseaOil.Logic, DeepseaOil.Presentation
+  DeepseaOil.EditorTools.Tests        1 个 .cs，引用 DeepseaOil.EditorTools
+  Assembly-CSharp                     1 个 .cs（预定义 Assembly-CSharp 残留）
+
+程序集拓扑（asmdef 声明的引用）：
+  DeepseaOil.EditorTools         ← DeepseaOil.Presentation, Unity.RenderPipelines.Core.Runtime, Unity.RenderPipelines.Universal.Runtime
+  Luban.Runtime                  ←
+  DeepseaOil.Data                ← cfg, Luban.Runtime
+  DeepseaOil.Foundation          ←
+  cfg                            ← Luban.Runtime
+  DeepseaOil.Generated.Input     ← Unity.InputSystem
+  DeepseaOil.Logic               ← cfg, DeepseaOil.Data, DeepseaOil.Foundation, Luban.Runtime
+  DeepseaOil.Presentation        ← cfg, Cinemachine, DeepseaOil.Data, DeepseaOil.Foundation, DeepseaOil.Generated.Input, DeepseaOil.Logic, Luban.Runtime, Unity.InputSystem, Unity.RenderPipelines.Core.Runtime, Unity.RenderPipelines.Universal.Runtime, Unity.TextMeshPro, UnityEngine.UI
+  DeepseaOil.Tests.EditMode      ← cfg, DeepseaOil.Data, DeepseaOil.Foundation, DeepseaOil.Logic, DeepseaOil.Presentation, Luban.Runtime, Unity.RenderPipelines.Core.Runtime, Unity.RenderPipelines.Universal.Runtime, UnityEditor.TestRunner, UnityEngine.TestRunner, UnityEngine.UI
+  DeepseaOil.Tests.Scene         ← DeepseaOil.Data, DeepseaOil.Foundation, DeepseaOil.Logic, DeepseaOil.Presentation
+  DeepseaOil.EditorTools.Tests   ← DeepseaOil.EditorTools
+
+编译：
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Generated.Input -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Generated.Input.dll
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+  gate_DeepseaOil.Logic -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Logic.dll
+  gate_DeepseaOil.Presentation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Presentation.dll
+  gate_DeepseaOil.EditorTools -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.EditorTools.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:02.11
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:00.82
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.06
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:00.81
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.01
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Generated.Input -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Generated.Input.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:00.84
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+  gate_DeepseaOil.Logic -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Logic.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.19
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Generated.Input -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Generated.Input.dll
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+  gate_DeepseaOil.Logic -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Logic.dll
+  gate_DeepseaOil.Presentation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Presentation.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.33
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+  gate_DeepseaOil.Generated.Input -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Generated.Input.dll
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+  gate_DeepseaOil.Logic -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Logic.dll
+  gate_DeepseaOil.Presentation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Presentation.dll
+  gate_DeepseaOil.Tests.EditMode -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Tests.EditMode.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.48
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+  gate_DeepseaOil.Generated.Input -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Generated.Input.dll
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+  gate_DeepseaOil.Logic -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Logic.dll
+  gate_DeepseaOil.Presentation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Presentation.dll
+  gate_DeepseaOil.Tests.Scene -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Tests.Scene.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.42
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Generated.Input -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Generated.Input.dll
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+  gate_DeepseaOil.Logic -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Logic.dll
+  gate_DeepseaOil.Presentation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Presentation.dll
+  gate_DeepseaOil.EditorTools -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.EditorTools.dll
+  gate_DeepseaOil.EditorTools.Tests -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.EditorTools.Tests.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.58
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  gate_DeepseaOil.Foundation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Foundation.dll
+  gate_DeepseaOil.Generated.Input -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Generated.Input.dll
+  gate_Luban.Runtime -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_Luban.Runtime.dll
+  gate_cfg -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_cfg.dll
+  gate_DeepseaOil.Data -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Data.dll
+  gate_DeepseaOil.Logic -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Logic.dll
+  gate_DeepseaOil.Presentation -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.Presentation.dll
+  gate_DeepseaOil.EditorTools -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\asmdef\Temp\bin\Debug\Gate_DeepseaOil.EditorTools.dll
+  Gate -> T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Temp\compile-gate\Temp\bin\Debug\CompileGate.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.67
+
+错误 0 条 / 警告 0 条

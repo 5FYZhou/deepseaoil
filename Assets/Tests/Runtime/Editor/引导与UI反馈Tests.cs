@@ -166,5 +166,23 @@ namespace DeepseaOil.Tests
                     0f,
                     3));
         }
+
+        [Test]
+        public void 种子满槽提示区分新增配给与脚边掉落()
+        {
+            Assert.IsFalse(HudHintBanner.ShouldAnnounceSeedDrop(true, false, false));
+            Assert.IsTrue(HudHintBanner.ShouldAnnounceSeedDrop(true, true, true));
+            Assert.IsTrue(HudHintBanner.ShouldAnnounceSeedDrop(false, false, false));
+            Assert.IsFalse(HudHintBanner.ShouldAnnounceSeedDrop(false, false, true));
+
+            string dropped = HudHintBanner.BuildSeedSupplyMessage("火种子", true);
+            StringAssert.Contains("已放在脚边", dropped);
+            StringAssert.Contains("按 Q 丢弃旧种", dropped);
+            StringAssert.Contains("【火种子】", dropped);
+
+            string granted = HudHintBanner.BuildSeedSupplyMessage("火种子", false);
+            StringAssert.Contains("获得", granted);
+            StringAssert.Contains("按 E", granted);
+        }
     }
 }

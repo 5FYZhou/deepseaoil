@@ -1,8 +1,8 @@
 # 00 CONTEXT MANIFEST — GD-2026-0003
 
 - Task ID: GD-2026-0003
-- Base Commit: 45b0a43abe3238baae4d2ead63cf60aefe799984
-- Generated At: 2026-11-25T15:20:51+08:00
+- Base Commit: aaee801271c7c49a8e5059c42406863cd3de1906
+- Generated At: 2026-11-25T16:43:18+08:00
 - Generation Mode: append
 - Chat Safe: ON
 - Budget Limit: 150000
@@ -12,9 +12,9 @@
 | 层级 | 估算 Token | 预算/状态 |
 | --- | ---: | --- |
 | L1 | 2518 | 不在 4,096–8,000 隐式缓存甜点区 |
-| L2 | 3262 | 模块层建议 ≤ 30,000 |
-| L3 | 100700 | 代码层建议 ≤ 100,000 |
-| Total | 106480 | 未超过 150000 |
+| L2 | 3312 | 模块层建议 ≤ 30,000 |
+| L3 | 107051 | 代码层建议 ≤ 100,000 |
+| Total | 112881 | 未超过 150000 |
 
 > Token 为启发式估算：每个 CJK 字符计 1，其余非空白字符合计 ÷ 4 后向上取整。
 
@@ -25,7 +25,7 @@
 | `L1__PROJECT_OVERVIEW.md` | L1 | `AI_Context/PROJECT_OVERVIEW.md` | 572 |
 | `L1__CODING_STANDARDS.md` | L1 | `AI_Context/CODING_STANDARDS.md` | 912 |
 | `L1__BUILD_AND_TEST.md` | L1 | `AI_Context/BUILD_AND_TEST.md` | 1034 |
-| `L2__PROJECT_BOARD.md` | L2 | `AI_Context/PROJECT_BOARD.md` | 781 |
+| `L2__PROJECT_BOARD.md` | L2 | `AI_Context/PROJECT_BOARD.md` | 831 |
 | `L2__ARCHITECTURE.md` | L2 | `AI_Context/ARCHITECTURE.md` | 896 |
 | `L2__MODULE_MAP.md` | L2 | `AI_Context/MODULE_MAP.md` | 979 |
 | `L2__DEPENDENCIES.md` | L2 | `AI_Context/DEPENDENCIES.md` | 606 |
@@ -55,6 +55,9 @@
 | `L3__Assets_Scripts_Presentation_Story_StoryFlow.cs` | L3 | `Assets/Scripts/Presentation/Story/StoryFlow.cs` | 5501 |
 | `L3__Assets_Scripts_Presentation_Story_StorySession.cs` | L3 | `Assets/Scripts/Presentation/Story/StorySession.cs` | 134 |
 | `L3__Assets_Scripts_Presentation_UI_BasePanel.cs` | L3 | `Assets/Scripts/Presentation/UI/BasePanel.cs` | 1395 |
+| `L3__Assets_Scripts_Presentation_UI_Component_HudHintBanner.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/HudHintBanner.cs` | 2720 |
+| `L3__Assets_Scripts_Presentation_UI_Component_PopupMotion.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/PopupMotion.cs` | 840 |
+| `L3__Assets_Scripts_Presentation_UI_Component_SupplyNavIndicator.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/SupplyNavIndicator.cs` | 1860 |
 | `L3__Assets_Scripts_Presentation_UI_Component_Typewriter.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/Typewriter.cs` | 820 |
 | `L3__Assets_Scripts_Presentation_UI_Component_UIFader.cs` | L3 | `Assets/Scripts/Presentation/UI/Component/UIFader.cs` | 500 |
 | `L3__Assets_Scripts_Presentation_UI_Panel_DialoguePanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/DialoguePanel.cs` | 2075 |
@@ -64,8 +67,9 @@
 | `L3__Assets_Scripts_Presentation_UI_Panel_TransitionPanel.cs` | L3 | `Assets/Scripts/Presentation/UI/Panel/TransitionPanel.cs` | 668 |
 | `L3__Assets_Scripts_Presentation_UI_UIMgr.cs` | L3 | `Assets/Scripts/Presentation/UI/UIMgr.cs` | 4393 |
 | `L3__Assets_StreamingAssets_Luban_dso_tbaudiomap.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbaudiomap.json` | 255 |
-| `L3__Assets_StreamingAssets_Luban_dso_tbslotdialogue.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbslotdialogue.json` | 3557 |
+| `L3__Assets_StreamingAssets_Luban_dso_tbslotdialogue.json` | L3 | `Assets/StreamingAssets/Luban/dso_tbslotdialogue.json` | 3510 |
 | `L3__Assets_Tests_Runtime_Editor_HUD受击反馈Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/HUD受击反馈Tests.cs` | 2312 |
+| `L3__Assets_Tests_Runtime_Editor_引导与UI反馈Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/引导与UI反馈Tests.cs` | 978 |
 | `L3__Assets_Tests_Runtime_Editor_音频策略Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/音频策略Tests.cs` | 304 |
 | `L3__Assets_Tests_Runtime_Editor_飘字可读性Tests.cs` | L3 | `Assets/Tests/Runtime/Editor/飘字可读性Tests.cs` | 450 |
 | `L3__Docs_玩家反馈_G.肖昕怡.md` | L3 | `Docs/玩家反馈/G.肖昕怡.md` | 75 |
@@ -93,6 +97,7 @@ AI_Context/CODING_STANDARDS.md
 AI_Context/DECISION_LOG.md
 AI_Context/DEPENDENCIES.md
 AI_Context/EVIDENCE/
+AI_Context/EVIDENCE/GD-2026-0001/
 AI_Context/EVIDENCE/GD-2026-0003/
 AI_Context/EVIDENCE/GD-YYYY-NNNN/
 AI_Context/KNOWN_ISSUES.md
@@ -257,7 +262,6 @@ Assets/StreamingAssets/Luban/
 Assets/Tests.meta
 Assets/Tests/
 Assets/Tests/Runtime/
-Assets/Tests/Scene/
 Assets/TextMesh Pro.meta
 Assets/TextMesh Pro/
 Assets/UniversalRenderPipelineGlobalSettings.asset
