@@ -185,3 +185,142 @@ Watchdog 结论建议: **FAIL（静态返工已关闭，但批 1 后导表与 L2
 剩余阻断: `luban-mirror` 3 个待覆盖项；批 1 合入后的全量导表与镜像；正式 EditMode/Play/V5；配给浮窗满槽分支仍未证实。  
 用户决定: ACCEPT / ACCEPT WITH FOLLOW-UP / REJECT  
 必须由 CEO 决策: 先合入并验证 0001，再从最新主线重导 0003；若希望先验收 0003 静态部分，需要明确批准 `ACCEPT WITH FOLLOW-UP` 并保留上述运行层阻断。 
+
+## REVIEW ROUND 3
+
+复核时间（含时区）: 2026-11-25 16:46 +08:00  
+复核对象: rebase 后 `0627bee`、功能提交 `a171221`、A03 报告与全量 Luban 镜像
+
+### R3-1. 提交与主线
+
+```text
+0627bee fix(GD-2026-0003): finalize rebase and Luban integration
+  parent: a171221 feat(GD-2026-0003): complete guided UI feedback implementation
+    parent: aaee801 docs: 记录 GD-2026-0002 合入基线
+```
+
+| 项 | 实测 | 状态 |
+| --- | --- | --- |
+| HEAD | `0627bee96aae61bac8b469fc138c792ede19c89c` | **一致** |
+| Manifest Base | `aaee801271c7…` | **PASS** |
+| 分支 | `ai/GD-2026-0003` | **一致** |
+| rebase 冲突 | 无 | **PASS** |
+| Worktree | clean | **PASS** |
+| 领先主线 | 2 个提交 | **一致** |
+
+`0001`、`0002` 的任务内容及 `PlayerStats`、`PlayerController`、`CombatRoot`、光标文件相对 `VReason/Update` 零 Diff。未发现 rebase 覆盖前两批成果。
+
+### R3-2. 独立门禁
+
+```text
+validate_handover --for watchdog -> PASS 20 / FAIL 0 / WARN 0
+compile-gate -Topology           -> 0 error / 0 warning
+comment-lint                     -> 退出码 1；仅 2 个既有禁改文件
+comment-lint -Mode tags          -> PASS，284 文件
+git diff --check                 -> 退出码 0
+```
+
+全量注释硬违规：
+
+```text
+TimerWheel.cs
+SaveSlot.cs
+```
+
+`AudioManager.cs` 已由本任务清理到预算内；`Fountain.cs` 已由合入的 0001 修复。本任务改动文件均未进入硬违规或容差区。
+
+### R3-3. Luban / 配表
+
+独立执行最新主线数据上的 Luban：
+
+```text
+Luban strict full generation -> 退出码 0
+luban-mirror preview         -> 待删除 0 / 待覆盖 0 / 孤儿 .meta 0
+git diff --check             -> 退出码 0
+```
+
+当前 `Assets/Scripts/Generated/Config/**` 相对主线零 Diff；`Assets/StreamingAssets/Luban/**` 的唯一 Diff 为：
+
+```text
+Assets/StreamingAssets/Luban/dso_tbslotdialogue.json
+```
+
+源表与 JSON：
+
+- `slot_dialogue.xlsx`：116 行 × 6 列、Sheet1。
+- 源表 84 个 ID，JSON 84 个 ID，集合一致。
+- 84 个 `context + paragraph` 逐项一致。
+- 相对主线仅 54 个 F 列 `context` 单元格变化，非目标列变化为 0。
+- `paragraph == 1002` 的 ID 10/11/12/13 顺序和文字语义保留。
+- 空 context 数为 0。
+
+全量导表顺序风险已关闭。
+
+### R3-4. UI / 弹窗 / HUD 静态复查
+
+| 项 | 结果 |
+| --- | --- |
+| 弹窗重显 | `SetVisible(image, true)` 先激活 GameObject，随后 `FadeIn` / `PlayEnter`；inactive 时滑入安全 no-op |
+| inactive 生命周期测试 | 已存在于新测试文件并参与编译 |
+| 满槽种子提示 | `HudHintBanner` 使用稳定槽位快照，区分直接入槽与旧种占槽后掉落 |
+| 脚边提示文案 | 明确包含“已放在脚边”和“按 Q 丢弃旧种即可拾取” |
+| 空槽提示文案 | 明确包含“获得”和按 `E` 使用 |
+| 跨关清理 | `LevelStateChanged` 清零低血计时、警告次数、种子槽快照与 pending 状态 |
+| HUD 键位标 | 动态创建 LMB / RMB / E / Q 标识与背景 Sprite，销毁时释放自建 Sprite/Texture |
+| 导航 | 屏外投影、Canvas 坐标换算、池化项、自建 Sprite/Texture 销毁路径均存在 |
+| 纯逻辑回归 | 满槽提示分支和消息变体已有测试源码 |
+
+未发现新的静态生命周期或状态泄漏问题；真实 TMP、Canvas、音频、视觉仍需 Unity 运行验证。
+
+### R3-5. 资源 / 范围 / 共享预算
+
+- 942 个 `.meta` 无重复 GUID。
+- 4 个新增脚本/测试 `.meta` 均存在。
+- `ui_panel_tanchuangtouxiangkuang.psd.meta` 四条 border 均小于对应 Sprite 尺寸，GUID 保留。
+- `.vscode/**`、`ProjectSettings/**` 无 Diff。
+- Luban 工具链相对主线无 Diff，生成只走 `output/` + mirror。
+- `Tools/comment-budget.json` 同时保留：
+  - `生命神泉Tests.cs: 0`
+  - `引导与UI反馈Tests.cs: 0`
+  - 未覆盖 `移动Tests.cs: 3346`
+- 当前相对主线 44 个路径全部属于本任务业务/资产/测试、任务凭证或经批准的生成物。
+
+### R3-6. 更新后的 AC 映射
+
+| AC | 第三轮状态 |
+| --- | --- |
+| AC-01 编译/拓扑 | **PASS** |
+| AC-02 文案 / 1002 / Luban | **PASS（静态与全量镜像）**；Level_0 Play `NOT RUN` |
+| AC-03 打字机 / UI 音效 | 源码与测试源码存在；正式 EditMode/Play `NOT RUN` |
+| AC-04 弹窗动效 | 静态缺陷已关闭；正式 EditMode/Play `NOT RUN` |
+| AC-05 HUD 键位标 | 代码完整；分辨率/遮挡 Play `NOT RUN` |
+| AC-06 水珠导航 | 投影与池化静态路径完整；真实相机/Canvas/视觉 `NOT RUN` |
+| AC-07 支援 / 残血提示 | 满槽分支静态完成；正式 Play `NOT RUN` |
+| AC-08 注释 | 本任务文件通过；全量仅 2 个既有基线失败 |
+
+### R3-7. 运行层
+
+- Worker EditMode: `NOT RUN`。
+- Watchdog EditMode: `NOT RUN`。
+- Watchdog Play Mode: `NOT RUN`。
+- Watchdog V5 Profiler / GC Alloc: `NOT RUN`。
+
+CEO 的迭代手测仍只作为来源事实，不作为本会话独立验证。
+
+### R3-8. 第三轮结论
+
+Watchdog 结论建议: **FAIL（仅因 L2 正式运行层未完成）**  
+已关闭: 提交/rebase、主线保护、交接、编译/拓扑、注释 tags/budget、全量 Luban 与镜像、源表一致性、弹窗静态生命周期、满槽种子提示、跨关状态清理、资源 GUID、共享预算。  
+剩余阻断: EditMode、Play Mode、V5 均无 Worker/Watchdog 正式运行证据。  
+用户决定: **ACCEPT WITH FOLLOW-UP**  
+CEO 签收时间: 2026-11-25 16:51 (UTC+8)  
+CEO 运行事实:
+
+- 已按任务说明完成 EditMode 与 Play 手测，符合预期、未发现问题。
+- 本轮按“优先合入、避免继续拖延”原则签收。
+
+Follow-up:
+
+- Watchdog 独立 Play/V4 验证。
+- V5 Profiler / GC Alloc。
+- Test Runner XML 或用例通过数补档（如后续工具链支持）。

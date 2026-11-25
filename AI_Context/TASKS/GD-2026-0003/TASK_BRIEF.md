@@ -7,7 +7,7 @@ Project / Engine / Tool Version: 荒原复苏指南 / Unity 2022.3.62f3c1
 
 Task Level: L2    Risk Level: R2
 
-Status: APPROVED
+Status: ACCEPTED_WITH_FOLLOW_UP
 
 1. 我想实现什么（Objective）
    改善首局引导与操作可理解性：补充 HUD 键位提示、水珠边缘导航、支援/残血轻量浮窗；完善弹窗打字机、短音效、滑入/消退与动态时长；降低剧情专有名词理解成本。
@@ -51,4 +51,4 @@ Status: APPROVED
    由 Planner 在后续 PLAN 中给出可判定验收。至少应覆盖：HUD 键位可读、支持提示不遮挡战斗、打字机与短音效同步且不重复、剧情文本可理解、`compile-gate.ps1 -Topology` 全绿、相关 EditMode 测试及 `Range.unity`/`Level_0` 实机观察。
 
 10. 其他说明与不确定事项
-    `PLAN_v01.md` 已获 CEO 批准；`APPROVAL_RECORD.md` 已填写。施工必须从批准提交后的 `VReason/Update` 分出独立 Worktree；导表与共享注释预算仍须等待批 1 合入后接力。
+    `PLAN_v01.md` 已执行并经 CEO 以 `ACCEPT WITH FOLLOW-UP` 签收。独立 Play/V4 与 V5 性能证据保留为后续项。
