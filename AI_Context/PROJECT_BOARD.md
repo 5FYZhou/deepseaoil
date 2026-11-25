@@ -2,14 +2,13 @@
 
 > Secretary 独家维护。Attention Queue 只列真正需要 CEO 拍板、手工操作或签收的阻断事项。
 
-最后更新时间：2026-11-25 16:32（Asia/Shanghai）
+最后更新时间：2026-11-25 16:36（Asia/Shanghai）
 
 ## Attention Queue
 
 | 事项 | Task ID | 当前状态 | 一句话决策提示 | 更新时间 |
 | --- | --- | --- | --- | --- |
 | 注释门基线为红：4 个既有文件超注释预算，本次未修改这些文件 | - | BASELINE_FAIL | 需 CEO 决定另开清理任务、定点调整预算，或明确门禁豁免条件 | 2026-11-24 18:20 |
-| L2 正式 EditMode / Play / V5 尚未运行 | GD-2026-0002 | WAITING_CEO_DECISION | 选择补正式运行验证，或明确批准 L2 验收降层 | 2026-11-25 15:27 |
 | 批 1 合入后的全量导表与 L2 正式运行仍待执行 | GD-2026-0003 | WAITING_CEO_DECISION | 先合入并验证批 1，再从最新主线导表，随后完成 EditMode/Play/V5 | 2026-11-25 15:27 |
 
 ## Ticket Index
@@ -17,7 +16,7 @@
 | Task ID | 级别 | 状态 | 分支 | 当前 PLAN 版本 | 变更模块摘要 | 一句话结论 |
 | --- | --- | --- | --- | --- | --- | --- |
 | GD-2026-0001 | L2 / R2 | MERGED | `VReason/Update` | v01 | 核心玩法底层修复与配表/手感调优（批 1/3） | 已以 `ACCEPT WITH FOLLOW-UP` 签收并合入；独立 Play/V4 与 V5 保留 |
-| GD-2026-0002 | L2 / R2 | WAITING_CEO_DECISION | `ai/GD-2026-0002` | v01 | 玩家受击/死亡与波前种子配给（批 2/3） | 第二轮静态门通过；只剩正式 L2 运行验收待决策 |
+| GD-2026-0002 | L2 / R2 | ACCEPTED_WITH_FOLLOW_UP | `ai/GD-2026-0002` | v01 | 玩家受击/死亡与波前种子配给（批 2/3） | CEO 已完成手测并签收；独立 Play/V4 与 V5 保留为 follow-up |
 | GD-2026-0003 | L2 / R2 | WAITING_CEO_DECISION | `ai/GD-2026-0003` | v01 | 引导、UI、剧情与音频体验（批 3/3） | 第二轮静态门通过；等待批 1 后导表与正式运行验收 |
 
 ## 当前基线
