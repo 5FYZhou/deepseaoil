@@ -1,8 +1,8 @@
 # 00 CONTEXT MANIFEST — GD-2026-0003
 
 - Task ID: GD-2026-0003
-- Base Commit: aaee801271c7c49a8e5059c42406863cd3de1906
-- Generated At: 2026-11-25T16:43:18+08:00
+- Base Commit: beff96ae1e731b5bcad94b92a59648b2b0e873da
+- Generated At: 2026-11-25T16:52:48+08:00
 - Generation Mode: append
 - Chat Safe: ON
 - Budget Limit: 150000
@@ -12,9 +12,9 @@
 | 层级 | 估算 Token | 预算/状态 |
 | --- | ---: | --- |
 | L1 | 2518 | 不在 4,096–8,000 隐式缓存甜点区 |
-| L2 | 3312 | 模块层建议 ≤ 30,000 |
-| L3 | 107051 | 代码层建议 ≤ 100,000 |
-| Total | 112881 | 未超过 150000 |
+| L2 | 3250 | 模块层建议 ≤ 30,000 |
+| L3 | 107985 | 代码层建议 ≤ 100,000 |
+| Total | 113753 | 未超过 150000 |
 
 > Token 为启发式估算：每个 CJK 字符计 1，其余非空白字符合计 ÷ 4 后向上取整。
 
@@ -25,7 +25,7 @@
 | `L1__PROJECT_OVERVIEW.md` | L1 | `AI_Context/PROJECT_OVERVIEW.md` | 572 |
 | `L1__CODING_STANDARDS.md` | L1 | `AI_Context/CODING_STANDARDS.md` | 912 |
 | `L1__BUILD_AND_TEST.md` | L1 | `AI_Context/BUILD_AND_TEST.md` | 1034 |
-| `L2__PROJECT_BOARD.md` | L2 | `AI_Context/PROJECT_BOARD.md` | 831 |
+| `L2__PROJECT_BOARD.md` | L2 | `AI_Context/PROJECT_BOARD.md` | 769 |
 | `L2__ARCHITECTURE.md` | L2 | `AI_Context/ARCHITECTURE.md` | 896 |
 | `L2__MODULE_MAP.md` | L2 | `AI_Context/MODULE_MAP.md` | 979 |
 | `L2__DEPENDENCIES.md` | L2 | `AI_Context/DEPENDENCIES.md` | 606 |
@@ -82,10 +82,12 @@
 | `L3__Docs_玩家反馈_转述反馈_2026-10-21.md` | L3 | `Docs/玩家反馈/转述反馈_2026-10-21.md` | 156 |
 | `L3__Docs_设计_玩家反馈处理指导思想.md` | L3 | `Docs/设计/玩家反馈处理指导思想.md` | 1158 |
 | `L3__Docs_设计_策划案_荒原复苏指南_v4.0.md` | L3 | `Docs/设计/策划案_荒原复苏指南_v4.0.md` | 7033 |
+| `L3__git_recent_context.txt` | L3 | `git:recent` | 934 |
 
 ## Project Tree Summary
 
 ```text
+.DS_Store
 .gitattributes
 .gitignore
 .vsconfig
@@ -113,8 +115,10 @@ AI_Context/TASKS/GD-2026-0001/
 AI_Context/TASKS/GD-2026-0002/
 AI_Context/TASKS/GD-2026-0003/
 AI_Context/TASKS/_templates/
+Assembly-CSharp-Editor.csproj
 Assembly-CSharp.csproj
 Assets/
+Assets/.DS_Store
 Assets/Editor.meta
 Assets/Editor/
 Assets/Editor/DeepseaOil.EditorTools.asmdef
@@ -155,6 +159,7 @@ Assets/Luban.Runtime/StringUtil.cs
 Assets/Luban.Runtime/StringUtil.cs.meta
 Assets/Resources.meta
 Assets/Resources/
+Assets/Resources/.DS_Store
 Assets/Resources/Fonts.meta
 Assets/Resources/Fonts/
 Assets/Resources/Icons.meta
@@ -253,15 +258,10 @@ Assets/Shader/PlayerHealth.shader
 Assets/Shader/PlayerHealth.shader.meta
 Assets/Shaders.meta
 Assets/Shaders/
-Assets/Shaders/Procedural_CartoonTile.shader
-Assets/Shaders/Procedural_CartoonTile.shader.meta
 Assets/StreamingAssets.meta
 Assets/StreamingAssets/
-Assets/StreamingAssets/Luban.meta
-Assets/StreamingAssets/Luban/
 Assets/Tests.meta
 Assets/Tests/
-Assets/Tests/Runtime/
 Assets/TextMesh Pro.meta
 Assets/TextMesh Pro/
 Assets/UniversalRenderPipelineGlobalSettings.asset
@@ -277,7 +277,6 @@ DeepseaOil.Presentation.csproj
 DeepseaOil.Tests.EditMode.csproj
 DeepseaOil.Tests.Scene.csproj
 Docs/
-GD-2026-0003.sln
 Luban.Runtime.csproj
 Packages/
 ProjectSettings/
@@ -285,6 +284,8 @@ README.md
 Tools/
 UserSettings/
 cfg.csproj
+deepseaoil.csproj
+deepseaoil.sln
 scripts/
 ```
 

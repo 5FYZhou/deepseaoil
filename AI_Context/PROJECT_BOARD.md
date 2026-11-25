@@ -2,13 +2,13 @@
 
 > Secretary 独家维护。Attention Queue 只列真正需要 CEO 拍板、手工操作或签收的阻断事项。
 
-最后更新时间：2026-11-25 16:51（Asia/Shanghai）
+最后更新时间：2026-11-25 16:52（Asia/Shanghai）
 
 ## Attention Queue
 
 | 事项 | Task ID | 当前状态 | 一句话决策提示 | 更新时间 |
 | --- | --- | --- | --- | --- |
-| 注释门基线为红：4 个既有文件超注释预算，本次未修改这些文件 | - | BASELINE_FAIL | 需 CEO 决定另开清理任务、定点调整预算，或明确门禁豁免条件 | 2026-11-24 18:20 |
+| 注释门基线仍红：`TimerWheel.cs`、`SaveSlot.cs` 两个既有文件超预算 | - | BASELINE_FAIL | 需 CEO 决定另开清理任务、定点调整预算，或明确门禁豁免条件 | 2026-11-25 16:52 |
 
 ## Ticket Index
 
@@ -16,15 +16,15 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | GD-2026-0001 | L2 / R2 | MERGED | `VReason/Update` | v01 | 核心玩法底层修复与配表/手感调优（批 1/3） | 已以 `ACCEPT WITH FOLLOW-UP` 签收并合入；独立 Play/V4 与 V5 保留 |
 | GD-2026-0002 | L2 / R2 | MERGED | `VReason/Update` | v01 | 玩家受击/死亡与波前种子配给（批 2/3） | 已以 `ACCEPT WITH FOLLOW-UP` 签收并合入；独立 Play/V4 与 V5 保留 |
-| GD-2026-0003 | L2 / R2 | ACCEPTED_WITH_FOLLOW_UP | `ai/GD-2026-0003` | v01 | 引导、UI、剧情与音频体验（批 3/3） | CEO 已完成手测并签收；独立 Play/V4 与 V5 保留为 follow-up |
+| GD-2026-0003 | L2 / R2 | MERGED | `VReason/Update` | v01 | 引导、UI、剧情与音频体验（批 3/3） | 已以 `ACCEPT WITH FOLLOW-UP` 签收并合入；独立 Play/V4 与 V5 保留 |
 
 ## 当前基线
 
 - Branch：`VReason/Update`
-- HEAD：`243ed1f` (`merge: GD-2026-0002 玩家生存与资源配给`)
-- 工作区：仅剩未提交的 `AI_Context/TASKS/GD-2026-0001/NEED_FILES/` 本地补料副本；其余任务文档与 0001 实现已提交
+- HEAD：`beff96a` (`merge: GD-2026-0003 引导 UI 与音频升级`)
+- 工作区：仅剩未提交的 `AI_Context/TASKS/GD-2026-0001/NEED_FILES/` 本地补料副本；其余任务文档与三批实现已提交
 - 原三项修改：`Tables.cs`、`vector2.cs`、`EnvironmentDirector.cs` 已包含在 `df60015`，不再作为未提交改动
-- 状态：`VERIFIED`，读取自 2026-11-25 16:32 当前 Git 状态；0001 主分支编译/拓扑门 `0 error / 0 warning`
+- 状态：`VERIFIED`，读取自 2026-11-25 16:52 当前 Git 状态；三批合入后主分支编译/拓扑门 `0 error / 0 warning`
 
 ## Context Drift
 
