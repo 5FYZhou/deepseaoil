@@ -2,7 +2,7 @@
 
 > Secretary 独家维护。Attention Queue 只列真正需要 CEO 拍板、手工操作或签收的阻断事项。
 
-最后更新时间：2026-11-26 10:04（Asia/Shanghai）
+最后更新时间：2026-11-26 10:37（Asia/Shanghai）
 
 ## Attention Queue
 
@@ -20,12 +20,12 @@
 | GD-2026-0002 | L2 / R2 | MERGED | `VReason/Update` | v01 | 玩家生存、死亡反馈与波前种子配给（批 2/3） | 已签收合入；进入安装包完整通关阶段，独立 Play/V4 与 V5 保留 |
 | GD-2026-0003 | L2 / R2 | MERGED | `VReason/Update` | v01 | 引导、UI、剧情与音频体验（批 3/3） | 已签收合入；进入安装包完整通关阶段，独立 Play/V4 与 V5 保留 |
 | GD-2026-0004 | L1 / R1 | AWAITING_CEO_REVIEW | - | v02 | 根 README 对外主页、实机媒体与开发入口重构 | 已直接执行 FINAL v02 与指定文案，自动验证通过，等待 CEO 验收 |
-| GD-2026-0005 | L1 / R1 | IN_PROGRESS | `ai/GD-2026-0005` | v02 | 同元素反应、种子计数遮挡与剧情/弹窗语义配色 | Worker 已解除测试白名单阻塞；继续施工与取证 |
+| GD-2026-0005 | L1 / R1 | MERGED | `ai/GD-2026-0005` | v03 | 同元素反应、种子计数遮挡与剧情/弹窗语义配色 | 已按 CEO 指令提交并合入 `main`；业务提交 `5031dba`，编译/导表/Diff 门通过 |
 
 ## 当前基线
 
 - Branch：`main`
-- HEAD：`03d8913` (`docs(GD-2026-0004): complete README refresh and context writeback`)
+- HEAD：`78a5583` (`merge: GD-2026-0005 同元素扩散与提示体验修复`)
 - 工作区：任务登记前干净；本地 `main` 领先 `origin/main` 1 个提交
 - 原三项修改：`Tables.cs`、`vector2.cs`、`EnvironmentDirector.cs` 已包含在 `df60015`，不再作为未提交改动
 - 状态：`PACKAGED / FULL_RUN_PENDING`。三批合入后编译/拓扑、Luban 与 Diff 门通过；CEO 已完成一轮 Test Runner 和简短 Play 冒烟，安装包完整通关尚未完成
