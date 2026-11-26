@@ -36,3 +36,4 @@ MonoBehaviour:
   damageFire: {r: 1, g: 0.17563589, b: 0.10196078, a: 1}
   damageElectric: {r: 0.53202593, g: 0.2980392, b: 1, a: 1}
   damageIce: {r: 0.39999998, g: 0.8051948, b: 1, a: 1}
+  seedPlantAndLife: {r: 0.49411765, g: 0.72156864, b: 0.5411765, a: 1}

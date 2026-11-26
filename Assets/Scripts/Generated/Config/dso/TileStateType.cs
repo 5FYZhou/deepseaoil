@@ -10,7 +10,7 @@
 
 
 namespace cfg.dso
-{ 
+{
     public enum TileStateType
     {
         /// <summary>
@@ -87,5 +87,5 @@ namespace cfg.dso
         BasicFlower = 24,
     }
 
-} 
+}
 

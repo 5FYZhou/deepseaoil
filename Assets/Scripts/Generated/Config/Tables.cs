@@ -89,7 +89,7 @@ public partial class Tables
         TbSlotDialogue = new dso.TbSlotDialogue(loader("dso_tbslotdialogue"));
         ResolveRef();
     }
-    
+
     private void ResolveRef()
     {
         TbProjectile.ResolveRef(this);

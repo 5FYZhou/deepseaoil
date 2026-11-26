@@ -1,0 +1,8 @@
+
+镜像计划：
+  待删除（生成物区里多出来的非 .meta 文件）：0
+  待覆盖/新增：1
+    + T:\GAMES\deepseaoil-worktrees\GD-2026-0003\Assets\StreamingAssets\Luban\dso_tbslotdialogue.json
+  孤儿 .meta 待清：0
+
+镜像完成：删除 0，拷贝 1，清孤儿 .meta 0

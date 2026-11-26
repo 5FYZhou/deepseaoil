@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class AudioMap : Luban.BeanBase
 {
-    public AudioMap(JSONNode _buf) 
+    public AudioMap(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = (dso.AudioId)_buf["id"].AsInt; }
         { if(!_buf["file_name"].IsString) { throw new SerializationException(); }  FileName = _buf["file_name"]; }
@@ -37,7 +37,7 @@ public sealed partial class AudioMap : Luban.BeanBase
     /// 对应文件名称
     /// </summary>
     public readonly string FileName;
-   
+
     public const int __ID__ = -1303756236;
     public override int GetTypeId() => __ID__;
 

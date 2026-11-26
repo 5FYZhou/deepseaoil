@@ -18,8 +18,8 @@ MonoBehaviour:
     acceleration: 12
     knockbackDecay: 30
     stopDistance: 0.75
-    turnRateLimit: 540
-    turnSmoothSeconds: 0.05
+    turnRateLimit: 720
+    turnSmoothSeconds: 0.03
     chaseRange: 60
     squash:
       amount: 0.3
@@ -33,8 +33,8 @@ MonoBehaviour:
     acceleration: 16
     knockbackDecay: 30
     stopDistance: 0.9
-    turnRateLimit: 540
-    turnSmoothSeconds: 0.05
+    turnRateLimit: 720
+    turnSmoothSeconds: 0.03
     chaseRange: 60
     squash:
       amount: 0.3
@@ -46,7 +46,7 @@ MonoBehaviour:
   navSkin: 0.05
   navClearanceCap: 1
   elementTileCost: 0.85
-  cornerSpeedFactor: 0.4
+  cornerSpeedFactor: 0.5
   separationRadius: 0.45
   separationWeight: 0.25
   stuckFrames: 18

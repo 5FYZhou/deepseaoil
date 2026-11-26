@@ -1,0 +1,47 @@
+注释 106988 字符 / 代码 34591 行 = 密度 3.093；文件 284 个；硬超标 2 个；容差区 18 个（WARN，不阻断）
+
+容差区告警 18 条（不阻断；建议下次集中清理时压回）：
+  [预算·容差区] Assets/Scripts/Data/Config/Spec/TileStateSpec.cs
+        注释 465 字符 = 上限 427 + 38（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Data/Settings/VisualPalette.cs
+        注释 304 字符 = 上限 266 + 38（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Logic/Element/ReactionOutcome.cs
+        注释 133 字符 = 上限 117 + 16（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Logic/Grid/GridLogic.cs
+        注释 2842 字符 = 上限 2800 + 42（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Logic/Grid/TileStateMachine.cs
+        注释 324 字符 = 上限 299 + 25（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Logic/Input/GameState.cs
+        注释 181 字符 = 上限 142 + 39（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Logic/World/SeedPlanter.cs
+        注释 215 字符 = 上限 195 + 20（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Actor/EnemyActor.cs
+        注释 1647 字符 = 上限 1607 + 40（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Adapters/TilemapAdapter.cs
+        注释 1083 字符 = 上限 1082 + 1（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Effects/Drivers/HighlightDriver.cs
+        注释 218 字符 = 上限 192 + 26（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Effects/Drivers/ParticleDriver.cs
+        注释 1429 字符 = 上限 1398 + 31（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Grid/TileOverlayDirector.cs
+        注释 380 字符 = 上限 345 + 35（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Projectile/BallShadow.cs
+        注释 410 字符 = 上限 377 + 33（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Projectile/BallView.cs
+        注释 403 字符 = 上限 366 + 37（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/UI/BasePanel.cs
+        注释 327 字符 = 上限 309 + 18（容差 50，未阻断）
+  [预算·容差区] Assets/Scripts/Presentation/Visual/SortingLayerConsts.cs
+        注释 159 字符 = 上限 144 + 15（容差 50，未阻断）
+  [预算·容差区] Assets/Tests/Runtime/Editor/地块效果Tests.cs
+        注释 1953 字符 = 上限 1943 + 10（容差 50，未阻断）
+  [预算·容差区] Assets/Tests/Runtime/Editor/Data层Tests.cs
+        注释 3321 字符 = 上限 3280 + 41（容差 50，未阻断）
+
+违规 2 条：
+  [预算] Assets/Scripts/Logic/Services/Timer/TimerWheel.cs
+        注释 1406 字符 > 上限 1334 + 容差 50（超 72）
+  [预算] Assets/Scripts/Presentation/UI/Panel/SaveSlot.cs
+        注释 141 字符 > 上限 0 + 容差 0（超 141）
+
+规范见 Docs/工程/注释规范.md

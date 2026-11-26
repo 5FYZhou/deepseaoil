@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class TileState : Luban.BeanBase
 {
-    public TileState(JSONNode _buf) 
+    public TileState(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = (dso.TileStateType)_buf["id"].AsInt; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
@@ -72,7 +72,7 @@ public sealed partial class TileState : Luban.BeanBase
     /// 覆盖优先级
     /// </summary>
     public readonly int Priority;
-   
+
     public const int __ID__ = 1483327413;
     public override int GetTypeId() => __ID__;
 

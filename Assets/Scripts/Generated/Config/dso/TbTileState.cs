@@ -20,13 +20,13 @@ public partial class TbTileState
 {
     private readonly System.Collections.Generic.Dictionary<dso.TileStateType, dso.TileState> _dataMap;
     private readonly System.Collections.Generic.List<dso.TileState> _dataList;
-    
+
     public TbTileState(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<dso.TileStateType, dso.TileState>(count);
         _dataList = new System.Collections.Generic.List<dso.TileState>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.TileState _v;

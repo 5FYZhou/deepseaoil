@@ -36,14 +36,17 @@
 // 跑法：Window ▸ General ▸ Test Runner ▸ EditMode ▸ Run All
 // ---------------------------------------------------------------------------
 
+using System.Reflection;
 using DeepseaOil.Data;
 using DeepseaOil.Data.Settings;
 using DeepseaOil.Logic;
+using DeepseaOil.Logic.Drop;
 using DeepseaOil.Logic.Input;
 using DeepseaOil.Logic.Movement;
 using DeepseaOil.Logic.Player;
 using DeepseaOil.Presentation;
 using DeepseaOil.Presentation.Adapters;
+using DeepseaOil.Presentation.Visual;
 using NUnit.Framework;
 using UnityEngine;
 using cfg.dso;
@@ -52,6 +55,8 @@ namespace DeepseaOil.Tests
 {
     public class 移动Tests
     {
+        private const int EnemyLayerBit = 1 << 8;
+
         private PlayerConfig _config;
         private PlayerSpec _spec;
         private InputBuffer _buffer;
@@ -469,6 +474,394 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(spec.SeedCapacity - 1, count, "out 必须是丢弃前的余量");
             Assert.AreEqual(0, stats.SeedCount, "丢弃即清零");
             Assert.AreEqual(SeedType.None, stats.Seed, "丢弃即清种类");
+        }
+
+        [Test]
+        public void M25_无敌查询遵守存活窗口与非数边界()
+        {
+            var stats = new PlayerStats(_spec);
+
+            Assert.IsFalse(stats.IsInvulnerable(0f));
+            Assert.IsTrue(stats.ApplyDamage(1f, 2f));
+            Assert.IsTrue(stats.IsInvulnerable(2.1f));
+            Assert.IsFalse(stats.IsInvulnerable(2f + _spec.InvulnerableDuration));
+            Assert.IsFalse(stats.IsInvulnerable(float.NaN));
+
+            Assert.IsTrue(stats.ApplyDamage(_spec.MaxHp, 10f));
+            Assert.IsFalse(stats.IsAlive);
+            Assert.IsFalse(stats.IsInvulnerable(10.1f));
+        }
+
+        [Test]
+        public void M26_无敌期间仅排除敌人层且结束后恢复基础掩码()
+        {
+            CreateControllerRig(
+                out GameObject rig,
+                out PlayerController controller,
+                out PlayerMotor motor,
+                out BoxCollider2D bodyCollider,
+                out CircleCollider2D triggerCollider,
+                out _);
+
+            try
+            {
+                int baseMask = 1 << 9;
+
+                bodyCollider.excludeLayers = baseMask;
+                triggerCollider.excludeLayers = baseMask;
+
+                PlayerLogic logic = CreateLogic(motor);
+                SetLogic(controller, logic);
+                InvokePrivate(controller, "EnsureAnimationView");
+                InvokePrivate(controller, "CacheSolidColliders");
+
+                Assert.IsTrue(logic.Stats.ApplyDamage(1f, 5f));
+                InvokePrivate(controller, "RefreshGhostState", 5.1f);
+
+                Assert.AreEqual(baseMask | EnemyLayerBit, bodyCollider.excludeLayers.value);
+                Assert.AreEqual(baseMask, triggerCollider.excludeLayers.value);
+
+                InvokePrivate(controller, "RefreshGhostState", 5f + _spec.InvulnerableDuration);
+
+                Assert.AreEqual(baseMask, bodyCollider.excludeLayers.value);
+                Assert.AreEqual(baseMask, triggerCollider.excludeLayers.value);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rig);
+            }
+        }
+
+        [Test]
+        public void M27_死亡立即刹停并复位幽灵碰撞与可见性()
+        {
+            CreateControllerRig(
+                out GameObject rig,
+                out PlayerController controller,
+                out PlayerMotor motor,
+                out Rigidbody2D body,
+                out BoxCollider2D bodyCollider,
+                out SpriteRenderer renderer);
+
+            try
+            {
+                PlayerLogic logic = CreateLogic(motor);
+                SetLogic(controller, logic);
+                InvokePrivate(controller, "EnsureAnimationView");
+                InvokePrivate(controller, "CacheSolidColliders");
+
+                Assert.IsTrue(logic.Stats.ApplyDamage(1f, 20f));
+                InvokePrivate(controller, "RefreshGhostState", 20.1f);
+
+                body.velocity = new Vector2(20f, -7f);
+                renderer.enabled = false;
+
+                controller.OnDeathTriggered();
+
+                Assert.AreEqual(Vector2.zero, body.velocity);
+                Assert.AreEqual(0, bodyCollider.excludeLayers.value & EnemyLayerBit);
+                Assert.IsTrue(renderer.enabled);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rig);
+            }
+        }
+
+        [Test]
+        public void M28_无敌闪烁会周期隐藏并在死亡时恢复()
+        {
+            CreateControllerRig(
+                out GameObject rig,
+                out PlayerController controller,
+                out PlayerMotor motor,
+                out Rigidbody2D _,
+                out BoxCollider2D _,
+                out SpriteRenderer renderer);
+
+            try
+            {
+                PlayerLogic logic = CreateLogic(motor);
+                SetLogic(controller, logic);
+                InvokePrivate(controller, "EnsureAnimationView");
+                InvokePrivate(controller, "CacheSolidColliders");
+
+                Assert.IsTrue(logic.Stats.ApplyDamage(1f, 30f));
+                InvokePrivate(controller, "RefreshGhostState", 30.1f);
+
+                SetField(controller, "_ghostStartTime", Time.time - 0.12f - 1.5f / 14f);
+                SetField(controller, "_flickerHidden", false);
+                InvokePrivate(controller, "TickGhostFlicker");
+
+                Assert.IsFalse(renderer.enabled);
+
+                controller.OnDeathTriggered();
+
+                Assert.IsTrue(renderer.enabled);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rig);
+            }
+        }
+
+        [Test]
+        public void M29_满槽配给保留旧种并按朝向生成脚边掉落()
+        {
+            var stats = new PlayerStats(_spec);
+
+            Assert.IsTrue(stats.GrantSeed(SeedType.Fire));
+
+            var drops = new SpawnProbe();
+            var bounds = new BoundsArea(new Vector2(-10f, -10f), new Vector2(10f, 10f));
+
+            bool granted = InvokeGrantOrDrop(
+                stats,
+                SeedType.Ice,
+                new Vector2(9.8f, 0f),
+                Vector2.right,
+                bounds,
+                drops,
+                out bool dropped);
+
+            Assert.IsTrue(granted);
+            Assert.IsTrue(dropped);
+            Assert.AreEqual(SeedType.Fire, stats.Seed);
+            Assert.AreEqual(_spec.SeedCapacity, stats.SeedCount);
+            Assert.AreEqual(1, drops.Calls);
+            Assert.AreEqual(DropType.Seed, drops.Request.Type);
+            Assert.AreEqual(SeedType.Ice, drops.Request.Seed);
+            Assert.AreEqual(9.8f, drops.Request.Origin.x);
+            Assert.AreEqual(10f, drops.Request.Landing.x, 1e-4f);
+        }
+
+        [Test]
+        public void M30_空槽配给直接入袋且零朝向掉向右侧()
+        {
+            var stats = new PlayerStats(_spec);
+            var drops = new SpawnProbe();
+
+            bool granted = InvokeGrantOrDrop(
+                stats,
+                SeedType.Plant,
+                Vector2.zero,
+                Vector2.zero,
+                default,
+                drops,
+                out bool dropped);
+
+            Assert.IsTrue(granted);
+            Assert.IsFalse(dropped);
+            Assert.AreEqual(SeedType.Plant, stats.Seed);
+            Assert.AreEqual(0, drops.Calls);
+
+            var occupiedStats = new PlayerStats(_spec);
+
+            Assert.IsTrue(occupiedStats.GrantSeed(SeedType.Plant));
+
+            granted = InvokeGrantOrDrop(
+                occupiedStats,
+                SeedType.Fire,
+                Vector2.zero,
+                Vector2.zero,
+                default,
+                drops,
+                out dropped);
+
+            Assert.IsTrue(granted);
+            Assert.IsTrue(dropped);
+            Assert.AreEqual(0.55f, drops.Request.Landing.x, 1e-4f);
+            Assert.AreEqual(0f, drops.Request.Landing.y, 1e-4f);
+        }
+
+        [Test]
+        public void M31_发射失败只退回本次消耗且不会重置整槽()
+        {
+            var stats = new PlayerStats(_spec);
+
+            Assert.IsTrue(stats.GrantSeed(SeedType.Fire));
+
+            for (int i = 0; i < _spec.SeedCapacity; i++)
+            {
+                Assert.IsTrue(stats.TryConsumeSeed());
+            }
+
+            Assert.AreEqual(SeedType.None, stats.Seed);
+            Assert.AreEqual(0, stats.SeedCount);
+
+            Assert.IsTrue(stats.TryRestoreSeed(SeedType.Fire));
+            Assert.AreEqual(SeedType.Fire, stats.Seed);
+            Assert.AreEqual(1, stats.SeedCount);
+            Assert.AreNotEqual(_spec.SeedCapacity, stats.SeedCount);
+
+            Assert.IsTrue(stats.TryConsumeSeed());
+            Assert.IsTrue(stats.GrantSeed(SeedType.Ice));
+            Assert.IsFalse(stats.TryRestoreSeed(SeedType.Fire));
+            Assert.AreEqual(SeedType.Ice, stats.Seed);
+            Assert.AreEqual(_spec.SeedCapacity, stats.SeedCount);
+        }
+
+        [Test]
+        public void M32_投出后的落点失败保持耗尽且不会重置整槽()
+        {
+            CreateControllerRig(
+                out GameObject playerRig,
+                out PlayerController controller,
+                out PlayerMotor motor,
+                out Rigidbody2D _,
+                out BoxCollider2D _,
+                out SpriteRenderer _);
+
+            var combatObject = new GameObject("CombatSeedFailureTest");
+
+            try
+            {
+                PlayerLogic logic = CreateLogic(motor);
+                SetLogic(controller, logic);
+
+                CombatRoot combat = combatObject.AddComponent<CombatRoot>();
+                SetField(combat, "player", controller);
+
+                Assert.IsTrue(logic.Stats.GrantSeed(SeedType.Fire));
+
+                for (int i = 0; i < _spec.SeedCapacity; i++)
+                {
+                    Assert.IsTrue(logic.Stats.TryConsumeSeed());
+                }
+
+                Assert.AreEqual(SeedType.None, logic.Stats.Seed);
+                Assert.AreEqual(0, logic.Stats.SeedCount);
+
+                InvokePrivate(combat, "OnSeedBallLanded", SeedType.Fire, Vector2.zero);
+
+                Assert.AreEqual(SeedType.None, logic.Stats.Seed);
+                Assert.AreEqual(0, logic.Stats.SeedCount);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(combatObject);
+                UnityEngine.Object.DestroyImmediate(playerRig);
+            }
+        }
+
+        private PlayerLogic CreateLogic(PlayerMotor motor)
+        {
+            var buffer = new InputBuffer(
+                Mathf.Max(_config.inputBufferTime, _config.dashBufferTime),
+                Mathf.RoundToInt(1f / 0.02f));
+
+            return new PlayerLogic(motor, _spec, buffer);
+        }
+
+        private static void CreateControllerRig(
+            out GameObject root,
+            out PlayerController controller,
+            out PlayerMotor motor,
+            out Rigidbody2D body,
+            out BoxCollider2D bodyCollider,
+            out SpriteRenderer renderer)
+        {
+            root = new GameObject("Player受击测试");
+
+            body = root.AddComponent<Rigidbody2D>();
+            motor = root.AddComponent<PlayerMotor>();
+            bodyCollider = root.AddComponent<BoxCollider2D>();
+
+            var trigger = new GameObject("Trigger");
+            trigger.transform.SetParent(root.transform, false);
+            trigger.AddComponent<CircleCollider2D>().isTrigger = true;
+
+            var view = new GameObject("View");
+            view.transform.SetParent(root.transform, false);
+            renderer = view.AddComponent<SpriteRenderer>();
+            var animation = view.AddComponent<ActorAnimationView>();
+            SetField(animation, "spriteRenderer", renderer);
+
+            controller = root.AddComponent<PlayerController>();
+
+            SetField(controller, "motor", motor);
+            SetField(controller, "animView", animation);
+        }
+
+        private static void CreateControllerRig(
+            out GameObject root,
+            out PlayerController controller,
+            out PlayerMotor motor,
+            out BoxCollider2D bodyCollider,
+            out CircleCollider2D triggerCollider,
+            out SpriteRenderer renderer)
+        {
+            CreateControllerRig(
+                out root,
+                out controller,
+                out motor,
+                out _,
+                out bodyCollider,
+                out renderer);
+
+            triggerCollider = root.GetComponentInChildren<CircleCollider2D>(true);
+        }
+
+        private static void SetLogic(PlayerController controller, PlayerLogic logic)
+        {
+            PropertyInfo property = typeof(PlayerController).GetProperty(
+                nameof(PlayerController.Logic),
+                BindingFlags.Instance | BindingFlags.Public);
+
+            Assert.IsNotNull(property);
+            property.GetSetMethod(true).Invoke(controller, new object[] { logic });
+        }
+
+        private static void SetField<T>(object target, string name, T value)
+        {
+            FieldInfo field = target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(field, $"找不到字段 {name}");
+            field.SetValue(target, value);
+        }
+
+        private static object InvokePrivate(object target, string name, params object[] args)
+        {
+            MethodInfo method = target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, $"找不到方法 {name}");
+            return method.Invoke(target, args);
+        }
+
+        private static bool InvokeGrantOrDrop(
+            PlayerStats stats,
+            SeedType seed,
+            Vector2 origin,
+            Vector2 facing,
+            BoundsArea bounds,
+            IDropSpawner drops,
+            out bool dropped)
+        {
+            MethodInfo method = typeof(CombatRoot).GetMethod(
+                "TryGrantOrDropSeed",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method);
+
+            object[] args = { stats, seed, origin, facing, bounds, drops, false };
+            bool result = (bool)method.Invoke(null, args);
+
+            dropped = (bool)args[6];
+            return result;
+        }
+
+        private sealed class SpawnProbe : IDropSpawner
+        {
+            public int Calls { get; private set; }
+
+            public DropSpawnRequest Request { get; private set; }
+
+            public bool TrySpawn(in DropSpawnRequest request)
+            {
+                Calls++;
+                Request = request;
+                return true;
+            }
         }
     }
 }

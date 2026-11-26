@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class ElementRule : Luban.BeanBase
 {
-    public ElementRule(JSONNode _buf) 
+    public ElementRule(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["source_tile"].IsNumber) { throw new SerializationException(); }  SourceTile = (dso.TileStateType)_buf["source_tile"].AsInt; }
@@ -72,7 +72,7 @@ public sealed partial class ElementRule : Luban.BeanBase
     /// 触发网格连锁
     /// </summary>
     public readonly bool TriggerChain;
-   
+
     public const int __ID__ = -391737142;
     public override int GetTypeId() => __ID__;
 

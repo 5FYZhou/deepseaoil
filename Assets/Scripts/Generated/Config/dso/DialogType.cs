@@ -10,7 +10,7 @@
 
 
 namespace cfg.dso
-{ 
+{
     public enum DialogType
     {
         /// <summary>
@@ -31,5 +31,5 @@ namespace cfg.dso
         PlayerPopup = 3,
     }
 
-} 
+}
 

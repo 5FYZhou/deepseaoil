@@ -1,0 +1,6 @@
+Assets/Scripts/Generated/Config/Tables.cs:92: trailing whitespace.
++    
+Assets/Scripts/Generated/Config/vector2.cs:18: trailing whitespace.
++    public vector2(JSONNode _buf) 
+Assets/Scripts/Generated/Config/vector2.cs:31: trailing whitespace.
++   

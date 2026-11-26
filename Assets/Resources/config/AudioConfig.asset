@@ -16,3 +16,8 @@ MonoBehaviour:
   sfxVolume: 0.8
   path: audio
   bgmFadeDuration: 0.8
+  typewriterBlipKey:
+  popupSlideInKey:
+  popupSlideOutKey:
+  typewriterBlipCooldown: 0.055
+  uiSfxVolumeScale: 0.95

@@ -72,6 +72,8 @@ namespace DeepseaOil.Data.Settings
 
         public Color damageIce = new(0.70f, 0.90f, 1.00f, 1f);
 
+        public Color seedPlantAndLife = new Color32(126, 184, 138, 255);
+
         [Header("HUD 受击")]
         [Tooltip("血条受击溅射粒子色：与 LIFE 条暖橙同族，别用纯白（会在奶油底上糊成一片）")]
         public Color hudHitSpark = new(1f, 0.72f, 0.42f, 1f);
@@ -149,6 +151,23 @@ namespace DeepseaOil.Data.Settings
                 case 3:
                     return damageIce;
 
+                default:
+                    return damagePhysical;
+            }
+        }
+
+        public Color SeedHighlightColor(SeedType type)
+        {
+            switch (type)
+            {
+                case SeedType.Fire:
+                    return damageFire;
+                case SeedType.Elec:
+                    return damageElectric;
+                case SeedType.Ice:
+                    return damageIce;
+                case SeedType.Plant:
+                    return seedPlantAndLife;
                 default:
                     return damagePhysical;
             }

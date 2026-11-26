@@ -22,8 +22,8 @@ namespace DeepseaOil.Presentation.Grid
         // 同一批装饰体被上千个采样点反复问：分类一次缓存，Bake 开头清
         private static readonly Dictionary<Collider2D, bool> BlockingCache = new Dictionary<Collider2D, bool>();
 
-        /// <summary>烘焙净空图；clearanceCap 是解析上限（世界单位），更远一律饱和到它</summary>
-        /// <remarks>净空 = min(到静态碰撞体, 到阻挡地貌格的距离)：阻挡地貌碰撞体不进障碍集，不补距离怪会贴它站。未登记格留 0；几何非法或空返回 null（null = 没烘焙）。</remarks>
+        /// <summary>烘焙静态净空图；clearanceCap 是解析上限（世界单位），更远一律饱和到它</summary>
+        /// <remarks>只烘静态碰撞体与缺失地板；带生命周期的阻挡地貌由 NavField 按 terrainVersion 动态计算。几何非法或空返回 null（null = 没烘焙）。</remarks>
         public static NavMap Bake(GridLogic grid, float clearanceCap)
         {
             if (grid == null || !grid.Geometry.IsValid) return null;
@@ -44,8 +44,7 @@ namespace DeepseaOil.Presentation.Grid
             {
                 Vector3Int cell = map.CellOf(i);
 
-                // 登记表是"这里有没有地板"的唯一真源；阻挡地貌另算一档，两者都不留净空
-                blocked[i] = !grid.HasCell(cell) || grid.IsObstacle(cell) ? (byte)1 : (byte)0;
+                blocked[i] = !grid.HasCell(cell) ? (byte)1 : (byte)0;
             }
 
             for (int i = 0; i < map.CellCount; i++)
@@ -111,8 +110,7 @@ namespace DeepseaOil.Presentation.Grid
             return nearest;
         }
 
-        /// <summary>取点到最近"阻挡地貌格"的距离；圈内没有阻挡地貌时饱和到 cap</summary>
-        /// <remarks>圈数由解析上限推：cap 之外的点都饱和成 cap，多搜没有意义。地貌格按整格矩形算距离。</remarks>
+        /// <summary>取点到最近缺失地板格的距离；圈内没有缺失地板时饱和到 cap</summary>
         private static float TerrainClearance(NavMap map, byte[] blocked, Vector3Int cell, Vector2 point, float half, int ring, float cap)
         {
             float nearest = cap;

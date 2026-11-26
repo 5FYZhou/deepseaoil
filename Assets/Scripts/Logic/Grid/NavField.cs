@@ -198,6 +198,7 @@ namespace DeepseaOil.Logic.Grid
         {
             int cellCount = map.CellCount;
             float clearance = Radius + skin;
+            float clearanceSqr = clearance * clearance;
 
             _preferredAny = false;
 
@@ -206,6 +207,22 @@ namespace DeepseaOil.Logic.Grid
                 // 一格两次查表：放进采样点内层会按 16 倍翻
                 Vector3Int cell = map.CellOf(c);
                 bool obstacle = grid.IsObstacle(cell);
+                bool nearObstacle = false;
+
+                for (int dy = -1; dy <= 1 && !nearObstacle; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+
+                        if (grid.IsObstacle(new Vector3Int(cell.x + dx, cell.y + dy, cell.z)))
+                        {
+                            nearObstacle = true;
+                            break;
+                        }
+                    }
+                }
+
                 bool preferred = !obstacle && grid.IsElementTile(cell);
                 byte step = preferred ? (byte)1 : (byte)0;
 
@@ -216,12 +233,51 @@ namespace DeepseaOil.Logic.Grid
                     for (int k = 0; k < NavMap.Subdivision; k++)
                     {
                         int index = map.SampleIndexOf(c, k, j);
+                        bool free = !obstacle && map.SampleClearance(index) > clearance;
 
-                        _free[index] = !obstacle && map.SampleClearance(index) > clearance ? (byte)1 : (byte)0;
+                        // 静态图不烘动态阻挡；邻格障碍仍会侵占本格的贴身采样点。
+                        if (free && nearObstacle)
+                        {
+                            Vector2 point = map.SampleCenter(index);
+
+                            free = !TouchesNeighborObstacle(map, grid, cell, point, clearanceSqr);
+                        }
+
+                        _free[index] = free ? (byte)1 : (byte)0;
                         _stepSample[index] = step;
                     }
                 }
             }
+        }
+
+        private static bool TouchesNeighborObstacle(
+            NavMap map,
+            GridLogic grid,
+            Vector3Int cell,
+            Vector2 point,
+            float clearanceSqr)
+        {
+            float half = map.Spacing * (NavMap.Subdivision * 0.5f);
+
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+
+                    var neighbor = new Vector3Int(cell.x + dx, cell.y + dy, cell.z);
+
+                    if (!grid.IsObstacle(neighbor)) continue;
+
+                    Vector2 center = map.CellCenter(neighbor);
+                    float ox = Mathf.Max(Mathf.Abs(point.x - center.x) - half, 0f);
+                    float oy = Mathf.Max(Mathf.Abs(point.y - center.y) - half, 0f);
+
+                    if (ox * ox + oy * oy <= clearanceSqr) return true;
+                }
+            }
+
+            return false;
         }
 
         public bool TryGetStep(int index, out int next)

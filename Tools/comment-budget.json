@@ -232,8 +232,10 @@
     "Assets/Tests/Runtime/Editor/寻路Tests.cs": 2600,
     "Assets/Tests/Runtime/Editor/移动Tests.cs": 3346,
     "Assets/Tests/Runtime/Editor/状态工厂Tests.cs": 1092,
+    "Assets/Tests/Runtime/Editor/生命神泉Tests.cs": 0,
     "Assets/Tests/Runtime/Editor/Data层Tests.cs": 3280,
     "Assets/Tests/Runtime/Editor/ReactionResolverTests.cs": 496,
+    "Assets/Tests/Runtime/Editor/引导与UI反馈Tests.cs": 0,
     "Assets/Tests/Scene/WaveSceneInitializer.cs": 0,
     "Assets/Tests/Tools/LubanWorkflowTests.cs": 2779
   },

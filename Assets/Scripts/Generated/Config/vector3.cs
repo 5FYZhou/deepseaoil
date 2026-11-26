@@ -15,7 +15,7 @@ namespace cfg
 {
 public partial struct vector3
 {
-    public vector3(JSONNode _buf) 
+    public vector3(JSONNode _buf)
     {
         { if(!_buf["x"].IsNumber) { throw new SerializationException(); }  X = _buf["x"]; }
         { if(!_buf["y"].IsNumber) { throw new SerializationException(); }  Y = _buf["y"]; }
@@ -30,7 +30,7 @@ public partial struct vector3
     public readonly float X;
     public readonly float Y;
     public readonly float Z;
-   
+
 
     public  void ResolveRef(Tables tables)
     {

@@ -20,13 +20,13 @@ public partial class TbElementRule
 {
     private readonly System.Collections.Generic.Dictionary<int, dso.ElementRule> _dataMap;
     private readonly System.Collections.Generic.List<dso.ElementRule> _dataList;
-    
+
     public TbElementRule(JSONNode _buf)
     {
         int count = _buf.Count;
         _dataMap = new System.Collections.Generic.Dictionary<int, dso.ElementRule>(count);
         _dataList = new System.Collections.Generic.List<dso.ElementRule>(count);
-        
+
         foreach(JSONNode _ele in _buf.Children)
         {
             dso.ElementRule _v;

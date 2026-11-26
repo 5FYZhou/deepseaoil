@@ -1,0 +1,19 @@
+ .vscode/settings.json                              |   2 +-
+ .../Fonts/SourceHanSansSC-Normal SDF.asset         |   2 +-
+ Assets/Resources/Fonts/蒙黑体 SDF.asset            |  76 ++++-
+ .../UI/ui_panel_tanchuangtouxiangkuang.psd.meta    |   4 +-
+ Assets/Resources/config/AudioConfig.asset          |   5 +
+ Assets/Resources/ui/Panel/DialoguePanel.prefab     |  65 +++--
+ Assets/Scripts/Data/Settings/AudioConfig.cs        |  16 ++
+ Assets/Scripts/Generated/Config/Tables.cs          | 188 ++++++-------
+ Assets/Scripts/Generated/Config/vector2.cs         |  54 ++--
+ Assets/Scripts/Presentation/Audio/AudioManager.cs  | 310 ++++++++++++++++-----
+ Assets/Scripts/Presentation/Audio/SfxPlayback.cs   |  23 ++
+ Assets/Scripts/Presentation/Story/StoryFlow.cs     |  46 ++-
+ .../Presentation/UI/Component/Typewriter.cs        | 108 ++++++-
+ .../Scripts/Presentation/UI/Panel/DialoguePanel.cs | 186 ++++++++++++-
+ .../Scripts/Presentation/UI/Panel/GamePlayPanel.cs | 199 ++++++++++++-
+ .../StreamingAssets/Luban/dso_tbslotdialogue.json  | 108 +++----
+ ConfigWorkspace/Data/slot_dialogue.xlsx            | Bin 18551 -> 15352 bytes
+ ProjectSettings/EditorBuildSettings.asset          |   2 +-
+ 18 files changed, 1075 insertions(+), 319 deletions(-)

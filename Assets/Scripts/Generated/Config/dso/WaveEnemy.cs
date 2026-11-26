@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class WaveEnemy : Luban.BeanBase
 {
-    public WaveEnemy(JSONNode _buf) 
+    public WaveEnemy(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["wave_id"].IsNumber) { throw new SerializationException(); }  WaveId = _buf["wave_id"]; }
@@ -52,7 +52,7 @@ public sealed partial class WaveEnemy : Luban.BeanBase
     /// 战术意图与怪潮规模
     /// </summary>
     public readonly string Describe;
-   
+
     public const int __ID__ = -429651647;
     public override int GetTypeId() => __ID__;
 

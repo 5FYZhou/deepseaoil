@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class ElementDuoReaction : Luban.BeanBase
 {
-    public ElementDuoReaction(JSONNode _buf) 
+    public ElementDuoReaction(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = _buf["id"]; }
         { if(!_buf["elem_a"].IsNumber) { throw new SerializationException(); }  ElemA = (dso.TileStateType)_buf["elem_a"].AsInt; }
@@ -82,7 +82,7 @@ public sealed partial class ElementDuoReaction : Luban.BeanBase
     /// 连锁模式
     /// </summary>
     public readonly bool TriggerChain;
-   
+
     public const int __ID__ = 1042213049;
     public override int GetTypeId() => __ID__;
 

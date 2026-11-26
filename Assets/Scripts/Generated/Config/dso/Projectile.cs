@@ -18,7 +18,7 @@ namespace cfg.dso
 /// </summary>
 public sealed partial class Projectile : Luban.BeanBase
 {
-    public Projectile(JSONNode _buf) 
+    public Projectile(JSONNode _buf)
     {
         { if(!_buf["id"].IsNumber) { throw new SerializationException(); }  Id = (dso.BallType)_buf["id"].AsInt; }
         { if(!_buf["name"].IsString) { throw new SerializationException(); }  Name = _buf["name"]; }
@@ -37,7 +37,7 @@ public sealed partial class Projectile : Luban.BeanBase
     /// 显示名
     /// </summary>
     public readonly string Name;
-   
+
     public const int __ID__ = 2013538039;
     public override int GetTypeId() => __ID__;
 

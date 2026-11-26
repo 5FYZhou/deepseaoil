@@ -80,6 +80,11 @@ __pycache__/
 # ---- macOS Finder 元数据（无斜杠，匹配任意层级）----
 .DS_Store
 
+# ---- Agent Workflow Kit：可重建的投喂缓存不入库 ----
+AI_Context/TASKS/**/FEED_DROP/
+AI_Context/TASKS/**/NEED_FILES/
+AI_Context/EVIDENCE/**/tmp_*
+
 # Mono auto generated files
 mono_crash.*
 
