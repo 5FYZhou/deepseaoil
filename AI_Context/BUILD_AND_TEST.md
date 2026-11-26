@@ -25,16 +25,14 @@ python -m py_compile scripts\stage_context.py scripts\validate_handover.py
 - Python 工作流脚本必须能完成语法编译。
 - C# 改动若涉及代码风格、空值语义或公共契约，需同时做人工 Diff 审查。
 
-### 2026-11-24 当前基线
+### 2026-11-26 当前基线
 
-`pwsh Tools/comment-lint.ps1` 当前退出码为 1，4 个既有文件超预算：
+`pwsh Tools/comment-lint.ps1` 当前退出码为 1，2 个既有文件超预算：
 
 - `Assets/Scripts/Logic/Services/Timer/TimerWheel.cs`
-- `Assets/Scripts/Presentation/Audio/AudioManager.cs`
 - `Assets/Scripts/Presentation/UI/Panel/SaveSlot.cs`
-- `Assets/Scripts/Presentation/World/Fountain.cs`
 
-这 4 个文件在部署前均无 Git 修改，因此属于既有基线，不是本次部署引入。新代码任务在 CEO 决定清理或豁免策略前，不得声称注释门通过；默认应另开任务处理，不与功能改动混在一起。
+这两个文件属于既有基线。`AudioManager.cs` 与 `Fountain.cs` 已在 GD-2026-0003 / GD-2026-0001 的授权改动中回到预算内。新代码任务在 CEO 决定清理或豁免策略前，不得声称注释门通过；默认应另开任务处理，不与功能改动混在一起。
 
 ## V2 — 编译与拓扑门
 
@@ -110,4 +108,4 @@ python scripts/validate_handover.py AI_Context/TASKS/GD-YYYY-NNNN --for archive
 4. 拟修改路径是否全部在 File Scope
 5. 所需 Unity 版本、Python、PowerShell 与工具是否可用
 
-最后核验日期：2026-11-24｜分支：main｜维护人：CEO
+最后核验日期：2026-11-26｜分支：main@254b9cf｜维护人：CEO

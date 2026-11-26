@@ -10,11 +10,15 @@
 | `Assets/Scripts/Logic/Grid/` | `DeepseaOil.Logic` | 网格状态、流场导航、连锁反应、地块队列 | `GridLogic`、`TileChainReactor`、`NavField` |
 | `Assets/Scripts/Logic/Element/` | `DeepseaOil.Logic` | 离散元素反应查表与结果结构 | `ReactionResolver`、`ReactionOutcome` |
 | `Assets/Scripts/Logic/Movement/` | `DeepseaOil.Logic` | 运动账本、状态与端口 | `ActorLedger`、`IActorMotor`、`IMovementMotor` |
+| `Assets/Scripts/Logic/World/` | `DeepseaOil.Logic` | 生命泉蓄力/衰减、九宫范围与种子播种合法性 | `LifeFountainState`、`NineGrid`、`SeedPlanter` |
 | `Assets/Scripts/Presentation/` | `DeepseaOil.Presentation` | 组合根、Adapter、表现、UI、特效、输入、表现层诊断 | `GameRoot`、`ISceneRoot` |
 | `Assets/Scripts/Presentation/Root/` | `DeepseaOil.Presentation` | 唯一装配与调度入口 | `GameRoot`、`CombatRoot`、`GameManager` |
 | `Assets/Scripts/Presentation/Adapters/` | `DeepseaOil.Presentation` | 将 Logic 端口接到 Unity 运行时 | `ActorMotor`、`TilemapAdapter`、`GameTime` |
 | `Assets/Scripts/Presentation/Effects/` | `DeepseaOil.Presentation` | 特效目录、对象池、驱动与调参 | `EffectModule`、`EffectCatalog`、`IEffectDriver` |
-| `Assets/Scripts/Presentation/Lighting/` | `DeepseaOil.Presentation` | 环境与全局光照表现控制 | `EnvironmentDirector`（当前有未提交修改） |
+| `Assets/Scripts/Presentation/Lighting/` | `DeepseaOil.Presentation` | 环境、波次时段与全局光照表现控制 | `EnvironmentDirector`、`TileGridLightmap` |
+| `Assets/Scripts/Presentation/Input/` | `DeepseaOil.Presentation` | 输入采样与动作表接线 | `InputProvider`、`InputSys.inputactions` |
+| `Assets/Scripts/Presentation/UI/` | `DeepseaOil.Presentation` | 战斗 HUD、键位标、支援/残血浮窗、逐字对话框与弹窗 | `GamePlayPanel`、`DialoguePanel`、`HudHintBanner` |
+| `Assets/Scripts/Presentation/World/` | `DeepseaOil.Presentation` | 泉眼交互、生命泉蓄力表现与进圈发光 | `Fountain` |
 | `Assets/Scripts/Generated/Config/` | `cfg` | Luban 生成的表与行类型 | `Tables`、`Tb*`、`vector*` |
 | `Assets/Scripts/Generated/Input/` | `DeepseaOil.Generated.Input` | Input System 生成代码 | `InputSys.cs` |
 | `Assets/Editor/` | `DeepseaOil.EditorTools` | Luban 导入、菜单、校验与编辑器工具 | `LubanProject`、`LubanImport` |
@@ -40,5 +44,6 @@
 | 日期 | 漂移内容 | 处理 |
 | --- | --- | --- |
 | 2026-11-24 | 初次布设，基于根 `AGENTS.md`、`Docs/工程/架构约束.md` 和 `Docs/工程/目录说明.md` | VERIFIED，待任务验收后漂移回写 |
+| 2026-11-26 | 三批大更新合入后，移除“EnvironmentDirector 未提交”，补生命泉、输入与引导 UI 入口 | VERIFIED |
 
-最后核验日期：2026-11-24｜分支：main｜维护人：CEO
+最后核验日期：2026-11-26｜分支：main@254b9cf｜维护人：CEO

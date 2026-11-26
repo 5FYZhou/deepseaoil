@@ -16,8 +16,11 @@ CEO
 - 引擎：Unity `2022.3.62f3c1`
 - 渲染：URP `14.0.12`，2D Renderer
 - 工作流部署：2026-11-24
-- Git 基线：`main` / `d1ec97d30140aed8c39fd22adc00ccdf4765816e`
-- 部署时既有未提交修改：`Tables.cs`、`vector2.cs`、`EnvironmentDirector.cs`。任何新任务都必须保留这些修改，不得覆盖。
+- 当前 Git 基线：`main` / `254b9cf1a2de413cb02594c6f2e2730fb06171a3`
+- 三批大更新 `GD-2026-0001`~`0003` 已合入，状态为内部预览包；完整通关、独立 Play/V4 与 V5 仍未完成。
+- 工作区中 `AI_Context/PROJECT_BOARD.md` 有 Secretary 更新，`AI_Context/TASKS/GD-2026-0004/` 为未跟踪的外部 Planner 输入；后续任务必须保留。
+- 旧 `Tables.cs`、`vector2.cs`、`EnvironmentDirector.cs` 已随 `df60015` 提交，不再属于未提交修改。
+- 本次文档回写产物尚未提交；提交前 Git 基线仍是 `254b9cf`，不得把工作区文档改动写成新基线。
 
 ## 每次任务的标准顺序
 
@@ -58,7 +61,7 @@ python scripts/stage_context.py $task `
 python scripts/stage_context.py $task --append --files Assets/Scripts/Logic/Tickable.cs
 ```
 
-`FEED_DROP/` 是可重建缓存，已被 Git 忽略；`00_CONTEXT_MANIFEST.md` 是可审计的任务基线。
+`FEED_DROP/` 与 Planner 补料时生成的 `NEED_FILES/` 都是可重建缓存，已被 Git 忽略；`00_CONTEXT_MANIFEST.md` 是可审计的任务基线。
 
 ## 门禁命令
 
