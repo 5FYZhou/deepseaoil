@@ -155,6 +155,80 @@ namespace DeepseaOil.Tests
             Assert.AreEqual(TileStateType.Normal, grid.StateOf(new Vector3Int(1, 1, 0)), "对角线不该被 1.0 半径纳入");
         }
 
+        [TestCase(TileStateType.BasicEarth, BallType.Earth, "基础土 + 土块")]
+        [TestCase(TileStateType.BasicWater, BallType.Water, "基础水 + 水球")]
+        public void 同元素命中保留伤害并铺十字(TileStateType tileState, BallType ball, string label)
+        {
+            TileChainReactor.Clear();
+
+            var registry = new EnemyCellRegistry();
+
+            GridLogic grid = NewGrid(registry);
+
+            var center = new Vector3Int(0, 0, 0);
+
+            var crossNeighbors = new[]
+            {
+                new Vector3Int(1, 0, 0),
+                new Vector3Int(-1, 0, 0),
+                new Vector3Int(0, 1, 0),
+                new Vector3Int(0, -1, 0),
+            };
+
+            var diagonals = new[]
+            {
+                new Vector3Int(1, 1, 0),
+                new Vector3Int(-1, 1, 0),
+                new Vector3Int(1, -1, 0),
+                new Vector3Int(-1, -1, 0),
+            };
+
+            RegisterAround(grid, center, 2);
+
+            grid.SwitchTileState(center, tileState);
+
+            var centerTarget = new HitTarget { Position = grid.Geometry.CellCenter(center) };
+            var crossTargets = new HitTarget[crossNeighbors.Length];
+            var diagonalTargets = new HitTarget[diagonals.Length];
+
+            registry.Register(center, centerTarget);
+
+            for (int i = 0; i < crossNeighbors.Length; i++)
+            {
+                crossTargets[i] = new HitTarget { Position = grid.Geometry.CellCenter(crossNeighbors[i]) };
+                registry.Register(crossNeighbors[i], crossTargets[i]);
+            }
+
+            for (int i = 0; i < diagonals.Length; i++)
+            {
+                diagonalTargets[i] = new HitTarget { Position = grid.Geometry.CellCenter(diagonals[i]) };
+                registry.Register(diagonals[i], diagonalTargets[i]);
+            }
+
+            ReactionOutcome outcome = ReactionResolver.Resolve(tileState, ball);
+
+            Assert.AreEqual(tileState, outcome.NextTile, label);
+            Assert.AreEqual(1, outcome.InstantDamage, $"{label} 应保留落点伤害");
+            Assert.AreEqual(1f, outcome.ImpactRadius, 1e-4f, $"{label} 应使用半径 1");
+
+            grid.OnBallHit(center, ball);
+
+            Assert.AreEqual(tileState, grid.StateOf(center), $"{label} 落点地貌应保持不变");
+            Assert.AreEqual(1, centerTarget.Hits, $"{label} 落点应结算一次伤害");
+
+            for (int i = 0; i < crossNeighbors.Length; i++)
+            {
+                Assert.AreEqual(tileState, grid.StateOf(crossNeighbors[i]), $"{label} 十字四邻应铺对应元素");
+                Assert.AreEqual(1, crossTargets[i].Hits, $"{label} 十字四邻应各结算一次伤害");
+            }
+
+            for (int i = 0; i < diagonals.Length; i++)
+            {
+                Assert.AreEqual(TileStateType.Normal, grid.StateOf(diagonals[i]), $"{label} 对角地貌不应变化");
+                Assert.AreEqual(0, diagonalTargets[i].Hits, $"{label} 对角不应受到范围伤害");
+            }
+        }
+
         /// <summary>③ 半径 2.0：花浇水扩到二环，圆形边界外不动</summary>
         [Test]
         public void 半径二扩展到二环()

@@ -1,8 +1,10 @@
+using DeepseaOil.Data;
 using DeepseaOil.Presentation;
 using DeepseaOil.Presentation.Story;
 using DeepseaOil.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
+using cfg.dso;
 
 namespace DeepseaOil.Tests
 {
@@ -168,6 +170,38 @@ namespace DeepseaOil.Tests
         }
 
         [Test]
+        public void 剧情与弹窗强调不再使用纯红且命中语义色()
+        {
+            EnsureDataAssets();
+
+            var contexts = new System.Text.StringBuilder();
+            int[] paragraphs =
+            {
+                1001, 1002, 1003, 2001, 3001, 4001, 4002, 5001, 5002, 6001, 6002, 6003, 7001,
+            };
+
+            for (int i = 0; i < paragraphs.Length; i++)
+            {
+                var lines = ConfigModule.GetDialogueParagraph(paragraphs[i]);
+
+                for (int j = 0; j < lines.Count; j++)
+                {
+                    contexts.Append(lines[j].Context);
+                    contexts.Append('\n');
+                }
+            }
+
+            string text = contexts.ToString();
+
+            Assert.IsFalse(text.Contains("#FF0000", System.StringComparison.OrdinalIgnoreCase));
+            StringAssert.Contains("<color=#F9CE5A>", text);
+            StringAssert.Contains("<color=#338CFF>", text);
+            StringAssert.Contains("<color=#D0B185>", text);
+            StringAssert.Contains("<color=#7EB88A>", text);
+            StringAssert.Contains("<color=#DA684C>", text);
+        }
+
+        [Test]
         public void 种子满槽提示区分新增配给与脚边掉落()
         {
             Assert.IsFalse(HudHintBanner.ShouldAnnounceSeedDrop(true, false, false));
@@ -175,14 +209,40 @@ namespace DeepseaOil.Tests
             Assert.IsTrue(HudHintBanner.ShouldAnnounceSeedDrop(false, false, false));
             Assert.IsFalse(HudHintBanner.ShouldAnnounceSeedDrop(false, false, true));
 
-            string dropped = HudHintBanner.BuildSeedSupplyMessage("火种子", true);
+            EnsureDataAssets();
+
+            string dropped = HudHintBanner.BuildSeedSupplyMessage(SeedType.Fire, "火种子", true);
             StringAssert.Contains("已放在脚边", dropped);
             StringAssert.Contains("按 Q 丢弃旧种", dropped);
             StringAssert.Contains("【火种子】", dropped);
 
-            string granted = HudHintBanner.BuildSeedSupplyMessage("火种子", false);
+            string granted = HudHintBanner.BuildSeedSupplyMessage(SeedType.Fire, "火种子", false);
             StringAssert.Contains("获得", granted);
             StringAssert.Contains("按 E", granted);
+
+            AssertSeedPromptColor(SeedType.Fire, "火种子", "#FF2D1A");
+            AssertSeedPromptColor(SeedType.Elec, "电种子", "#884CFF");
+            AssertSeedPromptColor(SeedType.Ice, "冰种子", "#66CDFF");
+            AssertSeedPromptColor(SeedType.Plant, "植物种子", "#7EB88A");
+        }
+
+        private static void EnsureDataAssets()
+        {
+            if (!ConfigModule.IsReady)
+                ConfigModule.InitFromStreamingAssets();
+
+            if (!AssetModule.IsInitialized)
+                AssetModule.Init();
+
+            ConfigModule.BindAssets();
+        }
+
+        private static void AssertSeedPromptColor(SeedType seedType, string name, string hex)
+        {
+            string prompt = HudHintBanner.BuildSeedSupplyMessage(seedType, name, false);
+
+            StringAssert.Contains($"<color={hex}>", prompt);
+            Assert.IsFalse(prompt.Contains("#85c6c8", System.StringComparison.OrdinalIgnoreCase));
         }
     }
 }

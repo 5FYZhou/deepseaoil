@@ -46,14 +46,14 @@
     "paragraph": 1001,
     "type": 3,
     "sfx": 0,
-    "context": "按 <b><color=#FF0000>WASD</color></b> 移动，观察周围的残留设施。"
+    "context": "按 <b><color=#F9CE5A>WASD</color></b> 移动，观察周围的残留设施。"
   },
   {
     "id": 8,
     "paragraph": 1001,
     "type": 3,
     "sfx": 0,
-    "context": "按 <b><color=#FF0000>Shift</color></b> 或 <b><color=#FF0000>Space</color></b> 键可进行冲刺。"
+    "context": "按 <b><color=#F9CE5A>Shift</color></b> 或 <b><color=#F9CE5A>Space</color></b> 键可进行冲刺。"
   },
   {
     "id": 9,
@@ -67,21 +67,21 @@
     "paragraph": 1002,
     "type": 0,
     "sfx": 0,
-    "context": "<b><color=#FF0000>【水井】</color></b>，可以提取用于投掷的<b><color=#FF0000>水球</color></b>。"
+    "context": "<b><color=#338CFF>【水井】</color></b>，可以提取用于投掷的<b><color=#338CFF>水球</color></b>。"
   },
   {
     "id": 11,
     "paragraph": 1002,
     "type": 0,
     "sfx": 0,
-    "context": "<b><color=#FF0000>【土丘】</color></b>，可以提取用于投掷的<b><color=#FF0000>土块</color></b>。"
+    "context": "<b><color=#D0B185>【土丘】</color></b>，可以提取用于投掷的<b><color=#D0B185>土块</color></b>。"
   },
   {
     "id": 12,
     "paragraph": 1002,
     "type": 0,
     "sfx": 0,
-    "context": "这边还有一座修复生命体征的<b><color=#FF0000>【生命泉】</color></b>。设备完好率达 82%……还挺幸运。"
+    "context": "这边还有一座修复生命体征的<b><color=#7EB88A>【生命泉】</color></b>。设备完好率达 82%……还挺幸运。"
   },
   {
     "id": 13,
@@ -102,14 +102,14 @@
     "paragraph": 1002,
     "type": 3,
     "sfx": 0,
-    "context": "靠近<b><color=#FF0000>【水井】</color></b>与<b><color=#FF0000>【土丘】</color></b>，捡取补充<b><color=#FF0000>水球</color></b>和<b><color=#FF0000>土块</color></b>。"
+    "context": "靠近<b><color=#338CFF>【水井】</color></b>与<b><color=#D0B185>【土丘】</color></b>，捡取补充<b><color=#338CFF>水球</color></b>和<b><color=#D0B185>土块</color></b>。"
   },
   {
     "id": 16,
     "paragraph": 1002,
     "type": 2,
     "sfx": 0,
-    "context": "资源指标不错。可惜你的随身储物格有限，水球和土块上限各只有<b><color=#FF0000> 【5】 </color></b>个。"
+    "context": "资源指标不错。可惜你的随身储物格有限，水球和土块上限各只有<b><color=#F9CE5A> 【5】 </color></b>个。"
   },
   {
     "id": 17,
@@ -123,14 +123,14 @@
     "paragraph": 1002,
     "type": 3,
     "sfx": 0,
-    "context": "按鼠标<b><color=#FF0000>左键</color></b>朝地面砸出<b><color=#FF0000>水球</color></b>，可铺出水洼或引发地形反应。"
+    "context": "按鼠标<b><color=#F9CE5A>左键</color></b>朝地面砸出<b><color=#338CFF>水球</color></b>，可铺出水洼或引发地形反应。"
   },
   {
     "id": 19,
     "paragraph": 1002,
     "type": 3,
     "sfx": 0,
-    "context": "按鼠标<b><color=#FF0000>右键</color></b>朝地面砸出<b><color=#FF0000>土块</color></b>；<b>水土相砸</b>还能造出减速泥浆。"
+    "context": "按鼠标<b><color=#F9CE5A>右键</color></b>朝地面砸出<b><color=#D0B185>土块</color></b>；<b>水土相砸</b>还能造出减速泥浆。"
   },
   {
     "id": 20,
@@ -158,7 +158,7 @@
     "paragraph": 1003,
     "type": 2,
     "sfx": 0,
-    "context": "虫子跑得挺快，试着往它们<b><color=#FF0000>脚下的空地或元素地形</color></b>砸水球和土块吧。"
+    "context": "虫子跑得挺快，试着往它们<b><color=#DA684C>脚下的空地或元素地形</color></b>砸水球和土块吧。"
   },
   {
     "id": 24,
@@ -193,7 +193,7 @@
     "paragraph": 2001,
     "type": 0,
     "sfx": 0,
-    "context": "受伤的话，及时利用<b><color=#FF0000>【生命泉】</color></b>进行生物修复。"
+    "context": "受伤的话，及时利用<b><color=#7EB88A>【生命泉】</color></b>进行生物修复。"
   },
   {
     "id": 29,
@@ -207,7 +207,7 @@
     "paragraph": 2001,
     "type": 3,
     "sfx": 0,
-    "context": "在<b><color=#FF0000>【生命泉】</color></b>内停下脚步即可恢复；站得越稳回血越快，轻微走动也不会直接清零。"
+    "context": "在<b><color=#7EB88A>【生命泉】</color></b>内停下脚步即可恢复；站得越稳回血越快，轻微走动也不会直接清零。"
   },
   {
     "id": 31,
@@ -249,14 +249,14 @@
     "paragraph": 4001,
     "type": 0,
     "sfx": 0,
-    "context": "刚刚收进储物格的晶体解析出来了——啊，是<b><color=#FF0000>【元素种子】</color></b>。"
+    "context": "刚刚收进储物格的晶体解析出来了——啊，是<b><color=#F9CE5A>【元素种子】</color></b>。"
   },
   {
     "id": 37,
     "paragraph": 4001,
     "type": 0,
     "sfx": 0,
-    "context": "真是幸运啊，这不就是你想要的新型复合能量载体吗？但你的储物格真得升升级了，一次只能带<b><color=#FF0000>【1 种】</color></b>，储备上限也只有<b><color=#FF0000>【3】</color></b>次。"
+    "context": "真是幸运啊，这不就是你想要的新型复合能量载体吗？但你的储物格真得升升级了，一次只能带<b><color=#F9CE5A>【1 种】</color></b>，储备上限也只有<b><color=#F9CE5A>【3】</color></b>次。"
   },
   {
     "id": 38,
@@ -340,14 +340,14 @@
     "paragraph": 4001,
     "type": 3,
     "sfx": 0,
-    "context": "按 <b><color=#FF0000>E 键</color></b> 砸下<b><color=#FF0000>【元素种子】</color></b>生成元素地形，再用水或土砸它触发反应；按 <b><color=#FF0000>Q 键</color></b> 可丢弃。"
+    "context": "按 <b><color=#F9CE5A>E 键</color></b> 砸下<b><color=#F9CE5A>【元素种子】</color></b>生成元素地形，再用水或土砸它触发反应；按 <b><color=#F9CE5A>Q 键</color></b> 可丢弃。"
   },
   {
     "id": 50,
     "paragraph": 4001,
     "type": 3,
     "sfx": 0,
-    "context": "击败<b>【精英·蚀源虫】</b>必定掉落一份随机<b><color=#FF0000>【元素种子】</color></b>。"
+    "context": "击败<b>【精英·蚀源虫】</b>必定掉落一份随机<b><color=#F9CE5A>【元素种子】</color></b>。"
   },
   {
     "id": 51,
@@ -459,7 +459,7 @@
     "paragraph": 5002,
     "type": 2,
     "sfx": 0,
-    "context": "应付不过来的话，记得利用<b><color=#FF0000>【生命泉】</color></b>恢复体征。"
+    "context": "应付不过来的话，记得利用<b><color=#7EB88A>【生命泉】</color></b>恢复体征。"
   },
   {
     "id": 67,
