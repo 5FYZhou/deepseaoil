@@ -351,7 +351,7 @@ namespace DeepseaOil.Logic.Grid
 
             // 二级已质变地貌时跳过一级覆盖，否则火海会被反手顶掉
             bool changed = !duoTriggered
-                && outcome.NextTile != current
+                && (outcome.NextTile != current || outcome.ImpactRadius > 0f)
                 && ApplyTileChange(cell, in outcome);
 
             bool impacted = ApplyImpact(cell, in outcome);

@@ -417,7 +417,7 @@ namespace DeepseaOil.Presentation.UI
                 canPickupNow);
 
             ShowPrompt(
-                BuildSeedSupplyMessage(name, placedAtFeet),
+                BuildSeedSupplyMessage(evt.GrantSeed, name, placedAtFeet),
                 priority: 10,
                 holdSeconds: defaultHoldSeconds);
         }
@@ -442,9 +442,10 @@ namespace DeepseaOil.Presentation.UI
             return hasSeedSnapshot ? seedSlotWasFull : !canPickupNow;
         }
 
-        public static string BuildSeedSupplyMessage(string name, bool placedAtFeet)
+        public static string BuildSeedSupplyMessage(SeedType seedType, string name, bool placedAtFeet)
         {
-            string seedName = $"<color=#85c6c8><b>【{name}】</b></color>";
+            Color highlight = ConfigModule.Visuals.SeedHighlightColor(seedType);
+            string seedName = $"<color=#{ColorUtility.ToHtmlStringRGB(highlight)}><b>【{name}】</b></color>";
 
             return placedAtFeet
                 ? $"支援送达，{seedName}已放在脚边；按 Q 丢弃旧种即可拾取"
